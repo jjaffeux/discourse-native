@@ -137,28 +137,26 @@ void main() {
     expect(api.bookmarkListRequests.map((request) => request.page), [0, 1, 2]);
   });
 
-  testWidgets(
-    'empty filters pause automatic scans and retain explicit continuation',
-    (tester) async {
-      final api = FakeDiscourseApi(user: _user, bookmarkList: _numbered(1000));
-      final shell = await _shell(api: api);
-      addTearDown(shell.dispose);
-      await _pumpPage(tester, shell);
-      await _reminderFilter(tester, 'Expired');
-      final count = api.bookmarkListRequests.length;
-      expect(count, lessThanOrEqualTo(4));
-      expect(find.text('Nothing bookmarked here.'), findsNothing);
-      expect(find.text('Load more').hitTestable(), findsOneWidget);
-      await tester.pumpAndSettle();
-      expect(api.bookmarkListRequests, hasLength(count));
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
-      expect(api.bookmarkListRequests.length, greaterThan(count));
-      expect(api.bookmarkListRequests.length, lessThanOrEqualTo(count + 4));
-      expect(find.text('Load more').hitTestable(), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('an empty filter keeps paging until reaching the last bookmark', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(user: _user, bookmarkList: _numbered(105));
+    final shell = await _shell(api: api);
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell);
+    await _reminderFilter(tester, 'Expired');
+    expect(api.bookmarkListRequests.map((request) => request.page), [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+    ]);
+    expect(find.text('Nothing bookmarked here.'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('changing a filter after eviction restores earlier matches', (
     tester,
@@ -174,8 +172,9 @@ void main() {
     }
     await tester.pumpAndSettle();
     expect(shell.accountActivity.bookmarkListFor(_site).hasPrevious, isTrue);
+    final previousRequests = api.bookmarkListRequests.length;
     await _reminderFilter(tester, 'Expired');
-    expect(api.bookmarkListRequests.last.page, lessThan(4));
+    expect(api.bookmarkListRequests[previousRequests].page, 0);
     expect(find.byKey(const ValueKey('bookmark-row-1')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

@@ -232,6 +232,7 @@ class _GroupPageState extends State<GroupPage> {
       GroupRoute.requests => _RequestsSection(
         page: widget.data.requesters,
         loading: widget.data.sectionLoading,
+        loadingMore: widget.data.loadingMore,
         mutating: widget.data.mutating,
         error: widget.data.sectionError,
         onAction: widget.onRequestAction,

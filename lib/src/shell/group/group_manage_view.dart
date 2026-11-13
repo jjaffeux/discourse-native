@@ -666,7 +666,11 @@ class _GroupLogs extends StatelessWidget {
           : _GroupSectionLoadingSkeleton(
               semanticsLabel: context.l10n.loadingDembed(context.l10n.logs),
             );
-    } else if (page!.logs.isEmpty && !loading) {
+    } else if (page!.logs.isEmpty &&
+        !loading &&
+        !loadingMore &&
+        page!.allLoaded &&
+        error == null) {
       body = _GroupState(
         icon: DIcons.farClock,
         title: context.l10n.noGroupChangesHaveBeenRecorded,
@@ -677,11 +681,18 @@ class _GroupLogs extends StatelessWidget {
         builder: (context, lane) => ListView.separated(
           key: const PageStorageKey('group-logs-scroll'),
           padding: lane.padding,
-          itemCount: page!.logs.length + (!page!.allLoaded ? 1 : 0),
+          itemCount:
+              page!.logs.length +
+              (!page!.allLoaded || loadingMore || error != null ? 1 : 0),
           separatorBuilder: (_, _) => const DSeparator(space: 1),
           itemBuilder: (context, index) {
             if (index == page!.logs.length) {
-              return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
+              return _GroupPageFooter(
+                loading: loading || loadingMore,
+                error: error,
+                hasMore: !page!.allLoaded,
+                onLoadMore: onLoadMore,
+              );
             }
             final log = page!.logs[index];
             return Center(

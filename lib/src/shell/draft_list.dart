@@ -13,6 +13,7 @@ import '../models/draft_feed.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../utils/pagination.dart';
+import 'account_activity_paging_skeleton.dart';
 import 'account_feed_viewport.dart';
 import 'adaptive_dialog_action.dart';
 import 'category_icon.dart';
@@ -515,20 +516,22 @@ class _Drafts extends StatelessWidget {
                         );
                       },
                     ),
-                    if (feed.hasMore)
+                    if (feed.loading && !feed.loadingPrevious)
                       SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: DButton(
-                              label: Text(context.l10n.loadMore),
-                              onPressed: feed.loading
-                                  ? null
-                                  : () => unawaited(
-                                      controller.draftList.load(instance),
-                                    ),
-                            ),
-                          ),
+                        child: AccountActivityPagingSkeleton(
+                          semanticsLabel: context.l10n.loadingDrafts,
+                        ),
+                      )
+                    else if (feed.hasMore)
+                      SliverToBoxAdapter(
+                        child: ScrollPageTrigger(
+                          enabled: !feed.loading && feed.error == null,
+                          onLoad: () {
+                            if (!viewport.restoring) {
+                              unawaited(controller.draftList.load(instance));
+                            }
+                          },
+                          child: const SizedBox.shrink(),
                         ),
                       ),
                   ],

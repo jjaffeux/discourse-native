@@ -37,7 +37,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   @override
   void initState() {
     super.initState();
-    _scroll = ScrollController()..addListener(_maybeLoadMore);
+    _scroll = ScrollController();
   }
 
   @override
@@ -89,21 +89,6 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     super.dispose();
   }
 
-  void _maybeLoadMore() {
-    if (!_scroll.hasClients ||
-        _scroll.position.extentAfter >
-            paginationPrefetchDistance(_scroll.position)) {
-      return;
-    }
-    final paging = ScrollPagingGate(
-      hasMore: _directory.hasMore(_channelId),
-      busy: _directory.loading,
-      lastPageFailed: _directory.error(_channelId) != null,
-    );
-    if (!paging.admits) return;
-    unawaited(_directory.load(channelId: _channelId));
-  }
-
   int? _channelId;
 
   @override
@@ -136,16 +121,21 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             rows: 2,
           );
         }
+        if (error == null) {
+          return ScrollPageTrigger(
+            enabled: hasMore,
+            onLoad: () => unawaited(_directory.load(channelId: _channelId)),
+            child: const SizedBox.shrink(),
+          );
+        }
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (error != null) Text(error),
+              Text(error),
               DButton(
-                label: Text(
-                  error == null ? context.l10n.loadMore : context.l10n.tryAgain,
-                ),
+                label: Text(context.l10n.tryAgain),
                 onPressed: () =>
                     unawaited(_directory.load(channelId: _channelId)),
               ),

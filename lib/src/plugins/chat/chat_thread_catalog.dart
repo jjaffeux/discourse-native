@@ -340,7 +340,7 @@ final class _ChatThreadCatalog {
               ? incoming
               : {...?held.ids, ...incoming}.toList();
           offset = run.offset + page.threads.length;
-          hasMore = page.hasMore;
+          hasMore = page.hasMore && page.threads.isNotEmpty;
         }
         entry.snapshot = _ChatThreadListSnapshot(
           ids: ids,

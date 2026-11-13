@@ -150,7 +150,7 @@ void main() {
     });
   }
 
-  testWidgets('an empty GIF page still offers its continuation', (
+  testWidgets('an empty GIF page loads its continuation automatically', (
     tester,
   ) async {
     final api = _HeldGifsApi();
@@ -189,9 +189,8 @@ void main() {
     await tester.pump();
 
     final more = find.byKey(const ValueKey('gif-picker-load-more'));
-    expect(more, findsOneWidget);
-    await tester.tap(more);
-    await tester.pump();
+    expect(more, findsNothing);
+    expect(api.searches, hasLength(2));
     expect(api.searches.last.position, 'next');
     api.searches.last.response.completeError(StateError('offline'));
     await tester.pump();
@@ -593,11 +592,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final loadMore = find.byKey(const ValueKey('gif-picker-load-more'));
-      if (!terminalFirstPage) {
-        expect(loadMore, findsOneWidget);
-        await tester.tap(loadMore);
-        await tester.pumpAndSettle();
-      }
+      expect(api.gifSearchRequests.map((request) => request.position), ['0']);
 
       expect(loadMore, findsNothing);
       expect(find.byKey(const ValueKey('gif-picker-results')), findsOneWidget);
@@ -677,7 +672,7 @@ void main() {
       expect(controller.results, _firstPage);
       expect(find.bySemanticsLabel(_errorMessage), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('gif-picker-load-more')));
+      await tester.tap(retry);
       await tester.pumpAndSettle();
 
       expect(api.laterPageRequests, 3);

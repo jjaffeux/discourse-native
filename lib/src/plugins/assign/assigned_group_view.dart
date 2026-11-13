@@ -248,7 +248,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
           ? null
           : () => onOpenTopic(state.topics.first),
     ),
-    child: _buildFeed(horizontalPadding: 0),
+    child: _buildFeed(context, horizontalPadding: 0),
   );
 
   void _sortTopics(String column) {
@@ -265,7 +265,8 @@ class AssignedGroupPresentationView extends StatelessWidget {
     );
   }
 
-  Widget _buildFeed({
+  Widget _buildFeed(
+    BuildContext context, {
     required double horizontalPadding,
     EdgeInsets insets = EdgeInsets.zero,
   }) {
@@ -283,13 +284,16 @@ class AssignedGroupPresentationView extends StatelessWidget {
             slivers: [
               if (feed.error case final error?)
                 SliverToBoxAdapter(
-                  child: _AssignedError(message: error, onRetry: onRefresh),
+                  child: _AssignedError(
+                    message: error,
+                    onRetry: feed.pageError ? onLoadMoreTopics : onRefresh,
+                  ),
                 ),
               if (!feed.loaded && feed.loading)
                 const SliverFillRemaining(
                   child: TopicListLoadingSkeleton(destination: 'assigned'),
                 )
-              else if (topics.isEmpty && feed.error == null)
+              else if (topics.isEmpty && feed.error == null && !feed.hasMore)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: _AssignedEmpty(),
@@ -325,19 +329,26 @@ class AssignedGroupPresentationView extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (feed.hasMore || feed.loadingMore)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 28),
-                    child: Center(
-                      child: DButton(
-                        key: const ValueKey('assigned-load-more-topics'),
-                        label: Text(appL10n.loadMoreAssignments),
-                        onPressed: feed.loadingMore ? null : onLoadMoreTopics,
-                      ),
-                    ),
-                  ),
+              SliverToBoxAdapter(
+                child: ScrollPageTrigger(
+                  enabled:
+                      feed.hasMore &&
+                      !feed.loading &&
+                      !feed.loadingMore &&
+                      feed.error == null,
+                  onLoad: onLoadMoreTopics,
+                  child: feed.loadingMore
+                      ? Padding(
+                          padding: const EdgeInsets.only(bottom: 28),
+                          child: Center(
+                            child: DSpinner(
+                              semanticLabel: context.l10n.loading,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
+              ),
             ],
           ),
         ),

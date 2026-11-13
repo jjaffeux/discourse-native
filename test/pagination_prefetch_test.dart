@@ -114,6 +114,60 @@ void main() {
     });
   });
 
+  testWidgets('the footer loads at the end of a scrollable list', (
+    tester,
+  ) async {
+    var calls = 0;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: ListView(
+          children: [
+            const SizedBox(height: 1200),
+            ScrollPageTrigger(
+              enabled: true,
+              onLoad: () => calls++,
+              child: const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(calls, 0);
+    await tester.drag(find.byType(ListView), const Offset(0, -800));
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+  });
+
+  testWidgets('a leading boundary only loads when visible', (tester) async {
+    final controller = ScrollController(initialScrollOffset: 800);
+    addTearDown(controller.dispose);
+    var calls = 0;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: SingleChildScrollView(
+          controller: controller,
+          child: Column(
+            children: [
+              ScrollPageTrigger(
+                leading: true,
+                enabled: true,
+                onLoad: () => calls++,
+                child: const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 1600),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(calls, 0);
+    controller.jumpTo(0);
+    await tester.pump();
+    expect(calls, 1);
+  });
+
   test('prefetch distance accommodates both small and tall viewports', () {
     double distance(double height) => paginationPrefetchDistance(
       FixedScrollMetrics(

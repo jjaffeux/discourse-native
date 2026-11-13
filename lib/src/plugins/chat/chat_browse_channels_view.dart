@@ -32,7 +32,6 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   late ChatController _chat;
   late TextEditingController _filterController;
   ChatShellService? _shell;
-  late final ScrollController _scrollController;
   ChatBrowseSession? _session;
   ChatBrowseSession get _browse => _session!;
   VoidCallback? _unregisterRefresher;
@@ -41,7 +40,6 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   void initState() {
     super.initState();
     _filterController = TextEditingController();
-    _scrollController = ScrollController()..addListener(_maybeLoadMore);
   }
 
   @override
@@ -95,17 +93,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     _unregisterRefresher?.call();
     _session?.dispose();
     _filterController.dispose();
-    _scrollController.dispose();
     super.dispose();
-  }
-
-  void _maybeLoadMore() {
-    if (!_scrollController.hasClients ||
-        _scrollController.position.extentAfter >
-            paginationPrefetchDistance(_scrollController.position)) {
-      return;
-    }
-    unawaited(_browse.loadMore());
   }
 
   @override
@@ -228,20 +216,22 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       if (_browse.loadingMore) {
         return const ChatBrowseSkeleton(page: ChatBrowsePage.channels, rows: 1);
       }
+      final error = _browse.error;
+      if (error == null) {
+        return ScrollPageTrigger(
+          enabled: _browse.hasMore && !_browse.loading,
+          onLoad: () => unawaited(_browse.loadMore()),
+          child: const SizedBox.shrink(),
+        );
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
           children: [
-            if (_browse.error case final error?) ...[
-              Text(error, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-            ],
+            Text(error, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
             DButton(
-              label: Text(
-                _browse.error == null
-                    ? context.l10n.loadMore
-                    : context.l10n.tryAgain,
-              ),
+              label: Text(context.l10n.tryAgain),
               onPressed: () => unawaited(_browse.loadMore(retry: true)),
             ),
           ],
@@ -256,66 +246,78 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         16,
         16 + DScrollChrome.bottomInsetOf(context),
       ),
-      // Scrolling with the filters cannot prefetch the next page, so its
-      // Load more row stays the way to reach it.
-      builder: (context, lane) => CustomScrollView(
-        key: lazy ? const PageStorageKey('chat-browse-channels') : null,
-        controller: lazy ? _scrollController : null,
-        primary: false,
-        // The page clips the list, leaving the first cards room to lift.
-        clipBehavior: Clip.none,
-        shrinkWrap: !lazy,
-        physics: lazy
-            ? const AlwaysScrollableScrollPhysics()
-            : const NeverScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: lane.padding,
-            sliver: SliverMainAxisGroup(
-              slivers: [
-                if (channels.isEmpty)
-                  SliverToBoxAdapter(
-                    child: _BrowseMessage(
-                      icon: DIcons.magnifyingGlass,
-                      message: _browse.hasMore
-                          ? context.l10n.noMatchingChannelsLoadedYet
-                          : context.l10n.noChannelsMatchTheseFilters,
-                    ),
-                  )
-                else
-                  DPlaceCardGrid(
-                    itemCount: channels.length,
-                    itemBuilder: (context, index) =>
-                        ValueListenableBuilder<ChatChannel?>(
-                          valueListenable: _chat.channelRef(
-                            widget.siteUrl,
-                            channels[index].id,
-                          ),
-                          builder: (context, current, _) =>
-                              PluginServiceSelector<ChatController, bool>(
-                                service: chatControllerService,
-                                select: (chat) =>
-                                    chat.channelFollowWriteInFlight(
-                                      widget.siteUrl,
-                                      channels[index].id,
-                                    ),
-                                builder: (context, busy, _) => _ChannelCard(
-                                  siteUrl: widget.siteUrl,
-                                  channel: current ?? channels[index],
-                                  chat: _chat,
-                                  busy: busy,
-                                  onChanged: _browse.replaceChannel,
+      builder: (context, lane) {
+        final results = CustomScrollView(
+          key: lazy ? const PageStorageKey('chat-browse-channels') : null,
+          primary: false,
+          // The page clips the list, leaving the first cards room to lift.
+          clipBehavior: Clip.none,
+          shrinkWrap: !lazy,
+          physics: lazy
+              ? const AlwaysScrollableScrollPhysics()
+              : const NeverScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: lazy ? lane.padding : lane.padding.copyWith(bottom: 0),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  if (channels.isEmpty)
+                    SliverToBoxAdapter(
+                      child: _BrowseMessage(
+                        icon: DIcons.magnifyingGlass,
+                        message: _browse.hasMore
+                            ? context.l10n.noMatchingChannelsLoadedYet
+                            : context.l10n.noChannelsMatchTheseFilters,
+                      ),
+                    )
+                  else
+                    DPlaceCardGrid(
+                      itemCount: channels.length,
+                      itemBuilder: (context, index) =>
+                          ValueListenableBuilder<ChatChannel?>(
+                            valueListenable: _chat.channelRef(
+                              widget.siteUrl,
+                              channels[index].id,
+                            ),
+                            builder: (context, current, _) =>
+                                PluginServiceSelector<ChatController, bool>(
+                                  service: chatControllerService,
+                                  select: (chat) =>
+                                      chat.channelFollowWriteInFlight(
+                                        widget.siteUrl,
+                                        channels[index].id,
+                                      ),
+                                  builder: (context, busy, _) => _ChannelCard(
+                                    siteUrl: widget.siteUrl,
+                                    channel: current ?? channels[index],
+                                    chat: _chat,
+                                    busy: busy,
+                                    onChanged: _browse.replaceChannel,
+                                  ),
                                 ),
-                              ),
-                        ),
-                  ),
-                if (hasFooter)
-                  SliverToBoxAdapter(child: Builder(builder: footer)),
-              ],
+                          ),
+                    ),
+                  if (lazy && hasFooter)
+                    SliverToBoxAdapter(child: Builder(builder: footer)),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+        if (lazy) return results;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            results,
+            if (hasFooter)
+              Padding(
+                padding: lane.padding.copyWith(top: 0),
+                child: footer(context),
+              ),
+          ],
+        );
+      },
     );
   }
 

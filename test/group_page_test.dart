@@ -670,6 +670,38 @@ void main() {
     );
   });
 
+  testWidgets('empty group activity follows a continuation and offers retry', (
+    tester,
+  ) async {
+    var requests = 0;
+    Widget page({String? error}) => GroupPage(
+      siteUrl: 'https://meta.discourse.org',
+      route: GroupRoute.detail(
+        'support',
+        section: GroupRoute.activity,
+        subsection: GroupRoute.posts,
+      ),
+      registry: PluginRegistry.empty,
+      onOpenMember: _ignoreMember,
+      data: GroupPageData(
+        detail: _detail,
+        activity: const GroupActivityPage(),
+        hasMore: true,
+        sectionError: error,
+      ),
+      onLoadMore: () => requests++,
+    );
+
+    await _pump(tester, page());
+    expect(requests, 1);
+    expect(find.text('Load more'), findsNothing);
+
+    await _pump(tester, page(error: 'Could not load the next page.'));
+    expect(requests, 1);
+    await tester.tap(find.text('Try again'));
+    expect(requests, 2);
+  });
+
   testWidgets('activity, messages and requests expose their native subtabs', (
     tester,
   ) async {

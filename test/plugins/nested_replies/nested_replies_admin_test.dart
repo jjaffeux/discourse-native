@@ -171,6 +171,36 @@ void main() {
     },
   );
 
+  testWidgets('activity continues after an empty first page', (tester) async {
+    final reader = _Reader();
+    final transport = _Transport()
+      ..response = {'small_actions': <Object?>[], 'has_more': true};
+    final controller = NestedRepliesActivityController(
+      reader: reader,
+      api: NestedRepliesApi(transport, const DiscourseModelCodec.core()),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    transport.response = _activity();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: NestedRepliesActivityPanel(controller: controller),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      transport.gets.map((path) => Uri.parse(path).queryParameters['page']),
+      ['0', '1'],
+    );
+    expect(find.text('Topic created by alice'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
+  });
+
   testWidgets(
     'activity revocation removes loaded content and error from the sheet',
     (tester) async {

@@ -1945,9 +1945,6 @@ void main() {
 
       expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.text('Sam'), findsOneWidget);
-      expect(find.text('Load older messages'), findsOneWidget);
-      await tester.tap(find.text('Load older messages'));
-      await tester.pumpAndSettle();
       expect(find.text('Lee'), findsOneWidget);
       expect(find.text('Load older messages'), findsNothing);
       expect(conversation.value.messages.map((message) => message.id), [5, 10]);
@@ -2157,7 +2154,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Sam'), findsOneWidget);
-      expect(find.text('Load older messages'), findsOneWidget);
+      expect(find.text('Load older messages'), findsNothing);
 
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();

@@ -49,6 +49,7 @@ void main() {
     WidgetTester tester, {
     double width = 320,
     double textScale = 1,
+    bool settle = true,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -69,7 +70,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) await tester.pumpAndSettle();
   }
 
   Future<void> tapText(WidgetTester tester, String text) async {
@@ -146,16 +147,19 @@ void main() {
   testWidgets('filters redeemed users and debounces email or username search', (
     tester,
   ) async {
-    transport.onGet = (request) =>
-        Uri.parse(request.path).queryParameters['filter'] == 'redeemed'
-        ? invitePage([
-            {
-              'id': 1,
-              'user': {'id': 4, 'username': 'sam'},
-              'invite_source': 'email',
-            },
-          ], redeemed: 1)
-        : invitePage([inviteRow(1)], redeemed: 1);
+    transport.onGet = (request) {
+      final query = Uri.parse(request.path).queryParameters;
+      if (query['offset'] != '0') return invitePage([], redeemed: 1);
+      return query['filter'] == 'redeemed'
+          ? invitePage([
+              {
+                'id': 1,
+                'user': {'id': 4, 'username': 'sam'},
+                'invite_source': 'email',
+              },
+            ], redeemed: 1)
+          : invitePage([inviteRow(1)], redeemed: 1);
+    };
     await controller.load();
     await pumpList(tester);
     await tester.tap(find.byType(DSelect<InviteFilter>));
@@ -178,6 +182,7 @@ void main() {
         {'filter': 'pending', 'offset': '0'},
         {'filter': 'redeemed', 'offset': '0'},
         {'filter': 'redeemed', 'offset': '0', 'search': 'sam'},
+        {'filter': 'redeemed', 'offset': '1', 'search': 'sam'},
       ],
     );
   });
@@ -187,11 +192,13 @@ void main() {
   ) async {
     transport.onGet = (_) => invitePage([inviteRow(1)], pending: 2);
     await controller.load();
-    await pumpList(tester);
     final gate = Completer<Map<String, dynamic>>();
     transport.onGet = (_) => gate.future;
-    await tester.ensureVisible(find.text('Load more'));
-    await tester.tap(find.text('Load more'));
+    await pumpList(tester, settle: false);
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -500),
+    );
     await tester.pump();
     expect(find.text('Invite 1'), findsOneWidget);
     expect(find.text('Loading…'), findsNothing);

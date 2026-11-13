@@ -91,7 +91,9 @@ void main() {
     },
   );
 
-  testWidgets('retained load-more callbacks admit one AI page', (tester) async {
+  testWidgets('an underfilled viewport requests one AI page at a time', (
+    tester,
+  ) async {
     final gate = Completer<Object?>();
     final transport = RecordingPluginTransport(
       responses: {'GET $_path': _page(more: true)},
@@ -106,13 +108,10 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
-    final loadMore = tester
-        .widget<DButton>(find.widgetWithText(DButton, 'Load more'))
-        .onPressed!;
-    loadMore();
-    loadMore();
     await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Load more'), findsNothing);
     expect(transport.reads.where((r) => r.path == _nextPath), hasLength(1));
     gate.complete(_page(page: 1, ids: [44]));
     await tester.pumpAndSettle();
@@ -460,8 +459,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(DSkeletonRegion), findsNothing);
       expect(find.text('Conversation 42'), findsOneWidget);
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
       expect(find.text('Conversation 43'), findsOneWidget);
       expect(find.text('Conversation 44'), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
@@ -524,28 +521,36 @@ void main() {
         ));
       }
 
-      sample('first page');
-      for (var page = 1; page < 6; page++) {
+      Future<void> scrollToPageEnd(int page) async {
         await tester.scrollUntilVisible(
-          find.text('Load more').hitTestable(),
+          find.byKey(ValueKey('ai-conversation-${page * 40}')),
           600,
           scrollable: scrollable,
           maxScrolls: 100,
         );
-        final previous = find.byKey(ValueKey('ai-conversation-${page * 40}'));
-        final state = tester.state(previous);
+        final position = tester.state<ScrollableState>(scrollable).position;
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pump();
+        await tester.pump();
+      }
+
+      sample('first page');
+      for (var page = 1; page < 6; page++) {
         final gate = Completer<Object?>();
         transport
                 .responders['GET /discourse-ai/ai-bot/conversations.json?page=$page'] =
             (_) => gate.future;
-        await tester.tap(find.text('Load more'));
-        await tester.pump();
+        await scrollToPageEnd(page);
+        final previous = find.byKey(ValueKey('ai-conversation-${page * 40}'));
+        final state = tester.state(previous);
         sample('loading page $page');
         expect(
-          tester
-              .widget<DButton>(find.widgetWithText(DButton, 'Load more'))
-              .loading,
-          isTrue,
+          transport.reads.where(
+            (read) =>
+                read.path ==
+                '/discourse-ai/ai-bot/conversations.json?page=$page',
+          ),
+          hasLength(1),
         );
         gate.complete(
           _page(
@@ -562,15 +567,9 @@ void main() {
         expect(tester.state(previous), same(state));
       }
 
-      await tester.scrollUntilVisible(
-        find.text('Load more').hitTestable(),
-        600,
-        scrollable: scrollable,
-        maxScrolls: 100,
-      );
       const lastPath = '/discourse-ai/ai-bot/conversations.json?page=6';
       transport.failures['GET $lastPath'] = StateError('offline');
-      await tester.tap(find.text('Load more'));
+      await scrollToPageEnd(6);
       await tester.pumpAndSettle();
       sample('failed page');
       await tester.scrollUntilVisible(
@@ -966,7 +965,7 @@ void main() {
     tester,
   ) async {
     final transport = RecordingPluginTransport(
-      responses: {'GET $_path': _page(more: true)},
+      responses: {'GET $_path': _page()},
     );
     final setup = _service(transport);
     await tester.pumpWidget(

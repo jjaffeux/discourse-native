@@ -707,7 +707,6 @@ void main() {
         ],
       );
       await _tab(tester, ChatBrowsePage.threads);
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
       expect(find.text('An unfollowed thread'), findsOneWidget);
       expect(fixture.chat.channel(_site, 3)!.membership.following, isFalse);
@@ -1338,22 +1337,6 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
         : find.byType(DDropdownMenuContent),
     findsOneWidget,
   );
-  if (channel &&
-      find
-          .descendant(
-            of: find.byType(DCommandList<int>),
-            matching: find.text(value),
-          )
-          .evaluate()
-          .isEmpty) {
-    await tester.tap(
-      find.descendant(
-        of: find.byType(DCommandList<int>),
-        matching: find.text('Load more'),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
   await _capture(tester, key);
   await tester.tap(
     find.byWidgetPredicate(

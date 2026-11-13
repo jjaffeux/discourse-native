@@ -93,15 +93,17 @@ void main() {
           await tester.tap(find.byKey(const ValueKey('chat-composer-gif')));
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('gif-category-0')));
-          await tester.pumpAndSettle();
+          if (operation == _Operation.unchangedWhilePaging) {
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 350));
+            await tester.pump();
+          } else {
+            await tester.pumpAndSettle();
+          }
           final tile = find.byKey(const ValueKey('gif-result-0'));
           expect(tile, findsOneWidget);
           final lease = shell.chat.captureSession(_site);
           if (operation == _Operation.unchangedWhilePaging) {
-            await tester.tap(
-              find.byKey(const ValueKey('gif-picker-load-more')),
-            );
-            await tester.pump();
             expect(api.pagingStarted, isTrue);
             expect(
               tester

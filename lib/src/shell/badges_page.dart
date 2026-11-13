@@ -9,6 +9,7 @@ import '../models/badge_route.dart';
 import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'badges_controller.dart';
 import 'content_reading_lane.dart';
@@ -235,7 +236,10 @@ class BadgesPage extends StatelessWidget {
             onRetry: onLoadMore,
           ),
         )
-      else if (!state.loading && !state.loadingMore && state.grants.isEmpty)
+      else if (!state.hasMore &&
+          !state.loading &&
+          !state.loadingMore &&
+          state.grants.isEmpty)
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -250,17 +254,12 @@ class BadgesPage extends StatelessWidget {
             child: DirectorySkeleton(kind: DirectorySkeletonKind.badges),
           ),
         )
-      else if (state.hasMore && state.recipientsError == null)
+      else if (state.hasMore)
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: DButton(
-                key: const ValueKey('badge-load-more'),
-                label: Text(context.l10n.loadMore),
-                onPressed: onLoadMore,
-              ),
-            ),
+          child: ScrollPageTrigger(
+            enabled: !state.loading && state.recipientsError == null,
+            onLoad: onLoadMore,
+            child: const SizedBox.shrink(),
           ),
         ),
     ];

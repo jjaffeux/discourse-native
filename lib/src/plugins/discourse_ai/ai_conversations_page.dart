@@ -135,7 +135,7 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
         ),
       );
     }
-    if (_conversations.isEmpty || _unavailable) {
+    if ((_conversations.isEmpty && !_hasMore) || _unavailable) {
       return SingleChildScrollView(
         child: DEmpty(
           children: [
@@ -173,10 +173,7 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
       );
     }
     return ListView.builder(
-      itemCount:
-          _conversations.length +
-          (_error ? 1 : 0) +
-          (_hasMore || _error ? 1 : 0),
+      itemCount: _conversations.length + (_error ? 1 : 0) + 1,
       findChildIndexCallback: (key) {
         const prefix = 'ai-conversation-';
         if (key is! ValueKey<String> || !key.value.startsWith(prefix)) {
@@ -216,17 +213,23 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
             child: DText(context.l10n.aiConversationsLoadFailed),
           );
         }
-        return Padding(
-          padding: const EdgeInsets.all(DSpacing.lg),
-          child: DButton(
-            label: Text(_error ? context.l10n.retry : context.l10n.loadMore),
-            loading: _loading,
-            onPressed: _loading
-                ? null
-                : _error
-                ? session.retry
-                : session.loadMore,
-          ),
+        return ScrollPageTrigger(
+          enabled: _hasMore && !_loading && !_error,
+          onLoad: () => unawaited(session.loadMore()),
+          child: _loading
+              ? const Padding(
+                  padding: EdgeInsets.all(DSpacing.lg),
+                  child: Center(child: DSpinner()),
+                )
+              : _error
+              ? Padding(
+                  padding: const EdgeInsets.all(DSpacing.lg),
+                  child: DButton(
+                    label: Text(context.l10n.retry),
+                    onPressed: session.retry,
+                  ),
+                )
+              : const SizedBox.shrink(),
         );
       },
     );

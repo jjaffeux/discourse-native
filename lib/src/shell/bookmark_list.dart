@@ -92,9 +92,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   Timer? _expiryTimer;
   ScrollController? _scrollController;
   bool _endCheckScheduled = false;
-  int _automaticPages = 0;
+  bool _hasMatchingRows = false;
   Object? _pageSession;
-  static const _maximumAutomaticPages = 3;
 
   @override
   void dispose() {
@@ -108,7 +107,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.controller != widget.controller) {
       _reminderFilter = BookmarkReminderFilter.all;
-      _automaticPages = 0;
       _expiryTimer?.cancel();
     }
   }
@@ -211,12 +209,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   static bool _canLoadMore(BookmarkListFeed feed) =>
       feed.loaded && _admits(feed, hasMore: feed.hasMore);
 
-  void _loadMore({bool automatic = false}) {
-    if (automatic) {
-      _automaticPages++;
-    } else {
-      _automaticPages = 0;
-    }
+  void _loadMore() {
     unawaited(
       widget.controller.loadBookmarkList(widget.siteUrl, loadMore: true),
     );
@@ -237,10 +230,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   }
 
   void _changedFilter(VoidCallback update) {
-    setState(() {
-      update();
-      _automaticPages = 0;
-    });
+    setState(update);
     if (_list.hasPrevious) {
       unawaited(
         widget.controller.loadBookmarkList(widget.siteUrl, refresh: true),
@@ -275,8 +265,10 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                 : paginationPrefetchDistance(notification.metrics)) &&
         _admits(_list, hasMore: _list.hasPrevious)) {
       _loadPrevious();
-    } else if (notification is ScrollUpdateNotification &&
-        (notification.scrollDelta ?? 0) > 0 &&
+    } else if ((notification is ScrollUpdateNotification &&
+                (notification.scrollDelta ?? 0) > 0 ||
+            notification is OverscrollNotification &&
+                notification.overscroll > 0) &&
         notification.metrics.extentAfter <
             (_list.retainedPageCount == 1
                 ? 0.5
@@ -287,11 +279,14 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     return false;
   }
 
+  bool _canFillViewport(BookmarkListFeed feed) {
+    if (!_canLoadMore(feed)) return false;
+    if (_reminderFilter == BookmarkReminderFilter.all) return !feed.hasPrevious;
+    return !_hasMatchingRows;
+  }
+
   void _scheduleVisibleEndCheck(BookmarkListFeed feed) {
-    if (_endCheckScheduled ||
-        !_canLoadMore(feed) ||
-        feed.hasPrevious ||
-        _automaticPages >= _maximumAutomaticPages) {
+    if (_endCheckScheduled || !_canFillViewport(feed)) {
       return;
     }
     _endCheckScheduled = true;
@@ -304,11 +299,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   void _loadMoreIfEndVisible() {
     final scroll = _scrollController;
     if (!mounted || scroll == null || !scroll.hasClients) return;
-    if (_canLoadMore(_list) &&
-        !_list.hasPrevious &&
-        _automaticPages < _maximumAutomaticPages &&
-        scroll.position.extentAfter <= 0.5) {
-      _loadMore(automatic: true);
+    if (_canFillViewport(_list) && scroll.position.extentAfter <= 0.5) {
+      _loadMore();
     }
   }
 
@@ -448,7 +440,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     if (_pageSession != session) {
       _pageSession = session;
       _reminderFilter = BookmarkReminderFilter.all;
-      _automaticPages = 0;
     }
     final feed = _list;
     final entries = [
@@ -487,6 +478,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     final visibleLocalEntries = _reminderFilter == BookmarkReminderFilter.all
         ? localEntries
         : const <DestinationBookmark>[];
+    _hasMatchingRows = visibleEntries.isNotEmpty;
     _scheduleVisibleEndCheck(feed);
 
     Widget? state;
@@ -543,6 +535,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                     viewport.restoring ? false : _onScroll(notification),
                 child: CustomScrollView(
                   controller: viewport.scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverToBoxAdapter(child: header.spacer),
                     SliverPadding(
@@ -638,15 +631,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           ),
         ),
     ],
-    if (feed.hasMore && !feed.loading && feed.error == null)
-      SliverToBoxAdapter(
-        child: Center(
-          child: DButton(
-            label: Text(context.l10n.loadMore),
-            onPressed: _loadMore,
-          ),
-        ),
-      ),
   ];
 
   Widget _heading(BuildContext context) {

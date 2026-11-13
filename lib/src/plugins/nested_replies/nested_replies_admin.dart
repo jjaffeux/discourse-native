@@ -207,15 +207,20 @@ class NestedRepliesActivityPanel extends StatelessWidget {
                 ),
               ),
             ),
-          if (controller.loading)
-            const Center(child: DSpinner())
-          else if (controller.entries.isEmpty && controller.error == null)
-            Text(context.l10n.nestedRepliesNoActivity)
-          else if (controller.hasMore && controller.error == null)
-            DButton(
-              onPressed: () => unawaited(controller.load()),
-              label: Text(context.l10n.loadMore),
-            ),
+          ScrollPageTrigger(
+            enabled:
+                controller.hasMore &&
+                !controller.loading &&
+                controller.error == null,
+            onLoad: () => unawaited(controller.load()),
+            child: controller.loading
+                ? const Center(child: DSpinner())
+                : controller.entries.isEmpty &&
+                      !controller.hasMore &&
+                      controller.error == null
+                ? Text(context.l10n.nestedRepliesNoActivity)
+                : const SizedBox.shrink(),
+          ),
         ],
       );
     },

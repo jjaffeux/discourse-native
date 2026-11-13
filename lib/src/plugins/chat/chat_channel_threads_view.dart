@@ -30,14 +30,7 @@ class ChatChannelThreadsView extends StatefulWidget {
 
 class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   late ChatController _chat;
-  late final ScrollController _scroll;
   ChatViewLifetime? _viewing;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll = ScrollController()..addListener(_maybeLoadMore);
-  }
 
   @override
   void didChangeDependencies() {
@@ -68,28 +61,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   @override
   void dispose() {
     _viewing?.dispose();
-    _scroll.dispose();
     super.dispose();
-  }
-
-  void _maybeLoadMore() {
-    if (!_scroll.hasClients ||
-        _scroll.position.extentAfter >
-            paginationPrefetchDistance(_scroll.position)) {
-      return;
-    }
-    final paging = ScrollPagingGate(
-      hasMore: _chat.channelThreadsHaveMore(widget.siteUrl, widget.channelId),
-      busy:
-          _chat.channelThreadsLoading(widget.siteUrl, widget.channelId) ||
-          _chat.channelThreadsLoadingMore(widget.siteUrl, widget.channelId),
-      lastPageFailed:
-          _chat.channelThreadsError(widget.siteUrl, widget.channelId) != null,
-    );
-    if (!paging.admits) return;
-    unawaited(
-      _chat.loadChannelThreads(widget.siteUrl, widget.channelId, more: true),
-    );
   }
 
   @override
@@ -109,9 +81,15 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
           widget.siteUrl,
           widget.channelId,
         );
-        if (threads.isEmpty &&
-            (_chat.channelThreadsLoading(widget.siteUrl, widget.channelId) ||
-                loadingMore)) {
+        final loading = _chat.channelThreadsLoading(
+          widget.siteUrl,
+          widget.channelId,
+        );
+        final hasMore = _chat.channelThreadsHaveMore(
+          widget.siteUrl,
+          widget.channelId,
+        );
+        if (threads.isEmpty && (loading || loadingMore)) {
           return ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(vertical: 8),
             builder: (context, lane) => ChatBrowseSkeleton(
@@ -121,7 +99,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
             ),
           );
         }
-        if (threads.isEmpty && error != null) {
+        if (threads.isEmpty && error != null && !hasMore) {
           return ChatThreadListMessage(
             icon: DIcons.triangleExclamation,
             message: error,
@@ -136,6 +114,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
           );
         }
         if (threads.isEmpty &&
+            !hasMore &&
             _chat.channelThreadsLoaded(widget.siteUrl, widget.channelId)) {
           return ChatThreadListMessage(
             icon: DIcons.comments,
@@ -143,17 +122,13 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
           );
         }
 
-        final hasFooter =
-            loadingMore ||
-            error != null ||
-            _chat.channelThreadsHaveMore(widget.siteUrl, widget.channelId);
+        final hasFooter = loadingMore || error != null || hasMore;
         final content = ContentReadingLane(
           basePadding: const EdgeInsets.symmetric(vertical: 8),
           builder: (context, lane) => ListView.separated(
             key: PageStorageKey<String>(
               'chat-channel-${widget.channelId}-threads',
             ),
-            controller: _scroll,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: lane.padding,
             itemCount: threads.length + (hasFooter ? 1 : 0),
@@ -173,32 +148,33 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
                   rows: 2,
                 );
               }
+              if (error == null) {
+                return ScrollPageTrigger(
+                  enabled: hasMore && !loading,
+                  onLoad: () => unawaited(
+                    _chat.loadChannelThreads(
+                      widget.siteUrl,
+                      widget.channelId,
+                      more: true,
+                    ),
+                  ),
+                  child: const SizedBox.shrink(),
+                );
+              }
               return Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (error case final message?) ...[
-                      Text(message, textAlign: TextAlign.center),
-                      const SizedBox(height: 8),
-                    ],
+                    Text(error, textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
                     DButton(
-                      label: Text(
-                        error == null
-                            ? context.l10n.loadMore
-                            : context.l10n.tryAgain,
-                      ),
+                      label: Text(context.l10n.tryAgain),
                       onPressed: () => unawaited(
-                        error == null
-                            ? _chat.loadChannelThreads(
-                                widget.siteUrl,
-                                widget.channelId,
-                                more: true,
-                              )
-                            : _chat.retryChannelThreads(
-                                widget.siteUrl,
-                                widget.channelId,
-                              ),
+                        _chat.retryChannelThreads(
+                          widget.siteUrl,
+                          widget.channelId,
+                        ),
                       ),
                     ),
                   ],

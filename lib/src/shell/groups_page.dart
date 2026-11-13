@@ -133,21 +133,6 @@ class _GroupsPageState extends State<GroupsPage> {
     widget.onSearchChanged?.call(value.trim());
   }
 
-  bool _onScroll(ScrollNotification notification) {
-    final paging = ScrollPagingGate(
-      hasMore: widget.data.hasMore,
-      busy: widget.data.loading || widget.data.loadingMore,
-      lastPageFailed: widget.data.pageError,
-    );
-    if (notification.depth == 0 &&
-        notification.metrics.extentAfter <
-            paginationPrefetchDistance(notification.metrics) &&
-        paging.admits) {
-      widget.onLoadMore?.call();
-    }
-    return false;
-  }
-
   void _showSearch() {
     setState(() => _searchVisible = true);
     _searchFocus.requestFocus();
@@ -186,88 +171,83 @@ class _GroupsPageState extends State<GroupsPage> {
         ),
       ),
       bodyBuilder: (context, header) => DPageReadingLane(
-        builder: (context, lane) => NotificationListener<ScrollNotification>(
-          onNotification: _onScroll,
-          child: RepaintBoundary(
-            child: DScrollBar(
+        builder: (context, lane) => RepaintBoundary(
+          child: DScrollBar(
+            controller: _scrollController,
+            child: CustomScrollView(
+              key: const PageStorageKey('groups-directory-scroll'),
               controller: _scrollController,
-              child: CustomScrollView(
-                key: const PageStorageKey('groups-directory-scroll'),
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.only(
-                      left: lane.leftInset + 16,
-                      right: lane.rightInset + 16,
-                      bottom: DScrollChrome.bottomInsetOf(context),
-                    ),
-                    sliver: SliverMainAxisGroup(
-                      slivers: [
-                        SliverToBoxAdapter(child: header.spacer),
-                        if (data.error != null &&
-                            (!data.pageError || data.groups.isEmpty))
-                          SliverToBoxAdapter(
-                            child: _DirectoryError(
-                              message: data.error!,
-                              onRetry: widget.onRefresh,
-                            ),
-                          ),
-                        if (!data.loaded && data.groups.isEmpty && data.loading)
-                          const SliverDirectorySkeleton(
-                            key: ValueKey('groups-loading'),
-                            kind: DirectorySkeletonKind.groups,
-                          )
-                        else if (data.groups.isEmpty &&
-                            data.loaded &&
-                            data.error == null)
-                          const SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: _EmptyDirectory(),
-                          )
-                        else
-                          SliverList.separated(
-                            itemCount: data.groups.length,
-                            separatorBuilder: (context, index) =>
-                                const DSeparator(),
-                            itemBuilder: (context, index) {
-                              final group = data.groups[index];
-                              return _GroupDirectoryRow(
-                                key: ValueKey('group-row-${group.name}'),
-                                siteUrl: widget.siteUrl,
-                                group: group,
-                                memberPreview: _memberPreview(group),
-                                onTap: () => _openGroup(group),
-                              );
-                            },
-                          ),
-                        if (data.pageError && data.error != null)
-                          SliverToBoxAdapter(
-                            child: _DirectoryError(
-                              message: data.error!,
-                              onRetry: widget.onLoadMore,
-                            ),
-                          ),
-                        if (data.hasMore &&
-                            !data.loadingMore &&
-                            data.groups.isNotEmpty)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 32),
-                              child: Center(
-                                child: DButton(
-                                  key: const ValueKey('groups-load-more'),
-                                  label: Text(context.l10n.loadMore),
-                                  onPressed: widget.onLoadMore,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    left: lane.leftInset + 16,
+                    right: lane.rightInset + 16,
+                    bottom: DScrollChrome.bottomInsetOf(context),
                   ),
-                ],
-              ),
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
+                      SliverToBoxAdapter(child: header.spacer),
+                      if (data.error != null && !data.pageError)
+                        SliverToBoxAdapter(
+                          child: _DirectoryError(
+                            message: data.error!,
+                            onRetry: widget.onRefresh,
+                          ),
+                        ),
+                      if (!data.loaded && data.groups.isEmpty && data.loading)
+                        const SliverDirectorySkeleton(
+                          key: ValueKey('groups-loading'),
+                          kind: DirectorySkeletonKind.groups,
+                        )
+                      else if (data.groups.isEmpty &&
+                          data.loaded &&
+                          !data.hasMore &&
+                          data.error == null)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptyDirectory(),
+                        )
+                      else
+                        SliverList.separated(
+                          itemCount: data.groups.length,
+                          separatorBuilder: (context, index) =>
+                              const DSeparator(),
+                          itemBuilder: (context, index) {
+                            final group = data.groups[index];
+                            return _GroupDirectoryRow(
+                              key: ValueKey('group-row-${group.name}'),
+                              siteUrl: widget.siteUrl,
+                              group: group,
+                              memberPreview: _memberPreview(group),
+                              onTap: () => _openGroup(group),
+                            );
+                          },
+                        ),
+                      if (data.pageError && data.error != null)
+                        SliverToBoxAdapter(
+                          child: _DirectoryError(
+                            message: data.error!,
+                            onRetry: widget.onLoadMore,
+                          ),
+                        ),
+                      if (data.loadingMore)
+                        const SliverDirectorySkeleton(
+                          kind: DirectorySkeletonKind.groups,
+                        )
+                      else if (widget.onLoadMore case final load?
+                          when data.hasMore)
+                        SliverToBoxAdapter(
+                          child: ScrollPageTrigger(
+                            enabled: !data.loading && data.error == null,
+                            onLoad: load,
+                            child: const SizedBox.shrink(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),

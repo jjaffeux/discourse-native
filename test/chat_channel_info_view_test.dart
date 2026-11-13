@@ -36,7 +36,6 @@ void main() {
       });
       final gate = _holdPage(oldApi, offset: 20);
       final shell = await _pumpMembers(tester, oldApi);
-      await tester.tap(find.text('Load more'));
       await tester.pump();
       final replacement = _ReplacementChat(shell.chat);
       await _showMembers(tester, shell, chat: replacement);
@@ -70,7 +69,6 @@ void main() {
             api,
             sites: [_site, otherSite],
           );
-          await tester.tap(find.text('Load more'));
           await tester.pump();
           api.chatChannelMemberPagesByKey[_pageKey(channelId: channelId)] =
               _page([90]);
@@ -124,7 +122,6 @@ void main() {
       });
       await _pumpMembers(tester, api);
 
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
 
       expect(_requests(api), [('', 0), ('', 20)]);
@@ -143,9 +140,7 @@ void main() {
       await _pumpMembers(tester, api);
 
       expect(find.text('No members.'), findsNothing);
-      expect(find.text('Load more').hitTestable(), findsOneWidget);
-      expect(_requests(api), [('', 0)]);
-      await tester.tap(find.text('Load more'));
+      expect(find.text('Load more'), findsNothing);
       await tester.pumpAndSettle();
 
       expect(find.text(_memberError), findsOneWidget);
@@ -163,11 +158,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('No members.'), findsNothing);
-      expect(find.text('Load more').hitTestable(), findsOneWidget);
-      expect(_requests(api), [('', 0), ('', 20), ('', 20)]);
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
-
+      expect(find.text('Load more'), findsNothing);
       expect(_visibleMembers(tester), ['member41']);
       expect(find.text('Load more'), findsNothing);
       expect(_requests(api), [('', 0), ('', 20), ('', 20), ('', 40)]);
@@ -210,11 +201,7 @@ void main() {
       await _scrollToEnd(tester);
       expect(_requests(api), [('', 0), ('', 20)]);
       await _scrollToEnd(tester);
-      expect(_requests(api), [('', 0), ('', 20), ('', 40)]);
-      expect(find.text('Load more').hitTestable(), findsOneWidget);
-
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
+      expect(find.text('Load more'), findsNothing);
       expect(_requests(api), [('', 0), ('', 20), ('', 40), ('', 60)]);
 
       tester.view.physicalSize = const Size(1000, 2400);
@@ -235,11 +222,7 @@ void main() {
       await _pumpMembers(tester, api);
 
       expect(_visibleMembers(tester), _names(1, 20));
-      expect(find.text('Load more').hitTestable(), findsOneWidget);
-      expect(_requests(api), [('', 0)]);
-
-      await tester.tap(find.text('Load more'));
-      await tester.tap(find.text('Load more'));
+      expect(find.text('Load more'), findsNothing);
       await tester.pump();
       expect(_requests(api), [('', 0), ('', 20)]);
       expect(_visibleMembers(tester), _names(1, 20));
@@ -312,37 +295,37 @@ void main() {
         final gate = _holdPage(api, offset: 20);
         await _pumpMembers(tester, api);
 
-        await tester.tap(find.text('Load more'));
         await tester.pump();
         await tester.enterText(_filter, ' new ');
         await tester.pump(const Duration(milliseconds: 299));
         expect(_requests(api), [('', 0), ('', 20)]);
         await tester.pump(const Duration(milliseconds: 1));
         await tester.pumpAndSettle();
-        expect(_visibleMembers(tester), ['member90']);
+        expect(_visibleMembers(tester), ['member90', 'member91']);
 
         gate.complete();
         await tester.pumpAndSettle();
-        expect(_visibleMembers(tester), ['member90']);
+        expect(_visibleMembers(tester), ['member90', 'member91']);
         expect(find.text(_memberError), findsNothing);
-        expect(find.text('Load more').hitTestable(), findsOneWidget);
+        expect(find.text('Load more'), findsNothing);
 
-        await tester.tap(find.text('Load more'));
         await tester.pumpAndSettle();
         expect(_visibleMembers(tester), ['member90', 'member91']);
         expect(find.text('Load more'), findsNothing);
 
+        api.failures.clear();
         await tester.enterText(_filter, '');
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pumpAndSettle();
-        expect(_visibleMembers(tester), _names(1, 20));
-        expect(find.text('Load more').hitTestable(), findsOneWidget);
+        expect(_visibleMembers(tester), _names(1, 21));
+        expect(find.text('Load more'), findsNothing);
         expect(_requests(api), [
           ('', 0),
           ('', 20),
           ('new', 0),
           ('new', 20),
           ('', 0),
+          ('', 20),
         ]);
       });
     }
@@ -363,7 +346,6 @@ void main() {
         await tester.enterText(_filter, 'new');
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Load more'));
         await tester.pumpAndSettle();
 
         api.chatChannelMemberPagesByKey[_pageKey(username: 'new')] = _page([
@@ -425,7 +407,6 @@ void main() {
           _pageKey(offset: 20): _page(terminal.ids, more: terminal.more),
         });
         await _pumpMembers(tester, api);
-        await tester.tap(find.text('Load more'));
         await tester.pumpAndSettle();
 
         expect(_visibleMembers(tester), [
@@ -488,11 +469,15 @@ ChatChannel _channel({int membershipsCount = 100, int id = 9}) => ChatChannel(
 );
 
 Future<void> _scrollToEnd(WidgetTester tester) async {
-  final list = tester.widget<ListView>(
-    find.byKey(const ValueKey('chat-channel-member-list')),
-  );
-  final scroll = list.controller!;
-  scroll.jumpTo(scroll.position.maxScrollExtent);
+  final scroll = tester
+      .state<ScrollableState>(
+        find.descendant(
+          of: find.byKey(const ValueKey('chat-channel-member-list')),
+          matching: find.byType(Scrollable),
+        ),
+      )
+      .position;
+  scroll.jumpTo(scroll.maxScrollExtent);
   await tester.pumpAndSettle();
 }
 

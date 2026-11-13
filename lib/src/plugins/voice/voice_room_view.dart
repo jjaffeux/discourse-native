@@ -2286,6 +2286,9 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
     ),
   );
 
+  Future<void> _loadOlder() =>
+      widget.controller.loadOlderChat(widget.siteUrl, widget.roomId);
+
   Widget _messages(VoiceChatSnapshot? chat) {
     if (chat == null) return const SizedBox.shrink();
     if (chat.messages.isEmpty) {
@@ -2296,21 +2299,25 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
           : Center(child: Text(appL10n.noMessagesYetVoiceroomview));
     }
     return ListView.builder(
+      reverse: true,
       itemCount: chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
       itemBuilder: (context, index) {
-        if (chat.canLoadMorePast && index == 0) {
-          return Center(
-            child: DButton(
-              onPressed: () => widget.controller.loadOlderChat(
-                widget.siteUrl,
-                widget.roomId,
-              ),
-              label: Text(appL10n.loadOlderMessages),
-              variant: DButtonVariant.link,
-            ),
+        if (chat.canLoadMorePast && index == chat.messages.length) {
+          return ScrollPageTrigger(
+            enabled: !chat.loading && chat.error == null,
+            onLoad: () => unawaited(_loadOlder()),
+            child: chat.error == null
+                ? const SizedBox.shrink()
+                : Center(
+                    child: DButton(
+                      onPressed: chat.loading ? null : _loadOlder,
+                      label: Text(context.l10n.tryAgain),
+                      variant: DButtonVariant.link,
+                    ),
+                  ),
           );
         }
-        final message = chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
+        final message = chat.messages[chat.messages.length - 1 - index];
         return DItem(
           children: [
             DItemContent(

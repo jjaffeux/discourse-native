@@ -769,7 +769,6 @@ class _ChannelMembers extends StatefulWidget {
 }
 
 class _ChannelMembersState extends State<_ChannelMembers> {
-  final _scroll = ScrollController();
   late final ChatChannelMembersSession _session;
   ChatShellService? _shell;
   VoidCallback? _unregisterRefresher;
@@ -807,7 +806,6 @@ class _ChannelMembersState extends State<_ChannelMembers> {
       channelId: widget.channelId,
       membershipsCount: widget.membershipsCount,
     )..addListener(_membersChanged);
-    _scroll.addListener(_maybeLoadMore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_session.refresh());
     });
@@ -833,20 +831,11 @@ class _ChannelMembersState extends State<_ChannelMembers> {
   void dispose() {
     _unregisterRefresher?.call();
     _session.dispose();
-    _scroll.dispose();
     super.dispose();
   }
 
   void _membersChanged() {
     if (mounted) setState(() {});
-  }
-
-  void _maybeLoadMore() {
-    if (_scroll.hasClients &&
-        _scroll.position.extentAfter <
-            paginationPrefetchDistance(_scroll.position)) {
-      unawaited(_session.loadMore(prefetch: true));
-    }
   }
 
   @override
@@ -917,7 +906,6 @@ class _ChannelMembersState extends State<_ChannelMembers> {
     }
     final content = ListView.builder(
       key: const ValueKey('chat-channel-member-list'),
-      controller: _scroll,
       padding: EdgeInsets.only(
         left: lane.padding.left,
         right: lane.padding.right,
@@ -925,6 +913,14 @@ class _ChannelMembersState extends State<_ChannelMembers> {
       itemCount: _session.members.length + (hasFooter ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _session.members.length) {
+          final error = _session.error;
+          if (error == null && !_session.loading) {
+            return ScrollPageTrigger(
+              enabled: _session.canLoadMore,
+              onLoad: () => unawaited(_session.loadMore(prefetch: true)),
+              child: const SizedBox.shrink(),
+            );
+          }
           return Align(
             alignment: lane.alignment,
             child: ConstrainedBox(
@@ -936,16 +932,10 @@ class _ChannelMembersState extends State<_ChannelMembers> {
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (_session.error case final error?) ...[
-                            Text(error, textAlign: TextAlign.center),
-                            const SizedBox(height: 8),
-                          ],
+                          Text(error!, textAlign: TextAlign.center),
+                          const SizedBox(height: 8),
                           DButton(
-                            label: Text(
-                              _session.error == null
-                                  ? appL10n.loadMore
-                                  : appL10n.retry,
-                            ),
+                            label: Text(appL10n.retry),
                             onPressed: () => unawaited(_session.loadMore()),
                           ),
                         ],
