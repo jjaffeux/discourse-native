@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/icons/d_icons.dart';
-import '../foundation/media_download_environment.dart';
+import '../foundation/native_media_download_environment.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_config.dart';
 import '../theme/app_theme.dart';

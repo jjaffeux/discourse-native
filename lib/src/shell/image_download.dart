@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../data/site_image_repository.dart';
 import '../foundation/media_download_environment.dart';
+import '../foundation/native_media_download_environment.dart';
 import '../foundation/private_file_staging.dart';
 import 'download_filename.dart';
 import 'media_download_result.dart';

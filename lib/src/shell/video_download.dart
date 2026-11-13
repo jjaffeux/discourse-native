@@ -13,6 +13,7 @@ import '../data/http_url_safety.dart';
 import '../data/site_asset_account.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/media_download_environment.dart';
+import '../foundation/native_media_download_environment.dart';
 import '../foundation/private_file_permissions.dart';
 import 'download_filename.dart';
 import 'media_download_result.dart';
