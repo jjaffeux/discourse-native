@@ -83,9 +83,17 @@ class FoundHashtag {
     required List<String> order,
     required Set<String> requestedRefs,
   }) {
+    final bareName = requestedRef.contains('::')
+        ? null
+        : requestedRef.toLowerCase();
     for (final type in order) {
-      if (!requestedRef.contains('::') &&
-          requestedRefs.contains('$requestedRef::$type')) {
+      if (bareName != null &&
+          requestedRefs.any((ref) {
+            final separator = ref.indexOf('::');
+            return separator >= 0 &&
+                ref.substring(separator + 2) == type &&
+                ref.substring(0, separator).toLowerCase() == bareName;
+          })) {
         continue;
       }
       for (final candidate in candidates) {

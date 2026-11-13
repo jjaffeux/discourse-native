@@ -1,5 +1,7 @@
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/parser.dart' as html;
 
 void main() {
   group('GifCategory', () {
@@ -62,6 +64,45 @@ void main() {
           r'a\\\[b\]\` c d'
           '|320x180](https://cdn.example/result.webp)\n',
         );
+      },
+    );
+
+    test(
+      'CDN URLs with literal parentheses cook as full image sources',
+      () async {
+        final cooker = OfflineCookingService();
+        addTearDown(cooker.dispose);
+        for (final url in [
+          'https://cdn.example/a)b.webp',
+          'https://cdn.example/a(b.webp',
+        ]) {
+          final gif = GifResult.fromJson({
+            'title': 'Reaction',
+            'media_formats': {
+              'webp': {
+                'url': url,
+                'dims': [320, 180],
+              },
+            },
+          }, fileDetail: 'webp')!;
+          final result = await cooker.cook(
+            CookingRequest(
+              raw: gif.markdown,
+              snapshot: CookingSnapshot(
+                siteId: 'gif-test',
+                accountId: 'gif-test',
+              ),
+            ),
+          );
+          expect(result.failure, isNull);
+          expect(
+            html
+                .parseFragment(result.html)
+                .querySelector('img')
+                ?.attributes['src'],
+            url,
+          );
+        }
       },
     );
 

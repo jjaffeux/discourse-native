@@ -759,6 +759,31 @@ void main() {
     },
   );
 
+  test('a typed hashtag reserves its type across name casing', () async {
+    final api = DiscourseApi(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'category': [
+              {'type': 'category', 'ref': 'sailing', 'id': 3},
+            ],
+            'tag': [
+              {'type': 'tag', 'ref': 'sailing', 'id': 8},
+            ],
+          }),
+          200,
+        ),
+      ),
+    );
+
+    final found = await api.lookupHashtags(
+      siteUrl: 'https://example.com',
+      refs: ['SAILING', 'sailing::category'],
+    );
+
+    expect(found.map((item) => item.id), [8, 3]);
+  });
+
   test(
     'typed hashtag lookup rejects another type and suffix spelling',
     () async {

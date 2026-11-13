@@ -119,9 +119,9 @@ class Bookmark {
       bookmarkableType: jsonText(json['bookmarkable_type']),
       // The topic view serializes a post bookmark's `post_number`; the user
       // menu's list serializer names the same number `linked_post_number`.
-      postNumber: jsonIntOrNull(
-        json['post_number'] ?? json['linked_post_number'],
-      ),
+      postNumber:
+          jsonIntOrNull(json['post_number']) ??
+          jsonIntOrNull(json['linked_post_number']),
       categoryId: jsonIntOrNull(json['category_id']),
       title: jsonTitle(
         json['title'],
@@ -269,7 +269,8 @@ class BookmarkListPage {
       // page, not after what was kept.
       bookmarks: List.unmodifiable([
         for (final entry in jsonObjects(list['bookmarks']))
-          Bookmark.fromJson(entry),
+          if (Bookmark.fromJson(entry) case final bookmark when bookmark.id > 0)
+            bookmark,
       ]),
       // Core only writes `more_bookmarks_url` while rows remain past this
       // page; its presence, not the row count, is what says so.

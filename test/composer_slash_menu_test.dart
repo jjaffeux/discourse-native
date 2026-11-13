@@ -74,6 +74,32 @@ void main() {
     );
   });
 
+  test('slash commands stay closed in HTML comments and BBCode code', () {
+    for (final source in ['<!-- /bold -->', '[code]\n/bold\n[/code]']) {
+      final caret = source.indexOf('/bold') + '/bold'.length;
+      expect(
+        composerSlashQuery(
+          TextEditingValue(
+            text: source,
+            selection: TextSelection.collapsed(offset: caret),
+          ),
+        ),
+        isNull,
+        reason: source,
+      );
+    }
+    const source = '<!-- ` --> /bold';
+    expect(
+      composerSlashQuery(
+        const TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: source.length),
+        ),
+      )?.query,
+      'bold',
+    );
+  });
+
   test('slash commands remain available after an escaped backtick', () {
     const source = r'Type \` then /bold';
     expect(

@@ -75,9 +75,11 @@ final class GifResult {
 
   double get aspectRatio => width / height;
 
-  /// The exact image markdown Discourse's web picker inserts and sends.
-  String get markdown =>
-      '\n![${escapeImageAlt(_gifTitle(title))}|${width}x$height]($url)\n';
+  /// Image markdown for inserting or sending the selected GIF.
+  String get markdown {
+    final destination = url.replaceAll('(', r'\(').replaceAll(')', r'\)');
+    return '\n![${escapeImageAlt(_gifTitle(title))}|${width}x$height]($destination)\n';
+  }
 
   @override
   bool operator ==(Object other) =>

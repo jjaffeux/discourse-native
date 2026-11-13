@@ -20,6 +20,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/composer_submission.dart';
 
 void main() {
+  test('bold formats prose ending at the start of an adjacent quote', () {
+    const source = 'Reference\n[quote="sam"]\nQuoted words\n[/quote]';
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    composer.text.value = TextEditingValue(
+      text: source,
+      selection: TextSelection(
+        baseOffset: 0,
+        extentOffset: source.indexOf('[quote'),
+      ),
+    );
+
+    composer.toggleMark(ComposerMark.bold);
+
+    expect(
+      composer.raw,
+      '**Reference**\n[quote="sam"]\nQuoted words\n[/quote]',
+    );
+    expect(composer.text.quoteBlocks.single.contents, 'Quoted words');
+  });
+
   test('changing the level of an empty heading replaces its marker', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);

@@ -31,40 +31,38 @@ DateTime? eventDate(
 }) {
   if (allDay) return eventCalendarDay(source);
   if (source == null) return null;
-  final hasOffset = RegExp(
-    r'(Z|[+-]\d\d:?\d\d)$',
-    caseSensitive: false,
-  ).hasMatch(source);
   final day = eventCalendarDay(source);
   if (day == null) return null;
   final clock = RegExp(
-    r'[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$',
+    r'[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d+))?(Z|[+-](\d{2}):?(\d{2}))?$',
     caseSensitive: false,
   ).firstMatch(source);
-  if (clock == null ||
-      int.parse(clock[1]!) > 23 ||
-      int.parse(clock[2]!) > 59 ||
-      int.parse(clock[3] ?? '0') > 59) {
+  if (clock == null) return null;
+  final hour = int.parse(clock[1]!);
+  final minute = int.parse(clock[2]!);
+  final second = int.parse(clock[3] ?? '0');
+  final offsetHours = int.parse(clock[6] ?? '0');
+  final offsetMinutes = int.parse(clock[7] ?? '0');
+  if (hour > 23 ||
+      minute > 59 ||
+      second > 59 ||
+      offsetHours > 23 ||
+      offsetMinutes > 59) {
     return null;
   }
   final displayZone = zones.location(
     showLocalTime ? timezone : zones.readerTimezone(accountTimezone),
   );
   if (displayZone == null) return null;
-  if (hasOffset) {
+  if (clock[5] != null) {
     final instant = DateTime.tryParse(source);
     return instant == null ? null : tz.TZDateTime.from(instant, displayZone);
   }
   // A wall time has meaning only in its declared event timezone.
   final eventZone = zones.location(timezone);
-  final time = RegExp(
-    r'[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$',
-  ).firstMatch(source);
-  if (eventZone == null || time == null) return null;
-  final hour = int.parse(time[1]!);
-  final minute = int.parse(time[2]!);
-  final second = int.parse(time[3] ?? '0');
-  if (hour > 23 || minute > 59 || second > 59) return null;
+  if (eventZone == null) return null;
+  final fraction = (clock[4] ?? '').padRight(6, '0');
+  final microseconds = int.parse(fraction.substring(0, 6));
   final wall = tz.TZDateTime(
     eventZone,
     day.year,
@@ -73,6 +71,8 @@ DateTime? eventDate(
     hour,
     minute,
     second,
+    microseconds ~/ 1000,
+    microseconds % 1000,
   );
   if (wall.hour != hour || wall.minute != minute || wall.day != day.day) {
     return null;

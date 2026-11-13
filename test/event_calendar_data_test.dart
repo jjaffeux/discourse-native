@@ -25,6 +25,19 @@ void main() {
     categoryColor: categoryColor,
   );
 
+  test('offset-free calendar occurrences retain fractional seconds', () {
+    final occurrence = entry({
+      'timezone': 'Europe/Paris',
+      'starts_at': '2026-09-08T09:00:00.100123',
+      'ends_at': '2026-09-08T09:00:00.900456',
+    });
+    expect(occurrence, isNotNull);
+    expect(
+      occurrence!.dateTimeRange.duration,
+      const Duration(milliseconds: 800, microseconds: 333),
+    );
+  });
+
   test('month bounds include spillover days and honor the first weekday', () {
     final page = EventCalendarPage(
       EventCalendarView.month,

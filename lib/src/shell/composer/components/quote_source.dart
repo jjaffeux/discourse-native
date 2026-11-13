@@ -140,7 +140,7 @@ bool selectionTouchesComposerQuote(
     if (selection.isCollapsed) {
       final offset = selection.extentOffset;
       if (offset >= block.start && offset < block.end) return true;
-    } else if (selection.start < block.end && selection.end >= block.start) {
+    } else if (selection.start < block.end && selection.end > block.start) {
       return true;
     }
   }

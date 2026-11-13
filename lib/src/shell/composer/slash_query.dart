@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import 'html_comments.dart';
 import 'markdown_highlight.dart';
 
 typedef ComposerSlashQuery = ({int start, int end, String query});
@@ -21,12 +22,15 @@ ComposerSlashQuery? composerSlashQuery(TextEditingValue value) {
       !RegExp(r'\s').hasMatch(value.text[selection.end])) {
     return null;
   }
-  final prefix = before.substring(0, start);
-  final line = prefix.substring(prefix.lastIndexOf('\n') + 1);
-  if (RegExp(r'^(?: {4}|\t)').hasMatch(line) ||
-      markdownCodeRanges(value.text).contains(start) ||
+  final lineStart = start == 0 ? 0 : before.lastIndexOf('\n', start - 1) + 1;
+  final line = before.substring(lineStart, start);
+  if (RegExp(r'^(?: {4}|\t)').hasMatch(line)) return null;
+  final literals = ComposerLiteralContainers(value.text);
+  if (literals.contains(start)) return null;
+  final syntax = literals.mask(value.text);
+  if (markdownCodeRanges(syntax).contains(start) ||
       _backtickOrEscape
-          .allMatches(line)
+          .allMatches(syntax.substring(lineStart, start))
           .where((match) => match[0] == '`')
           .length
           .isOdd) {
