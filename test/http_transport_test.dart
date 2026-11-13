@@ -362,6 +362,46 @@ void main() {
       expect(cancelled, isTrue);
     });
 
+    test(
+      'caller cancellation stops a body even if the client ignores it',
+      () async {
+        final abort = Completer<void>();
+        final started = Completer<void>();
+        var cancellations = 0;
+        final body = StreamController<List<int>>(
+          onListen: started.complete,
+          onCancel: () => cancellations++,
+        );
+        addTearDown(body.close);
+        final timers = <_ManualTimer>[];
+        final result = _withManualTimers(
+          timers,
+          () => sendBoundedHttpRequest(
+            _Client((_) async => http.StreamedResponse(body.stream, 200)),
+            http.AbortableRequest(
+              'GET',
+              Uri.https('forum.example', '/data'),
+              abortTrigger: abort.future,
+            ),
+            timeout: const Duration(seconds: 1),
+            maxBodyBytes: 10,
+          ),
+        );
+        final failure = expectLater(
+          result,
+          throwsA(isA<http.RequestAbortedException>()),
+        );
+        await started.future;
+        abort.complete();
+        await Future<void>.delayed(Duration.zero);
+        for (final timer in timers.where((timer) => timer.isActive)) {
+          timer.fire();
+        }
+        await failure;
+        expect(cancellations, 1);
+      },
+    );
+
     test('the deadline covers a body that never finishes', () async {
       var cancelled = false;
       final bodyStarted = Completer<void>();

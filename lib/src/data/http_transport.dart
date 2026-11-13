@@ -118,7 +118,16 @@ Future<http.Response> sendBoundedHttpRequest(
   assert(maxBodyBytes > 0);
 
   final timeoutAbort = Completer<void>();
-  final sentRequest = _withAbortTrigger(request, timeoutAbort.future);
+  final callerAbort = switch (request) {
+    http.Abortable(:final abortTrigger?) => abortTrigger,
+    _ => null,
+  };
+  final sentRequest = _withAbortTrigger(
+    request,
+    callerAbort == null
+        ? timeoutAbort.future
+        : Future.any<void>([callerAbort, timeoutAbort.future]),
+  );
   final elapsed = Stopwatch()..start();
   final response = client.send(sentRequest);
   late http.StreamedResponse streamed;
@@ -150,6 +159,9 @@ Future<http.Response> sendBoundedHttpRequest(
           streamed.stream,
           maxBytes: maxBodyBytes,
           timeout: remaining,
+          abortError: callerAbort?.then(
+            (_) => http.RequestAbortedException(request.url),
+          ),
           timeoutError: TimeoutException(
             appL10n.timedOutReadingResponseFrom(request.url.toString()),
             remaining,
@@ -176,15 +188,8 @@ Future<http.Response> sendBoundedHttpRequest(
 
 http.BaseRequest _withAbortTrigger(
   http.BaseRequest request,
-  Future<void> timeoutAbort,
+  Future<void> abortTrigger,
 ) {
-  final existingAbort = switch (request) {
-    http.Abortable(:final abortTrigger?) => abortTrigger,
-    _ => null,
-  };
-  final abortTrigger = existingAbort == null
-      ? timeoutAbort
-      : Future.any<void>([existingAbort, timeoutAbort]);
   final http.BaseRequest abortable;
   switch (request) {
     case http.Request():
