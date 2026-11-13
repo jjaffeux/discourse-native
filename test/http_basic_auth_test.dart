@@ -33,6 +33,26 @@ HttpBasicAuthentication _credential(
 );
 
 void main() {
+  test(
+    'reentrant hydration across stores shares one credential read',
+    () async {
+      final storage = BasicAuthMemoryStorage();
+      final first = HttpBasicAuthStore(storage: storage);
+      final second = HttpBasicAuthStore(storage: storage);
+      var reads = 0;
+      Future<void>? reentrant;
+      storage.onRead = () {
+        if (++reads == 1) reentrant = second.load();
+      };
+
+      final loading = first.load();
+      await loading;
+      await reentrant;
+      expect(reentrant, same(loading));
+      expect(reads, 1);
+    },
+  );
+
   test('replacement stores retain each other\'s accepted origins', () async {
     final storage = BasicAuthMemoryStorage();
     final first = HttpBasicAuthStore(storage: storage);

@@ -7,9 +7,13 @@ final class BasicAuthMemoryStorage implements PrivateStorage {
   Completer<void>? writeGate;
   Object? writeFailure;
   int writes = 0;
+  void Function()? onRead;
 
   @override
-  Future<String?> read(String key) async => values[key];
+  Future<String?> read(String key) async {
+    onRead?.call();
+    return values[key];
+  }
 
   @override
   Future<void> write(String key, String value) async {

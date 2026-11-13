@@ -83,7 +83,11 @@ final class HttpBasicAuthStore {
 
   Future<void> load() {
     if (_state.loaded) return Future.value();
-    return _state.loading ??= _load().whenComplete(() => _state.loading = null);
+    if (_state.loading case final pending?) return pending;
+    final loading = Completer<void>();
+    _state.loading = loading.future;
+    loading.complete(_load().whenComplete(() => _state.loading = null));
+    return loading.future;
   }
 
   Future<void> _load() async {
