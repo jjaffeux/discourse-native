@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:discourse_native/src/data/byte_cache_store.dart';
 import 'package:discourse_native/src/data/coalescing_snapshot_writer.dart';
+import 'package:discourse_native/src/data/file_byte_cache_store.dart';
 import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/data/origin_request_gate.dart';
 import 'package:discourse_native/src/data/preference_snapshots.dart';

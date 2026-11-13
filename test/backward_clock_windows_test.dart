@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/byte_cache.dart';
-import 'package:discourse_native/src/data/byte_cache_store.dart';
 import 'package:discourse_native/src/data/custom_sidebar_sections.dart';
+import 'package:discourse_native/src/data/file_byte_cache_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/foundation/elapsed_time.dart';

@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'app.dart';
-import 'data/byte_cache_store.dart';
+import 'data/file_byte_cache_store.dart';
 import 'data/http_basic_auth.dart';
 import 'data/linux_application_directories.dart';
 import 'data/linux_preferences_store.dart';
@@ -130,7 +131,8 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   Future<void> initializePersistentMediaCache() async {
-    final mediaStore = await FileByteCacheStore.applicationCache();
+    final root = await getApplicationCacheDirectory();
+    final mediaStore = await FileByteCacheStore.applicationCache(root);
     MediaPipeline.replace(MediaPipeline(store: mediaStore));
   }
 

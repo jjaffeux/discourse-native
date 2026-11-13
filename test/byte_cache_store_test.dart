@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:discourse_native/src/data/byte_cache_store.dart';
+import 'package:discourse_native/src/data/file_byte_cache_store.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

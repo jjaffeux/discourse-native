@@ -11,12 +11,13 @@ const _owner = 'lib/src/foundation/elapsed_time.dart';
 /// which a comparison-only answer would corrupt.
 const Map<String, Set<String>> _windowSites = {
   'lib/src/data/byte_cache.dart': {},
-  'lib/src/data/byte_cache_store.dart': {
+  'lib/src/data/byte_cache_policy.dart': {
     // An HTTP response's own freshness lifetime, measured between two of its
     // headers. No reading of the device clock is involved.
     'expires.difference(responseDate)',
   },
   'lib/src/data/custom_sidebar_sections.dart': {},
+  'lib/src/data/file_byte_cache_store.dart': {},
   'lib/src/foundation/active_use.dart': {},
   'lib/src/plugins/chat/chat_controller.dart': {},
   'lib/src/plugins/chat/chat_conversation_stream.dart': {},

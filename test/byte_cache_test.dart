@@ -4,8 +4,10 @@ import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/avatar_loader.dart';
 import 'package:discourse_native/src/data/byte_cache.dart';
+import 'package:discourse_native/src/data/byte_cache_policy.dart';
 import 'package:discourse_native/src/data/byte_cache_store.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
+import 'package:discourse_native/src/data/file_byte_cache_store.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
 
 import 'package:flutter_test/flutter_test.dart';
