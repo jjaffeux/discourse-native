@@ -66,6 +66,31 @@ void main() {
   );
 
   test(
+    'a remaining image consumer keeps the shared credential lookup',
+    () async {
+      final credentials = _Credentials();
+      final client = _Client();
+      final repository = SiteImageRepository(
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        client: client,
+      );
+      addTearDown(repository.dispose);
+
+      final first = repository.request(siteUrl: site, url: url);
+      final second = repository.request(siteUrl: site, url: url);
+      first.release();
+      expect(await first.result, isNull);
+
+      credentials.keys.single.complete('key');
+      await _pump();
+      expect(client.sent.single.headers['User-Api-Key'], 'key');
+      client.sent.single.complete([4]);
+      expect((await second.result)?.bytes, [4]);
+    },
+  );
+
+  test(
     'retirement during opening cannot attach old demand to a new account',
     () async {
       final credentials = _Credentials();

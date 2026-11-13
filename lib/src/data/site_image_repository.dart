@@ -112,7 +112,12 @@ final class SiteImageRepository {
   ) async {
     try {
       final siteUrl = request._siteUrl;
-      final session = await _session(request, account);
+      final _SiteImageSession? session;
+      try {
+        session = await _session(request, account);
+      } finally {
+        request._detachOpening();
+      }
       if (request._done) return;
       if (_disposed ||
           !account.isCurrent ||
@@ -312,12 +317,17 @@ final class SiteImageRequest {
 
   void release() => _complete(null);
 
+  void _detachOpening() {
+    final leave = _leaveOpening;
+    _leaveOpening = null;
+    leave?.call();
+  }
+
   void _finish() {
     _done = true;
     _removeRetirement?.call();
     _removeRetirement = null;
-    _leaveOpening?.call();
-    _leaveOpening = null;
+    _detachOpening();
     _owner?.release();
     _owner = null;
     _onDone();
