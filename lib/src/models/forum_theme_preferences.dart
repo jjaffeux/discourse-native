@@ -33,14 +33,22 @@ final class ForumThemePreferences {
   /// Reads the current document, and migrates version 1 documents whose loose
   /// palettes and shared background could hold any edited state. A font
   /// either version holds is read once into the app-wide appearance instead.
-  factory ForumThemePreferences.fromJson(Map<String, dynamic> json) {
-    final customs = _library(json['customThemes']);
-    return switch (json['version']) {
-      2 => _read(json, customs),
-      1 => _migrate(json, customs),
-      _ => throw FormatException(appL10n.invalidThemes),
-    };
-  }
+  factory ForumThemePreferences.fromJson(Map<String, dynamic> json) =>
+      ForumThemePreferences._decode(json, _library(json['customThemes']));
+
+  factory ForumThemePreferences.fromLibrarySelection(
+    Map<String, dynamic> json,
+    List<ForumTheme> themes,
+  ) => ForumThemePreferences._decode(json, themes);
+
+  factory ForumThemePreferences._decode(
+    Map<String, dynamic> json,
+    List<ForumTheme> customs,
+  ) => switch (json['version']) {
+    2 => _read(json, customs),
+    1 => _migrate(json, customs),
+    _ => throw FormatException(appL10n.invalidThemes),
+  };
 
   static final defaults = ForumThemePreferences();
 
@@ -186,7 +194,7 @@ final class ForumThemePreferences {
     return save(ForumTheme.fromJson(theme.toJson(), id: id));
   }
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> selectionToJson() => {
     'version': 2,
     'source': source.name,
     if (presets.isNotEmpty)
@@ -194,6 +202,10 @@ final class ForumThemePreferences {
         for (final entry in presets.entries) entry.key.name: entry.value,
       },
     if (customId != null) 'custom': customId,
+  };
+
+  Map<String, dynamic> toJson() => {
+    ...selectionToJson(),
     'customThemes': [
       for (final theme in customThemes) {'id': theme.id, ...theme.toJson()},
     ],

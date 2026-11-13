@@ -1161,10 +1161,15 @@ void main() {
         store.forget(site.url);
         final restoring = restore(1, 2);
         await pumpEventQueue();
-        expect(api.requests.last.path, '/t/2.json');
-        await answer([2]);
-        expect(api.requests.last.path, '/t/3.json');
-        await answer([3]);
+        final summaries = api.requests.sublist(2);
+        expect(summaries.map((request) => request.path), [
+          '/t/2.json',
+          '/t/3.json',
+        ]);
+        summaries.last.response.complete(_pages([3]));
+        await pumpEventQueue();
+        expect(store.read<Topic>(site.url, 3), isNull);
+        summaries.first.response.complete(_pages([2]));
         await restoring;
         final feed = controller.feedFor(site.url, 'filtered')!;
         expect(feed.topicIds, [1, 2, 3, 4]);

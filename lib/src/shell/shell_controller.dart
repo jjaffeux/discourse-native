@@ -2264,14 +2264,11 @@ class ShellController extends FrameSafeNotifier
         await _expireMissingAccount(instance.url, lease);
         return;
       }
-      await _currentUsers.refresh(
-        instance.url,
-        apiKey,
-        lease: lease,
-        force: force,
-      );
-      if (!lease.isCurrent || currentInstance?.url != instance.url) return;
-      await _customSidebar.ensure(instance.url, account: lease);
+      await Future.wait([
+        _currentUsers.refresh(instance.url, apiKey, lease: lease, force: force),
+        if (currentInstance?.url == instance.url)
+          _customSidebar.ensure(instance.url, account: lease),
+      ]);
     } catch (_) {
       // Freshness-sensitive plugin capabilities remain unknown. Persisted
       // extension state must not authorize them in their place. A key that
@@ -9707,12 +9704,12 @@ final class _ShellTopicReader extends ChangeNotifier
       if (delay != Duration.zero) await Future<void>.delayed(delay);
       if (!foreground || !isConnected) return;
       _shell._liveSessions.resyncTracking(siteUrl);
-      await _shell.loadNotifications(siteUrl, background: true);
-      if (!foreground) return;
       final source = _context.topicListContent;
-      if (source != null && !source.isTopic) {
-        await _context.loadFeed(source.id, force: true);
-      }
+      await Future.wait([
+        _shell.loadNotifications(siteUrl, background: true),
+        if (source != null && !source.isTopic)
+          _context.loadFeed(source.id, force: true),
+      ]);
       if (!foreground) return;
       if (_shell.store
               .read<Topic>(siteUrl, topicId)

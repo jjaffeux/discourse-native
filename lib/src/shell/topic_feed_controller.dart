@@ -1435,18 +1435,23 @@ final class TopicFeedController extends FrameSafeNotifier {
         ];
         if (missingIds.isNotEmpty) {
           final topics = <Topic>[];
-          for (final id in missingIds) {
+          const batchSize = 4;
+          for (var start = 0; start < missingIds.length; start += batchSize) {
             if (!wanted()) continue workLoop;
-            final topic = await auth.run(
-              () => api.topicSummary(
-                siteUrl: instance.url,
-                id: id,
-                apiKey: apiKey,
-              ),
-            );
+            final batch = await Future.wait([
+              for (final id in missingIds.skip(start).take(batchSize))
+                auth.run(
+                  () => api.topicSummary(
+                    siteUrl: instance.url,
+                    id: id,
+                    apiKey: apiKey,
+                  ),
+                ),
+            ]);
             if (!requestIsCurrent()) return;
-            topics.add(topic);
+            topics.addAll(batch);
           }
+          if (!wanted()) continue workLoop;
           await prepareFeed?.call(
             instance,
             apiKey,

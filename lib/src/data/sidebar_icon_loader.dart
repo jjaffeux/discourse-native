@@ -41,19 +41,32 @@ final class SidebarIconLoader {
     final missing = icons.missing.toList();
     if (missing.isEmpty) return sections;
 
-    // Leave headroom in the shared request queue even for many custom sections.
-    for (var start = 0; start < missing.length; start += 4) {
-      await Future.wait(
-        missing.skip(start).take(4).map((name) async {
-          final icon = await _loadIcon(siteUrl, name);
-          if (icon != null) icons.loaded[name] = icon;
-        }),
-      );
+    // Leave headroom in the shared request queue for other requests.
+    var next = 0;
+    Future<void> loadIcons() async {
+      while (next < missing.length) {
+        final name = missing[next++];
+        final icon = await _loadIcon(
+          siteUrl,
+          name,
+          overlapReferences: missing.length == 1,
+        );
+        if (icon != null) icons.loaded[name] = icon;
+      }
     }
+
+    await Future.wait([
+      for (var worker = 0; worker < 4 && worker < missing.length; worker++)
+        loadIcons(),
+    ]);
     return decode();
   }
 
-  Future<DIconData?> _loadIcon(String siteUrl, String name) async {
+  Future<DIconData?> _loadIcon(
+    String siteUrl,
+    String name, {
+    required bool overlapReferences,
+  }) async {
     try {
       final url = _iconUrl(siteUrl, name);
       final cached = _artwork[url];
@@ -79,6 +92,7 @@ final class SidebarIconLoader {
           for (final node in element.descendantElements)
             ?node.getAttribute('id'),
         };
+        final references = <String>{};
         for (final use in element.findAllElements('use')) {
           final href =
               use.getAttribute('href') ??
@@ -90,27 +104,46 @@ final class SidebarIconLoader {
           final reference = href.substring(1);
           if (localIds.contains(reference)) continue;
           if (ancestors.contains(reference)) return false;
-          if (symbols.containsKey(reference)) continue;
-          if (symbols.length >= 32) return false;
-          final dependency = await _symbol(siteUrl, reference);
-          if (dependency == null) return false;
-          final dependencyExpiry = dependency.$2;
-          if (expiresAt == null || dependencyExpiry == null) {
-            expiresAt = null;
-          } else if (dependencyExpiry.isBefore(expiresAt!)) {
-            expiresAt = dependencyExpiry;
-          }
-          final symbol = XmlElement.tag(
-            'symbol',
-            attributes: dependency.$1.attributes.map(
-              (attribute) => attribute.copy(),
-            ),
-            children: dependency.$1.children.map((child) => child.copy()),
-          )..setAttribute('id', reference);
-          symbols[reference] = symbol;
-          definitions.children.add(symbol);
-          if (!await includeReferences(symbol, {...ancestors, reference})) {
-            return false;
+          if (!symbols.containsKey(reference)) references.add(reference);
+        }
+        final pending = references.iterator;
+        while (pending.moveNext()) {
+          final first = pending.current;
+          final batch = [
+            first,
+            if (overlapReferences && symbols.length < 31 && pending.moveNext())
+              pending.current,
+          ];
+          final fetched = await Future.wait([
+            for (final reference in batch)
+              symbols.containsKey(reference) || symbols.length >= 32
+                  ? Future<(XmlElement, DateTime?)?>.value(null)
+                  : _symbol(siteUrl, reference),
+          ]);
+          for (var index = 0; index < batch.length; index++) {
+            final reference = batch[index];
+            if (symbols.containsKey(reference)) continue;
+            if (symbols.length >= 32) return false;
+            final dependency = fetched[index];
+            if (dependency == null) return false;
+            final dependencyExpiry = dependency.$2;
+            if (expiresAt == null || dependencyExpiry == null) {
+              expiresAt = null;
+            } else if (dependencyExpiry.isBefore(expiresAt!)) {
+              expiresAt = dependencyExpiry;
+            }
+            final symbol = XmlElement.tag(
+              'symbol',
+              attributes: dependency.$1.attributes.map(
+                (attribute) => attribute.copy(),
+              ),
+              children: dependency.$1.children.map((child) => child.copy()),
+            )..setAttribute('id', reference);
+            symbols[reference] = symbol;
+            definitions.children.add(symbol);
+            if (!await includeReferences(symbol, {...ancestors, reference})) {
+              return false;
+            }
           }
         }
         return true;

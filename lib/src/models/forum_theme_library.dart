@@ -25,12 +25,10 @@ final class ForumThemeLibrary {
     final forums = <String, ForumThemePreferences>{};
     for (final entry in (json['forums'] as Map<String, dynamic>).entries) {
       if (entry.value is! Map<String, dynamic>) continue;
-      forums[entry.key] = ForumThemePreferences.fromJson({
-        ...entry.value as Map<String, dynamic>,
-        'customThemes': [
-          for (final theme in themes) {'id': theme.id, ...theme.toJson()},
-        ],
-      });
+      forums[entry.key] = ForumThemePreferences.fromLibrarySelection(
+        entry.value as Map<String, dynamic>,
+        themes,
+      );
     }
     return ForumThemeLibrary(themes: themes, forums: forums);
   }
@@ -118,7 +116,7 @@ final class ForumThemeLibrary {
     ],
     'forums': {
       for (final entry in forums.entries)
-        entry.key: {...entry.value.toJson()}..remove('customThemes'),
+        entry.key: entry.value.selectionToJson(),
     },
   };
 }
