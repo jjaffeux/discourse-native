@@ -94,6 +94,25 @@ void main() {
     },
   );
 
+  test('a released preview does not start file metadata lookup', () async {
+    var reads = 0;
+    final preview = ComposerUploadPreview.forFile(
+      ComposerUploadFile(
+        name: 'photo.png',
+        length: () async {
+          reads++;
+          return 4;
+        },
+        openRead: () => Stream.value([1, 2, 3, 4]),
+      ),
+    )!;
+    preview.release();
+
+    await preview.ready;
+    expect(reads, 0);
+    expect(preview.file, isNull);
+  });
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     test(
       'staged video requests native artwork on supported platforms ($platform)',

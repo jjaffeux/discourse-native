@@ -36,6 +36,7 @@ final class ComposerUploadPreview extends ChangeNotifier {
       : null;
 
   Future<void> _stage() async {
+    if (_references == 0) return;
     try {
       final length = await Future.any<int?>([
         original.length(),
