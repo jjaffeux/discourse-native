@@ -44,3 +44,9 @@ SDK consumers by role, distinguishing composition and widget entry points from
 libraries that only use data or lifecycle contracts. Extend the same review
 to shared packages and platform adapters, which the app library graph does
 not cover.
+
+The table policy now takes its render callback at composition and uses the
+existing editor interface for insertion. Its reachable app libraries fell
+from 299 to 31, and widget libraries fell from 136 to one. The composer cycle
+now contains seven libraries. The focused table suite exercises insertion,
+editing, focus, and source projection through the normal editor.

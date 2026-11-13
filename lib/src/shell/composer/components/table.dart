@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
-import '../component_artwork.dart';
-import '../controller.dart';
+import '../component_editor.dart';
 import 'table_source.dart';
 
 ComposerSyntaxKind get composerTableSyntaxKind => ComposerSyntaxKind(
@@ -14,8 +13,8 @@ ComposerSyntaxKind get composerTableSyntaxKind => ComposerSyntaxKind(
   label: appL10n.table,
 );
 
-void insertComposerTable(ComposerController composer) {
-  if (!composer.isCurrent || !composer.isEditing || composer.target.isPlugin) {
+void insertComposerTable(ComposerEditorHost composer) {
+  if (!composer.isCurrent || !composer.isEditing || composer.isPluginTarget) {
     return;
   }
   composer.insertBlock(
@@ -26,19 +25,21 @@ void insertComposerTable(ComposerController composer) {
 }
 
 final class ComposerTablePolicy implements ComposerSyntaxPolicy {
-  const ComposerTablePolicy(this.composer);
-  final ComposerController composer;
+  const ComposerTablePolicy(this.editor, this.renderTable);
+  final ComposerEditorHost editor;
+  final Widget Function(ComposerSyntaxRenderContext, ComposerTableBlock)
+  renderTable;
 
   @override
   ComposerSyntaxKind get kind => composerTableSyntaxKind;
   @override
-  Object get projectionState => composer.isEditing;
+  Object get projectionState => editor.isEditing;
   @override
   TextInputFormatter get inputFormatter => const ComposerTableInputFormatter();
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
     for (final table in parseComposerTables(source))
-      _TableProjection(composer, table),
+      _TableProjection(renderTable, table),
   ];
 }
 
@@ -46,8 +47,9 @@ final class _TableProjection
     implements
         ComposerInteractiveSyntaxProjection,
         ComposerBlockSyntaxProjection {
-  _TableProjection(this.composer, this.table);
-  final ComposerController composer;
+  _TableProjection(this.renderTable, this.table);
+  final Widget Function(ComposerSyntaxRenderContext, ComposerTableBlock)
+  renderTable;
   final ComposerTableBlock table;
   GlobalKey? _editorKey;
   @override
@@ -94,12 +96,7 @@ final class _TableProjection
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: composer.artwork.table(
-          key: context.pillKey,
-          composer: composer,
-          table: table,
-          highlighted: context.highlighted,
-        ),
+        child: renderTable(context, table),
       ),
       // The source's real newline ends the widget line when present. Hidden
       // table rows must not introduce another apparent typing line below it.

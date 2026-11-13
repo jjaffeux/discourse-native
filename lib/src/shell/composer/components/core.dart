@@ -30,7 +30,15 @@ List<ComposerSyntaxPolicy> coreComposerSyntaxPolicies(
         highlighted: context.highlighted,
       ),
     ),
-    ComposerTablePolicy(composer),
+    ComposerTablePolicy(
+      composer,
+      (context, table) => composer.artwork.table(
+        key: context.pillKey,
+        composer: composer,
+        table: table,
+        highlighted: context.highlighted,
+      ),
+    ),
     ComposerCodePolicy(composer),
     ComposerDetailsPolicy(composer),
     ComposerListPolicy(composer),

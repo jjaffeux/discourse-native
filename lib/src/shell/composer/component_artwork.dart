@@ -8,6 +8,8 @@ import 'components/list_source.dart';
 import 'components/table_source.dart';
 import 'controller.dart';
 
+export 'component_editor.dart';
+
 /// [ComposerArtwork] plus the core syntax components, whose widgets embed an
 /// editor bound to their [ComposerController]. The core policies read it
 /// through [ComposerController.artwork].
@@ -65,12 +67,4 @@ abstract interface class ComposerComponentArtwork implements ComposerArtwork {
     resolveRange,
     required String semanticLabel,
   });
-}
-
-/// The State behind a core component's widget, reached through the pill key
-/// the projection handed to [ComposerComponentArtwork], so a projection can
-/// start editing its component without naming the widget.
-abstract interface class ComposerComponentEditor {
-  /// Moves keyboard focus into the component.
-  void edit();
 }
