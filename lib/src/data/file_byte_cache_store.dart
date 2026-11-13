@@ -152,12 +152,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     await directory.create(recursive: true);
     try {
       await temporary.writeAsBytes(encoded, flush: true);
-      try {
-        await temporary.rename(target.path);
-      } on FileSystemException {
-        await _delete(target);
-        await temporary.rename(target.path);
-      }
+      await temporary.rename(target.path);
     } finally {
       await _delete(temporary);
     }

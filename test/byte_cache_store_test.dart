@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -36,6 +37,33 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('a failed replacement preserves the existing cached bytes', () async {
+      final entry = await seed('retained', [1, 2], now);
+      final store = FileByteCacheStore(directory, clock: () => now);
+      final attempts = <String>[];
+      final fileZone = Zone.current;
+      final write = IOOverrides.runZoned(
+        () => store.write(
+          _url('retained'),
+          Uint8List.fromList([3, 4]),
+          expiresAt: expiresAt,
+        ),
+        createFile: (path) {
+          final file = fileZone.run(() => File(path));
+          return path.endsWith('.tmp')
+              ? _FailedCacheRename(file, attempts)
+              : file;
+        },
+      );
+
+      await expectLater(write, throwsA(isA<FileSystemException>()));
+      expect(await store.read(_url('retained')), orderedEquals([1, 2]));
+      expect(attempts, [entry.path]);
+      expect(await directory.list().map((file) => file.path).toList(), [
+        entry.path,
+      ]);
+    });
+
     test('bounds the read when an entry grows after its stat', () async {
       final entry = await seed('growing', [1, 2, 3, 4], now);
       final growing = _GrowingCacheFile(entry);
@@ -589,6 +617,33 @@ final class _RecordedCacheRead implements RandomAccessFile {
 
   @override
   Future<void> close() => file.close();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _FailedCacheRename implements File {
+  _FailedCacheRename(this.file, this.attempts);
+
+  final File file;
+  final List<String> attempts;
+
+  @override
+  Future<File> writeAsBytes(
+    List<int> bytes, {
+    FileMode mode = FileMode.write,
+    bool flush = false,
+  }) => file.writeAsBytes(bytes, mode: mode, flush: flush);
+
+  @override
+  Future<File> rename(String newPath) async {
+    attempts.add(newPath);
+    throw FileSystemException('Injected rename failure', newPath);
+  }
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      file.delete(recursive: recursive);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
