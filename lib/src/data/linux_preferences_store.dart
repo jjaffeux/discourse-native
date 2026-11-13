@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
 
@@ -11,7 +10,8 @@ import '../foundation/private_file_document.dart';
 
 /// The name `shared_preferences_linux` gave the preferences file inside the
 /// application support directory. Keeping it carries earlier builds' data over.
-const String linuxSharedPreferencesFileName = 'shared_preferences.json';
+File linuxPreferencesFile(Directory support) =>
+    File('${support.path}/shared_preferences.json');
 
 /// Keeps `SharedPreferences` on Linux in the file and format
 /// `shared_preferences_linux` used — one JSON object of `flutter.`-prefixed
@@ -31,18 +31,18 @@ const String linuxSharedPreferencesFileName = 'shared_preferences.json';
 /// aside beside the file, reported once, and read as empty, so the app starts
 /// instead of refusing to on every launch.
 final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
-  LinuxPreferencesStore({this._file});
+  LinuxPreferencesStore({required this._file});
 
   /// Replaces the plugin the Flutter tool registered. It must run before the
   /// first `SharedPreferences.getInstance`, which caches what it read.
-  static void install({bool? isLinux}) {
+  static void install({required PrivateFileResolver file, bool? isLinux}) {
     if (!(isLinux ?? Platform.isLinux)) return;
-    SharedPreferencesStorePlatform.instance = LinuxPreferencesStore();
+    SharedPreferencesStorePlatform.instance = LinuxPreferencesStore(file: file);
   }
 
   static const String _defaultPrefix = 'flutter.';
 
-  final PrivateFileResolver? _file;
+  final PrivateFileResolver _file;
   Future<File>? _location;
 
   /// The last document text this store decoded or encoded, with the
@@ -146,11 +146,7 @@ final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
     return location;
   }
 
-  Future<File> _locate() async {
-    if (_file case final file?) return file();
-    final support = await getApplicationSupportDirectory();
-    return File('${support.path}/$linuxSharedPreferencesFileName');
-  }
+  Future<File> _locate() async => _file();
 
   static bool _matches(PreferencesFilter filter, String key) =>
       key.startsWith(filter.prefix) &&

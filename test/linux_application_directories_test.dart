@@ -16,7 +16,7 @@ void main() {
     );
     support = Directory('${root.path}/data/org.discourse.native');
     cache = Directory('${root.path}/cache/org.discourse.native');
-    preferences = File('${support.path}/$linuxSharedPreferencesFileName');
+    preferences = linuxPreferencesFile(support);
   });
 
   tearDown(() async {

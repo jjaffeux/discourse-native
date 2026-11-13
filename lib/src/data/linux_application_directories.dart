@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
-
 import '../foundation/private_file_permissions.dart';
 import 'linux_preferences_store.dart';
 
@@ -21,18 +19,15 @@ import 'linux_preferences_store.dart';
 /// directories to the app's container, so only Linux changes anything.
 Future<void> restrictLinuxApplicationDirectories({
   bool? isLinux,
-  Future<Directory> Function() supportDirectory =
-      getApplicationSupportDirectory,
-  Future<Directory> Function() cacheDirectory = getApplicationCacheDirectory,
+  required Future<Directory> Function() supportDirectory,
+  required Future<Directory> Function() cacheDirectory,
 }) async {
   if (!(isLinux ?? Platform.isLinux)) return;
   await Future.wait([
     () async {
       final support = await supportDirectory();
       await ensurePrivateDirectory(support);
-      final preferences = File(
-        '${support.path}/$linuxSharedPreferencesFileName',
-      );
+      final preferences = linuxPreferencesFile(support);
       if (await preferences.exists()) restrictPrivateFile(preferences);
     }(),
     () async {

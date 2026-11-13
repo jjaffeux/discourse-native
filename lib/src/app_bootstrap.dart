@@ -110,7 +110,10 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   void installPreferencesStore() {
-    LinuxPreferencesStore.install();
+    LinuxPreferencesStore.install(
+      file: () async =>
+          linuxPreferencesFile(await getApplicationSupportDirectory()),
+    );
   }
 
   @override
@@ -138,7 +141,10 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   Future<void> restrictApplicationDirectories() =>
-      restrictLinuxApplicationDirectories();
+      restrictLinuxApplicationDirectories(
+        supportDirectory: getApplicationSupportDirectory,
+        cacheDirectory: getApplicationCacheDirectory,
+      );
 
   @override
   void scheduleAfterFirstFrame(Future<void> Function() work) {

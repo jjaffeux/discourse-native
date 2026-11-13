@@ -85,7 +85,7 @@ void main() {
       'discourse-native-startup-preferences-',
     );
     addTearDown(() => directory.delete(recursive: true));
-    final file = File('${directory.path}/$linuxSharedPreferencesFileName');
+    final file = linuxPreferencesFile(directory);
     // What a full disk during shared_preferences_linux's in-place rewrite left.
     await file.writeAsString('{"flutter.discourse_native.instances":"[');
 

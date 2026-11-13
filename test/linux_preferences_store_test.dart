@@ -26,7 +26,7 @@ void main() {
     directory = await Directory.systemTemp.createTemp(
       'discourse-native-linux-preferences-test-',
     );
-    file = File('${directory.path}/$linuxSharedPreferencesFileName');
+    file = linuxPreferencesFile(directory);
   });
 
   tearDown(() async {
@@ -58,7 +58,13 @@ void main() {
       await plugin.setValue('String', 'another.prefix', 'untouched');
       final written = await file.readAsString();
 
-      SharedPreferencesStorePlatform.instance = LinuxPreferencesStore();
+      SharedPreferencesStorePlatform.instance = LinuxPreferencesStore(
+        file: () async => linuxPreferencesFile(
+          Directory(
+            (await PathProviderPlatform.instance.getApplicationSupportPath())!,
+          ),
+        ),
+      );
       SharedPreferences.resetStatic();
       final preferences = await SharedPreferences.getInstance();
 
@@ -249,10 +255,10 @@ void main() {
     final previous = SharedPreferencesStorePlatform.instance;
     addTearDown(() => SharedPreferencesStorePlatform.instance = previous);
 
-    LinuxPreferencesStore.install(isLinux: false);
+    LinuxPreferencesStore.install(file: () => file, isLinux: false);
     expect(SharedPreferencesStorePlatform.instance, same(previous));
 
-    LinuxPreferencesStore.install(isLinux: true);
+    LinuxPreferencesStore.install(file: () => file, isLinux: true);
     expect(
       SharedPreferencesStorePlatform.instance,
       isA<LinuxPreferencesStore>(),
