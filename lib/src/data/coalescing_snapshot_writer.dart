@@ -35,6 +35,7 @@ final class CoalescingSnapshotWriter<T> {
   /// write has been extracted from that slot, later saves form the next slot;
   /// the extracted save settles only after its own physical write.
   Future<void> save(T value) {
+    _lane.sharedReads.clear();
     final submitter = Zone.current;
     _lane.pendingWrite = () {
       final completion = Completer<void>();
@@ -67,6 +68,20 @@ final class CoalescingSnapshotWriter<T> {
       key: _key,
       operation: readSnapshot,
     );
+  }
+
+  /// Shares overlapping reads of the same result type. Callers using this
+  /// method for a lane and type must supply equivalent snapshot readers.
+  Future<R> readShared<R>(Future<R> Function() readSnapshot) {
+    if (_lane.sharedReads[R] case final Future<R> active) return active;
+    late final Future<R> pending;
+    pending = read(readSnapshot).whenComplete(() {
+      if (identical(_lane.sharedReads[R], pending)) {
+        final _ = _lane.sharedReads.remove(R);
+      }
+    });
+    _lane.sharedReads[R] = pending;
+    return pending;
   }
 
   Future<void> _waitForLatest() async {
@@ -122,6 +137,7 @@ final class CoalescingSnapshotWriter<T> {
 }
 
 final class _SnapshotLane {
+  final sharedReads = <Type, Future<Object?>>{};
   Future<void> Function()? pendingWrite;
   Completer<void>? pendingResult;
   bool saving = false;

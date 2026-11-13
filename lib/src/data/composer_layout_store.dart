@@ -88,7 +88,6 @@ final class ComposerLayoutStore {
     : _persistence =
           persistence ?? const SharedPreferencesComposerLayoutPersistence();
   static const storageKey = 'discourse_native.composer_layout';
-  static final _reads = Expando<Future<ComposerLayoutPreference>>();
   final ComposerLayoutPersistence _persistence;
 
   CoalescingSnapshotWriter<ComposerLayoutPreference> get _snapshots =>
@@ -98,14 +97,7 @@ final class ComposerLayoutStore {
         writeSnapshot: _write,
       );
 
-  Future<ComposerLayoutPreference> read() {
-    if (_reads[_persistence] case final pending?) return pending;
-    late final Future<ComposerLayoutPreference> read;
-    read = _snapshots.read(_read).whenComplete(() {
-      if (identical(_reads[_persistence], read)) _reads[_persistence] = null;
-    });
-    return _reads[_persistence] = read;
-  }
+  Future<ComposerLayoutPreference> read() => _snapshots.readShared(_read);
 
   Future<ComposerLayoutPreference> _read() async {
     try {
@@ -119,10 +111,7 @@ final class ComposerLayoutStore {
     }
   }
 
-  Future<void> write(ComposerLayoutPreference value) {
-    _reads[_persistence] = null;
-    return _snapshots.save(value);
-  }
+  Future<void> write(ComposerLayoutPreference value) => _snapshots.save(value);
 
   Future<void> _write(ComposerLayoutPreference value) async {
     try {
