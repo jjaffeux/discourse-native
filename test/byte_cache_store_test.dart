@@ -37,6 +37,28 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('a write retries pruning after failed initialization', () async {
+      await seed('existing', [1], now);
+      var failScan = true;
+      final store = FileByteCacheStore(
+        directory,
+        maxEntries: 1,
+        clock: () {
+          if (failScan) throw StateError('prune clock unavailable');
+          return now;
+        },
+      );
+      await expectLater(store.initialize(), throwsStateError);
+      failScan = false;
+      await store.write(
+        _url('new'),
+        Uint8List.fromList([2]),
+        expiresAt: expiresAt,
+      );
+
+      expect(await directory.list().length, 1);
+    });
+
     test('the next write retries failed scheduled pruning', () async {
       var clockCalls = 0;
       final store = FileByteCacheStore(

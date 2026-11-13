@@ -191,14 +191,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     _writesSincePrune++;
     if (_writesSincePrune >= _pruneWriteInterval) {
       _writesSincePrune = 0;
-      try {
-        await _prune();
-      } catch (_) {
-        if (_writesSincePrune < _pruneWriteInterval) {
-          _writesSincePrune = _pruneWriteInterval;
-        }
-        rethrow;
-      }
+      await _prune();
     }
   }
 
@@ -231,12 +224,23 @@ final class FileByteCacheStore implements ByteCacheStore {
     final active = _pruning;
     if (active != null) return active;
 
-    late final Future<void> operation;
-    operation = _performPrune().whenComplete(() {
-      if (identical(_pruning, operation)) _pruning = null;
-    });
-    _pruning = operation;
-    return operation;
+    final completion = Completer<void>();
+    _pruning = completion.future;
+    completion.complete(_pruneAndTrackFailure());
+    return completion.future;
+  }
+
+  Future<void> _pruneAndTrackFailure() async {
+    try {
+      await _performPrune();
+    } catch (_) {
+      if (_writesSincePrune < _pruneWriteInterval) {
+        _writesSincePrune = _pruneWriteInterval;
+      }
+      rethrow;
+    } finally {
+      _pruning = null;
+    }
   }
 
   Future<void> _performPrune() async {
