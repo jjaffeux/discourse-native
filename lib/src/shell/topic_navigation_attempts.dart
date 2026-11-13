@@ -17,7 +17,7 @@ abstract interface class TopicNavigationTab {
 }
 
 final class _TopicJumpAttempt {
-  const _TopicJumpAttempt({
+  _TopicJumpAttempt({
     required this.key,
     required this.tabId,
     required this.revision,
@@ -28,6 +28,12 @@ final class _TopicJumpAttempt {
   final String tabId;
   final int revision;
   final SiteLease lease;
+  final _retired = Completer<void>();
+
+  Future<T?> waitFor<T>(Future<T?> operation) =>
+      Future.any<T?>([operation, _retired.future.then<T?>((_) => null)]);
+
+  void retire() => _retired.complete();
 }
 
 final class _TopicPostHighlight {
@@ -111,19 +117,21 @@ final class TopicNavigationAttempts {
       revision: revision,
       lease: _lifecycle.capture(siteUrl),
     );
-    _jumps[attempt.key] = attempt;
+    _replaceJump(attempt);
 
     try {
       var target = _store.read<Post>(siteUrl, postId);
       final loadAroundPost = target == null;
       if (target == null) {
-        target = await _topicData
+        final request = _topicData
             .forLease(siteUrl, attempt.lease)
             ?.ensurePost(
               topic.id,
               postId,
               isInterested: () => _isCurrent(attempt),
             );
+        if (request == null) return false;
+        target = await attempt.waitFor(request);
         if (target == null) return false;
       }
       if (!_isCurrent(attempt)) return false;
@@ -168,7 +176,7 @@ final class TopicNavigationAttempts {
       revision: revisionFor(tabId),
       lease: _lifecycle.capture(siteUrl),
     );
-    _jumps[attempt.key] = attempt;
+    _replaceJump(attempt);
     bool wanted() => _isCurrent(attempt) && isWanted();
 
     try {
@@ -177,22 +185,26 @@ final class TopicNavigationAttempts {
       final int? postNumber;
       if (topic.isMegaTopic && !document.currentTopicSummary) {
         final requested = math.max(index, 1);
-        postNumber = await data.ensureMegaRun(
-          topic.id,
-          slug: route!.slug ?? '',
-          postNumber: requested,
-          isInterested: wanted,
+        postNumber = await attempt.waitFor(
+          data.ensureMegaRun(
+            topic.id,
+            slug: route!.slug ?? '',
+            postNumber: requested,
+            isInterested: wanted,
+          ),
         );
       } else {
         final target = index.clamp(1, stream.length) - 1;
         final end = math.min(target + _scrubChunk, stream.length);
-        final held = await data.ensurePosts(
-          topic.id,
-          stream.sublist(math.max(0, end - _scrubChunk), end),
-          shouldFetch: wanted,
-          shouldPublish: () => _isCurrent(attempt),
+        final held = await attempt.waitFor(
+          data.ensurePosts(
+            topic.id,
+            stream.sublist(math.max(0, end - _scrubChunk), end),
+            shouldFetch: wanted,
+            shouldPublish: () => _isCurrent(attempt),
+          ),
         );
-        if (!held) return false;
+        if (held != true) return false;
         postNumber = _store.read<Post>(siteUrl, stream[target])?.postNumber;
       }
       if (postNumber == null || !wanted()) return false;
@@ -214,7 +226,20 @@ final class TopicNavigationAttempts {
     final siteUrl = document.siteUrl;
     final topicId = document.currentTopic?.id;
     if (siteUrl == null || topicId == null) return;
-    final _ = _jumps.remove((siteUrl: siteUrl, topicId: topicId));
+    _jumps.remove((siteUrl: siteUrl, topicId: topicId))?.retire();
+  }
+
+  void _replaceJump(_TopicJumpAttempt attempt) {
+    _jumps[attempt.key]?.retire();
+    _jumps[attempt.key] = attempt;
+  }
+
+  void _retireJumps(bool Function(_TopicJumpAttempt) matches) {
+    _jumps.removeWhere((_, attempt) {
+      if (!matches(attempt)) return false;
+      attempt.retire();
+      return true;
+    });
   }
 
   bool _isCurrent(_TopicJumpAttempt attempt) {
@@ -292,14 +317,14 @@ final class TopicNavigationAttempts {
   }
 
   void forgetSite(String siteUrl) {
-    _jumps.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _retireJumps((attempt) => attempt.key.siteUrl == siteUrl);
     if (_highlight?.siteUrl == siteUrl) clearHighlight(notify: false);
   }
 
   void closeTab(String siteUrl, String tabId) {
     explicitTarget(tabId);
-    _jumps.removeWhere(
-      (key, attempt) => key.siteUrl == siteUrl && attempt.tabId == tabId,
+    _retireJumps(
+      (attempt) => attempt.key.siteUrl == siteUrl && attempt.tabId == tabId,
     );
     final highlight = _highlight;
     if (highlight?.siteUrl == siteUrl && highlight?.tabId == tabId) {
@@ -310,7 +335,7 @@ final class TopicNavigationAttempts {
   void dispose() {
     _disposed = true;
     clearHighlight(notify: false);
-    _jumps.clear();
+    _retireJumps((_) => true);
     _revisions.clear();
   }
 }

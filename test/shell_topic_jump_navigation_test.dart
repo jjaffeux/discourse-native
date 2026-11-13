@@ -399,14 +399,22 @@ void main() {
       await pumpEventQueue();
       final origin = shell.activeTabId!;
       final lookup = api.gatePost(300);
-      final pending = shell.jumpToCurrentTopicIndex(3);
+      var finished = false;
+      final pending = shell.jumpToCurrentTopicIndex(3).then((moved) {
+        finished = true;
+        return moved;
+      });
       await lookup.started.future;
 
       shell.closeTab(origin);
       expect(shell.reopenClosedTab(origin), isTrue);
+      await pumpEventQueue();
+      final finishedBeforeResponse = finished;
       lookup.release.complete();
 
       expect(await pending, isFalse);
+      expect(finishedBeforeResponse, isTrue);
+      await pumpEventQueue();
       expect(shell.currentContent?.postNumber, 1);
     });
 
