@@ -391,6 +391,26 @@ void main() {
       expect(incoming.topicIds('latest'), [1, 2, 3]);
     });
 
+    test('a reused list forgets arrivals when its resolved filter changes', () {
+      final incoming = IncomingTopics()
+        ..track({
+          'tag-link': const IncomingTopicsFilter.latest(tagIds: {3}),
+        })
+        ..notify(newTopic(1, tagIds: [3]));
+
+      incoming.track({
+        'tag-link': const IncomingTopicsFilter.latest(tagIds: {3}),
+      });
+      expect(incoming.topicIds('tag-link'), [1]);
+
+      incoming.track({
+        'tag-link': const IncomingTopicsFilter.latest(tagIds: {4}),
+      });
+      incoming.notify(newTopic(2, tagIds: [4]));
+      expect(incoming.topicIds('tag-link'), [2]);
+      expect(incoming.topicIds('latest'), [1, 2]);
+    });
+
     test("the site's own lists keep their filter", () {
       final incoming = IncomingTopics()
         ..track({

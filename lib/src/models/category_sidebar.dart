@@ -97,10 +97,11 @@ List<TopicCategory> _topCategories(
   List<TopicCategory> categories, {
   required bool fixedCategoryPositions,
 }) {
+  final ids = {for (final category in categories) category.id};
   final roots =
       [
         for (final category in categories)
-          if (category.parentCategoryId == null) category,
+          if (!ids.contains(category.parentCategoryId)) category,
       ]..sort((left, right) {
         final compared = fixedCategoryPositions
             ? _comparePosition(left, right)

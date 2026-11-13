@@ -158,21 +158,23 @@ class IncomingTopics {
       for (final entry in lists.entries)
         if (!_siteLists.containsKey(entry.key)) entry,
     ];
-    _trackedLists
-      ..clear()
-      ..addEntries(
-        scoped.skip(
-          scoped.length > trackedListCapacity
-              ? scoped.length - trackedListCapacity
-              : 0,
-        ),
-      );
-    _parentCategoryOf = parentCategoryOf;
-    _unifiedNew = unifiedNew;
+    final next = Map.fromEntries(
+      scoped.skip(
+        scoped.length > trackedListCapacity
+            ? scoped.length - trackedListCapacity
+            : 0,
+      ),
+    );
     _incoming.removeWhere(
       (list, _) =>
-          !_siteLists.containsKey(list) && !_trackedLists.containsKey(list),
+          !_siteLists.containsKey(list) &&
+          (next[list] == null || next[list] != _trackedLists[list]),
     );
+    _trackedLists
+      ..clear()
+      ..addAll(next);
+    _parentCategoryOf = parentCategoryOf;
+    _unifiedNew = unifiedNew;
   }
 
   List<int> topicIds(String list, {int? limit}) {

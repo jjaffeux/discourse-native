@@ -279,12 +279,19 @@ final class UserDirectoryPage {
     Map<String, dynamic> json,
     String siteUrl,
   ) {
+    final items = <UserDirectoryItem>[];
+    FormatException? rowError;
+    for (final item in jsonObjects(json['directory_items'])) {
+      try {
+        items.add(UserDirectoryItem.fromWire(item, siteUrl));
+      } on FormatException catch (error) {
+        rowError ??= error;
+      }
+    }
+    if (items.isEmpty && rowError != null) throw rowError;
     final meta = jsonObject(json['meta']);
     return UserDirectoryPage(
-      items: List.unmodifiable([
-        for (final item in jsonObjects(json['directory_items']))
-          UserDirectoryItem.fromWire(item, siteUrl),
-      ]),
+      items: List.unmodifiable(items),
       totalRows: jsonInt(meta['total_rows_directory_items']),
       lastUpdatedAt: jsonDate(meta['last_updated_at']),
       nextPagePath: DiscourseInstance.pathAndQueryWithinUrl(

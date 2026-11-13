@@ -135,6 +135,33 @@ void main() {
     );
   });
 
+  test('one malformed user does not hide a directory page or its cursor', () {
+    final page = UserDirectoryPage.fromWire(const {
+      'directory_items': [
+        {
+          'id': 1,
+          'user': {'id': 1, 'username': 'sam'},
+        },
+        {
+          'id': 2,
+          'user': {'id': 2},
+        },
+        {
+          'id': 3,
+          'user': {'id': 3, 'username': 'chris'},
+        },
+      ],
+      'meta': {
+        'total_rows_directory_items': 50,
+        'load_more_directory_items': '/directory_items.json?page=1',
+      },
+    }, 'https://example.com');
+
+    expect(page.items.map((item) => item.user.username), ['sam', 'chris']);
+    expect(page.totalRows, 50);
+    expect(page.nextPagePath, '/directory_items.json?page=1');
+  });
+
   test('rejects malformed users without discarding valid column metadata', () {
     expect(
       () => UserDirectoryPage.fromWire(const {

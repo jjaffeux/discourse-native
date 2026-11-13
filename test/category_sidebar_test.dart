@@ -6,6 +6,30 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'an accessible category with an absent parent remains in the default sidebar',
+    () {
+      const categories = [
+        TopicCategory(
+          id: 7,
+          name: 'Visible child',
+          slug: 'visible-child',
+          color: '123456',
+          parentCategoryId: 99,
+          topicCount: 12,
+        ),
+      ];
+      for (final connected in [true, false]) {
+        final section = buildCategorySidebarSection(
+          categories: categories,
+          connected: connected,
+        );
+        expect(section.destinations.first.id, 'category-7');
+        expect(section.destinations.first.feedPath, '/c/visible-child/7.json');
+      }
+    },
+  );
+
+  test(
     'saved siblings survive expansion, with nested saved children and a transient active path',
     () {
       const categories = [
