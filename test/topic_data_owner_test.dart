@@ -297,6 +297,39 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  test('forgetting another site preserves a pending topic prefetch', () async {
+    final f = _Fixture();
+    final data = f.data;
+    addTearDown(
+      data.prefetch(
+        const Topic(id: 7, title: 'Topic', slug: 'topic'),
+        postNumber: 90,
+        intent: TopicPrefetchIntent.trajectory,
+        isInterested: () => true,
+      ),
+    );
+    await f.api.waitTopics(1);
+    f.owner.forget('https://other.example');
+    f.api.topicReads.single.result.complete(
+      _payload([_post(90, 'prefetched')], stream: [90]),
+    );
+    await pumpEventQueue();
+
+    final opening = data.open(
+      7,
+      slug: 'topic',
+      postNumber: 90,
+      opening: f.opening,
+    );
+    await pumpEventQueue();
+    if (f.api.topicReads.length > 1) {
+      f.api.topicReads.last.result.complete(_payload([]));
+    }
+    await opening;
+    expect(f.api.topicReads, hasLength(1));
+    expect(f.store.read<Post>(_site, 90)?.cooked, '<p>prefetched</p>');
+  });
+
   test(
     'retiring the account aborts a prefetch adopted by navigation',
     () async {

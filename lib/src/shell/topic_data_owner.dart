@@ -140,11 +140,12 @@ final class TopicDataOwner {
   }
 
   void validatePrefetch() => _prefetch.validate();
-  void clearPrefetch() => _prefetch.clear();
 
   void forget(String siteUrl) {
-    _prefetch.clear();
-    _accounts.remove(siteUrl)?._retire();
+    final account = _accounts.remove(siteUrl);
+    if (account == null) return;
+    account._retire();
+    _prefetch.retireSession(account.lease.session);
   }
 
   void dispose() {

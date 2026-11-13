@@ -7585,7 +7585,6 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _forgetSiteState(String siteUrl, {bool invalidateLifecycle = true}) {
-    _topicData.clearPrefetch();
     cooking.forget(siteUrl);
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     _newTopicDismissals.forget(siteUrl);
