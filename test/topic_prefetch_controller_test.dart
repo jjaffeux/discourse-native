@@ -257,6 +257,31 @@ void main() {
     },
   );
 
+  testWidgets(
+    'clearing releases an adopted prefetch before its loader settles',
+    (tester) async {
+      final controller = TopicPrefetchController();
+      final response = Completer<PrefetchedTopic?>();
+      controller.hover(
+        key(1),
+        intent: TopicPrefetchIntent.trajectory,
+        isCurrent: () => true,
+        load: (_) => response.future,
+      );
+      var finished = false;
+      final adopted = controller.take(key(1))!.then((value) {
+        finished = true;
+        return value;
+      });
+      controller.clear();
+      await tester.pump();
+      final finishedBeforeResponse = finished;
+      response.complete(result(1));
+      expect(await adopted, isNull);
+      expect(finishedBeforeResponse, isTrue);
+    },
+  );
+
   testWidgets('click before the dwell lets navigation load immediately', (
     tester,
   ) async {

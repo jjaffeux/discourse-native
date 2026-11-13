@@ -175,7 +175,7 @@ final class TopicPrefetchController {
         result = null;
       }
       entry.notificationRead = result?.notificationRead;
-      entry.result.complete(result);
+      if (!entry.result.isCompleted) entry.result.complete(result);
       if (result == null && identical(_candidate, entry)) _discardCandidate();
       _active = null;
       _drain();
@@ -186,7 +186,10 @@ final class TopicPrefetchController {
   /// cancellation of a request already adopted by navigation.
   void clear() {
     _discardCandidate();
-    _active?.cancellation.cancel();
+    final active = _active;
+    if (active == null) return;
+    active.cancellation.cancel();
+    if (!active.result.isCompleted) active.result.complete(null);
   }
 }
 
