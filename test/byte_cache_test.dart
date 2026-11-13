@@ -917,6 +917,24 @@ void main() {
 
   group('persistent cache policy and lifecycle', () {
     test(
+      'clearing during disk decode prevents stale memory publication',
+      () async {
+        const url = 'https://cdn.test/stale.png';
+        final store = _SeededByteCacheStore()
+          ..entries[url] = Uint8List.fromList([1]);
+        final cache = _TestByteCache(
+          store: store,
+          client: MockClient((_) async => http.Response.bytes([2], 200)),
+        );
+        addTearDown(cache.close);
+        cache.onDecode = cache.clear;
+
+        expect(await cache.load(url), [1]);
+        expect(cache.isCached(url), isFalse);
+      },
+    );
+
+    test(
       'delivers downloaded bytes and releases admission before persistence',
       () async {
         final store = _GatedMutationByteCacheStore()..holdWrite = true;
@@ -1558,7 +1576,12 @@ class _TestByteCache extends ByteCache<Uint8List> {
   });
 
   @override
-  Uint8List? decode(http.Response response) => response.bodyBytes;
+  Uint8List? decode(http.Response response) {
+    onDecode?.call();
+    return response.bodyBytes;
+  }
+
+  void Function()? onDecode;
 
   bool discard(String url, Uint8List value) => discardCachedValue(url, value);
 }

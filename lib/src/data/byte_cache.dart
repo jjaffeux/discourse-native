@@ -369,7 +369,7 @@ abstract class ByteCache<T extends Object> {
             );
             final decoded = decode(response);
             if (decoded != null) {
-              _put(url, decoded, byteSize: bytes.length);
+              if (current()) _put(url, decoded, byteSize: bytes.length);
               return decoded;
             }
           }
