@@ -19,14 +19,12 @@ const _adaptiveShell = 'lib/src/shell/adaptive_shell.dart';
 const _desktopPanels = 'lib/src/shell/desktop_panels.dart';
 const _mainContent = 'lib/src/shell/main_content.dart';
 
-/// Cooked HTML is a recursive grammar: a quote, an image-grid item, and a
-/// onebox each hold cooked HTML, so these libraries render one another.
+/// Image grids and oneboxes still instantiate the cooked renderer directly.
 const _cookedRecursion = [
   _cookedHtml,
   'lib/src/shell/image_grid.dart',
   'lib/src/shell/oneboxes/onebox.dart',
   'lib/src/shell/oneboxes/twitter.dart',
-  'lib/src/shell/quote.dart',
 ];
 
 void main() {

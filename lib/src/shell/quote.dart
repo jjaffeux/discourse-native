@@ -6,7 +6,6 @@ import '../foundation/icons/d_icons.dart';
 import '../theme/app_theme.dart';
 import 'avatar_image.dart';
 import 'cooked_dom.dart';
-import 'cooked_html.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -126,17 +125,38 @@ class QuoteData {
   }
 }
 
-Widget? quoteWidgetBuilder(dom.Element element, {String? siteUrl}) {
+typedef QuoteBodyBuilder =
+    Widget Function({
+      required String html,
+      String? siteUrl,
+      TextStyle? textStyle,
+    });
+
+Widget? quoteWidgetBuilder(
+  dom.Element element, {
+  required QuoteBodyBuilder renderBody,
+  String? siteUrl,
+}) {
   final isQuote =
       element.localName == 'blockquote' ||
       (element.localName == 'aside' && element.classes.contains('quote'));
   if (!isQuote) return null;
-  return QuoteBlock(data: QuoteData.from(element), siteUrl: siteUrl);
+  return QuoteBlock(
+    data: QuoteData.from(element),
+    siteUrl: siteUrl,
+    renderBody: renderBody,
+  );
 }
 
 class QuoteBlock extends StatelessWidget {
-  const QuoteBlock({super.key, required this.data, this.siteUrl});
+  const QuoteBlock({
+    super.key,
+    required this.data,
+    required this.renderBody,
+    this.siteUrl,
+  });
 
+  final QuoteBodyBuilder renderBody;
   final QuoteData data;
   final String? siteUrl;
 
@@ -153,7 +173,7 @@ class QuoteBlock extends StatelessWidget {
           : const EdgeInsets.symmetric(vertical: 12),
       child: DQuote(
         header: hasHeader ? _Header(data: data, siteUrl: siteUrl) : null,
-        child: CookedHtml(
+        child: renderBody(
           html: data.bodyHtml,
           siteUrl: siteUrl,
           textStyle: theme.textTheme.bodyMedium?.copyWith(

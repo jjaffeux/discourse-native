@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -228,13 +229,25 @@ $postQuote
     test('claims quotes and leaves everything else alone', () {
       dom(String source) => html.parse(source).body!.children.first;
 
-      expect(quoteWidgetBuilder(dom(postQuote)), isA<QuoteBlock>());
-      expect(quoteWidgetBuilder(dom(plainBlockquote)), isA<QuoteBlock>());
       expect(
-        quoteWidgetBuilder(dom('<aside class="onebox"><p>x</p></aside>')),
+        quoteWidgetBuilder(dom(postQuote), renderBody: CookedHtml.new),
+        isA<QuoteBlock>(),
+      );
+      expect(
+        quoteWidgetBuilder(dom(plainBlockquote), renderBody: CookedHtml.new),
+        isA<QuoteBlock>(),
+      );
+      expect(
+        quoteWidgetBuilder(
+          dom('<aside class="onebox"><p>x</p></aside>'),
+          renderBody: CookedHtml.new,
+        ),
         isNull,
       );
-      expect(quoteWidgetBuilder(dom('<p>plain</p>')), isNull);
+      expect(
+        quoteWidgetBuilder(dom('<p>plain</p>'), renderBody: CookedHtml.new),
+        isNull,
+      );
     });
   });
 
@@ -245,7 +258,10 @@ $postQuote
           theme: AppTheme.dark,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: QuoteBlock(data: parse(postQuote)),
+              child: QuoteBlock(
+                renderBody: CookedHtml.new,
+                data: parse(postQuote),
+              ),
             ),
           ),
         ),
@@ -290,6 +306,7 @@ $postQuote
               home: Scaffold(
                 body: SingleChildScrollView(
                   child: QuoteBlock(
+                    renderBody: CookedHtml.new,
                     data: parse(
                       sameSiteTopicLink('', title: '$titleEmoji Release party'),
                     ),
@@ -333,6 +350,7 @@ $postQuote
             theme: AppTheme.dark,
             home: const Scaffold(
               body: QuoteBlock(
+                renderBody: CookedHtml.new,
                 data: QuoteData(
                   username: 'sam',
                   avatarUrl: null,
@@ -402,7 +420,10 @@ $postQuote
                 key: boundaryKey,
                 child: SizedBox(
                   width: 120,
-                  child: QuoteBlock(data: parse(plainBlockquote)),
+                  child: QuoteBlock(
+                    renderBody: CookedHtml.new,
+                    data: parse(plainBlockquote),
+                  ),
                 ),
               ),
             ),

@@ -594,7 +594,11 @@ void main() {
           }
           probe(
             'quote',
-            () => quoteWidgetBuilder(element, siteUrl: site),
+            () => quoteWidgetBuilder(
+              element,
+              siteUrl: site,
+              renderBody: CookedHtml.new,
+            ),
             element,
           );
           probe(

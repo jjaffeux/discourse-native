@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/quote.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -65,6 +66,7 @@ void main() {
                               children: [
                                 const Text('Post quote'),
                                 const QuoteBlock(
+                                  renderBody: CookedHtml.new,
                                   data: QuoteData(
                                     username: null,
                                     avatarUrl: null,

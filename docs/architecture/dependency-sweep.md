@@ -69,3 +69,8 @@ artwork contract reaches 43 app libraries, down from 300, and core policy
 setup reaches 272, down from 300. The composer controller no longer
 participates in an import cycle. The cooked renderer remains the sole cycle,
 with five libraries.
+
+Quote blocks now take a body renderer from cooked HTML composition. The quote
+library reaches 568 app libraries, down from 620, and 152 widget libraries,
+down from 181. The cooked renderer cycle shrank from five libraries to four.
+Nested quotes, quote layout, and cooked fragments passed focused tests.

@@ -188,7 +188,11 @@ class CookedHtml extends StatelessWidget {
           pdfAttachmentWidgetBuilder(element, siteUrl: siteUrl) ??
           youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
           oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
-          quoteWidgetBuilder(element, siteUrl: siteUrl) ??
+          quoteWidgetBuilder(
+            element,
+            siteUrl: siteUrl,
+            renderBody: CookedHtml.new,
+          ) ??
           cookedDetailsWidgetBuilder(element, content: content) ??
           cookedTableWidgetBuilder(element, content: content) ??
           codeBlockWidgetBuilder(element, transient: render.transient) ??
