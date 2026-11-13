@@ -207,11 +207,12 @@ void main() {
     });
     await pumpEventQueue();
     final finishedBeforeResponse = finished;
-    api.releaseOldRefreshes();
+    api.oldCategoryGate.complete(CategoryLoadResult(const [_newRoot]));
     await Future.wait([first, joined]);
     expect(finishedBeforeResponse, isFalse);
     expect(api.categoryPagesRequested, hasLength(requests));
     expect(shell.categoryFeedFor(_site).nextPage, 3);
+    expect(shell.categoryFeedFor(_site).categoryIds, [2, 3]);
   });
 
   test('concurrent tag callers wait for the shared directory result', () async {

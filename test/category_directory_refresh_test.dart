@@ -18,6 +18,20 @@ const _stale = TopicCategory(id: 4, name: 'Stale page', color: '444444');
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('a repeated category page ends pagination', () async {
+    final api = _CategoryRefreshApi();
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    api.pages[2] = [_old];
+
+    await shell.loadMoreCategories(_site);
+    await shell.loadMoreCategories(_site);
+
+    expect(shell.categoryFeedFor(_site).categoryIds, [1]);
+    expect(shell.categoryFeedFor(_site).nextPage, isNull);
+    expect(api.categoryPagesRequested, [1, 2]);
+  });
+
   test(
     'user refresh replaces roots and restarts exhausted pagination',
     () async {

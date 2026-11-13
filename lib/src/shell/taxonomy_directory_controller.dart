@@ -1178,7 +1178,9 @@ final class _TaxonomyDirectoryController
         final held = site.categoryFeed;
         site.categoryFeed = held.withPage(
           result.rootCategoryIds,
-          hasMore: result.rootCategoryIds.isNotEmpty,
+          hasMore: result.rootCategoryIds.any(
+            (id) => !held.categoryIds.contains(id),
+          ),
         );
         _shell._notify();
       });
