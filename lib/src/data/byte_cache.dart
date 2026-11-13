@@ -585,6 +585,10 @@ abstract class ByteCache<T extends Object> {
       if (timeoutAbort.isCompleted) {
         throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
       }
+      final cancelled = transfer.abort.future.then<http.StreamedResponse>(
+        (_) => throw const _ByteCacheRequestCancelled(),
+      );
+      cancelled.ignore();
       for (var resends = 0; ; resends++) {
         final remaining = _remaining(elapsed);
         final request =
@@ -599,9 +603,7 @@ abstract class ByteCache<T extends Object> {
         try {
           streamed = await Future.any<http.StreamedResponse>([
             response,
-            transfer.abort.future.then(
-              (_) => throw const _ByteCacheRequestCancelled(),
-            ),
+            cancelled,
           ]).timeout(remaining);
         } on http.ClientException catch (error) {
           // The client reuses the connections it keeps idle, and one can be
