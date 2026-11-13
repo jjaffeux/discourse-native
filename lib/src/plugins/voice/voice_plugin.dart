@@ -50,7 +50,7 @@ final class VoicePlugin
 
   @override
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {
-    final id = roomIdIn(route.id);
+    final id = voiceRoomIdIn(route.id);
     if (id == null) return const [];
     final shell = PluginUiScope.require(context, voiceShellService);
     final site = shell.currentInstance?.url;
@@ -75,7 +75,7 @@ final class VoicePlugin
 
   @override
   Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
-    final id = roomIdIn(route.id);
+    final id = voiceRoomIdIn(route.id);
     if (id == null) return null;
     final shell = PluginUiScope.require(context, voiceShellService);
     final site = shell.currentInstance?.url;
@@ -99,7 +99,7 @@ final class VoicePlugin
     BuildContext context,
     ContentRoute route,
   ) {
-    final id = roomIdIn(route.id);
+    final id = voiceRoomIdIn(route.id);
     if (id == null) return null;
     final shell = PluginUiScope.require(context, voiceShellService);
     final site = shell.currentInstance?.url;
@@ -146,15 +146,6 @@ final class VoicePlugin
           icon: DIcons.closedCaptioning,
         )
       : null;
-
-  static String routeId(int roomId) => 'voice-room-$roomId';
-
-  static int? roomIdIn(String routeId) {
-    const prefix = 'voice-room-';
-    return routeId.startsWith(prefix)
-        ? int.tryParse(routeId.substring(prefix.length))
-        : null;
-  }
 
   @override
   List<SitePreferenceKey> get sitePreferenceKeys => declaredSitePreferenceKeys;
@@ -230,7 +221,7 @@ final class VoicePlugin
       groupId: 'chat',
       label: appL10n.chat,
       icon: DIcons.comment,
-      active: roomIdIn(shell.currentContent?.id ?? '') != null,
+      active: voiceRoomIdIn(shell.currentContent?.id ?? '') != null,
       separateWhenActive: true,
       includeSectionsWhenInactive: false,
       showSwitch: true,
@@ -287,14 +278,14 @@ final class VoicePlugin
             (room) => rooms.any((r) => r.id == room.id),
           )) ...[
             SidebarDestination(
-              id: routeId(room.id),
+              id: voiceRoomRouteId(room.id),
               label: room.name,
               icon: room.type == VoiceRoomType.stage
                   ? DIcons.earListen
                   : DIcons.microphoneLines,
               onTap: () async {
                 final replaceRoomPage =
-                    roomIdIn(shell.currentContent?.id ?? '') != null;
+                    voiceRoomIdIn(shell.currentContent?.id ?? '') != null;
                 await joinVoiceRoom(
                   context,
                   controller: controller,
@@ -312,7 +303,9 @@ final class VoicePlugin
                   shell.openRoom(
                     siteUrl: instance.url,
                     route: ContentRoute(
-                      destination: ExtensionDestination(routeId(room.id)),
+                      destination: ExtensionDestination(
+                        voiceRoomRouteId(room.id),
+                      ),
                       title: room.name,
                       icon: DIcons.microphoneLines,
                     ),
@@ -323,7 +316,7 @@ final class VoicePlugin
               onSecondaryTap: () => shell.openRoom(
                 siteUrl: instance.url,
                 route: ContentRoute(
-                  destination: ExtensionDestination(routeId(room.id)),
+                  destination: ExtensionDestination(voiceRoomRouteId(room.id)),
                   title: room.name,
                   icon: DIcons.microphoneLines,
                 ),
@@ -344,7 +337,7 @@ final class VoicePlugin
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {
-    final roomId = roomIdIn(route.id);
+    final roomId = voiceRoomIdIn(route.id);
     if (roomId == null) return null;
     return VoiceRoomView(roomId: roomId);
   }

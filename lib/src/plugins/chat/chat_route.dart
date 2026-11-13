@@ -1,5 +1,12 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
+
+ContentRoute chatInboxRoute() => ContentRoute(
+  destination: const ExtensionDestination(ChatRoute.inboxRouteId),
+  title: appL10n.chats,
+  icon: DIcons.comment,
+);
 
 /// Retains the pre-thread channel route for persisted tabs; thread identity is
 /// appended so the channel remains the Back-navigation root.

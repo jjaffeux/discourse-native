@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_navigation.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_route.dart';
@@ -5,6 +6,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'gamification_fixture.dart';
 
 void main() {
+  test('only leaderboard editor links have an admin list parent', () {
+    final fixture = GamificationFixture();
+    addTearDown(fixture.dispose);
+    final navigation = GamificationNavigation(
+      host: GamificationTestNavigationHost(),
+      controller: fixture.controller,
+    );
+    for (final (id, parents) in [
+      ('gamification/admin/new', ['gamification/admin']),
+      ('gamification/admin/42', ['gamification/admin']),
+      ('gamification/admin', <String>[]),
+      ('gamification/42?period=weekly', <String>[]),
+    ]) {
+      final route = ContentRoute(
+        destination: ExtensionDestination(id),
+        title: 'Leaderboard',
+        icon: gamificationIcon,
+      );
+      expect(navigation.mobileBackPath(route).map((page) => page.id), parents);
+    }
+  });
+
   test(
     'native route round-trips board and period without inventing catalogue',
     () {

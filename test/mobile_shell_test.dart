@@ -6,12 +6,15 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/group_route.dart';
+import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -468,6 +471,34 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
     TargetPlatform.android,
   }),
 );
+
+FakeForumTabStore _savedMobileVisits(
+  List<ContentRoute> routes, {
+  String place = 'topics',
+}) {
+  final tab = ForumTab(
+    id: 'saved-tab',
+    rootDestinationId: routes.last.id,
+    contentStack: [routes.last],
+  );
+  final workspace = ForumWorkspace(
+    siteUrl: _site,
+    accountIdentity: 'user:${_user.username}',
+    tabs: [tab],
+    activeTabId: tab.id,
+    mobile: MobileNavigationState(
+      place: place,
+      visits: [
+        for (final route in routes)
+          ForumTabLocation(rootDestinationId: route.id, contentStack: [route]),
+      ],
+      index: routes.length - 1,
+    ),
+  );
+  return FakeForumTabStore([
+    ForumWorkspace.tryFromJson(jsonDecode(jsonEncode(workspace)))!,
+  ]);
+}
 
 Future<void> _selectChatOrder(WidgetTester tester, String label) async {
   await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
@@ -4197,6 +4228,153 @@ void main() {
     expect(relaunched.currentContent?.id, 'latest');
     expect(tester.takeException(), isNull);
   });
+
+  _mobileTest('a topic restored on its own returns to Topics', (tester) async {
+    final topic = ContentRoute.topic(
+      topicId: 7,
+      slug: 'shared',
+      title: 'Topic',
+    );
+    final shell = await pumpMobileShellFixture(
+      tester,
+      forumTabs: _savedMobileVisits([topic]),
+    );
+    expect(shell.currentContent?.topicId, 7);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-card-7')).hitTestable(),
+      findsOneWidget,
+    );
+
+    expect(shell.handleForward(), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 7);
+    await tester.dragFrom(
+      Offset(100, tester.getCenter(_header).dy),
+      const Offset(180, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-card-7')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a restored topic returns to its actual filtered feed', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      forumTabs: _savedMobileVisits([
+        ContentRoute.topicList(TopicListMode.newActivity),
+        ContentRoute.topic(topicId: 7, slug: 'shared', title: 'Topic'),
+      ]),
+    );
+    expect(shell.currentContent?.topicId, 7);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'new');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (detail, directory) in [
+    (ContentRoute.group(GroupRoute.detail('staff')), 'groups'),
+    (ContentRoute.badges(BadgeRoute.detail(1)), 'badges'),
+    (ContentRoute.userActivity(username: 'sam'), 'users'),
+    (ContentRoute.list(ListLink.parse('/c/support')!), 'all-categories'),
+    (ContentRoute.list(ListLink.parse('/tag/roadmap')!), 'all-tags'),
+    for (final id in ['chat-c-10-info-members', 'chat-c-10-threads'])
+      (
+        ContentRoute(
+          destination: ExtensionDestination(id),
+          title: 'sam',
+          icon: DIcons.comment,
+        ),
+        'chat-c-10',
+      ),
+  ]) {
+    _mobileTest('a restored ${detail.id} returns to $directory', (
+      tester,
+    ) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        forumTabs: _savedMobileVisits([detail]),
+      );
+      expect(shell.currentContent?.id, detail.id);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, directory);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  _mobileTest('a restored board card link swipes back to Boards', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      board: boardFixtureJson(),
+      forumTabs: _savedMobileVisits(const [
+        ContentRoute(
+          destination: ExtensionDestination('boards/1/cards/101'),
+          title: 'Product roadmap',
+          icon: DIcons.list,
+        ),
+      ]),
+    );
+    expect(shell.currentContent?.id, 'boards/1/cards/101');
+    await tester.dragFrom(
+      Offset(100, tester.getCenter(_header).dy),
+      const Offset(180, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards');
+    expect(find.text('Product roadmap').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a message restored in Inbox returns to Inbox', (tester) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      forumTabs: _savedMobileVisits([
+        ContentRoute.topic(topicId: 7, slug: 'shared', title: 'Message'),
+      ], place: 'messages'),
+    );
+    expect(shell.currentContent?.topicId, 7);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isMessages, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest(
+    'a restored Voice room returns to the room list with Chat disabled',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        voice: true,
+        chat: false,
+        forumTabs: _savedMobileVisits(const [
+          ContentRoute(
+            destination: ExtensionDestination('voice-room-7'),
+            title: 'Watercooler',
+            icon: DIcons.microphoneLines,
+          ),
+        ]),
+      );
+      expect(shell.currentContent?.id, 'voice-room-7');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-inbox-room-7')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _mobileTest('Start is not a place: the bar and its panel are Start', (
     tester,

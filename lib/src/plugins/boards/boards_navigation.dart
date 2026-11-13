@@ -35,7 +35,8 @@ final class BoardsRoute {
   }
 }
 
-final class BoardsNavigation implements PluginLinkHandler {
+final class BoardsNavigation
+    implements PluginLinkHandler, PluginMobileBackPath {
   const BoardsNavigation({
     required this.host,
     required this.topicLists,
@@ -52,16 +53,25 @@ final class BoardsNavigation implements PluginLinkHandler {
     _ => false,
   };
 
+  @override
+  List<ContentRoute> mobileBackPath(ContentRoute route) {
+    if (BoardsRoute.parse(route.id)?.boardId == null) return const [];
+    return [_boardRoute(const BoardsRoute())];
+  }
+
+  ContentRoute _boardRoute(BoardsRoute route, {String? title}) => ContentRoute(
+    destination: ExtensionDestination(route.id),
+    title: title ?? appL10n.boardsTitle,
+    icon: boardsIcon,
+  );
+
   void open({BoardSnapshot? board, int? cardId}) {
     final site = host.currentSite;
     if (site == null || !controller.enabled(site.url)) return;
     host.pushContent(
-      ContentRoute(
-        destination: ExtensionDestination(
-          BoardsRoute(boardId: board?.id, cardId: cardId).id,
-        ),
-        title: board?.name ?? appL10n.boardsTitle,
-        icon: boardsIcon,
+      _boardRoute(
+        BoardsRoute(boardId: board?.id, cardId: cardId),
+        title: board?.name,
       ),
     );
   }
@@ -69,15 +79,9 @@ final class BoardsNavigation implements PluginLinkHandler {
   void openMembership(String site, BoardMembership membership) {
     if (!controller.enabled(site) || host.currentSite?.url != site) return;
     host.pushContent(
-      ContentRoute(
-        destination: ExtensionDestination(
-          BoardsRoute(
-            boardId: membership.boardId,
-            cardId: membership.cardId,
-          ).id,
-        ),
+      _boardRoute(
+        BoardsRoute(boardId: membership.boardId, cardId: membership.cardId),
         title: membership.name,
-        icon: boardsIcon,
       ),
     );
   }
@@ -156,11 +160,7 @@ final class BoardsNavigation implements PluginLinkHandler {
     }
     if (route == null) return false;
     host.pushContent(
-      ContentRoute(
-        destination: ExtensionDestination(route.id),
-        title: appL10n.boardsTitle,
-        icon: boardsIcon,
-      ),
+      _boardRoute(route),
       siteUrl: owner.forum.url,
       origin: origin,
       onNavigated: onNavigated,

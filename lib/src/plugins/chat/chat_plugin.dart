@@ -22,6 +22,7 @@ import 'chat_global_search.dart';
 import 'chat_header_button.dart';
 import 'chat_inbox.dart';
 import 'chat_inbox_filters.dart';
+import 'chat_inbox_rooms.dart';
 import 'chat_mobile_sidebar.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_new_direct_message.dart';
@@ -609,11 +610,15 @@ class ChatPlugin
     }
     if (route.id == ChatRoute.inboxRouteId) {
       final siteUrl = shell.currentSiteUrl;
-      return siteUrl == null
-          ? const SizedBox.shrink()
-          : !shell.chatAvailable(siteUrl)
-          ? Center(child: Text(context.l10n.chatIsNotAvailable))
-          : ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl);
+      if (siteUrl == null) return const SizedBox.shrink();
+      final rooms = PluginUiScope.optional(context, chatInboxRoomsService);
+      return ListenableBuilder(
+        listenable: Listenable.merge([shell, ?rooms]),
+        builder: (context, _) =>
+            shell.chatAvailable(siteUrl) || rooms?.available(siteUrl) == true
+            ? ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl)
+            : Center(child: Text(context.l10n.chatIsNotAvailable)),
+      );
     }
     if (route.id == ChatRoute.browseRouteId) {
       final siteUrl = shell.currentSiteUrl;

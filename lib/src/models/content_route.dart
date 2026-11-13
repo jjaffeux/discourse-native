@@ -577,8 +577,10 @@ class ContentRoute {
     return ListLink.parse(_withoutJson(uri.path));
   }
 
-  bool get isTaxonomyList =>
-      destination is FeedDestination && _listLink != null;
+  ListKind? get taxonomyListKind =>
+      destination is FeedDestination ? _listLink?.kind : null;
+
+  bool get isTaxonomyList => taxonomyListKind != null;
 
   ContentRoute resolveCategoryLink(Iterable<TopicCategory> categories) {
     final link = _listLink;

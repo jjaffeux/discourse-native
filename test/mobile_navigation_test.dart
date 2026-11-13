@@ -317,6 +317,37 @@ void main() {
     expect(relaunched.tab, MobileTab.topics);
   });
 
+  test('a saved document supplies missing visits and keeps Forward', () {
+    final navigation = MobileNavigation();
+    final parent = page('category');
+    final reader = ForumTabLocation(
+      rootDestinationId: parent.rootDestinationId,
+      contentStack: [
+        parent.contentStack.single,
+        page('topic').contentStack.single,
+      ],
+    );
+    final forward = page('next-topic');
+    expect(
+      navigation.restore(
+        state: MobileNavigationState(
+          place: 'topics',
+          visits: [reader, forward],
+          index: 0,
+        ),
+      ),
+      isTrue,
+    );
+    final current = navigation.entryId;
+    navigation.restoreDocumentAncestors();
+    expect(navigation.goBack(), isTrue);
+    expect(navigation.location, parent);
+    expect(navigation.goForward(), isTrue);
+    expect(navigation.entryId, same(current));
+    expect(navigation.goForward(), isTrue);
+    expect(navigation.location, forward);
+  });
+
   test('a saved state from an unknown build is declined', () {
     for (final json in <Object?>[
       null,

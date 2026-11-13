@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -44,6 +45,7 @@ Future<ShellController> _fixture(
   Size size = const Size(390, 844),
   bool direct = false,
   bool browse = false,
+  FakeForumTabStore? forumTabs,
   void Function(FakeDiscourseApi)? onApi,
 }) async {
   final channel = ChatChannel(
@@ -57,6 +59,7 @@ Future<ShellController> _fixture(
   final shell = await pumpMobileShellFixture(
     tester,
     size: size,
+    forumTabs: forumTabs,
     chatBrowsePage: browse ? ChatChannelBrowsePage(channels: [channel]) : null,
     onApi: onApi,
     conversations: ChatChannels(
@@ -86,7 +89,7 @@ Future<ShellController> _fixture(
         ),
     ],
   );
-  shell.selectMobilePanel('chat');
+  if (forumTabs == null) shell.selectMobilePanel('chat');
   if (const bool.fromEnvironment('captureChatSheet')) {
     await shell.forumSettings.setShared(
       shell.forumSettings.shared.copyWith(
@@ -342,6 +345,83 @@ void main() {
         variant: _platforms,
       );
     }
+  }
+
+  for (final hasChannelVisit in [false, true]) {
+    testWidgets(
+      hasChannelVisit
+          ? 'relaunch preserves the channel visit and adds the missing Chat list'
+          : 'relaunch with only a thread restores Back and swipe to the Chat list',
+      (tester) async {
+        final channel = ForumTabLocation(
+          rootDestinationId: 'chat-c-10',
+          contentStack: const [
+            ContentRoute(
+              destination: ExtensionDestination('chat-c-10'),
+              title: 'Support',
+              icon: DIcons.comment,
+            ),
+          ],
+        );
+        final tab = ForumTab(
+          id: 'chat-tab',
+          rootDestinationId: 'chat-c-10-t-3',
+          contentStack: const [
+            ContentRoute(
+              destination: ExtensionDestination('chat-c-10-t-3'),
+              title: 'Thread',
+              subtitle: 'Support',
+              icon: DIcons.comments,
+            ),
+          ],
+        );
+        final saved = ForumWorkspace(
+          siteUrl: _site,
+          accountIdentity: 'user:reader',
+          tabs: [tab],
+          activeTabId: tab.id,
+          mobile: MobileNavigationState(
+            place: hasChannelVisit ? 'panel/chat' : 'topics',
+            visits: [if (hasChannelVisit) channel, tab.location],
+            index: hasChannelVisit ? 1 : 0,
+          ),
+        );
+        final shell = await _fixture(
+          tester,
+          forumTabs: FakeForumTabStore([
+            ForumWorkspace.tryFromJson(jsonDecode(jsonEncode(saved)))!,
+          ]),
+        );
+        expect(find.byType(ChatThreadView).hitTestable(), findsOneWidget);
+        final previousVisit = shell.mobileNavigation.previousEntryId;
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatChannelView).hitTestable(), findsOneWidget);
+        if (hasChannelVisit) {
+          expect(shell.mobileNavigation.entryId, same(previousVisit));
+        }
+
+        await tester.dragFrom(
+          Offset(100, tester.getCenter(_header).dy),
+          const Offset(180, 0),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
+          findsOneWidget,
+        );
+
+        expect(shell.handleForward(), isTrue);
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatChannelView).hitTestable(), findsOneWidget);
+        expect(shell.handleForward(), isTrue);
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatThreadView).hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      variant: _platforms,
+    );
   }
 
   for (final direct in [false, true]) {

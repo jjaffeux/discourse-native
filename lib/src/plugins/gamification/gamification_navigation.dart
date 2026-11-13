@@ -11,10 +11,29 @@ const gamificationNavigationKey = PluginServiceKey<GamificationNavigation>(
 );
 const gamificationIcon = DIcons.star;
 
-final class GamificationNavigation implements PluginLinkHandler {
+final class GamificationNavigation
+    implements PluginLinkHandler, PluginMobileBackPath {
   const GamificationNavigation({required this.host, required this.controller});
   final PluginRouteNavigationHost host;
   final GamificationController controller;
+
+  @override
+  List<ContentRoute> mobileBackPath(ContentRoute route) {
+    final target = GamificationRoute.parse(route.id);
+    if (target == null ||
+        !target.admin ||
+        (!target.create && target.boardId == null)) {
+      return const [];
+    }
+    return [_contentRoute(const GamificationRoute(admin: true))];
+  }
+
+  ContentRoute _contentRoute(GamificationRoute route) => ContentRoute(
+    destination: ExtensionDestination(route.id),
+    title: appL10n.gamificationTitle,
+    icon: gamificationIcon,
+  );
+
   void open([GamificationRoute route = const GamificationRoute()]) {
     final site = host.currentSite;
     if (site != null) openForSite(site.url, route);
@@ -34,11 +53,7 @@ final class GamificationNavigation implements PluginLinkHandler {
       return;
     }
     host.pushContent(
-      ContentRoute(
-        destination: ExtensionDestination(route.id),
-        title: appL10n.gamificationTitle,
-        icon: gamificationIcon,
-      ),
+      _contentRoute(route),
       siteUrl: site,
       origin: origin,
       onNavigated: onNavigated,

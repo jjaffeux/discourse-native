@@ -126,9 +126,12 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
   _ChatMobileInboxLayout _read() {
     final chat = _chat!;
     final filter = chat.inboxFilters.filterFor(siteUrl);
-    final channels = chatInboxConversations(chat, siteUrl, filter);
-    final error = chat.channelsError(siteUrl);
-    final refreshing = chat.channelsLoading(siteUrl);
+    final chatAvailable = _shell!.chatAvailable(siteUrl);
+    final channels = chatAvailable
+        ? chatInboxConversations(chat, siteUrl, filter)
+        : const <ChatChannel>[];
+    final error = chatAvailable ? chat.channelsError(siteUrl) : null;
+    final refreshing = chatAvailable && chat.channelsLoading(siteUrl);
     return _ChatMobileInboxLayout(
       filter: filter,
       channelIds: [for (final channel in channels) channel.id],
@@ -146,7 +149,10 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
           ),
       ],
       canCreateRoom: _rooms?.createRoom(siteUrl) != null,
-      loading: !chat.channelsLoaded(siteUrl) && (refreshing || error == null),
+      loading:
+          chatAvailable &&
+          !chat.channelsLoaded(siteUrl) &&
+          (refreshing || error == null),
       refreshing: refreshing,
       failed: error != null,
       visibleChannelId: _shell?.visibleChannelId,
@@ -313,7 +319,10 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
           return lazy
               ? DPullToRefresh(
                   key: ValueKey((siteUrl, filter)),
-                  onRefresh: loading || layout.refreshing
+                  onRefresh:
+                      loading ||
+                          layout.refreshing ||
+                          !_shell!.chatAvailable(siteUrl)
                       ? null
                       : () => chat.loadChannels(siteUrl, force: true),
                   child: content,

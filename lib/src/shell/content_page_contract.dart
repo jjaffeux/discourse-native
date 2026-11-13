@@ -1,4 +1,11 @@
+import 'package:discourse_native/l10n/strings.dart';
+
+import '../foundation/icons/d_icons.dart';
+import '../models/badge_route.dart';
 import '../models/content_route.dart';
+import '../models/group_route.dart';
+import '../models/list_link.dart';
+import '../models/tag_sidebar.dart';
 import '../plugin_api/global_search_models.dart';
 
 enum PageLoad {
@@ -64,6 +71,30 @@ final class ContentPageContract {
 
   PageLoad? loadOnSelection({required bool refresh}) =>
       refresh ? reselectionLoad ?? selectionLoad : selectionLoad;
+
+  static ContentRoute? mobileParent(
+    ContentRoute route, {
+    required bool inMessages,
+  }) => switch (route.destination) {
+    TopicDestination() =>
+      inMessages ? ContentRoute.messages() : ContentRoute.homepage(),
+    GroupDestination(route: final group) when group.isDetail =>
+      ContentRoute.group(const GroupRoute.directory()),
+    BadgeDestination(route: final badge) when !badge.isDirectory =>
+      ContentRoute.badges(const BadgeRoute.directory()),
+    PageDestination(page: CorePage.activity, activityUsername: String()) =>
+      ContentRoute(
+        destination: const PageDestination(CorePage.users),
+        title: appL10n.users,
+        icon: DIcons.users,
+      ),
+    FeedDestination() => switch (route.taxonomyListKind) {
+      ListKind.category => ContentRoute.allCategories(),
+      ListKind.tag => ContentRoute.fromDestination(allTagsDestination),
+      null => null,
+    },
+    _ => null,
+  };
 
   PageHeader headerFor({
     required bool hasSite,

@@ -31,6 +31,7 @@ final class ChatShellService
         PluginLinkHandler,
         PluginRouteRetry,
         PluginRouteHydrator,
+        PluginMobileBackPath,
         PluginPaneRoutePolicy,
         PluginTotalsObserver,
         PluginTrackerAttachment,
@@ -436,6 +437,28 @@ final class ChatShellService
       separateSidebarMode != ChatSeparateSidebarMode.never;
 
   @override
+  List<ContentRoute> mobileBackPath(ContentRoute route) {
+    final destination = ChatRoute.parse(route.id);
+    final channelId =
+        destination?.channelId ?? ChatRoute.channelIdFromThreadsRoute(route.id);
+    if (channelId == null) return const [];
+
+    return [
+      chatInboxRoute(),
+      if (destination == null || destination.isThread || destination.isInfo)
+        ContentRoute(
+          destination: ExtensionDestination(
+            ChatRoute.channel(channelId).routeId,
+          ),
+          title: destination?.isInfo == true
+              ? route.title
+              : route.subtitle ?? appL10n.chat,
+          icon: DIcons.comment,
+        ),
+    ];
+  }
+
+  @override
   Future<void> hydratePluginRoute(
     String siteUrl,
     String routeId, {
@@ -570,13 +593,7 @@ final class ChatShellService
   void openChats({bool newTab = false}) {
     _activateSeparatedPane();
     if (newTab) {
-      _host.openPageTab(
-        ContentRoute(
-          destination: const ExtensionDestination(ChatRoute.inboxRouteId),
-          title: appL10n.chats,
-          icon: DIcons.comment,
-        ),
-      );
+      _host.openPageTab(chatInboxRoute());
     } else {
       _host.selectDestination(
         SidebarDestination(
