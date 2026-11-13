@@ -1170,6 +1170,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
           redacted: const {},
         );
       }
+      if (!_readIsCurrent(stamp)) return;
       final TopicPayload fetched =
           warmed?.payload ??
           await _stage<TopicPayload>(
@@ -1301,7 +1302,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
       if (!isCurrent) return;
       stamp = _stamp(topicId);
       final credential = await _requests.credentials(_owner.credentials);
-      if (!isCurrent) return;
+      if (!_readIsCurrent(stamp)) return;
       final payload = await credential.run(
         () => _owner.content.topic(
           siteUrl: siteUrl,
@@ -1383,7 +1384,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     _changed();
     try {
       final credential = await _requests.keyCredentials(_owner.credentials);
-      if (!isCurrent) return;
+      if (!_readIsCurrent(stamp)) return;
       final page = recommendations
           ? await credential.run(
               () => _owner.content.topicPosts(

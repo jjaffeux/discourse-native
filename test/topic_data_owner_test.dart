@@ -297,6 +297,41 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  for (final operation in ['open', 'refresh', 'page']) {
+    test(
+      'retired tracking skips $operation requests after credential lookup',
+      () async {
+        final f = _Fixture()..seed();
+        final key = Completer<String?>();
+        f.credentials.pendingKey = key.future;
+        final data = f.data;
+        final pending = switch (operation) {
+          'open' => data.open(
+            7,
+            slug: 'topic',
+            postNumber: 42,
+            opening: f.opening,
+          ),
+          'refresh' => data.refresh(7),
+          _ => data.pageIds(7, ids: [42], newer: false),
+        };
+        await pumpEventQueue();
+        expect(f.credentials.reads, 1);
+        f.tracking.retire();
+        key.complete('key');
+        await pumpEventQueue();
+        final counts = [f.api.topicReads.length, f.api.postReads.length];
+        for (final read in f.api.topicReads) {
+          read.result.complete(_payload([]));
+        }
+        for (final read in f.api.postReads) {
+          read.result.complete([]);
+        }
+        await pending;
+        expect(counts, [0, 0]);
+      },
+    );
+  }
   for (final mega in [false, true]) {
     test('retired tracking skips timeline requests (mega: $mega)', () async {
       final f = _Fixture();
