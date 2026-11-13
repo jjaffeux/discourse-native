@@ -86,7 +86,7 @@ final class SerialOperationQueue {
 /// Keys must retain stable equality and hash codes while work is pending.
 final class ReadAfterWriteOperationQueue {
   final SerialOperationQueue _operations = SerialOperationQueue();
-  final Map<_SerialOperationKey, int> _pendingWrites = {};
+  final Map<_SerialOperationKey, Object> _latestWrites = {};
 
   Future<T> read<T>({
     required Object owner,
@@ -94,7 +94,7 @@ final class ReadAfterWriteOperationQueue {
     required Future<T> Function() operation,
   }) {
     final lane = _SerialOperationKey(owner, key);
-    if ((_pendingWrites[lane] ?? 0) == 0) return Future.sync(operation);
+    if (!_latestWrites.containsKey(lane)) return Future.sync(operation);
     return _operations.run(owner: owner, key: key, operation: operation);
   }
 
@@ -104,7 +104,8 @@ final class ReadAfterWriteOperationQueue {
     required Future<T> Function() operation,
   }) {
     final lane = _SerialOperationKey(owner, key);
-    _pendingWrites.update(lane, (count) => count + 1, ifAbsent: () => 1);
+    final write = Object();
+    _latestWrites[lane] = write;
     return _operations.run(
       owner: owner,
       key: key,
@@ -112,11 +113,8 @@ final class ReadAfterWriteOperationQueue {
         try {
           return await operation();
         } finally {
-          final remaining = _pendingWrites[lane]! - 1;
-          if (remaining == 0) {
-            _pendingWrites.remove(lane);
-          } else {
-            _pendingWrites[lane] = remaining;
+          if (identical(_latestWrites[lane], write)) {
+            _latestWrites.remove(lane);
           }
         }
       },
