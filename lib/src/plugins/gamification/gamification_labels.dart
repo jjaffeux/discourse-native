@@ -1,4 +1,5 @@
-import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart'
+    show DCalendarDate;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';

@@ -1,5 +1,5 @@
+import 'package:discourse_native/discourse_math_types.dart';
 import 'package:discourse_native/discourse_plugin_contracts.dart';
-import 'package:discourse_native/discourse_ui.dart';
 
 const mathSettingsKey = PluginDataKey<MathSettings>(
   owner: 'discourse-math',

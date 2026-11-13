@@ -18,7 +18,7 @@ behavior its focused tests protect.
 | Retain notification totals, feeds, and read authority | `AccountActivityController` and its private account/request owners | [Reconciliation](notification-reconciliation.md), [totals](notification-totals-refresh.md), [feed loading](notification-feed-loading.md), [reminders](bookmark-reminder-loading.md), [pause](notification-pause-ownership.md) |
 | Deliver external notification navigation | `AppRuntime` notification ingress | [Destination lifetime](notification-ingress-lifetime.md) |
 | Retain global search documents, account results and recent history | `GlobalSearchController`, `RecentSearchHistory`, plugin search owners | [Core search lifetime](core-global-search-lifetime.md), [Chat search lifetime](chat-global-search-lifetime.md) |
-| Track what stands between the user and a forum, and what each forum allows | `_ForumAccessState`, `_SiteCapabilities` | [Round nine](layer-dependencies-round9.md) |
+| Track what stands between the user and a forum, and what each forum allows | `ForumAccessState`, `SiteCapabilities` | [Round eleven](layer-dependencies-round11.md) |
 | Retain appearance, emoji catalogs, and cooking inputs | `SitePresentationController`, `CookingContextOwner` | [Presentation sessions](presentation-sessions.md), [cooked rendering](../cooked-rendering.md) |
 | Retain composers, prepare openings, and coordinate saves | Composer opening owners, registry, controller, draft coordinator | [Composer architecture](../composer-architecture.md), [draft accounts](draft-account-ownership.md) |
 | Persist workspaces, recent visits, and local choices | Their dedicated stores and write queues | [Workspace snapshots](workspace-storage-snapshots.md), [recent hydration](recent-destination-hydration.md), [choice acceptance](presentation-preference-acceptance.md), [welcome claims](welcome-claim-ownership.md) |
@@ -107,3 +107,6 @@ and the remaining limits.
 
 [Round nine](layer-dependencies-round9.md) records ten improvements with a
 rerunnable proof each, and the proof manifest to rerun them.
+
+[Round eleven](layer-dependencies-round11.md) records ten reductions in
+dependency reach across data, plugins, and the shell.

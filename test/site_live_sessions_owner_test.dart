@@ -8,7 +8,6 @@ import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
-import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
@@ -317,7 +316,6 @@ final class _Fixture implements SiteLiveCurrentUsers, SiteLiveComposition {
     tracking = TopicTrackingDirectory(
       lifecycle: lifecycle,
       store: Store(),
-      models: const DiscourseModelCodec.core(),
       userFor: (_) => site.user,
       configFor: (_) => site.config,
       changed: (_) {},
@@ -381,10 +379,7 @@ final class _Fixture implements SiteLiveCurrentUsers, SiteLiveComposition {
     if (!identical(_userSession, lease.session)) {
       _userReconciler?.retire();
       _userSession = lease.session;
-      _userReconciler = CurrentUserReconciler(
-        lease: lease,
-        models: const DiscourseModelCodec.core(),
-      );
+      _userReconciler = CurrentUserReconciler(lease: lease);
     }
     return _userReconciler!;
   }

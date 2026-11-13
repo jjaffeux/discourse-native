@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/site_lifecycle.dart';
 import '../../models/found_group.dart';
 import 'composer_identity_directory.dart';
-import 'controller.dart';
+import 'recipient_target.dart';
 
 final class ComposerRecipientLookup extends ChangeNotifier {
   ComposerRecipientLookup({
@@ -17,7 +17,7 @@ final class ComposerRecipientLookup extends ChangeNotifier {
     _detachRetirement = _lease.onRetire(_retire);
   }
 
-  final ComposerController composer;
+  final ComposerRecipientTarget composer;
   final ComposerRecipientSearch _search;
   final String siteUrl;
   final SiteLease _lease;
@@ -36,7 +36,10 @@ final class ComposerRecipientLookup extends ChangeNotifier {
       .where((name) => name.isNotEmpty)
       .toList();
 
-  bool matches(ComposerController composer, ComposerRecipientSearch search) =>
+  bool matches(
+    ComposerRecipientTarget composer,
+    ComposerRecipientSearch search,
+  ) =>
       !_retired &&
       _lease.isCurrent &&
       identical(this.composer, composer) &&

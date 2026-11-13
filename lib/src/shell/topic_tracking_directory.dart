@@ -1,7 +1,6 @@
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/topic_tracking_reconciler.dart';
-import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/json.dart';
 import '../models/site_config.dart';
@@ -18,7 +17,6 @@ final class TopicTrackingDirectory {
   TopicTrackingDirectory({
     required this.lifecycle,
     required this.store,
-    required this.models,
     required this.userFor,
     required this.configFor,
     required this.changed,
@@ -28,7 +26,6 @@ final class TopicTrackingDirectory {
 
   final SiteLifecycle lifecycle;
   final Store store;
-  final DiscourseModelCodec models;
   final DiscourseUser? Function(String siteUrl) userFor;
   final SiteConfig Function(String siteUrl) configFor;
   final void Function(String siteUrl) changed;
@@ -137,7 +134,7 @@ final class TopicTrackingAccount implements TopicTrackingAdmission {
     final original = _user;
     return original == null
         ? user == null
-        : user != null && _owner.models.sameCurrentUserAccount(original, user);
+        : user != null && original.isSameAccountAs(user);
   }
 
   bool owns(TopicTrackingSnapshot ticket) =>

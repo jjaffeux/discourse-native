@@ -6,17 +6,18 @@ import '../models/json.dart';
 import '../models/plugin_icon_catalog.dart';
 import '../models/sidebar.dart';
 import 'account_request_session.dart';
-import 'discourse_transport.dart';
 
 /// Supplements bundled icons with the forum's complete SVG catalogue.
 final class SidebarIconLoader {
-  SidebarIconLoader(
-    this._transport,
-    this._bundled, {
-    DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  SidebarIconLoader(this._get, this._bundled, {DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
 
-  final DiscourseTransport _transport;
+  final Future<http.Response> Function(
+    Uri url, {
+    required String siteUrl,
+    required String accept,
+  })
+  _get;
   final IconNameDecoder _bundled;
   final DateTime Function() _clock;
   final _artwork = <Uri, (DateTime, DIconData)>{};
@@ -175,7 +176,7 @@ final class SidebarIconLoader {
     // This endpoint is public, including on login-required forums.
     final scope = AccountRequestScope.current;
     Future<http.Response> fetch() =>
-        _transport.get(url, siteUrl: siteUrl, accept: 'image/svg+xml');
+        _get(url, siteUrl: siteUrl, accept: 'image/svg+xml');
     final response = await (scope == null
         ? fetch()
         : scope.runAnonymous(fetch));

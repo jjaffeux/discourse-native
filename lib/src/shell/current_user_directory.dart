@@ -24,13 +24,11 @@ abstract interface class _CurrentUserRefreshHost {
 final class _CurrentUserDirectory {
   _CurrentUserDirectory({
     required this.lifecycle,
-    required this.models,
     required this.statuses,
     required this._host,
   });
 
   final SiteLifecycle lifecycle;
-  final DiscourseModelCodec models;
   final UserStatusOverrides statuses;
   final _CurrentUserRefreshHost _host;
   final Map<String, _CurrentUserAccount> _accounts = {};
@@ -45,7 +43,6 @@ final class _CurrentUserDirectory {
       session,
       CurrentUserReconciler(
         lease: session,
-        models: models,
         statuses: statuses.reconcilerFor(siteUrl),
       ),
     );

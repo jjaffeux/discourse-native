@@ -1,6 +1,5 @@
 import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
@@ -8,7 +7,6 @@ import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _site = 'https://forum.example';
-const _models = DiscourseModelCodec.core();
 const _firstOption = PluginDataKey<String>(owner: 'test', name: 'first');
 const _secondOption = PluginDataKey<String>(owner: 'test', name: 'second');
 const _unrelatedOption = PluginDataKey<String>(
@@ -22,10 +20,7 @@ void main() {
 
   setUp(() {
     lifecycle = SiteLifecycle();
-    reconciler = CurrentUserReconciler(
-      lease: lifecycle.capture(_site),
-      models: _models,
-    );
+    reconciler = CurrentUserReconciler(lease: lifecycle.capture(_site));
   });
 
   test('a tag write protects its muted tags from a stale response', () {
@@ -647,10 +642,7 @@ void main() {
 
   test('foreign, invalidated and retired owners reject their tickets', () {
     final ticket = reconciler.beginSnapshot();
-    final foreign = CurrentUserReconciler(
-      lease: lifecycle.capture(_site),
-      models: _models,
-    );
+    final foreign = CurrentUserReconciler(lease: lifecycle.capture(_site));
     const user = DiscourseUser(id: 7, username: 'sam');
 
     expect(foreign.reconcile(ticket, previous: null, incoming: user), isNull);
@@ -673,10 +665,7 @@ void main() {
     expect(reconciler.categoryPreferencesAreCurrent(ticket), isFalse);
     expect(reconciler.doNotDisturbIsCurrent(ticket), isFalse);
 
-    final replacement = CurrentUserReconciler(
-      lease: lifecycle.capture(_site),
-      models: _models,
-    );
+    final replacement = CurrentUserReconciler(lease: lifecycle.capture(_site));
     expect(
       replacement.reconcile(ticket, previous: null, incoming: user),
       isNull,

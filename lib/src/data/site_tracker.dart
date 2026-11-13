@@ -7,10 +7,10 @@ import 'package:message_bus_client/message_bus_client.dart';
 
 import '../foundation/bounded_lru_cache.dart';
 import '../models/incoming_topics.dart';
-import 'discourse_api_contracts.dart';
 import 'http_transport.dart';
 import 'http_url_safety.dart';
 import 'live_channels.dart';
+import 'site_lookup_failure.dart';
 
 typedef SiteTrackerFactory =
     SiteTracker Function({

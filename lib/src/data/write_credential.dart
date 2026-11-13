@@ -1,6 +1,6 @@
 import 'account_request_session.dart';
 import 'api_credentials.dart';
-import 'discourse_api_contracts.dart';
+import 'write_failure.dart';
 
 /// The account's credential for one mutation, or the failure to report for it.
 typedef WriteCredential = ({

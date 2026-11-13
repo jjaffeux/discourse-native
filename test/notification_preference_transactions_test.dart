@@ -5,7 +5,6 @@ import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
-import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/tag_notification.dart';
@@ -753,10 +752,7 @@ final class _Fixture {
   void replaceAccount() {
     final lease = lifecycle.capture(_site);
     tracking = TopicTrackingReconciler(isCurrent: () => lease.isCurrent);
-    currentUser = CurrentUserReconciler(
-      lease: lease,
-      models: const DiscourseModelCodec.core(),
-    );
+    currentUser = CurrentUserReconciler(lease: lease);
     user = const DiscourseUser(
       id: 7,
       username: 'reader',

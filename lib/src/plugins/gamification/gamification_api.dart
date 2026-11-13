@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
-import 'package:discourse_native/discourse_ui.dart';
 
 import 'gamification_models.dart';
 

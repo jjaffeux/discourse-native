@@ -39,6 +39,7 @@ import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 import 'marks.dart';
 import 'pills.dart';
+import 'recipient_target.dart';
 import 'triggers.dart';
 import 'upload_preview.dart';
 
@@ -161,7 +162,10 @@ final class _ComposerUnresolved extends _ComposerSentState {
 }
 
 class ComposerController extends ChangeNotifier
-    implements ComposerEditorHost, ComposerMetadataEditorHost {
+    implements
+        ComposerEditorHost,
+        ComposerMetadataEditorHost,
+        ComposerRecipientTarget {
   ComposerController(
     this._target, {
     this.onSaveDraft,
@@ -974,12 +978,14 @@ class ComposerController extends ChangeNotifier
   DateTime _openedAt;
 
   ComposerTarget _target;
+  @override
   ComposerTarget get target => _target;
   PluginComposerTarget? get _pluginTarget => switch (_target) {
     final PluginComposerTarget target => target,
     _ => null,
   };
 
+  @override
   void setRecipients(Iterable<String> values) {
     final target = _target;
     if (_disposed || target is! PrivateMessageComposerTarget || !isEditing) {

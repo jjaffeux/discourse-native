@@ -274,9 +274,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             shell.mobileNavigation.atRoot &&
             panelOwner != null;
         final presentation = MobilePresentation.resolve(
-          context,
-          shell: shell,
-          registry: registry,
+          currentRoute: shell.currentContent,
+          stack: shell.activeTab?.contentStack ?? const [],
+          navigation: shell.mobileNavigation,
+          usesPageSheet: (route) =>
+              registry.usesMobilePageSheet(context, route),
+          ownsContentChrome: (route) =>
+              registry.ownsContentChrome(context, route),
+          hidesDock: (route) => registry.hidesMobileDock(context, route),
           panelRoot: panelRoot,
           boundary: widget.boundary,
         );

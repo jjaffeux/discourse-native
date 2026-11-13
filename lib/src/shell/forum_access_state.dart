@@ -1,4 +1,7 @@
-part of 'shell_controller.dart';
+import '../data/account_session_coordinator.dart';
+import '../data/site_lifecycle.dart';
+import '../models/discourse_instance.dart';
+import '../plugin_api/shell_extensions.dart';
 
 final class _ForumAccess {
   String? connectError;
@@ -12,8 +15,8 @@ final class _ForumAccess {
 /// Tracks what stands between the user and each forum, which is a failed
 /// sign-in, an unreachable site, and the retry of it. Retiring a site is one
 /// removal.
-final class _ForumAccessState {
-  _ForumAccessState({
+final class ForumAccessState {
+  ForumAccessState({
     required this.instanceAt,
     required this.captureLease,
     required this.routeRetries,

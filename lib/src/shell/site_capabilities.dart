@@ -1,4 +1,10 @@
-part of 'shell_controller.dart';
+import 'dart:async';
+
+import '../data/discourse_api_contracts.dart';
+import '../data/site_lifecycle.dart';
+import '../data/write_credential.dart';
+import '../models/post_flag.dart';
+import '../models/topic.dart';
 
 final class _ComposerCapabilityRead {
   _ComposerCapabilityRead(this.lease);
@@ -19,8 +25,8 @@ final class _SiteCapabilityRecord {
 
 /// What each forum lets this account do, as far as the app has learned it.
 /// Retiring a site is one removal.
-final class _SiteCapabilities {
-  _SiteCapabilities({
+final class SiteCapabilities {
+  SiteCapabilities({
     required this.credentialForWrite,
     required this.topicComposerQueries,
     required this.lifecycle,

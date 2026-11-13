@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
-import 'package:discourse_native/src/plugins/discourse_lazy_videos/lazy_youtube.dart';
+import 'package:discourse_native/src/plugins/discourse_lazy_videos/lazy_youtube_parser.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';

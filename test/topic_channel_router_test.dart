@@ -404,7 +404,6 @@ final class _Harness {
   late final tracking = TopicTrackingDirectory(
     lifecycle: lifecycle,
     store: store,
-    models: api.models,
     userFor: (_) => null,
     configFor: (_) => const SiteConfig(),
     changed: (_) {},

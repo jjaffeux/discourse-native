@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_contracts.dart';
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 
 import 'gamification_api.dart';

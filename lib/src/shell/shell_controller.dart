@@ -142,6 +142,7 @@ import 'core_link_resolver.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
 import 'flag_transactions.dart';
+import 'forum_access_state.dart';
 import 'forum_settings_controller.dart';
 import 'forum_tab_scope.dart';
 import 'global_search_api.dart';
@@ -157,6 +158,7 @@ import 'preview_requests.dart';
 import 'profile_write_transactions.dart';
 import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
+import 'site_capabilities.dart';
 import 'site_live_sessions.dart';
 import 'site_presentation_controller.dart';
 import 'site_read_policy.dart';
@@ -184,14 +186,12 @@ part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'current_user_directory.dart';
-part 'forum_access_state.dart';
 part 'instance_rail_transactions.dart';
 part 'message_archive_transactions.dart';
 part 'post_commands.dart';
 part 'post_mutation_policy.dart';
 part 'selected_post_moderation.dart';
 part 'shell_tab_context.dart';
-part 'site_capabilities.dart';
 part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
 part 'topic_action_transactions.dart';
@@ -1134,7 +1134,7 @@ class ShellController extends FrameSafeNotifier
     return controller;
   }
 
-  late final _forumAccess = _ForumAccessState(
+  late final _forumAccess = ForumAccessState(
     instanceAt: _instanceAt,
     captureLease: lifecycle.capture,
     routeRetries: () => _pluginSession.capabilities<PluginRouteRetry>(),
@@ -2621,7 +2621,6 @@ class ShellController extends FrameSafeNotifier
   late final _topicTracking = TopicTrackingDirectory(
     lifecycle: lifecycle,
     store: store,
-    models: plugins.models,
     userFor: (siteUrl) => _instanceAt(siteUrl)?.user,
     configFor: siteConfigFor,
     changed: (siteUrl) {
@@ -2632,7 +2631,7 @@ class ShellController extends FrameSafeNotifier
   );
   bool _liveChangeNotifyPending = false;
 
-  late final _siteCapabilities = _SiteCapabilities(
+  late final _siteCapabilities = SiteCapabilities(
     credentialForWrite: _credentialForWrite,
     topicComposerQueries: api.topicComposerQueries,
     lifecycle: lifecycle,
@@ -3256,7 +3255,6 @@ class ShellController extends FrameSafeNotifier
   );
   late final _currentUsers = _CurrentUserDirectory(
     lifecycle: lifecycle,
-    models: plugins.models,
     statuses: userStatuses,
     host: this,
   );

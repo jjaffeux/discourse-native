@@ -1,7 +1,6 @@
 import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/user_status_reconciler.dart';
-import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/shell/user_status_overrides.dart';
@@ -95,7 +94,6 @@ void main() {
         final statuses = UserStatusReconciler(capacity: 1);
         final users = CurrentUserReconciler(
           lease: lifecycle.capture('site'),
-          models: const DiscourseModelCodec.core(),
           statuses: statuses,
         );
         final stale = users.beginSnapshot();
@@ -127,7 +125,6 @@ void main() {
     final statuses = UserStatusReconciler(capacity: 1);
     final users = CurrentUserReconciler(
       lease: lifecycle.capture('site'),
-      models: const DiscourseModelCodec.core(),
       statuses: statuses,
     );
     final stale = users.beginSnapshot();
@@ -149,7 +146,6 @@ void main() {
       final statuses = UserStatusReconciler(capacity: 3);
       final users = CurrentUserReconciler(
         lease: lifecycle.capture('site'),
-        models: const DiscourseModelCodec.core(),
         statuses: statuses,
       );
       final snapshot = users.beginSnapshot();
@@ -180,7 +176,6 @@ void main() {
       final statuses = UserStatusReconciler(capacity: 1);
       final users = CurrentUserReconciler(
         lease: lifecycle.capture('site'),
-        models: const DiscourseModelCodec.core(),
         statuses: statuses,
       );
       final snapshot = users.beginSnapshot();
@@ -201,7 +196,6 @@ void main() {
     final statuses = UserStatusReconciler(capacity: 1);
     final users = CurrentUserReconciler(
       lease: lifecycle.capture('site'),
-      models: const DiscourseModelCodec.core(),
       statuses: statuses,
     );
     statuses.record(7, _old);

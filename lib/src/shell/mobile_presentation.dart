@@ -2,8 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/content_route.dart';
-import '../plugin_api/plugin_registry.dart';
-import 'shell_controller.dart';
+import 'mobile_navigation.dart';
 
 typedef _MobilePagePolicy = ({bool sheet, bool ownChrome});
 
@@ -21,18 +20,19 @@ final class MobilePresentation {
     required this.preservePageChrome,
   });
 
-  factory MobilePresentation.resolve(
-    BuildContext context, {
-    required ShellController shell,
-    required PluginRegistry registry,
+  factory MobilePresentation.resolve({
+    required ContentRoute? currentRoute,
+    required List<ContentRoute> stack,
+    required MobileNavigation navigation,
+    required bool Function(ContentRoute) usesPageSheet,
+    required bool Function(ContentRoute) ownsContentChrome,
+    required bool Function(ContentRoute) hidesDock,
     required bool panelRoot,
     bool boundary = false,
   }) {
-    final route = boundary ? null : shell.currentContent;
-    final navigation = shell.mobileNavigation;
+    final route = boundary ? null : currentRoute;
     final history = navigation.state;
     final visits = history.visits.take(history.index + 1).toList();
-    final stack = shell.activeTab?.contentStack ?? const <ContentRoute>[];
     final predecessors = <Object, ContentRoute?>{};
     for (var i = 0; i < visits.length; i++) {
       if (visits[i]?.contentStack.last case final page?) {
@@ -45,8 +45,8 @@ final class MobilePresentation {
     _MobilePagePolicy policy(ContentRoute page) => policies.putIfAbsent(
       page.destination.identity,
       () => (
-        sheet: page.isTopic || registry.usesMobilePageSheet(context, page),
-        ownChrome: registry.ownsContentChrome(context, page),
+        sheet: page.isTopic || usesPageSheet(page),
+        ownChrome: ownsContentChrome(page),
       ),
     );
     final search = stack.where((page) => page.isGlobalSearch).lastOrNull;
@@ -73,10 +73,7 @@ final class MobilePresentation {
     final sheet =
         !boundary && !panelRoot && route != null && policy(route).sheet;
     final hideDock =
-        !boundary &&
-        !panelRoot &&
-        route != null &&
-        registry.hidesMobileDock(context, route);
+        !boundary && !panelRoot && route != null && hidesDock(route);
     return MobilePresentation._(
       policies,
       predecessors,

@@ -1,7 +1,6 @@
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
-import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -51,7 +50,6 @@ final class _Fixture {
     directory = TopicTrackingDirectory(
       lifecycle: lifecycle,
       store: store,
-      models: const DiscourseModelCodec.core(),
       userFor: (_) => user,
       configFor: (_) => config,
       changed: changed.add,

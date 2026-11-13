@@ -5,7 +5,6 @@ import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
-import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_status.dart';
@@ -506,10 +505,7 @@ final class _CurrentUser implements ProfileCurrentUser {
       apiVersion: 4,
       config: SiteConfig(userStatusEnabled: true),
     ).copyWith(user: user);
-    reconciler = CurrentUserReconciler(
-      lease: lifecycle.capture(_site),
-      models: const DiscourseModelCodec.core(),
-    );
+    reconciler = CurrentUserReconciler(lease: lifecycle.capture(_site));
   }
 
   @override

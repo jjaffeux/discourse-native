@@ -433,7 +433,7 @@ SidebarIconLoader _artworkLoader(
   final transport = DiscourseTransport.create(client: MockClient(respond));
   addTearDown(transport.close);
   return SidebarIconLoader(
-    transport,
+    transport.get,
     const CoreIconNameDecoder(),
     clock: clock,
   );
@@ -779,7 +779,10 @@ void signedInArtworkTests() {
         Uri.parse('https://forum.example'),
         () => blocker.future,
       );
-      final loader = SidebarIconLoader(transport, const CoreIconNameDecoder());
+      final loader = SidebarIconLoader(
+        transport.get,
+        const CoreIconNameDecoder(),
+      );
       final lifecycle = SiteLifecycle();
       final credentials = await _signedIn(lifecycle);
       final loading = credentials.run(() => _loadArtwork(loader, 'theme-logo'));

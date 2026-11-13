@@ -34,7 +34,7 @@ final class DiscourseAccountApi {
 
   final DiscourseTransport _transport;
   final DiscourseModelCodec _models;
-  late final _sidebarIcons = SidebarIconLoader(_transport, _models.icons);
+  late final _sidebarIcons = SidebarIconLoader(_transport.get, _models.icons);
   static const int maximumRecentNotifications = 60;
   static const int maximumUserMenuBookmarkRows = 20;
   static const int maximumUserActivityPageSize = UserActivityPage.maximumItems;

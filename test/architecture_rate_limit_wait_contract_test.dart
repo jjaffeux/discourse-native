@@ -34,7 +34,7 @@ void main() {
 
   test('every model and shell label reaches the owner directly', () {
     for (final library in const [
-      'lib/src/data/discourse_api_contracts.dart',
+      'lib/src/data/write_failure.dart',
       'lib/src/models/composer_upload.dart',
       'lib/src/shell/post_mutation_feedback.dart',
       'lib/src/shell/profile_write_transactions.dart',

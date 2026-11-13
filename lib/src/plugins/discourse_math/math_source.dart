@@ -1,5 +1,5 @@
+import 'package:discourse_native/discourse_math_types.dart';
 import 'package:discourse_native/discourse_plugin_contracts.dart';
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:html/dom.dart' as dom;
 
 import 'math_settings.dart';

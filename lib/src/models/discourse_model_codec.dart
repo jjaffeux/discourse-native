@@ -328,20 +328,10 @@ final class DiscourseModelCodec {
   DiscourseUser preserveUnknownCurrentUser(
     DiscourseUser? held,
     DiscourseUser incoming,
-  ) {
-    if (held == null) return incoming;
-    if (!sameCurrentUserAccount(held, incoming)) {
-      return incoming;
-    }
-    return incoming.withPlugins(
-      incoming.plugins.preservingUnknownFrom(held.plugins),
-    );
-  }
+  ) => incoming.preservingUnknownPluginsFrom(held);
 
   bool sameCurrentUserAccount(DiscourseUser held, DiscourseUser incoming) =>
-      held.id != null
-      ? incoming.id != null && held.id == incoming.id
-      : held.username.toLowerCase() == incoming.username.toLowerCase();
+      held.isSameAccountAs(incoming);
 
   PostCreation postCreation(Map<String, dynamic> json, String siteUrl) =>
       PostCreation.fromJson(json, siteUrl, extensions: extensions);

@@ -1,4 +1,3 @@
-import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/plugin_data.dart';
 import '../models/user_preferences.dart';
@@ -6,16 +5,12 @@ import 'site_lifecycle.dart';
 import 'user_status_reconciler.dart';
 
 final class CurrentUserReconciler {
-  CurrentUserReconciler({
-    required this._lease,
-    required this._models,
-    UserStatusReconciler? statuses,
-  }) : statuses = statuses ?? UserStatusReconciler(capacity: 1024);
+  CurrentUserReconciler({required this._lease, UserStatusReconciler? statuses})
+    : statuses = statuses ?? UserStatusReconciler(capacity: 1024);
 
   final UserStatusReconciler statuses;
 
   final SiteLease _lease;
-  final DiscourseModelCodec _models;
   int _presenceRevision = 0;
   int _doNotDisturbRevision = 0;
   int _groupedUnreadRevision = 0;
@@ -102,7 +97,7 @@ final class CurrentUserReconciler {
   }) =>
       categoryPreferencesAreCurrent(ticket) &&
       previous != null &&
-      _models.sameCurrentUserAccount(previous, incoming);
+      previous.isSameAccountAs(incoming);
 
   CurrentUserReconciliation? reconcile(
     CurrentUserSnapshot ticket, {
@@ -111,10 +106,10 @@ final class CurrentUserReconciler {
   }) {
     if (!_accepts(ticket)) return null;
     final accountChanged =
-        previous != null && !_models.sameCurrentUserAccount(previous, incoming);
+        previous != null && !previous.isSameAccountAs(incoming);
     final groupedUnreadIsCurrent =
         ticket._groupedUnreadRevision == _groupedUnreadRevision;
-    var user = _models.preserveUnknownCurrentUser(previous, incoming);
+    var user = incoming.preservingUnknownPluginsFrom(previous);
     if (!accountChanged) {
       if (_presenceWritePending ||
           ticket._presenceRevision != _presenceRevision) {

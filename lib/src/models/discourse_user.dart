@@ -711,6 +711,18 @@ class DiscourseUser {
   ]);
 }
 
+extension CurrentUserSnapshotReconciliation on DiscourseUser {
+  /// A stored snapshot without an ID can only match an incoming user by name.
+  bool isSameAccountAs(DiscourseUser incoming) => id != null
+      ? incoming.id != null && id == incoming.id
+      : username.toLowerCase() == incoming.username.toLowerCase();
+
+  DiscourseUser preservingUnknownPluginsFrom(DiscourseUser? held) =>
+      held == null || !held.isSameAccountAs(this)
+      ? this
+      : withPlugins(plugins.preservingUnknownFrom(held.plugins));
+}
+
 List<int>? _storedCategoryIds(Map<String, dynamic> json, String key) {
   if (!json.containsKey(key)) return null;
   return List.unmodifiable([
