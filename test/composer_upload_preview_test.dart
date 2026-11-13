@@ -46,6 +46,54 @@ void main() {
     },
   );
 
+  test(
+    'release removes staging while the native thumbnail reply is pending',
+    () async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channel = MethodChannel('org.discourse.native/video_thumbnails');
+      final started = Completer<void>();
+      final reply = Completer<Uint8List>();
+      var cancellations = 0;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'generate') {
+          started.complete();
+          return reply.future;
+        }
+        cancellations++;
+        return null;
+      });
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = previous;
+        messenger.setMockMethodCallHandler(channel, null);
+      });
+
+      final preview = ComposerUploadPreview.forFile(
+        ComposerUploadFile(
+          name: 'video.mp4',
+          length: () async => 4,
+          openRead: () => Stream.value([1, 2, 3, 4]),
+        ),
+      )!;
+      final ready = preview.ready;
+      await started.future;
+      final staged = preview.file!;
+      preview.release();
+
+      try {
+        await ready.timeout(const Duration(seconds: 1));
+        expect(await staged.exists(), isFalse);
+        expect(cancellations, 1);
+      } finally {
+        reply.complete(Uint8List.fromList([42]));
+        await ready;
+      }
+      expect(preview.poster, isNull);
+    },
+  );
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     test(
       'staged video requests native artwork on supported platforms ($platform)',

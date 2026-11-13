@@ -87,7 +87,10 @@ final class ComposerUploadPreview extends ChangeNotifier {
         final request = generateNativeVideoThumbnail(staged.uri);
         _thumbnail = request;
         try {
-          final bytes = await request.result;
+          final bytes = await Future.any<Uint8List?>([
+            request.result,
+            _aborted.future.then((_) => null),
+          ]);
           if (_references > 0 && identical(_thumbnail, request)) {
             poster = bytes;
             _publish();
