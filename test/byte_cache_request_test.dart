@@ -9,6 +9,48 @@ import 'package:http/http.dart' as http;
 void main() {
   const url = 'https://forum.example/image';
 
+  test('clearing the queue resets its priority history', () async {
+    final client = _Client();
+    final cache = _Cache(client: client, maxConcurrent: 1);
+    addTearDown(cache.close);
+    final pending = [
+      cache.load('https://forum.example/blocker'),
+      cache.load('https://forum.example/old-normal'),
+      for (var index = 0; index < 3; index++)
+        cache
+            .request(
+              'https://forum.example/old-interactive-$index',
+              priority: MediaRequestPriority.interactive,
+            )
+            .result,
+    ];
+    await _pump();
+    for (var index = 0; index < 3; index++) {
+      client.sent[index].complete([index]);
+      await _pump();
+    }
+    cache.clear();
+    pending.addAll([
+      cache.load('https://forum.example/new-normal'),
+      cache
+          .request(
+            'https://forum.example/new-interactive',
+            priority: MediaRequestPriority.interactive,
+          )
+          .result,
+    ]);
+    for (var index = 3; index < 6; index++) {
+      client.sent[index].complete([index]);
+      await _pump();
+    }
+    await Future.wait(pending);
+
+    expect(client.sent.skip(4).map((request) => request.url.path), [
+      '/new-interactive',
+      '/new-normal',
+    ]);
+  });
+
   test(
     'clearing queued transfers immediately frees backlog capacity',
     () async {

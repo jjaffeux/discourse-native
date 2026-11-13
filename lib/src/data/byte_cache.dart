@@ -755,6 +755,7 @@ abstract class ByteCache<T extends Object> {
 
   void clear() {
     _generation = Object();
+    _interactiveOvertakes = 0;
     _cache.clear();
     _cachedBytes = 0;
     _inFlight.clear();
