@@ -55,6 +55,7 @@ Future<bool> stageComposerMedia({
   final iterator = StreamIterator(source);
   RandomAccessFile? sink;
   Future<RandomAccessFile>? writing;
+  var stagingFailed = false;
   try {
     await ensurePrivateFile(input);
     sink = await input.open(mode: FileMode.write);
@@ -80,17 +81,24 @@ Future<bool> stageComposerMedia({
       }
     }
     return !cancelled && copied == length;
+  } on Object {
+    stagingFailed = true;
+    rethrow;
   } finally {
     try {
-      // A timeout cannot cancel a filesystem write. Keep ownership until it
-      // settles, so closing or deleting the input cannot race that writer.
-      if (writing != null) await writing;
-    } finally {
       try {
-        await iterator.cancel().timeout(timeout);
+        // A timeout cannot cancel a filesystem write. Keep ownership until it
+        // settles, so closing or deleting the input cannot race that writer.
+        if (writing != null) await writing;
       } finally {
-        await sink?.close();
+        try {
+          await iterator.cancel().timeout(timeout);
+        } finally {
+          await sink?.close();
+        }
       }
+    } on Object {
+      if (!stagingFailed) rethrow;
     }
   }
 }

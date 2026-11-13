@@ -168,6 +168,20 @@ void main() {
       expect(writer.closed, isTrue);
     });
 
+    test('a failed close preserves the original source error', () async {
+      final sourceError = StateError('source failed');
+      final writer = _Writer()..closeError = StateError('close failed');
+
+      await expectLater(
+        stage(
+          Stream.error(sourceError),
+          destination: _Destination(input, writer),
+        ),
+        throwsA(same(sourceError)),
+      );
+      expect(writer.closed, isTrue);
+    });
+
     test('stalled source times out and detaches its subscription', () async {
       final cancelled = Completer<void>();
       final source = StreamController<List<int>>(onCancel: cancelled.complete);
@@ -336,6 +350,7 @@ class _Writer implements RandomAccessFile {
   final writes = <int>[];
   Future<void>? writeGate;
   bool closed = false;
+  Object? closeError;
   @override
   Future<RandomAccessFile> writeFrom(
     List<int> buffer, [
@@ -351,7 +366,11 @@ class _Writer implements RandomAccessFile {
   }
 
   @override
-  Future<void> close() async => closed = true;
+  Future<void> close() async {
+    closed = true;
+    if (closeError case final error?) throw error;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
