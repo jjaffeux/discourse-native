@@ -25,6 +25,9 @@ enum DControlSize {
   /// Search fields: 13px text, 7px vertical padding and 1px border.
   field,
 
+  /// Command rows and fields that align with them.
+  command,
+
   /// Preference fields: 13.5px text, 9px vertical padding and 1px border.
   preference,
 
@@ -96,7 +99,7 @@ abstract final class DControlStyle {
       };
 
   static bool isApplicationSize(DControlSize size) => switch (size) {
-    DControlSize.small || DControlSize.large => false,
+    DControlSize.small || DControlSize.large || DControlSize.command => false,
     _ => true,
   };
 
@@ -112,6 +115,7 @@ abstract final class DControlStyle {
         DControlSize.filter => usesTouchGeometry(context) ? 36 : regularHeight,
         DControlSize.floating => 40,
         DControlSize.field => 35.5,
+        DControlSize.command => 32,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
         DControlSize.toolbar => 34,
@@ -132,6 +136,7 @@ abstract final class DControlStyle {
         DControlSize.regular ||
         DControlSize.chip => DiscourseTypography.preview,
         DControlSize.field ||
+        DControlSize.command ||
         DControlSize.toolbar ||
         DControlSize.chrome ||
         DControlSize.action => labelFontSize,
@@ -159,7 +164,7 @@ abstract final class DControlStyle {
         DControlSize.chip ||
         DControlSize.action => 12,
         DControlSize.field || DControlSize.toolbar => 14,
-        DControlSize.large => iconSize,
+        DControlSize.large || DControlSize.command => iconSize,
         DControlSize.preference || DControlSize.segment => 13,
         DControlSize.chrome => 15,
         DControlSize.post => 13,

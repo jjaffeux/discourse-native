@@ -511,6 +511,7 @@ class DCommandInput<T> extends StatefulWidget {
 
     this.enabled = true,
     this.borderless = false,
+    this.size = DControlSize.regular,
     this.density = DCommandInputDensity.standard,
     this.tokens = const [],
     this.autofocus = true,
@@ -529,6 +530,9 @@ class DCommandInput<T> extends StatefulWidget {
 
   /// An inline query with no field frame or search glyph, for menu surfaces.
   final bool borderless;
+
+  /// The Native control preset for the framed editor.
+  final DControlSize size;
 
   /// The menu preset uses a 13px borderless editor with 3px/4px insets.
   /// Tokens precede it in a wrapping row; the query fills the remaining space
@@ -660,6 +664,7 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
           onKeyEvent: _onKey,
           child: DInput(
             borderless: borderless,
+            size: widget.size,
             style: menu
                 ? Theme.of(context).textTheme.bodyMedium!.copyWith(
                     fontSize: DiscourseTypography.control,
@@ -1518,7 +1523,9 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
               ).resolve(Directionality.of(context))
             : BorderRadius.circular(DControlStyle.rowRadius);
         Widget row = interactiveRowSurface(
-          constraints: const BoxConstraints(minHeight: 32),
+          constraints: BoxConstraints(
+            minHeight: DControlStyle.height(DControlSize.command),
+          ),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: interactive

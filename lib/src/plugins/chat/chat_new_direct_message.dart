@@ -334,13 +334,9 @@ class _ChatNewDirectMessageDialogState
   );
 
   Widget _buildCommand({required bool fill}) {
+    final resultsInset = fill ? 0.0 : DSpacing.sm;
     final results = Padding(
-      padding: const EdgeInsets.fromLTRB(
-        DSpacing.sm,
-        DSpacing.xs,
-        DSpacing.sm,
-        0,
-      ),
+      padding: EdgeInsets.fromLTRB(resultsInset, DSpacing.xs, resultsInset, 0),
       child: _buildResults(fill: fill),
     );
     return DCommand<String>(
@@ -359,9 +355,12 @@ class _ChatNewDirectMessageDialogState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: DSpacing.md),
+            padding: EdgeInsets.symmetric(
+              horizontal: fill ? DSpacing.xs : DSpacing.md,
+            ),
             child: DCommandInput<String>(
               key: const ValueKey('chat-new-direct-message-search'),
+              size: fill ? DControlSize.command : DControlSize.regular,
               controller: _search,
               focusNode: _searchFocus,
               enabled: !_editing.opening && _sessionIsCurrent,
@@ -590,7 +589,7 @@ class _ChatNewDirectMessageDialogState
             items: [
               DCommandItem<String>(
                 value: _newGroupValue,
-                leading: const DIcon(DIcons.plus),
+                leading: _leadingSlot(const DIcon(DIcons.plus)),
                 child: Text(
                   appL10n.createAGroupChat,
                   key: const ValueKey('chat-new-group-direct-message'),
@@ -650,11 +649,7 @@ class _ChatNewDirectMessageDialogState
         if (_editing.composingGroup && item.enabled && !enabled)
           appL10n.groupMemberLimitReached,
       ].where((part) => part.isNotEmpty).join('. '),
-      // Command owns its surface key; keep the app's interaction key on content.
-      leading: Padding(
-        padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
-        child: leading,
-      ),
+      leading: _leadingSlot(leading),
       trailing: AnimatedBuilder(
         animation: _command,
         builder: (context, _) =>
@@ -665,34 +660,42 @@ class _ChatNewDirectMessageDialogState
             : switch (item) {
                 ChatDirectMessageChannel(:final channel)
                     when channel.lastMessageAt != null =>
-                  RelativeTimeText(channel.lastMessageAt!),
+                  RelativeTimeText(
+                    channel.lastMessageAt!,
+                    style: TextStyle(
+                      fontSize: DiscourseTypography.metadata,
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
                 _ => const Text(''),
               },
       ),
       onSelected: (_) => unawaited(_select(item, generation)),
-      child: Padding(
+      child: Text.rich(
         key: ValueKey(key),
-        padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
-        child: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: title),
-              if (detail.isNotEmpty)
-                TextSpan(
-                  text: '  $detail',
-                  style: TextStyle(
-                    color: DTokens.of(context).mutedForeground,
-                    fontSize: DiscourseTypography.xs,
-                  ),
+        TextSpan(
+          children: [
+            TextSpan(text: title),
+            if (detail.isNotEmpty)
+              TextSpan(
+                text: '  $detail',
+                style: TextStyle(
+                  color: DTokens.of(context).mutedForeground,
+                  fontSize: DiscourseTypography.xs,
                 ),
-            ],
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+              ),
+          ],
         ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
+
+  static Widget _leadingSlot(Widget child) => SizedBox(
+    width: DAvatarSize.sm.dimension,
+    child: Center(heightFactor: 1, child: child),
+  );
 
   Widget _channelAvatar(ChatChannel channel) {
     if (!channel.isDirectMessage) {

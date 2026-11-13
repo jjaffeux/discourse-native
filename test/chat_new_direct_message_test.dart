@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +28,8 @@ void main() {
   );
   Finder user(String username) =>
       find.byKey(ValueKey('chat-new-direct-message-user-$username'));
+  Finder commandRow(Finder label) =>
+      find.ancestor(of: label, matching: find.byType(GestureDetector)).first;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -453,7 +456,7 @@ void main() {
     testWidgets(
       'touch opens a unified ${dark ? 'dark' : 'light'} adaptive menu above the keyboard',
       (tester) async {
-        tester.view.physicalSize = const Size(390, 844);
+        tester.view.physicalSize = const Size(430, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         await pump(tester, dark: dark);
@@ -489,20 +492,52 @@ void main() {
           final inputBounds = tester.getRect(
             find.descendant(of: search, matching: find.byType(DInput)),
           );
-          final groupBounds = tester.getRect(
-            find
-                .ancestor(
-                  of: startGroup,
-                  matching: find.byType(GestureDetector),
-                )
-                .first,
+          final groupBounds = tester.getRect(commandRow(startGroup));
+          final directMessage = find.byKey(
+            const ValueKey('chat-new-direct-message-channel-55'),
           );
+          final publicChannel = find.byKey(
+            const ValueKey('chat-new-direct-message-channel-60'),
+          );
+          final groupChat = find.byKey(
+            const ValueKey('chat-new-direct-message-channel-56'),
+          );
+          final recentRowBounds = tester.getRect(commandRow(directMessage));
+          final sheetBounds = tester.getRect(sheet);
           expect(
             inputBounds.top - handleBounds.bottom,
             greaterThanOrEqualTo(8),
           );
           expect(groupBounds.left, closeTo(inputBounds.left, .01));
           expect(groupBounds.right, closeTo(inputBounds.right, .01));
+          expect(groupBounds.left - sheetBounds.left, closeTo(10.5, .5));
+          expect(sheetBounds.right - groupBounds.right, closeTo(10.5, .5));
+          expect(inputBounds.height, closeTo(groupBounds.height, .01));
+          expect(recentRowBounds.height, closeTo(42, 1));
+          for (final label in [startGroup, publicChannel, groupChat]) {
+            expect(
+              tester.getTopLeft(label).dx,
+              closeTo(tester.getTopLeft(directMessage).dx, .01),
+            );
+          }
+          final timestamps = find.descendant(
+            of: find.byType(RelativeTimeText),
+            matching: find.byType(Text),
+          );
+          expect(timestamps, findsWidgets);
+          for (var i = 0; i < timestamps.evaluate().length; i++) {
+            final label = timestamps.at(i);
+            expect(
+              tester.getRect(label).right,
+              closeTo(groupBounds.right - 10.5, .5),
+            );
+            final style = tester.widget<Text>(label).style;
+            expect(
+              style?.color,
+              DTokens.of(tester.element(label)).mutedForeground,
+            );
+            expect(style?.fontSize, DiscourseTypography.metadata);
+          }
           expect(
             groupBounds.top - inputBounds.bottom,
             greaterThanOrEqualTo(12),
@@ -523,7 +558,6 @@ void main() {
         expect(find.byType(DKbd), findsNothing);
         expect(find.text('↵'), findsNothing);
         expect(find.text('navigate'), findsNothing);
-        expect(find.byType(RelativeTimeText), findsWidgets);
         final input = find.descendant(
           of: search,
           matching: find.byType(EditableText),
