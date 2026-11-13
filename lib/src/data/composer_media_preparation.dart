@@ -51,12 +51,50 @@ Future<bool> stageComposerMedia({
   }
 
   var cancelled = false;
-  final cancellation = aborted.then((_) {
-    cancelled = true;
-    return false;
-  });
-  // The abort signal can fail while the destination is still opening.
-  cancellation.ignore();
+  (Object, StackTrace)? abortFailure;
+  Completer<bool>? waiting;
+  unawaited(
+    aborted.then<void>(
+      (_) {
+        cancelled = true;
+        final step = waiting;
+        if (step != null && !step.isCompleted) step.complete(false);
+      },
+      onError: (Object error, StackTrace stack) {
+        abortFailure = (error, stack);
+        final step = waiting;
+        if (step != null && !step.isCompleted) step.completeError(error, stack);
+      },
+    ),
+  );
+
+  Future<bool> waitForStep(Future<bool> operation) async {
+    // Observe the step even when cancellation or the deadline already won.
+    operation.ignore();
+    if (abortFailure case (final error, final stack)) {
+      Error.throwWithStackTrace(error, stack);
+    }
+    if (cancelled) return false;
+    final budget = remaining();
+    final step = Completer<bool>();
+    waiting = step;
+    unawaited(
+      operation.then<void>(
+        (value) {
+          if (!step.isCompleted) step.complete(value);
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!step.isCompleted) step.completeError(error, stack);
+        },
+      ),
+    );
+    try {
+      return await step.future.timeout(budget);
+    } finally {
+      waiting = null;
+    }
+  }
+
   final iterator = StreamIterator(source);
   RandomAccessFile? sink;
   Future<RandomAccessFile>? writing;
@@ -65,10 +103,7 @@ Future<bool> stageComposerMedia({
     await ensurePrivateFile(input);
     sink = await input.open(mode: FileMode.write);
     var copied = 0;
-    while (await Future.any<bool>([
-      iterator.moveNext(),
-      cancellation,
-    ]).timeout(remaining())) {
+    while (await waitForStep(iterator.moveNext())) {
       if (cancelled) return false;
       final chunk = iterator.current;
       copied += chunk.length;
@@ -77,10 +112,7 @@ Future<bool> stageComposerMedia({
         if (cancelled) return false;
         final end = (start + 64 * 1024).clamp(0, chunk.length);
         writing = sink.writeFrom(chunk, start, end);
-        final written = await Future.any<bool>([
-          writing.then((_) => true),
-          cancellation,
-        ]).timeout(remaining());
+        final written = await waitForStep(writing.then((_) => true));
         if (!written || cancelled) return false;
         writing = null;
       }
