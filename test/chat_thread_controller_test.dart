@@ -539,11 +539,48 @@ FakeSiteTracker attachTracker(ChatController chat) {
   return tracker;
 }
 
+final class _ReentrantThreadCredentials extends FakeApiCredentialReader {
+  void Function()? onRead;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    final callback = onRead;
+    onRead = null;
+    callback?.call();
+    return super.apiKeyFor(siteUrl);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   for (final personal in [true, false]) {
     final listName = personal ? 'personal' : 'channel';
+    test('$listName thread loads join during credential lookup', () async {
+      final credentials = _ReentrantThreadCredentials()..keys[site] = 'key';
+      final api = _SequencedThreadListApi();
+      final subject = _controllerFor(api, credentials: credentials);
+      subject.store.put(site, followedChannel());
+      Future<void> load() => personal
+          ? subject.chat.loadMyThreads(site)
+          : subject.chat.loadChannelThreads(site, 9);
+      Future<void>? joined;
+      credentials.onRead = () => joined = load();
+
+      final started = personal
+          ? api.nextMyThreadPage()
+          : api.nextChannelThreadPage();
+      final loading = load();
+      expect(joined, same(loading));
+      await started;
+      final pages = personal ? api.myThreadPages : api.channelThreadPages;
+      pages.single.complete(
+        ChatThreadPage(threads: [listedThread(22)], hasMore: false),
+      );
+      await loading;
+      expect(subject.store.read<ChatThread>(site, 22)?.title, 'Thread 22');
+    });
+
     for (final (label, edits, staleTitle) in [
       ('rename', ['After'], 'Before'),
       ('clear', [''], 'Before'),

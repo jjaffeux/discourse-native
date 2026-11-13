@@ -80,7 +80,8 @@ final class _ChatThreadListRequest {
   final int offset;
   final _ChatThreadPageMode mode;
   final refresh = ChatThreadListRefresh();
-  late final Future<void> future;
+  final completion = Completer<void>();
+  Future<void> get future => completion.future;
 }
 
 final class _ChatThreadListEntry {
@@ -249,12 +250,14 @@ final class _ChatThreadCatalog {
         isCurrent &&
         identical(_lists[id], entry) &&
         identical(entry.request, run);
-    run.future = _load(id, entry, run, ownsRequest).whenComplete(() {
-      if (!ownsRequest()) return;
-      entry.request = null;
-      entry.snapshot = entry.snapshot.copyWith(loading: false);
-      onChanged();
-    });
+    run.completion.complete(
+      _load(id, entry, run, ownsRequest).whenComplete(() {
+        if (!ownsRequest()) return;
+        entry.request = null;
+        entry.snapshot = entry.snapshot.copyWith(loading: false);
+        onChanged();
+      }),
+    );
     onChanged();
     return run.future;
   }
