@@ -329,7 +329,13 @@ final class ApplicationCooking {
     contextChanged(siteUrl);
   }
 
-  Future<void> dispose() => _disposing ??= _dispose();
+  Future<void> dispose() {
+    if (_disposing case final pending?) return pending;
+    final completion = Completer<void>();
+    _disposing = completion.future;
+    completion.complete(_dispose());
+    return completion.future;
+  }
 
   Future<void> _dispose() async {
     _disposed = true;

@@ -13,6 +13,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  test('disposal requested by the cooking service joins teardown', () async {
+    final service = _LifecycleService();
+    final app = ApplicationCooking(plugins: [], service: service);
+    Future<void>? joined;
+    service.onDispose = () => joined = app.dispose();
+
+    final disposing = app.dispose();
+    await disposing;
+    await joined;
+
+    expect(service.disposals, 1);
+    expect(joined, same(disposing));
+    expect(await app.start(), isFalse);
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
@@ -136,6 +151,7 @@ final class _FixtureCapability implements CookingPlugin {
 
 final class _LifecycleService implements CookingServicePort {
   int starts = 0, disposals = 0;
+  void Function()? onDispose;
   @override
   Future<bool> start() async {
     starts++;
@@ -150,6 +166,9 @@ final class _LifecycleService implements CookingServicePort {
   @override
   Future<void> dispose() async {
     disposals++;
+    final callback = onDispose;
+    onDispose = null;
+    callback?.call();
   }
 
   @override
