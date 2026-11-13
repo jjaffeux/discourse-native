@@ -95,7 +95,6 @@ final class _ChatChannelDirectory {
       _directIds?.remove(channelId);
     });
     _partialChannelIds.remove(channelId);
-    _channels[channelId]?.detailRun = null;
     _channels[channelId]?.detailRequest = null;
     _channels[channelId]?.messageResume = null;
     _releaseIdleEntry(channelId);
@@ -1337,29 +1336,27 @@ final class _ChatChannelDirectory {
     final active = _channels[key]?.detailRequest;
     if (active != null) return active;
 
-    final run = Object();
-    _entry(key).detailRun = run;
-    late final Future<ChatChannel?> request;
-    request = _ensureChannel(channelId, key, run).whenComplete(() {
-      if (identical(_channels[key]?.detailRequest, request)) {
-        _channels[key]?.detailRequest = null;
-      }
-      if (identical(_channels[key]?.detailRun, run)) {
-        _channels[key]?.detailRun = null;
+    final completion = Completer<ChatChannel?>();
+    final request = completion.future;
+    final entry = _entry(key);
+    entry.detailRequest = request;
+    completion.complete(
+      _ensureChannel(channelId, key, request).whenComplete(() {
+        if (!identical(_channels[key]?.detailRequest, request)) return;
+        entry.detailRequest = null;
         _releaseIdleEntry(key);
-      }
-    });
-    _entry(key).detailRequest = request;
+      }),
+    );
     return request;
   }
 
   Future<ChatChannel?> _ensureChannel(
     int channelId,
     int key,
-    Object run,
+    Future<ChatChannel?> request,
   ) async {
     final lease = this.lease;
-    bool ownsRequest() => identical(_channels[key]?.detailRun, run);
+    bool ownsRequest() => identical(_channels[key]?.detailRequest, request);
     try {
       final requestCredentials = await requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
@@ -1415,17 +1412,20 @@ final class _ChatChannelDirectory {
     final run = Object();
     _loadRun = run;
     if (revalidate) _revalidating = true;
-    late final Future<void> request;
-    request = _loadChannels(run).whenComplete(() {
-      if (identical(_loadRequest, request)) {
-        _loadRequest = null;
-      }
-      if (identical(_loadRun, run)) {
-        _loadRun = null;
-        _revalidating = false;
-      }
-    });
+    final completion = Completer<void>();
+    final request = completion.future;
     _loadRequest = request;
+    completion.complete(
+      _loadChannels(run).whenComplete(() {
+        if (identical(_loadRequest, request)) {
+          _loadRequest = null;
+        }
+        if (identical(_loadRun, run)) {
+          _loadRun = null;
+          _revalidating = false;
+        }
+      }),
+    );
     onChanged();
     return request;
   }
@@ -1531,7 +1531,6 @@ final class _ChannelSettingsWrite {
 final class _ChatChannelDirectoryEntry {
   bool get idle =>
       detailRequest == null &&
-      detailRun == null &&
       starWrite == null &&
       notificationWrite == null &&
       messageResume == null &&
@@ -1539,7 +1538,6 @@ final class _ChatChannelDirectoryEntry {
       settingsWrite == null;
 
   Future<ChatChannel?>? detailRequest;
-  Object? detailRun;
   Object? starWrite;
   Object? notificationWrite;
   Object? messageResume;

@@ -27,6 +27,46 @@ ChatChannels _snapshot(String title) => ChatChannels(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('a list load during credential lookup joins the active load', () async {
+    final credentials = _GatedCredentials();
+    final fixture = _Fixture(credentials: credentials);
+    Future<void>? joined;
+    credentials.onRead = () {
+      credentials.onRead = null;
+      joined = fixture.chat.loadChannels(_site);
+    };
+
+    final loading = fixture.chat.loadChannels(_site);
+    await fixture.tick();
+    expect(fixture.api.lists, hasLength(1));
+    fixture.api.lists.single.complete(_snapshot('Current'));
+    await loading;
+    await joined;
+
+    expect(joined, same(loading));
+    expect(fixture.chat.channelsLoading(_site), isFalse);
+    expect(fixture.chat.publicChannels(_site).single.title, 'Current');
+  });
+
+  test(
+    'a detail load during credential lookup joins the active load',
+    () async {
+      final credentials = _GatedCredentials();
+      final fixture = _Fixture(credentials: credentials);
+      Future<ChatChannel?>? joined;
+      credentials.onRead = () {
+        credentials.onRead = null;
+        joined = fixture.chat.ensureChannel(_site, 9);
+      };
+
+      final loading = fixture.chat.ensureChannel(_site, 9);
+      expect(await loading, _channel);
+      expect(await joined, _channel);
+      expect(joined, same(loading));
+      expect(fixture.api.detailCalls, 1);
+    },
+  );
+
   test('forgotten list cleanup cannot finish its successor request', () async {
     final fixture = _Fixture();
     final old = fixture.chat.loadChannels(_site);
@@ -196,9 +236,11 @@ final class _Fixture {
 
 final class _GatedCredentials extends FakeApiCredentialReader {
   Completer<void>? gate;
+  void Function()? onRead;
 
   @override
   Future<String?> apiKeyFor(String siteUrl) async {
+    onRead?.call();
     final held = gate;
     if (held != null) await held.future;
     return keys[siteUrl];
@@ -208,6 +250,18 @@ final class _GatedCredentials extends FakeApiCredentialReader {
 final class _DirectoryApi extends FakeDiscourseApi {
   final lists = <Completer<ChatChannels>>[];
   final stars = <Completer<void>>[];
+  int detailCalls = 0;
+
+  @override
+  Future<ChatChannel> chatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    detailCalls++;
+    return _channel;
+  }
 
   @override
   Future<ChatChannels> chatChannels({
