@@ -39,7 +39,7 @@ final class _TaxonomySite {
   final Map<int, _CategoryIdRequest> categoryIdRequests = {};
   final Map<int, _CategoryNotificationAuthority>
   categoryNotificationAuthorities = {};
-  Object? categoryPageRequest;
+  Completer<void>? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
   Object? tagDirectoryRequest;
   List<SidebarTag> siteTopTags = const [];
@@ -798,7 +798,11 @@ final class _TaxonomyDirectoryController
     if (!force && active != null) return active.join();
     if (!force && site.categorised) return Future<void>.value();
     final existingFeed = site.categoryFeed;
-    if (force) site.categoryPageRequest = null;
+    if (force) {
+      final page = site.categoryPageRequest;
+      site.categoryPageRequest = null;
+      if (page != null && site.directoryWaiters.remove(page)) page.complete();
+    }
     site.categorised = true;
     final request = RequestIntentOperation<void>();
     final retired = Completer<void>();
@@ -1005,18 +1009,17 @@ final class _TaxonomyDirectoryController
     if (site.categoryPageRequest != null) return;
 
     final lease = site.lease;
-    final request = Object();
+    final request = Completer<void>();
     final notificationRead = _CategoryRead(site);
     site.categoryPageRequest = request;
-    final retired = Completer<void>();
-    site.directoryWaiters.add(retired);
+    site.directoryWaiters.add(request);
     site.categoryFeed = feed.loadingNextPage();
     _shell._notify();
 
     bool requestIsCurrent() =>
         !_shell.accountSessionDisposed &&
         lease.isCurrent &&
-        !retired.isCompleted &&
+        !request.isCompleted &&
         identical(site.categoryPageRequest, request);
 
     try {
@@ -1035,7 +1038,7 @@ final class _TaxonomyDirectoryController
             page: page,
           ),
         ),
-        retired.future.then<CategoryLoadResult?>((_) => null),
+        request.future.then<CategoryLoadResult?>((_) => null),
       ]);
       if (result == null || !requestIsCurrent()) return;
 
@@ -1070,7 +1073,7 @@ final class _TaxonomyDirectoryController
         _shell._notify();
       });
     } finally {
-      site.directoryWaiters.remove(retired);
+      site.directoryWaiters.remove(request);
     }
   }
 }

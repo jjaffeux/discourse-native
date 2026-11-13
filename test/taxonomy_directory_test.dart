@@ -41,6 +41,25 @@ const _oldTag = SidebarTag(id: 3, name: 'Old tag', slug: 'old-tag');
 const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
+  test('forced refresh releases the category page it supersedes', () async {
+    final api = _RefreshingTaxonomyApi();
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    addTearDown(api.releaseOldRefreshes);
+    await shell.loadCategories(_site);
+    api.holdOldRefreshes();
+    var finished = false;
+    final page = shell.loadMoreCategories(_site).then((_) => finished = true);
+    await api.oldCategoryRequested.future;
+    api.answerNewAccount();
+    await shell.loadCategories(_site, force: true);
+    final finishedBeforeResponse = finished;
+    api.releaseOldRefreshes();
+    await page;
+    expect(finishedBeforeResponse, isTrue);
+    expect(shell.categoryFeedFor(_site).categoryIds, [3]);
+  });
+
   test('retirement releases a pending category page', () async {
     final api = _RefreshingTaxonomyApi();
     final shell = await _loadShell(api);
