@@ -72,6 +72,7 @@ final class TopicPrefetchController {
   }) {
     final owner = Object();
     final held = _candidate;
+    if (held != null && held.key == key) held.isCurrent = isCurrent;
     if (held == null || held.key != key || !_usable(held)) {
       _discardCandidate();
       final next = _Prefetch(key, load, isCurrent);
@@ -86,7 +87,6 @@ final class TopicPrefetchController {
         });
       }
     } else {
-      held.isCurrent = isCurrent;
       if (!held.started) held.load = load;
       if (!held.ready && intent == TopicPrefetchIntent.trajectory) {
         _timer?.cancel();

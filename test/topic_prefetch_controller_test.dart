@@ -154,6 +154,30 @@ void main() {
     },
   );
 
+  testWidgets('a same-topic hover can take over after old interest lapses', (
+    tester,
+  ) async {
+    final controller = TopicPrefetchController();
+    addTearDown(controller.clear);
+    final response = Completer<PrefetchedTopic?>();
+    var oldInterest = true;
+    controller.hover(
+      key(1),
+      intent: TopicPrefetchIntent.trajectory,
+      isCurrent: () => oldInterest,
+      load: (_) => response.future,
+    );
+    oldInterest = false;
+    controller.hover(
+      key(1),
+      isCurrent: () => true,
+      load: (_) async => result(2),
+    );
+    final adopted = controller.take(key(1));
+    response.complete(result(1));
+    expect((await adopted)?.payload.detail.id, 1);
+  });
+
   testWidgets('trajectory confirmation promotes a candidate still in dwell', (
     tester,
   ) async {
