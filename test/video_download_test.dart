@@ -1036,6 +1036,25 @@ void main() {
     expect(directory.listSync(), isEmpty);
   });
 
+  test('a cancellation failure preserves the original read timeout', () async {
+    environment.savePath = '${directory.path}/stalled.mp4';
+    final body = StreamController<List<int>>(
+      onCancel: () => Future<void>.error(StateError('cleanup failed')),
+    );
+    addTearDown(body.close);
+
+    await expectLater(
+      download(
+        MockClient.streaming(
+          (_, _) async => http.StreamedResponse(body.stream, 200),
+        ),
+        timeout: const Duration(milliseconds: 20),
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(directory.listSync(), isEmpty);
+  });
+
   test('rejects errors, empty bodies, and HTML login pages', () async {
     environment.savePath = '${directory.path}/invalid.mp4';
     for (final response in [

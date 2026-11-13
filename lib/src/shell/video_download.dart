@@ -213,6 +213,7 @@ final class NativeVideoDownloader implements VideoDownloader {
         }
 
         RandomAccessFile? output;
+        var transferFailed = false;
         var length = 0;
         final prefix = <int>[];
         try {
@@ -228,15 +229,25 @@ final class NativeVideoDownloader implements VideoDownloader {
             length += chunk.length;
           }
           _requireCurrent(lease);
+        } on Object {
+          transferFailed = true;
+          rethrow;
         } finally {
           try {
-            if (body == null) {
-              cancelUnreadHttpBody(response.stream).ignore();
-            } else {
-              await _waitWhileCurrent(bodyCancellation ?? body.cancel(), lease);
+            try {
+              if (body == null) {
+                cancelUnreadHttpBody(response.stream).ignore();
+              } else {
+                await _waitWhileCurrent(
+                  bodyCancellation ?? body.cancel(),
+                  lease,
+                );
+              }
+            } finally {
+              await output?.close();
             }
-          } finally {
-            await output?.close();
+          } on Object {
+            if (!transferFailed) rethrow;
           }
         }
         if (length == 0) throw const VideoDownloadException();
