@@ -281,7 +281,7 @@ void main() {
     expect(updated.end, 12);
     expect(updated.items, [0, 10]);
     expect(identityReads, 12);
-    expect(estimates, {0: 2, for (var id = 1; id < 10; id++) id: 1, 10: 2});
+    expect(estimates, {for (var id = 0; id <= 10; id++) id: 1});
   });
 
   test('tag intersection visits the rarest bucket regardless of tag order', () {

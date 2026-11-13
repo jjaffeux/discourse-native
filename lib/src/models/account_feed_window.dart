@@ -119,12 +119,20 @@ class AccountFeedWindow<T> {
     );
     final bounded = prepend ? [added, ...retained] : [...retained, added];
     var rows = bounded.fold(0, (count, packet) => count + packet.items.length);
+    final incomingBytes = Map<T, int?>.identity();
+    for (final row in newById.values) {
+      incomingBytes[row] = null;
+    }
+    int estimateRow(T row) {
+      if (!incomingBytes.containsKey(row)) return estimate(row);
+      return incomingBytes[row] ??= estimate(row);
+    }
+
     final packetBytes = [
       for (final packet in bounded)
-        packet.items.fold(0, (sum, row) => sum + estimate(row)),
+        packet.items.fold(0, (sum, row) => sum + estimateRow(row)),
     ];
     var bytes = packetBytes.fold(0, (total, size) => total + size);
-    final incomingBytes = <Object, int>{};
     Map<Object, int>? retainedCounts;
     while (bounded.length > 1 &&
         (bounded.length > maximumPackets ||
@@ -154,10 +162,7 @@ class AccountFeedWindow<T> {
       for (final entry in newById.entries) {
         if ((counts[entry.key] ?? 0) > 0) continue;
         activeRows.add(entry.value);
-        activeBytes += incomingBytes.putIfAbsent(
-          entry.key,
-          () => estimate(entry.value),
-        );
+        activeBytes += estimateRow(entry.value);
       }
       rows += activeRows.length - active.items.length;
       bytes += activeBytes - packetBytes[activeIndex];
