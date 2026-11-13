@@ -59,10 +59,11 @@ final class NativeVideoDownloader implements VideoDownloader {
         : requireSafeHttpUrl(Uri.parse(siteUrl));
     final lease = siteUrl == null ? null : lifecycle?.capture(siteUrl);
     final filename = videoDownloadFilename(title: title, url: url);
-    final destination = usesMediaSaveDialog(_platform)
+    final usesSaveDialog = usesMediaSaveDialog(_platform);
+    final destination = usesSaveDialog
         ? await _environment.chooseSavePath(suggestedName: filename)
         : null;
-    if (usesMediaSaveDialog(_platform) && destination == null) {
+    if (usesSaveDialog && destination == null) {
       return const MediaDownloadCancelled();
     }
     _requireCurrent(lease);
@@ -94,11 +95,9 @@ final class NativeVideoDownloader implements VideoDownloader {
       _requireCurrent(lease);
       if (destination != null) {
         await _environment.saveFile(file, destination);
-        return MediaDownloadSaved(
-          Uri.file(
-            destination,
-            windows: _platform == TargetPlatform.windows,
-          ).pathSegments.last,
+        return MediaDownloadResult.savedTo(
+          destination,
+          windows: _platform == TargetPlatform.windows,
         );
       }
       final shareFilename = downloadFilename(
@@ -120,10 +119,7 @@ final class NativeVideoDownloader implements VideoDownloader {
         mimeType: mediaType?.mimeType ?? 'application/octet-stream',
         sharePositionOrigin: sharePositionOrigin,
       );
-      return switch (outcome) {
-        MediaShareOutcome.shared => const MediaDownloadShared(),
-        MediaShareOutcome.cancelled => const MediaDownloadCancelled(),
-      };
+      return MediaDownloadResult.fromShare(outcome);
     } finally {
       client.close();
       try {

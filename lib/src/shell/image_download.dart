@@ -42,10 +42,11 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         ? null
         : repository?.lifecycle.capture(siteUrl);
     final suggestedName = imageDownloadFilename(title: title, url: url);
-    final destination = usesMediaSaveDialog(_platform)
+    final usesSaveDialog = usesMediaSaveDialog(_platform);
+    final destination = usesSaveDialog
         ? await _environment.chooseSavePath(suggestedName: suggestedName)
         : null;
-    if (usesMediaSaveDialog(_platform) && destination == null) {
+    if (usesSaveDialog && destination == null) {
       return const MediaDownloadCancelled();
     }
 
@@ -74,11 +75,9 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         filename: filename,
         mimeType: mimeType,
       );
-      return MediaDownloadSaved(
-        Uri.file(
-          destination,
-          windows: _platform == TargetPlatform.windows,
-        ).pathSegments.last,
+      return MediaDownloadResult.savedTo(
+        destination,
+        windows: _platform == TargetPlatform.windows,
       );
     }
     final outcome = await withStagedPrivateFile(
@@ -96,10 +95,7 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         );
       },
     );
-    return switch (outcome) {
-      MediaShareOutcome.shared => const MediaDownloadShared(),
-      MediaShareOutcome.cancelled => const MediaDownloadCancelled(),
-    };
+    return MediaDownloadResult.fromShare(outcome);
   }
 }
 
