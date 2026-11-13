@@ -19,6 +19,56 @@ const _open = ValueKey('open-about');
 const _menuItem = ValueKey('user-menu-row-about');
 
 void main() {
+  testWidgets('simultaneous About dialogs share parsed artwork', (
+    tester,
+  ) async {
+    await tester.runAsync(() => rootBundle.loadString('assets/logo_mark.svg'));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => DButton(
+              key: _open,
+              label: const Text('Open About'),
+              onPressed: () => showDDialog<void>(
+                context: context,
+                builder: (_, _) => const DDialogContent(
+                  maxWidth: 760,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: NativeAboutDialog()),
+                        Expanded(child: NativeAboutDialog()),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(_open));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+
+    final artwork = tester
+        .widgetList<CustomPaint>(
+          find.byKey(const ValueKey('about-mark-artwork')),
+        )
+        .map((paint) {
+          final dynamic painter = paint.painter;
+          // ignore: avoid_dynamic_calls
+          return painter.artwork as Object;
+        })
+        .toList();
+    expect(artwork, hasLength(2));
+    expect(artwork.last, same(artwork.first));
+  });
+
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.windows,

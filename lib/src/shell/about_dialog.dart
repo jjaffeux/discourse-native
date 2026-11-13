@@ -169,8 +169,20 @@ class _BrandArtwork {
   final Size size;
   final List<_BrandPiece> pieces;
   static _BrandArtwork? _cached;
+  static Future<_BrandArtwork>? _pending;
 
-  static Future<_BrandArtwork> load() async => _cached ??= await _load();
+  static Future<_BrandArtwork> load() {
+    if (_cached case final artwork?) return Future.value(artwork);
+    return _pending ??= _loadAndCache();
+  }
+
+  static Future<_BrandArtwork> _loadAndCache() async {
+    try {
+      return _cached = await _load();
+    } finally {
+      _pending = null;
+    }
+  }
 
   static Future<_BrandArtwork> _load() async {
     final svg = await rootBundle.loadString('assets/logo_mark.svg');
