@@ -479,16 +479,29 @@ void main() {
       expect(temporary.listSync(), isEmpty);
     });
 
-    test('an account change while staging never reaches the sheet', () async {
+    test('retirement ends a stalled image staging lookup', () async {
+      final started = Completer<void>();
+      final directory = Completer<Directory>();
       final environment = _FakeImageDownloadEnvironment(
         temporary,
-        onTemporaryDirectory: () => repository.lifecycle.invalidate(siteUrl),
+        onTemporaryDirectory: () {
+          started.complete();
+          return directory.future;
+        },
       );
 
-      await expectLater(
+      final rejected = expectLater(
         share(environment),
         throwsA(isA<ImageDownloadException>()),
       );
+      await started.future;
+      repository.lifecycle.invalidate(siteUrl);
+      try {
+        await rejected.timeout(const Duration(seconds: 1));
+      } finally {
+        directory.complete(temporary);
+      }
+      await Future<void>.delayed(Duration.zero);
       expect(environment.shareCalls, 0);
       expect(temporary.listSync(), isEmpty);
     });
@@ -636,7 +649,7 @@ final class _FakeImageDownloadEnvironment implements MediaDownloadEnvironment {
   final Future<String?>? saveChoice;
   final MediaShareOutcome shareOutcome;
   final Object? shareError;
-  final VoidCallback? onTemporaryDirectory;
+  final FutureOr<Directory> Function()? onTemporaryDirectory;
 
   String? suggestedName;
   String? savedPath;
@@ -676,8 +689,7 @@ final class _FakeImageDownloadEnvironment implements MediaDownloadEnvironment {
 
   @override
   Future<Directory> temporaryDirectory() async {
-    onTemporaryDirectory?.call();
-    return temporary;
+    return onTemporaryDirectory?.call() ?? temporary;
   }
 
   @override

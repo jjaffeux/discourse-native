@@ -80,8 +80,14 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         windows: _platform == TargetPlatform.windows,
       );
     }
+    final temporary = await lease.waitWhileCurrent(
+      _environment.temporaryDirectory(),
+      const ImageDownloadException(),
+      timeout: const Duration(seconds: 30),
+    );
+    if (!lease.isCurrent) throw const ImageDownloadException();
     final outcome = await withStagedPrivateFile(
-      await _environment.temporaryDirectory(),
+      temporary,
       image.bytes,
       prefix: 'image-share-',
       filename: filename,
