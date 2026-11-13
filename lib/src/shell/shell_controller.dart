@@ -1739,13 +1739,11 @@ class ShellController extends FrameSafeNotifier
       _loadStatus = InstanceLoadStatus.loading;
     }
 
-    late final Future<void> task;
-    task = _load().whenComplete(() {
-      if (identical(_loadTask, task)) _loadTask = null;
-    });
-    _loadTask = task;
+    final task = Completer<void>();
+    _loadTask = task.future;
+    task.complete(_load().whenComplete(() => _loadTask = null));
     if (shouldNotify) _notify();
-    return task;
+    return task.future;
   }
 
   Future<void> _load() async {

@@ -32,6 +32,30 @@ void main() {
   // against a test that has already completed.
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test('a startup load requested by storage joins the active load', () async {
+    final stored = instance('saved.example');
+    final store = _SequencedInstanceStore([
+      Future.value([stored]),
+      Future.value([stored]),
+    ]);
+    final controller = _controller(store);
+    addTearDown(controller.dispose);
+    Future<void>? joined;
+    store.onLoad = () {
+      store.onLoad = null;
+      joined = controller.load();
+    };
+
+    final loading = controller.load();
+    await loading;
+    await joined;
+
+    expect(store.loadCount, 1);
+    expect(joined, same(loading));
+    expect(controller.instances, [stored]);
+    expect(controller.loadStatus, InstanceLoadStatus.ready);
+  });
+
   test('failed loads are coalesced and a later attempt can recover', () async {
     final first = Completer<List<DiscourseInstance>>();
     final second = Completer<List<DiscourseInstance>>();
@@ -347,11 +371,13 @@ final class _SequencedInstanceStore implements InstanceStore {
 
   final Queue<Future<List<DiscourseInstance>>> _loads;
   int loadCount = 0;
+  void Function()? onLoad;
   List<DiscourseInstance> saved = const [];
 
   @override
   Future<List<DiscourseInstance>> load() {
     loadCount++;
+    onLoad?.call();
     return _loads.removeFirst();
   }
 
