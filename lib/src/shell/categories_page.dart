@@ -36,6 +36,8 @@ class CategoriesPage extends StatefulWidget {
 
 class _CategoriesPageState extends State<CategoriesPage> {
   (ShellController, String)? _requestedIdentity;
+  ({List<int> roots, List<TopicCategory> categories, CategoryDirectory view})?
+  _directory;
   final ScrollController _scrollController = ScrollController();
   bool _endCheckScheduled = false;
   CategoryDirectoryScope _scope = CategoryDirectoryScope.all;
@@ -153,10 +155,18 @@ class _CategoriesPageState extends State<CategoriesPage> {
       ...?user?.mutedCategoryIds,
       ...?user?.indirectlyMutedCategoryIds,
     };
-    final directory = CategoryDirectory(
-      rootCategoryIds: feed.categoryIds,
-      categories: categories,
-    );
+    final roots = feed.categoryIds;
+    var cached = _directory;
+    if (cached == null ||
+        !identical(cached.roots, roots) ||
+        !identical(cached.categories, categories)) {
+      cached = _directory = (
+        roots: roots,
+        categories: categories,
+        view: CategoryDirectory(rootCategoryIds: roots, categories: categories),
+      );
+    }
+    final directory = cached.view;
     final parentId = directory.containsCategory(_parentCategoryId)
         ? _parentCategoryId
         : null;
@@ -201,7 +211,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
               final path = TopicCategoryPathSelector(
                 keyPrefix: 'categories',
                 siteUrl: widget.siteUrl,
-                categories: directory.accessibleCategories.toList(),
+                categories: directory.accessibleCategories,
                 selectedCategoryId: parentId,
                 maxCategoryNesting: controller
                     .siteConfigFor(widget.siteUrl)

@@ -74,7 +74,9 @@ class CategoryDirectory {
   final _accessible = <int, TopicCategory>{};
   late final Map<int, List<TopicCategory>> _children;
 
-  Iterable<TopicCategory> get accessibleCategories => _accessible.values;
+  late final List<TopicCategory> accessibleCategories = List.unmodifiable(
+    _accessible.values,
+  );
 
   bool containsCategory(int? categoryId) => _accessible.containsKey(categoryId);
 

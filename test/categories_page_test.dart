@@ -1556,12 +1556,14 @@ void main() {
       );
       await _pumpPage(tester, controller);
       expect(find.text('Original'), findsOneWidget);
+      final originalCategories = _pathCategories(tester);
 
       await controller.searchFilterCategories(siteUrl: site, term: 'renamed');
       await tester.pumpAndSettle();
 
       expect(find.text('Renamed'), findsOneWidget);
       expect(find.text('Original'), findsNothing);
+      expect(_pathCategories(tester), isNot(same(originalCategories)));
     });
 
     testWidgets('a site config loaded on resume updates the nesting limit', (
@@ -1585,6 +1587,7 @@ void main() {
           )
           .maxCategoryNesting;
       expect(nesting(), 2);
+      final categories = _pathCategories(tester);
 
       siteConfigs[site] = SiteConfig.fromSettings(const {
         'max_category_nesting': 3,
@@ -1594,6 +1597,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(nesting(), 3);
+      expect(_pathCategories(tester), same(categories));
     });
   });
 }
+
+List<TopicCategory> _pathCategories(WidgetTester tester) => tester
+    .widget<TopicCategoryPathSelector>(find.byType(TopicCategoryPathSelector))
+    .categories;
