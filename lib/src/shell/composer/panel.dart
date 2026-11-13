@@ -259,6 +259,7 @@ class ComposerPanel extends StatelessWidget {
           mobileSubmit: mobile && !minimized
               ? DModalHeaderAction(
                   buttonKey: const ValueKey('composer-submit'),
+                  primary: true,
                   icon: const DIcon(DIcons.arrowUp),
                   tooltip: submitLabel,
                   semanticLabel: submitLabel,

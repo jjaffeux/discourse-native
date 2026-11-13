@@ -79,8 +79,9 @@ or the sheet uses navigation or swipe dismissal alone.
 The kit places bottom-sheet handles 8 logical pixels below the surface edge
 and sheet corner buttons 12 pixels from the top and side. On phones, modal
 header actions use 44-point circles at standard text size and the theme
-foreground for enabled icons. Top system safe-area padding belongs outside
-a bottom sheet. The sheet retains its bottom safe area for
+foreground for enabled icons. Use `primary: true` for a submit action.
+Its enabled state uses the accent fill and a white icon. Top system safe-area
+padding belongs outside a bottom sheet. The sheet retains its bottom safe area for
 content and actions. Header buttons keep their normal Native size when menu
 content is enlarged, and titles can wrap without moving the buttons downward.
 Reading-page sheets use the same handle. Their host owns navigation and swipe
