@@ -662,7 +662,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
       expect(barText('after'), findsOneWidget);
-      await tester.tap(find.dIcon(DIcons.xmark));
+      await tester.tap(galleryButton('Close'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(DSpoiler));
@@ -708,7 +708,7 @@ void main() {
             .title,
         'outside',
       );
-      await tester.tap(find.dIcon(DIcons.xmark));
+      await tester.tap(galleryButton('Close'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('More images'));
       await tester.pumpAndSettle();
@@ -1264,10 +1264,7 @@ void main() {
       final counter = barText('1 of 3');
       final imageViewport = tester.getRect(find.byType(PageView));
       expect(
-        find.ancestor(
-          of: find.dIcon(DIcons.xmark),
-          matching: find.byType(DCard),
-        ),
+        find.ancestor(of: galleryButton('Close'), matching: find.byType(DCard)),
         findsNothing,
       );
       expect(tester.getRect(counter).left, greaterThanOrEqualTo(88));
@@ -1290,18 +1287,19 @@ void main() {
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
 
-      DButton button(DIconData icon) => tester.widget<DButton>(
-        find.ancestor(of: find.dIcon(icon), matching: find.byType(DButton)),
+      final download = find.ancestor(
+        of: find.dIcon(DIcons.download),
+        matching: find.byType(DButton),
       );
-
-      for (final icon in [DIcons.download, DIcons.xmark]) {
-        expect(button(icon).density, DButtonDensity.overMedia);
-        expect(button(icon).foregroundColor, Colors.white);
-        expect(
-          button(icon).backgroundColor,
-          Colors.white.withValues(alpha: .12),
-        );
-      }
+      expect(tester.getSize(download), const Size.square(36));
+      expect(tester.widget<DButton>(download).foregroundColor, Colors.white);
+      final close = galleryButton('Close');
+      expect(tester.getSize(close), const Size.square(44));
+      final context = tester.element(close);
+      expect(
+        tester.widget<DButton>(close).foregroundColor,
+        DTokens.of(context).foreground,
+      );
     });
 
     testWidgets('fits gallery controls at 320px with 2x text scaling', (
@@ -1335,7 +1333,7 @@ void main() {
       expect(barText('1 of 4'), findsOneWidget);
       expect(galleryButton('Zoom in'), findsOneWidget);
       expect(find.dIcon(DIcons.download), findsOneWidget);
-      expect(find.dIcon(DIcons.xmark), findsOneWidget);
+      expect(tester.getSize(galleryButton('Close')).width, greaterThan(44));
     });
 
     testWidgets('offers no download for an image that carries no link', (
@@ -1353,7 +1351,7 @@ void main() {
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.dIcon(DIcons.xmark));
+      await tester.tap(galleryButton('Close'));
       await tester.pumpAndSettle();
 
       expect(find.byType(PhotoView), findsNothing);
@@ -1371,7 +1369,7 @@ void main() {
       await tester.pump();
 
       final chrome = find.ancestor(
-        of: find.dIcon(DIcons.xmark),
+        of: galleryButton('Close'),
         matching: find.byType(AnimatedOpacity),
       );
       expect(tester.widget<AnimatedOpacity>(chrome).opacity, 1);
@@ -1473,7 +1471,7 @@ void main() {
         await openOnPhone(tester);
         final resting = tester.getCenter(photoViewAt(0));
         final chrome = find.ancestor(
-          of: find.dIcon(DIcons.xmark),
+          of: galleryButton('Close'),
           matching: find.byType(AnimatedOpacity),
         );
 
@@ -1501,7 +1499,7 @@ void main() {
         expect(find.byType(PhotoView), findsOneWidget);
         expect(tester.getCenter(photoViewAt(0)), resting);
         final chrome = find.ancestor(
-          of: find.dIcon(DIcons.xmark),
+          of: galleryButton('Close'),
           matching: find.byType(AnimatedOpacity),
         );
         expect(tester.widget<AnimatedOpacity>(chrome).opacity, 1);

@@ -60,7 +60,7 @@ Future<String?> showEmojiPicker({
           showCloseButton: false,
           children: [
             DSheetHeader(
-              trailing: DSheetHeaderAction.close(
+              trailing: DModalHeaderAction.close(
                 buttonKey: const ValueKey('emoji-picker-close'),
                 onPressed: sheet.close,
               ),

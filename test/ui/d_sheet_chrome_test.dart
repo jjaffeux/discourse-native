@@ -165,7 +165,10 @@ void main() {
               expect(closeBounds.top - bounds.top, closeTo(12, .01));
               expect(bounds.right - closeBounds.right, closeTo(12, .01));
               expect(closeBounds.width, closeTo(closeBounds.height, .01));
-              if (scale == 1) expect(closeBounds.width, closeTo(40, .01));
+              expect(
+                closeBounds.width,
+                scale == 1 ? closeTo(44, .01) : greaterThan(44),
+              );
               expect(
                 tester.getRect(find.byType(DSheetTitle)).right,
                 lessThan(closeBounds.left),

@@ -70,6 +70,13 @@ void main() {
         expect(find.text('Only staff can see these notes.'), findsNothing);
         expect(find.text('Add a private staff note'), findsNothing);
         expect(find.byType(DDialogHeader), findsNothing);
+        if (mobile) {
+          final close = tester.getRect(find.byTooltip('Close'));
+          final field = tester.getRect(find.byType(DTextarea));
+          expect(close.width, closeTo(44, .01));
+          expect(close.height, closeTo(44, .01));
+          expect(close.overlaps(field), isFalse);
+        }
         expect(find.text('Refresh notes'), findsNothing);
         expect(find.byTooltip('Refresh notes'), findsNothing);
         expect(find.text('system'), findsOneWidget);

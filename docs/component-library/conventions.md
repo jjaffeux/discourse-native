@@ -67,18 +67,20 @@ their own header may retract. Thread readers retain their existing layouts.
 Set `minimumScrollExtent: 0` on channels so the shared mobile tab bar can retract on short transcripts.
 See the Page surface example in the styleguide and the route audit in [Page header parity](../page-header-mockup-parity.md).
 
-# Sheet headers
+# Modal headers
 
 Use `DSheetContent` for sheet surfaces and `DSheetHeader` for their top row.
 Put corner actions in the header's `leading` and `trailing` slots. Use
-`DSheetHeaderAction` for these actions and `DSheetHeaderAction.close` for an X.
-The built-in sheet close button uses the same component. Keep the default close
-button enabled unless the header supplies its own close behavior or the sheet
-uses navigation or swipe dismissal alone.
+`DModalHeaderAction` for these actions and `DModalHeaderAction.close` for an X.
+Dialogs and drawers use the same action for their close buttons. Keep the
+default close button enabled unless the header supplies its own close behavior
+or the sheet uses navigation or swipe dismissal alone.
 
 The kit places bottom-sheet handles 8 logical pixels below the surface edge
-and corner buttons 12 pixels from the top and side. Top system safe-area padding
-belongs outside a bottom sheet. The sheet retains its bottom safe area for
+and sheet corner buttons 12 pixels from the top and side. On phones, modal
+header actions use 44-point circles at standard text size and the theme
+foreground for enabled icons. Top system safe-area padding belongs outside
+a bottom sheet. The sheet retains its bottom safe area for
 content and actions. Header buttons keep their normal Native size when menu
 content is enlarged, and titles can wrap without moving the buttons downward.
 Reading-page sheets use the same handle. Their host owns navigation and swipe

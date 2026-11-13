@@ -683,9 +683,9 @@ void main() {
     for (final dark in [false, true]) {
       for (final scale in [1.0, 2.0]) {
         testWidgets(
-          'phone header actions use the compact sheet preset dark=$dark scale=$scale',
+          'phone header actions are sized and colored for touch dark=$dark scale=$scale',
           (tester) async {
-            await _Harness.create(
+            final h = await _Harness.create(
               tester,
               mobile: true,
               size: const Size(390, 844),
@@ -698,37 +698,46 @@ void main() {
             final handle = tester.getRect(
               find.byKey(const ValueKey('sheet-drag-handle')),
             );
-            for (final action in ['composer-close', 'composer-submit']) {
-              final button = find.byKey(ValueKey(action));
-              expect(
-                tester.getSize(button),
-                const Size(40, 40),
-                reason: action,
-              );
-              expect(
-                tester.getRect(button).top,
-                header.top + 12,
-                reason: action,
-              );
+            final close = find.byKey(const ValueKey('composer-close'));
+            final submit = find.byKey(const ValueKey('composer-submit'));
+            final extent = tester.getSize(close).width;
+            expect(extent, scale == 1 ? 44 : greaterThan(44));
+            expect(header.height, extent + 24);
+            for (final button in [close, submit]) {
+              expect(tester.getSize(button), Size.square(extent));
+              expect(tester.getRect(button).top, header.top + 12);
               expect(tester.getRect(button).overlaps(handle), isFalse);
-              expect(
-                tester
-                    .getSize(
-                      find
-                          .descendant(
-                            of: button,
-                            matching: action == 'composer-close'
-                                ? find.byType(CustomPaint)
-                                : find.byType(DIcon),
-                          )
-                          .last,
-                    )
-                    .height,
-                action == 'composer-close' ? 16 : 12,
-                reason: action,
-              );
             }
-            expect(header.height, 64);
+
+            final closeGlyph = find
+                .descendant(of: close, matching: find.byType(CustomPaint))
+                .last;
+            final submitGlyph = find.descendant(
+              of: submit,
+              matching: find.byType(DIcon),
+            );
+            final tokens = DTokens.of(tester.element(closeGlyph));
+            expect(tester.getSize(closeGlyph).height, 24);
+            expect(tester.getSize(submitGlyph).height, 24);
+            expect(
+              IconTheme.of(tester.element(closeGlyph)).color,
+              tokens.foreground,
+            );
+            expect(
+              IconTheme.of(tester.element(submitGlyph)).color,
+              tokens.mutedForeground,
+            );
+
+            final composer = h.shell.visibleComposer!;
+            composer.title.text = 'A title long enough to publish';
+            composer.text.text = 'A body long enough to publish.';
+            await tester.pumpAndSettle();
+            expect(tester.widget<DButton>(submit).onPressed, isNotNull);
+            expect(tester.widget<DIcon>(submitGlyph).color, isNull);
+            expect(
+              IconTheme.of(tester.element(submitGlyph)).color,
+              tokens.foreground,
+            );
             expect(
               tester
                   .widget<DButton>(find.byKey(const ValueKey('composer-close')))
@@ -747,6 +756,8 @@ void main() {
               tester,
               'phone-header-actions-${dark ? 'dark' : 'light'}-$scale',
             );
+            await tester.runAsync(composer.finishDraftSaves);
+            await tester.pump();
             expect(tester.takeException(), isNull);
           },
         );

@@ -42,14 +42,11 @@ class AppSettingsModal extends StatelessWidget {
         semanticLabel: context.l10n.interface,
         spacing: DSpacing.xl,
         closeButton: DDialogClose<void>(
-          builder: (_, close) => DButton.iconOnly(
-            key: const ValueKey('app-settings-close'),
+          builder: (_, close) => DModalHeaderAction.close(
+            buttonKey: const ValueKey('app-settings-close'),
             onPressed: close,
-            icon: const DIcon(DIcons.xmark),
             tooltip: context.l10n.close,
             semanticLabel: context.l10n.closeInterface,
-            size: DButtonSize.small,
-            variant: DButtonVariant.ghost,
           ),
         ),
         children: [

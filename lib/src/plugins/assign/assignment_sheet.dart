@@ -564,12 +564,9 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     final cancel = _cancelButton(context);
     final save = _saveButton(context);
     final remove = _removeButton(context);
-    final close = DButton.iconOnly(
-      key: const Key('assignment-close'),
+    final close = DModalHeaderAction.close(
+      buttonKey: const Key('assignment-close'),
       onPressed: _saving ? null : widget.onCancel,
-      icon: const DIcon(DIcons.xmark),
-      variant: DButtonVariant.quiet,
-      size: DControlSize.small,
       tooltip: context.l10n.close,
       semanticLabel: context.l10n.closeAssignment,
     );

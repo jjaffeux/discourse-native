@@ -524,14 +524,10 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
                   languageKey: const ValueKey('code-block-fullscreen-language'),
                   actions: [
                     _CodeCopyButton(text: widget.data.clipboardText),
-                    DButton.iconOnly(
-                      key: const ValueKey('code-block-fullscreen-close'),
+                    DModalHeaderAction.close(
+                      buttonKey: const ValueKey('code-block-fullscreen-close'),
                       onPressed: Navigator.of(context).pop,
-                      tooltip: context.l10n.close,
                       semanticLabel: context.l10n.closeCodeViewer,
-                      variant: DButtonVariant.ghost,
-                      size: DButtonSize.small,
-                      icon: const DIcon(DIcons.xmark),
                     ),
                   ],
                 ),
@@ -603,7 +599,7 @@ class _CodeBlockHeader extends StatelessWidget {
     if (centerLanguage) {
       return SizedBox(
         width: double.infinity,
-        height: 48,
+        height: DModalHeaderAction.extentOf(context).clamp(48, double.infinity),
         child: Stack(
           alignment: Alignment.center,
           children: [

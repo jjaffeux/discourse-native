@@ -522,7 +522,7 @@ void main() {
       tester.getTopLeft(find.text('Edit your categories')).dx,
       closeTo(19.5, 1),
     );
-    expect(find.byType(DSheetHeaderAction), findsNothing);
+    expect(find.byType(DModalHeaderAction), findsNothing);
     expect(find.byTooltip('Back'), findsNothing);
 
     final search = find.byKey(const ValueKey('sidebar-taxonomy-search'));
@@ -633,7 +633,7 @@ void main() {
       await tester.tap(_edit(true));
       await tester.pumpAndSettle();
       expect(find.text('Edit your categories'), findsOneWidget);
-      final actions = find.byType(DSheetHeaderAction);
+      final actions = find.byType(DModalHeaderAction);
       expect(actions, findsOneWidget);
       expect(find.byTooltip('Back'), findsNothing);
       final reset = tester.getRect(
