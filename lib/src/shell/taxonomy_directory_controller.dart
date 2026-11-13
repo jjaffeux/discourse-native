@@ -43,7 +43,6 @@ final class _TaxonomySite {
   Completer<void>? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
   bool tagDirectoryDisabled = false;
-  int tagSearchRevision = 0;
   final tagSearchWaiters = <Completer<List<TopicFilterLookupValue>>>{};
   ({RequestIntentOperation<void> operation, Completer<void> cancellation})?
   tagDirectoryRequest;
@@ -72,7 +71,6 @@ final class _TaxonomySite {
   }
 
   void retireTagSearches() {
-    tagSearchRevision++;
     for (final waiter in tagSearchWaiters) {
       waiter.complete(const []);
     }
@@ -433,15 +431,14 @@ final class _TaxonomyDirectoryController
     int? categoryId,
   }) async {
     final site = _site(siteUrl);
-    final revision = site.tagSearchRevision;
+    final retired = Completer<List<TopicFilterLookupValue>>();
     bool canSearch() =>
         !_shell.accountSessionDisposed &&
         site.lease.isCurrent &&
         identical(_sites[siteUrl], site) &&
-        site.tagSearchRevision == revision &&
+        !retired.isCompleted &&
         _shell.siteConfigFor(siteUrl).taggingEnabled;
     if (!canSearch()) return const [];
-    final retired = Completer<List<TopicFilterLookupValue>>();
     site.tagSearchWaiters.add(retired);
     final List<TopicFilterLookupValue> remote;
     try {
