@@ -451,8 +451,9 @@ final class _TaxonomyDirectoryController
           apiKey,
           clientId,
         ) {
-          if (!canSearch())
+          if (!canSearch()) {
             return Future.value(const <TopicFilterLookupValue>[]);
+          }
           return _shell.api.lookups.searchFilterTags(
             siteUrl: siteUrl,
             term: term,
