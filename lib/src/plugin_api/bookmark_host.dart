@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
 import '../models/bookmark.dart';
+import 'plugin_manifest.dart';
 
 @immutable
 final class BookmarkSiteContext {
@@ -177,4 +180,12 @@ final class BookmarkLinkAction {
   /// Missing bookmark metadata can resolve after the action is displayed.
   /// Until then, [invoke] waits for this same lookup before writing.
   final Future<BookmarkLinkAction?>? resolution;
+}
+
+abstract interface class PluginBookmarkTargetStrategy
+    implements PluginSessionCapability {
+  BookmarkTargetType get pluginBookmarkTarget;
+  void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark);
+  void removePluginBookmark(String siteUrl, int targetId);
+  FutureOr<void> reconcilePluginBookmark(String siteUrl, int targetId);
 }

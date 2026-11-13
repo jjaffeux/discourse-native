@@ -119,3 +119,6 @@ reductions across data adapters, plugins, shell transactions, and composer undo.
 
 [Round fourteen](layer-dependencies-round14.md) records ten dependency
 reductions across HTTP adapters, plugin models, moderation, and draft previews.
+
+[Round fifteen](layer-dependencies-round15.md) records ten dependency
+reductions across topic and bookmark transactions, plugins, and the editor.

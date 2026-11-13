@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart' show immutable;
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../data/topic_feeds_api.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import 'topic_tracking_directory.dart';

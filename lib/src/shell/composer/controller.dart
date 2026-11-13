@@ -42,6 +42,7 @@ import 'markdown_highlight.dart';
 import 'marks.dart';
 import 'pills.dart';
 import 'recipient_target.dart';
+import 'selection_formatting_host.dart';
 import 'triggers.dart';
 import 'upload_preview.dart';
 
@@ -169,7 +170,8 @@ class ComposerController extends ChangeNotifier
         ComposerEditorHost,
         ComposerHistoryHost,
         ComposerMetadataEditorHost,
-        ComposerRecipientTarget {
+        ComposerRecipientTarget,
+        ComposerSelectionFormattingHost {
   ComposerController(
     this._target, {
     this.onSaveDraft,
@@ -1213,6 +1215,7 @@ class ComposerController extends ChangeNotifier
     toggleMark(ComposerMark.inlineCode);
   }
 
+  @override
   void formatSelection(TextEditingValue Function(TextEditingValue) format) {
     if (!isEditing ||
         !text.selection.isValid ||

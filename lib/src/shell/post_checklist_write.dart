@@ -1,5 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
-import '../data/discourse_api_contracts.dart';
+
+import '../data/write_failure.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
 

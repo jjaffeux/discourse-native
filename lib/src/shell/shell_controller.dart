@@ -3796,7 +3796,7 @@ class ShellController extends FrameSafeNotifier
   );
 
   late final ChecklistTransactions _checklists = ChecklistTransactions(
-    api: api.postMutations,
+    togglePostChecklist: api.postMutations.togglePostChecklist,
     store: store,
     credentials: credentials,
     lifecycle: lifecycle,

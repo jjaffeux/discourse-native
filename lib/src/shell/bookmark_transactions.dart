@@ -5,16 +5,16 @@ import 'package:flutter/foundation.dart';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
+import '../data/bookmarks_write_api.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../data/write_failure.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/post.dart';
 import '../models/storable.dart';
 import '../models/topic.dart';
 import '../plugin_api/bookmark_host.dart';
-import '../plugin_api/shell_extensions.dart';
 
 part 'bookmark_target_hosts.dart';
 

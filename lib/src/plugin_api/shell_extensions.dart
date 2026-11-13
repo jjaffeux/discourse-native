@@ -22,6 +22,7 @@ import 'plugin_manifest.dart';
 
 export '../data/live_channels.dart';
 export 'background_retention.dart';
+export 'bookmark_host.dart' show PluginBookmarkTargetStrategy;
 
 /// Unlike [DiscourseInstance], this carries no account record, site settings,
 /// or appearance data. A plugin with route-only authority can identify and
@@ -281,14 +282,6 @@ abstract interface class PluginUserPreferenceMirror
     PreferenceSection section,
     UserPreferences preferences,
   );
-}
-
-abstract interface class PluginBookmarkTargetStrategy
-    implements PluginSessionCapability {
-  BookmarkTargetType get pluginBookmarkTarget;
-  void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark);
-  void removePluginBookmark(String siteUrl, int targetId);
-  FutureOr<void> reconcilePluginBookmark(String siteUrl, int targetId);
 }
 
 /// Presentation supplied by the owner of a bookmark's target type.

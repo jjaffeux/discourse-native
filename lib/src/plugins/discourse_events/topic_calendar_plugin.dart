@@ -61,8 +61,9 @@ final class TopicCalendarPlugin
 
   @override
   Widget? postBodyElement(PluginPostBodyContext context, dom.Element element) {
-    final fragment =
-        eventHiddenCookedElement(element) ?? groupTimezonesFallback(element);
+    final fragment = eventCookedElementIsHidden(element)
+        ? const SizedBox.shrink()
+        : groupTimezonesFallback(element);
     if (fragment != null) return fragment;
     final calendar = _calendar(element);
     if (calendar == null) return null;
@@ -132,8 +133,9 @@ final class TopicCalendarPlugin
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) {
-    final fallback =
-        eventHiddenCookedElement(element) ?? groupTimezonesFallback(element);
+    final fallback = eventCookedElementIsHidden(element)
+        ? const SizedBox.shrink()
+        : groupTimezonesFallback(element);
     if (fallback != null) return fallback;
     final calendar = _calendar(element);
     return calendar == null

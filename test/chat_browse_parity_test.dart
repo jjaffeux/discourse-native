@@ -16,6 +16,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_filters.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox_room_row.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_rooms.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';

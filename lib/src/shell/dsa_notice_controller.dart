@@ -1,7 +1,8 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
-import '../data/discourse_api_contracts.dart';
+import '../data/dsa_notice_contracts.dart';
+import '../data/write_failure.dart';
 import '../models/dsa_notice.dart';
 
 typedef DsaNoticeExecution = Future<T> Function<T>(Future<T> Function() action);

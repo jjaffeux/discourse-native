@@ -12,9 +12,11 @@ import '../models/post_likers.dart';
 import '../models/post_revision.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
-import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'json_decode.dart';
+import 'site_lookup_failure.dart';
+import 'topic_reads_api.dart';
+import 'write_failure.dart';
 
 final class DiscourseTopicApi {
   const DiscourseTopicApi(this._transport, this._models);

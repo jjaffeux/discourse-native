@@ -12,6 +12,7 @@ import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_inbox.dart';
 import 'chat_inbox_filters.dart';
+import 'chat_inbox_room_row.dart';
 import 'chat_inbox_rooms.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';

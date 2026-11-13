@@ -113,7 +113,7 @@ final class _Fixture {
       bookmarkReads: (_, _) => throw StateError('Unexpected bookmark read'),
     );
     owner = ChecklistTransactions(
-      api: api,
+      togglePostChecklist: api.togglePostChecklist,
       store: store,
       credentials: credentials,
       lifecycle: lifecycle,

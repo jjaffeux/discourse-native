@@ -3,8 +3,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../foundation/icons/d_native_icons.dart';
-import 'controller.dart';
 import 'inline_formatting.dart';
+import 'selection_formatting_host.dart';
 
 /// The BBCode adapter for Native's preset palette. Recent choices live for the
 /// lifetime of the draft, including after its selection menu is dismissed.
@@ -16,7 +16,7 @@ class ComposerSelectionColors extends StatelessWidget {
     this.enabled = true,
   });
 
-  final ComposerController composer;
+  final ComposerSelectionFormattingHost composer;
   final DControlSize size;
   final bool enabled;
   static final _recent = Expando<List<DColorPreset>>();

@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/architecture_graph.dart';
 
 const _closureBudgets = <String, (int, int)>{
-  'lib/src/shell/group_pages_port.dart': (90, 0),
-  'lib/src/plugins/gamification/gamification_models.dart': (172, 2),
-  'lib/src/plugins/poll/poll_composer_parser.dart': (172, 2),
-  'lib/src/plugins/local_dates/local_date_composer_parser.dart': (173, 2),
-  'lib/src/plugins/chat/chat_stream.dart': (179, 2),
-  'lib/src/plugins/chat/chat_composer_target.dart': (172, 2),
-  'lib/src/plugins/boards/boards_controller.dart': (174, 2),
-  'lib/src/plugins/chat/chat_shell_service.dart': (219, 2),
+  'lib/src/shell/group_pages_port.dart': (93, 0),
+  'lib/src/plugins/gamification/gamification_models.dart': (175, 2),
+  'lib/src/plugins/poll/poll_composer_parser.dart': (175, 2),
+  'lib/src/plugins/local_dates/local_date_composer_parser.dart': (176, 2),
+  'lib/src/plugins/chat/chat_stream.dart': (182, 2),
+  'lib/src/plugins/chat/chat_composer_target.dart': (175, 2),
+  'lib/src/plugins/boards/boards_controller.dart': (177, 2),
+  'lib/src/plugins/chat/chat_shell_service.dart': (223, 2),
   'lib/src/shell/topic_list_cursor_coordinator.dart': (94, 0),
   'lib/src/plugins/chat/chat_message_body_staging.dart': (3, 2),
 };

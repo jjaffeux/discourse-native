@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../data/write_failure.dart';
 import '../models/group.dart';
 
 @immutable

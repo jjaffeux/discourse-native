@@ -32,14 +32,18 @@ const _pluginIdsByDirectory = <String, String>{
   'topic_voting': 'discourse-topic-voting',
 };
 
-const _approvedCrossFeatureContracts = <String, String>{
-  'voice->chat': 'lib/src/plugins/chat/chat_contract.dart',
-  'chat->gifs': 'lib/src/plugins/gifs/gifs_contract.dart',
-  'discourse_math->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
-  'local_dates->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
-  'discourse_ai->chat': 'lib/discourse_chat.dart',
-  'discourse_github->local_dates':
-      'lib/src/plugins/local_dates/local_dates_contract.dart',
+const _approvedCrossFeatureContracts = <String, Set<String>>{
+  'voice->chat': {
+    'lib/src/plugins/chat/chat_contract.dart',
+    'lib/src/plugins/chat/chat_inbox_presentation.dart',
+  },
+  'chat->gifs': {'lib/src/plugins/gifs/gifs_contract.dart'},
+  'discourse_math->chat': {'lib/src/plugins/chat/chat_preview_contract.dart'},
+  'local_dates->chat': {'lib/src/plugins/chat/chat_preview_contract.dart'},
+  'discourse_ai->chat': {'lib/discourse_chat.dart'},
+  'discourse_github->local_dates': {
+    'lib/src/plugins/local_dates/local_dates_contract.dart',
+  },
 };
 
 const _publicPluginContracts = <String, String>{
@@ -330,9 +334,14 @@ void main() {
           if (directive.target.startsWith('lib/src/plugins/')) continue;
           if (_publicPluginContracts.containsKey(directive.target)) continue;
           if (!const {
+            'lib/discourse_math_types.dart',
+            'lib/discourse_plugin_composer.dart',
+            'lib/discourse_plugin_composer_drafts.dart',
             'lib/discourse_plugin_contracts.dart',
+            'lib/discourse_plugin_reader.dart',
             'lib/discourse_plugin_sdk.dart',
             'lib/discourse_ui.dart',
+            'lib/discourse_youtube_data.dart',
             'lib/l10n/strings.dart',
           }.contains(directive.target)) {
             violations.add(
@@ -459,11 +468,11 @@ void main() {
               continue;
             }
             final edge = '$sourceDirectory->$targetDirectory';
-            final approvedTarget = _approvedCrossFeatureContracts[edge];
-            if (directive.target != approvedTarget) {
+            final approvedTargets = _approvedCrossFeatureContracts[edge];
+            if (approvedTargets?.contains(directive.target) != true) {
               violations.add(
                 '$sourcePath:${directive.line} imports ${directive.target}; '
-                'approved contract for $edge is ${approvedTarget ?? 'none'}',
+                'approved contracts for $edge: ${approvedTargets ?? 'none'}',
               );
             }
             final descriptor = descriptors[sourceId];

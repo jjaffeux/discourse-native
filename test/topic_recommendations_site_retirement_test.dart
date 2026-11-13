@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_related_topics.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/foundation.dart';

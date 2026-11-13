@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
-import 'chat_services.dart';
+
+import 'chat_service_identity.dart';
 
 const chatNotificationCounter = PluginNotificationCounter(
   id: PluginNotificationCounterId(owner: chatPluginId, name: 'notifications'),

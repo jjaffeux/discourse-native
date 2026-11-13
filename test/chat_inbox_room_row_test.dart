@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox_room_row.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_rooms.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

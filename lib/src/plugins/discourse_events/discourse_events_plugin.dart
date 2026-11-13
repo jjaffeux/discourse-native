@@ -16,6 +16,7 @@ import 'event_directory.dart';
 import 'event_navigation.dart';
 import 'event_notifications.dart';
 import 'event_onebox.dart';
+import 'event_onebox_data.dart';
 import 'event_topic_title.dart';
 
 final class DiscourseEventsPlugin
@@ -78,8 +79,7 @@ final class DiscourseEventsPlugin
 
   @override
   Widget? postBodyElement(PluginPostBodyContext context, dom.Element element) {
-    final hidden = eventHiddenCookedElement(element);
-    if (hidden != null) return hidden;
+    if (eventCookedElementIsHidden(element)) return const SizedBox.shrink();
     PostEvent? event;
     final record = context.post.plugins.get(eventPostKey);
     if (element.classes.contains('discourse-post-event')) {
@@ -139,10 +139,11 @@ final class DiscourseEventsPlugin
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>
-      eventHiddenCookedElement(element) ??
-      (element.classes.contains('discourse-post-event')
-          ? EventCookedFallback(element: element, siteUrl: siteUrl)
-          : _eventOnebox(siteUrl, element));
+      eventCookedElementIsHidden(element)
+      ? const SizedBox.shrink()
+      : (element.classes.contains('discourse-post-event')
+            ? EventCookedFallback(element: element, siteUrl: siteUrl)
+            : _eventOnebox(siteUrl, element));
 
   Widget? _eventOnebox(String? siteUrl, dom.Element element) {
     final data = EventOneboxData.from(element, siteUrl);

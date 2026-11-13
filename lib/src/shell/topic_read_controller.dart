@@ -2,9 +2,9 @@ import 'dart:async';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../data/topic_reads_api.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/topic.dart';
 

@@ -1,15 +1,10 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_controller.dart';
-import 'chat_conversation_contract.dart';
 import 'chat_search_controller.dart';
+import 'chat_service_identity.dart';
 
-const chatPluginId = PluginId('chat');
-
-const chatConversationService = PluginServiceKey<ChatConversationCapability>(
-  owner: chatPluginId,
-  name: 'conversation',
-);
+export 'chat_service_identity.dart';
 
 const chatControllerService = PluginServiceKey<ChatController>(
   owner: chatPluginId,

@@ -32,6 +32,7 @@ import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
 import 'account_session_api.dart';
+import 'bookmarks_write_api.dart';
 import 'category_load_result.dart';
 import 'discourse_search_contract.dart';
 import 'dsa_notice_contracts.dart';
@@ -40,12 +41,17 @@ import 'plugin_transport.dart';
 import 'sidebar_sections_api.dart';
 import 'site_lookup_failure.dart';
 import 'site_message_bus_bootstrap.dart';
+import 'topic_feeds_api.dart';
+import 'topic_reads_api.dart';
 import 'write_failure.dart';
 
+export 'bookmarks_write_api.dart';
 export 'category_load_result.dart';
 export 'discourse_search_contract.dart';
 export 'dsa_notice_contracts.dart';
 export 'site_lookup_failure.dart';
+export 'topic_feeds_api.dart';
+export 'topic_reads_api.dart';
 export 'write_failure.dart';
 
 /// The sentence a user is shown for a failed request.
@@ -826,45 +832,6 @@ abstract interface class UserPreferencesApi {
   });
 }
 
-abstract interface class BookmarksWriteApi {
-  Future<int> createBookmark({
-    required String siteUrl,
-    required String apiKey,
-    required BookmarkTargetType targetType,
-    required int targetId,
-    String? name,
-    DateTime? reminderAt,
-    BookmarkAutoDeletePreference? autoDeletePreference,
-    String? clientId,
-  });
-
-  Future<void> updateBookmark({
-    required String siteUrl,
-    required String apiKey,
-    required int bookmarkId,
-    String? name,
-    DateTime? reminderAt,
-    DateTime? originalReminderAt,
-    required BookmarkAutoDeletePreference autoDeletePreference,
-    String? clientId,
-  });
-
-  Future<bool?> deleteBookmark({
-    required String siteUrl,
-    required String apiKey,
-    required int bookmarkId,
-    required BookmarkTargetType targetType,
-    String? clientId,
-  });
-
-  Future<void> deleteTopicBookmarks({
-    required String siteUrl,
-    required String apiKey,
-    required int topicId,
-    String? clientId,
-  });
-}
-
 abstract interface class DraftsApi {
   Future<UserDraftPage> userDrafts({
     required String siteUrl,
@@ -888,47 +855,6 @@ abstract interface class UserSummariesApi {
     required String siteUrl,
     required String apiKey,
     required String username,
-    String? clientId,
-  });
-}
-
-abstract interface class TopicFeedsApi {
-  Future<Topic> topicSummary({
-    required String siteUrl,
-    required int id,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<List<int>> dismissNewTopics({
-    required String siteUrl,
-    required String apiKey,
-    required bool dismissTopics,
-    required bool dismissPosts,
-    bool tracked = false,
-    int? categoryId,
-    String? tagName,
-    List<int>? topicIds,
-    String? clientId,
-  });
-
-  Future<TopicList> topicList({
-    required String siteUrl,
-    required String path,
-    String? apiKey,
-    String? clientId,
-  });
-}
-
-abstract interface class TopicReadsApi {
-  static const maximumPostsPerRequest = 100;
-
-  Future<void> recordTopicReads({
-    required String siteUrl,
-    required String apiKey,
-    required int topicId,
-    required List<int> postNumbers,
-    int milliseconds = 500,
     String? clientId,
   });
 }

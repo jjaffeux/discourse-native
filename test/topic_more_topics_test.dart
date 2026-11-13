@@ -6,7 +6,7 @@ import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_related_topics.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

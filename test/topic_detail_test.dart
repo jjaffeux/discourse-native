@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_related_topics.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 

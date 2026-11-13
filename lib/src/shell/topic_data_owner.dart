@@ -17,6 +17,7 @@ import '../models/topic.dart';
 import '../models/topic_link.dart';
 import '../plugin_api/topic_reader.dart';
 import 'bookmark_transactions.dart';
+import 'checklist_topic_data.dart';
 import 'topic_prefetch_controller.dart';
 
 typedef TopicDataPosition = ({String slug, int postNumber});
@@ -262,7 +263,7 @@ final class _CapturedKey implements SiteApiKeyReader {
   Future<String?> apiKeyFor(String siteUrl) async => key;
 }
 
-final class TopicDataSession implements BookmarkTopicData {
+final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
   TopicDataSession._(this._owner, this.siteUrl, this.lease);
 
   final TopicDataOwner _owner;
@@ -2260,6 +2261,7 @@ final class TopicDataSession implements BookmarkTopicData {
     return write;
   }
 
+  @override
   bool publishChecklist(Post previous, Post next) {
     if (!isCurrent) return false;
     final current = _store.read<Post>(siteUrl, previous.id);
@@ -2286,6 +2288,7 @@ final class TopicDataSession implements BookmarkTopicData {
     return isCurrent;
   }
 
+  @override
   Future<Post?> checklistPost(int topicId, int postId, String? apiKey) async {
     if (!isCurrent) return null;
     final credential = await _requests.keyCredentials(_CapturedKey(apiKey));

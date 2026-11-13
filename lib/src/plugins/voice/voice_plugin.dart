@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../chat/chat_contract.dart';
+import '../chat/chat_inbox_presentation.dart';
 import 'site_preference_inventory.g.dart';
 import 'voice_call_widget.dart';
 import 'voice_chat_inbox.dart';

@@ -2,17 +2,17 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../data/write_failure.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
+import 'checklist_topic_data.dart';
 import 'post_checklist_write.dart';
-import 'topic_data_owner.dart';
 
 final class ChecklistTransactions {
   ChecklistTransactions({
-    required this.api,
+    required this.togglePostChecklist,
     required this.store,
     required this.credentials,
     required this.lifecycle,
@@ -21,12 +21,21 @@ final class ChecklistTransactions {
     required this.bookmarkWriting,
   });
 
-  final PostMutationsApi api;
+  final Future<PostChecklistUpdate> Function({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required List<Map<String, Object?>> toggles,
+    required String expectedRaw,
+    required DateTime expectedUpdatedAt,
+    required String mutationId,
+  })
+  togglePostChecklist;
   final Store store;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
   final bool Function(String) isConnected;
-  final TopicDataSession? Function(String, SiteLease) topicData;
+  final ChecklistTopicData? Function(String, SiteLease) topicData;
   final bool Function(String, SiteLease, int) bookmarkWriting;
 
   final Map<String, _ChecklistAccount> _accounts = {};
@@ -99,7 +108,7 @@ final class _ChecklistAccount {
   final ChecklistTransactions _owner;
   final String siteUrl;
   final SiteLease lease;
-  final TopicDataSession _data;
+  final ChecklistTopicData _data;
   final Map<int, PostChecklistWrite> _writes = {};
   void Function()? _detach;
   bool _retired = false;
@@ -146,7 +155,7 @@ final class _ChecklistAccount {
         return fresh;
       },
       save: (baseline, toggles) => requestCredential!.run(
-        () => _owner.api.togglePostChecklist(
+        () => _owner.togglePostChecklist(
           siteUrl: siteUrl,
           apiKey: apiKey!,
           postId: post.id,
