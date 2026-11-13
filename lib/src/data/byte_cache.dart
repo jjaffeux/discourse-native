@@ -706,24 +706,28 @@ abstract class ByteCache<T extends Object> {
 
   void _release() {
     if (maxConcurrent == null) return;
-    for (var index = _waiting.length - 1; index >= 0; index--) {
+    var normal = -1;
+    var interactive = -1;
+    for (var index = 0; index < _waiting.length;) {
       final waiter = _waiting[index];
       if (waiter.transfer.cancelled ||
           !identical(waiter.transfer.generation, _generation)) {
         _waiting.removeAt(index).result.complete(false);
+        continue;
       }
+      switch (waiter.transfer.priority) {
+        case MediaRequestPriority.normal:
+          if (normal < 0) normal = index;
+        case MediaRequestPriority.interactive:
+          if (interactive < 0) interactive = index;
+      }
+      index++;
     }
     if (_waiting.isEmpty) {
       _active--;
       _interactiveOvertakes = 0;
       return;
     }
-    final normal = _waiting.indexWhere(
-      (waiter) => waiter.transfer.priority == MediaRequestPriority.normal,
-    );
-    final interactive = _waiting.indexWhere(
-      (waiter) => waiter.transfer.priority == MediaRequestPriority.interactive,
-    );
     final index = normal >= 0 && (interactive < 0 || _interactiveOvertakes >= 3)
         ? normal
         : interactive;
