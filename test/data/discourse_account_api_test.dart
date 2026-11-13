@@ -930,6 +930,35 @@ void main() {
       expect(page.bookmarks.last.path, '/t/tea/92');
     });
 
+    test('bookmarks without an actionable ID do not appear in a page', () async {
+      final api = _accountApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'user_bookmark_list': {
+                'more_bookmarks_url': '/u/sam/bookmarks.json?page=1',
+                'bookmarks': [
+                  {'title': 'No ID'},
+                  {'id': -1, 'title': 'Invalid ID'},
+                  {'id': 7, 'title': 'Saved'},
+                ],
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final page = await api.bookmarkListPage(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        username: 'sam',
+      );
+
+      expect(page.bookmarks.map((bookmark) => bookmark.title), ['Saved']);
+      expect(page.hasMore, isTrue);
+    });
+
     test('the last page carries no next-page link', () async {
       final api = _accountApi(
         client: MockClient(

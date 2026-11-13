@@ -68,6 +68,17 @@ void main() {
       expect(bookmark.postNumber, 3);
     });
 
+    test('a malformed post number falls back to the linked reply', () {
+      final bookmark = Bookmark.fromJson(const {
+        'id': 8,
+        'bookmarkable_type': 'Post',
+        'post_number': 'unknown',
+        'linked_post_number': 3,
+      });
+
+      expect(bookmark.postNumber, 3);
+    });
+
     test('keeps absent and malformed metadata readable', () {
       final bookmark = Bookmark.fromJson(const {
         'id': 'not-an-id',
