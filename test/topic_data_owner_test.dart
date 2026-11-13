@@ -297,6 +297,42 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  test('opening replaces a completed prefetch from retired tracking', () async {
+    final f = _Fixture();
+    final data = f.data;
+    addTearDown(
+      data.prefetch(
+        const Topic(id: 7, title: 'Topic', slug: 'topic'),
+        postNumber: 90,
+        intent: TopicPrefetchIntent.trajectory,
+        isInterested: () => true,
+      ),
+    );
+    await f.api.waitTopics(1);
+    f.api.topicReads.single.result.complete(
+      _payload([_post(90, 'prefetched')], stream: [90]),
+    );
+    await pumpEventQueue();
+    f.tracking.retire();
+    f.tracking = TopicTrackingReconciler();
+
+    final opening = data.open(
+      7,
+      slug: 'topic',
+      postNumber: 90,
+      opening: f.opening,
+    );
+    await pumpEventQueue();
+    if (f.api.topicReads.length == 2) {
+      f.api.topicReads.last.result.complete(
+        _payload([_post(90, 'fresh')], stream: [90]),
+      );
+    }
+    await opening;
+    expect(f.api.topicReads, hasLength(2));
+    expect(f.store.read<Post>(_site, 90)?.cooked, '<p>fresh</p>');
+  });
+
   test(
     'prefetch skips dispatch when its tracking retires during credentials',
     () async {

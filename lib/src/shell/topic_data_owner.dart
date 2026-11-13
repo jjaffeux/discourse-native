@@ -1152,7 +1152,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
         'reading credentials for topic $topicId',
       );
       if (!isCurrent) return;
-      final warmed = prefetched == null || stamp.redacted.isNotEmpty
+      final candidate = prefetched == null || stamp.redacted.isNotEmpty
           ? null
           : await _stage(
               prefetched,
@@ -1160,6 +1160,9 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
               'waiting for topic prefetch $topicId',
             );
       if (!isCurrent) return;
+      final warmed = candidate?.notificationRead?.isCurrent == false
+          ? null
+          : candidate;
       if (warmed != null) {
         stamp = (
           notification: warmed.notificationRead,
