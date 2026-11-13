@@ -104,8 +104,7 @@ final class SiteVideoSourceResolver {
       _requireCurrent(lease);
 
       final location = response.headers['location'];
-      if (!_redirectStatuses.contains(response.statusCode) ||
-          location == null) {
+      if (!isHttpRedirectStatus(response.statusCode) || location == null) {
         if (onForum) {
           throw const SiteVideoSourceRequiresAuthenticationException();
         }
@@ -249,5 +248,3 @@ final class SiteVideoSourceResolver {
     }
   }
 }
-
-const Set<int> _redirectStatuses = {301, 302, 303, 307, 308};

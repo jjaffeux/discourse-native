@@ -159,7 +159,7 @@ final class NativeVideoDownloader implements VideoDownloader {
               .ignore();
           rethrow;
         }
-        if (_redirectStatuses.contains(response.statusCode)) {
+        if (isHttpRedirectStatus(response.statusCode)) {
           await response.stream.listen(null).cancel();
           final location = response.headers['location'];
           if (location == null || redirects >= 5) {
@@ -267,5 +267,3 @@ enum _VideoMediaType {
     return null;
   }
 }
-
-const _redirectStatuses = {301, 302, 303, 307, 308};

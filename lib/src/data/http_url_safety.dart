@@ -39,3 +39,8 @@ Uri resolveSafeHttpRedirect(Uri source, String location) {
   }
   return requireSafeHttpUrl(target);
 }
+
+bool isHttpRedirectStatus(int status) => switch (status) {
+  301 || 302 || 303 || 307 || 308 => true,
+  _ => false,
+};

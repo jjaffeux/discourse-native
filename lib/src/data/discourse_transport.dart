@@ -83,7 +83,6 @@ final class DiscourseTransport {
         : 2 * 1024 * 1024,
   );
 
-  static const _redirectStatusCodes = {301, 302, 303, 307, 308};
   static const int _maxGetRedirects = 5;
 
   Future<http.Response> request(
@@ -129,7 +128,7 @@ final class DiscourseTransport {
         authentication: authentication,
       );
       final location = response.headers['location'];
-      final isRedirect = _redirectStatusCodes.contains(response.statusCode);
+      final isRedirect = isHttpRedirectStatus(response.statusCode);
 
       if (!isRedirect || location == null) {
         return DiscourseHeadResponse(
@@ -343,7 +342,7 @@ final class DiscourseTransport {
         );
 
         final location = response.headers['location'];
-        if (!_redirectStatusCodes.contains(response.statusCode) ||
+        if (!isHttpRedirectStatus(response.statusCode) ||
             location == null ||
             location.isEmpty ||
             redirects >= _maxGetRedirects) {
