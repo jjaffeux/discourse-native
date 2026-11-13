@@ -101,7 +101,7 @@ abstract class ByteCache<T extends Object> {
   final Map<String, DateTime> _transientFailures = {};
   final Map<String, _ByteCacheTransfer<T>> _inFlight = {};
   final Set<_ByteCacheTransfer<T>> _transfers = {};
-  final List<_CacheWaiter<T>> _waiting = [];
+  final _waiting = <_ByteCacheTransfer<T>, Completer<bool>>{};
   int _interactiveOvertakes = 0;
   int _active = 0;
   int _cachedBytes = 0;
@@ -293,11 +293,7 @@ abstract class ByteCache<T extends Object> {
     if (identical(_inFlight[transfer.url], transfer)) {
       _inFlight.remove(transfer.url);
     }
-    for (var index = _waiting.length - 1; index >= 0; index--) {
-      if (identical(_waiting[index].transfer, transfer)) {
-        _waiting.removeAt(index).result.complete(false);
-      }
-    }
+    _waiting.remove(transfer)?.complete(false);
     transfer.abort.complete();
     for (final owner in transfer.owners) {
       owner._complete(null);
@@ -699,9 +695,9 @@ abstract class ByteCache<T extends Object> {
       _active++;
       return Future.value(true);
     }
-    final waiter = _CacheWaiter(transfer);
-    _waiting.add(waiter);
-    return waiter.result.future;
+    final waiter = Completer<bool>();
+    _waiting[transfer] = waiter;
+    return waiter.future;
   }
 
   void _release() {
@@ -712,24 +708,25 @@ abstract class ByteCache<T extends Object> {
       return;
     }
     // Retirement removes its waiter, and clear drains the old generation.
-    var normal = -1;
-    var interactive = -1;
-    for (var index = 0; index < _waiting.length; index++) {
-      switch (_waiting[index].transfer.priority) {
+    _ByteCacheTransfer<T>? normal;
+    _ByteCacheTransfer<T>? interactive;
+    for (final transfer in _waiting.keys) {
+      switch (transfer.priority) {
         case MediaRequestPriority.normal:
-          if (normal < 0) normal = index;
+          normal ??= transfer;
         case MediaRequestPriority.interactive:
-          if (interactive < 0) interactive = index;
+          interactive ??= transfer;
       }
-      if (normal >= 0 && interactive >= 0) break;
+      if (normal != null && interactive != null) break;
     }
-    final index = normal >= 0 && (interactive < 0 || _interactiveOvertakes >= 3)
+    final next =
+        normal != null && (interactive == null || _interactiveOvertakes >= 3)
         ? normal
-        : interactive;
-    _interactiveOvertakes = normal >= 0 && index == interactive
+        : interactive!;
+    _interactiveOvertakes = normal != null && identical(next, interactive)
         ? _interactiveOvertakes + 1
         : 0;
-    _waiting.removeAt(index).result.complete(true);
+    _waiting.remove(next)!.complete(true);
   }
 
   void clear() {
@@ -738,8 +735,8 @@ abstract class ByteCache<T extends Object> {
     _cachedBytes = 0;
     _inFlight.clear();
     _transientFailures.clear();
-    for (final waiter in _waiting) {
-      waiter.result.complete(false);
+    for (final waiter in _waiting.values) {
+      waiter.complete(false);
     }
     _waiting.clear();
   }
@@ -856,13 +853,6 @@ final class _ByteCacheTransfer<T extends Object> {
 
 final class _ByteCacheRequestCancelled implements Exception {
   const _ByteCacheRequestCancelled();
-}
-
-final class _CacheWaiter<T extends Object> {
-  _CacheWaiter(this.transfer);
-
-  final _ByteCacheTransfer<T> transfer;
-  final Completer<bool> result = Completer<bool>();
 }
 
 class _CacheEntry<T extends Object> {
