@@ -152,8 +152,12 @@ final class NotificationFeedRefreshOwner {
         ),
       );
       final immutable = List<NotificationWireType>.unmodifiable(types);
-      if (_owns(account)) account.catalog = immutable;
-      return immutable;
+      if (!_owns(account)) return immutable;
+      return account.catalog ??= immutable;
+    } catch (_) {
+      final seeded = account.catalog;
+      if (_owns(account) && seeded != null) return seeded;
+      rethrow;
     } finally {
       if (identical(account.request, request)) account.request = null;
     }
@@ -168,7 +172,9 @@ final class NotificationFeedRefreshOwner {
   ) {
     if (types.isEmpty) return;
     final account = _account(siteUrl, lease: lease);
-    if (account != null && _owns(account)) account.catalog ??= types;
+    if (account != null && _owns(account)) {
+      account.catalog ??= List<NotificationWireType>.unmodifiable(types);
+    }
   }
 
   void acceptLiveState(String siteUrl, Object? data, SiteLease lease) {

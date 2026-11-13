@@ -54,6 +54,34 @@ void main() {
     },
   );
 
+  for (final fetchFails in [false, true]) {
+    test(
+      'a seeded catalog stays consistent when a pending fetch ${fetchFails ? 'fails' : 'succeeds'}',
+      () async {
+        final h = _Harness();
+        addTearDown(h.dispose);
+        final pending = h.owner.markAllNotificationsRead(_site);
+        await pumpEventQueue();
+        final seed = [_serverType];
+        h.owner.seedSiteTypes(_site, seed, h.lifecycle.capture(_site));
+        await h.owner.markAllNotificationsRead(_site);
+        if (fetchFails) {
+          h.api.catalogs.single.completeError(StateError('offline'));
+        } else {
+          h.api.catalogs.single.complete([CoreNotificationTypes.replied]);
+        }
+        seed.clear();
+        await pending;
+        await h.owner.markAllNotificationsRead(_site);
+        expect(h.api.markedTypesRead, const [
+          [NotificationTypeName('custom_alert')],
+          [NotificationTypeName('custom_alert')],
+          [NotificationTypeName('custom_alert')],
+        ]);
+      },
+    );
+  }
+
   test('failed catalog keeps Other retryable', () async {
     final h = _Harness();
     addTearDown(h.dispose);
