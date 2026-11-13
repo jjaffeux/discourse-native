@@ -35,6 +35,31 @@ void main() {
     await rejected;
   });
 
+  test(
+    'retirement also invalidates an error completed in the same turn',
+    () async {
+      const site = 'https://meta.discourse.org';
+      final lifecycle = SiteLifecycle();
+      final lease = lifecycle.capture(site);
+      final retired = StateError('retired');
+      final operation = Completer<int>.sync();
+      unawaited(
+        operation.future.then<void>(
+          (_) {},
+          onError: (Object _, StackTrace _) => lifecycle.invalidate(site),
+        ),
+      );
+      final rejected = expectLater(
+        lease.waitWhileCurrent(operation.future, retired),
+        throwsA(same(retired)),
+      );
+
+      operation.completeError(StateError('old operation failed'));
+
+      await rejected;
+    },
+  );
+
   test('only the current session can commit state for a site', () {
     final lifecycle = SiteLifecycle();
     final first = lifecycle.capture('https://meta.discourse.org');

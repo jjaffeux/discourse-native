@@ -75,6 +75,11 @@ final class SiteLease {
           : pending.timeout(timeout));
       if (!isCurrent) throw retirementError;
       return value;
+    } catch (error) {
+      if (!isCurrent && !identical(error, retirementError)) {
+        throw retirementError;
+      }
+      rethrow;
     } finally {
       detach();
     }
