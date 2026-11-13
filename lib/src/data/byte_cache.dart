@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
@@ -656,60 +655,16 @@ abstract class ByteCache<T extends Object> {
     Stream<List<int>> stream,
     Duration remaining,
     _ByteCacheTransfer<T> transfer,
-  ) {
-    final chunks = BytesBuilder(copy: false);
-    final result = Completer<Uint8List?>();
-    StreamSubscription<List<int>>? subscription;
-    var cancelOnListen = false;
-
-    void cancel() {
-      final active = subscription;
-      if (active == null) {
-        cancelOnListen = true;
-      } else {
-        active.cancel().ignore();
-      }
-    }
-
-    unawaited(
-      transfer.abort.future.then((_) {
-        if (result.isCompleted) return;
-        chunks.clear();
-        result.completeError(const _ByteCacheRequestCancelled());
-        cancel();
-      }),
-    );
-    subscription = stream.listen(
-      (chunk) {
-        if (result.isCompleted) return;
-        if (chunks.length + chunk.length > maxResponseBytes) {
-          chunks.clear();
-          result.complete(null);
-          cancel();
-          return;
-        }
-        chunks.add(chunk);
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        chunks.clear();
-        if (!result.isCompleted) result.completeError(error, stackTrace);
-      },
-      onDone: () {
-        if (!result.isCompleted) result.complete(chunks.takeBytes());
-      },
-      cancelOnError: true,
-    );
-    if (cancelOnListen) subscription.cancel().ignore();
-
-    return result.future.timeout(
-      remaining,
-      onTimeout: () {
-        chunks.clear();
-        cancel();
-        throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
-      },
-    );
-  }
+  ) => readBoundedHttpBody(
+    stream,
+    maxBytes: maxResponseBytes,
+    timeout: remaining,
+    timeoutError: () =>
+        TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout),
+    abortError: transfer.abort.future.then(
+      (_) => const _ByteCacheRequestCancelled(),
+    ),
+  );
 
   Duration _remaining(Stopwatch elapsed) {
     final remaining = timeout - elapsed.elapsed;

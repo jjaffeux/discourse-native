@@ -145,12 +145,17 @@ Future<http.Response> sendBoundedHttpRequest(
   }
   final Uint8List bytes;
   try {
-    bytes = await _readBoundedBody(
-      streamed.stream,
-      request.url,
-      maxBodyBytes,
-      remaining,
-    );
+    bytes =
+        await readBoundedHttpBody(
+          streamed.stream,
+          maxBytes: maxBodyBytes,
+          timeout: remaining,
+          timeoutError: () => TimeoutException(
+            appL10n.timedOutReadingResponseFrom(request.url.toString()),
+            remaining,
+          ),
+        ) ??
+        (throw HttpResponseTooLargeException(request.url, maxBodyBytes));
   } on TimeoutException {
     timeoutAbort.complete();
     rethrow;
@@ -209,18 +214,21 @@ http.BaseRequest _withAbortTrigger(
     ..persistentConnection = request.persistentConnection;
 }
 
-Future<Uint8List> _readBoundedBody(
-  Stream<List<int>> stream,
-  Uri url,
-  int maxBytes,
-  Duration timeout,
-) {
+/// Buffers a response up to [maxBytes], returning null on overflow.
+Future<Uint8List?> readBoundedHttpBody(
+  Stream<List<int>> stream, {
+  required int maxBytes,
+  required Duration timeout,
+  required TimeoutException Function() timeoutError,
+  Future<Object>? abortError,
+}) {
   final chunks = BytesBuilder(copy: false);
-  final result = Completer<Uint8List>();
+  final result = Completer<Uint8List?>();
   StreamSubscription<List<int>>? subscription;
   var cancelOnListen = false;
 
   void cancel() {
+    chunks.clear();
     final active = subscription;
     if (active == null) {
       cancelOnListen = true;
@@ -229,17 +237,24 @@ Future<Uint8List> _readBoundedBody(
     }
   }
 
+  abortError?.then<void>((error) {
+    if (result.isCompleted) return;
+    result.completeError(error);
+    cancel();
+  }).ignore();
+
   subscription = stream.listen(
     (chunk) {
       if (result.isCompleted) return;
       if (chunks.length + chunk.length > maxBytes) {
-        result.completeError(HttpResponseTooLargeException(url, maxBytes));
+        result.complete(null);
         cancel();
         return;
       }
       chunks.add(chunk);
     },
     onError: (Object error, StackTrace stackTrace) {
+      chunks.clear();
       if (!result.isCompleted) result.completeError(error, stackTrace);
     },
     onDone: () {
@@ -253,10 +268,7 @@ Future<Uint8List> _readBoundedBody(
     timeout,
     onTimeout: () {
       cancel();
-      throw TimeoutException(
-        appL10n.timedOutReadingResponseFrom((url).toString()),
-        timeout,
-      );
+      throw timeoutError();
     },
   );
 }
