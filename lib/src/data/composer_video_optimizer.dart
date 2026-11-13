@@ -5,6 +5,7 @@ import 'package:discourse_video_optimizer/encoder.dart';
 import 'package:flutter/foundation.dart';
 
 import '../foundation/private_file_permissions.dart';
+import '../foundation/private_file_staging.dart';
 import '../models/composer_upload.dart';
 import 'composer_media_preparation.dart';
 
@@ -116,7 +117,7 @@ class ComposerVideoOptimizer {
                 length: output.length,
                 openRead: output.openRead,
               ),
-              release: () => removeComposerMediaDirectory(ownedDirectory),
+              release: () => removeStagingDirectory(ownedDirectory),
             );
           } catch (_) {
             // A missing plugin, unsupported codec, low storage, or export failure
@@ -136,7 +137,7 @@ class ComposerVideoOptimizer {
               }
             }
             if (!retained && directory != null) {
-              await removeComposerMediaDirectory(directory);
+              await removeStagingDirectory(directory);
             }
           }
         },

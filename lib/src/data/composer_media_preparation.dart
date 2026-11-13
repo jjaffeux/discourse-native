@@ -94,11 +94,3 @@ Future<bool> stageComposerMedia({
     }
   }
 }
-
-Future<void> removeComposerMediaDirectory(Directory directory) async {
-  try {
-    await directory.delete(recursive: true);
-  } on FileSystemException {
-    // Temporary storage can be reclaimed by the operating system.
-  }
-}

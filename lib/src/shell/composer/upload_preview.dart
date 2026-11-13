@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/composer_media_preparation.dart';
 import '../../data/native_thumbnail_generator.dart';
 import '../../data/thumbnail_request.dart';
+import '../../foundation/private_file_staging.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 
@@ -130,6 +131,6 @@ final class ComposerUploadPreview extends ChangeNotifier {
     file = null;
     poster = null;
     if (directory == null) return;
-    await removeComposerMediaDirectory(directory);
+    await removeStagingDirectory(directory);
   }
 }

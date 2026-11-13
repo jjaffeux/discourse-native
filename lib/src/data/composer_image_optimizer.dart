@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 
 import '../foundation/private_file_permissions.dart';
+import '../foundation/private_file_staging.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import 'composer_image_codec.dart';
@@ -120,7 +121,7 @@ class ComposerImageOptimizer {
                 openRead: output.openRead,
                 imageOptimizationApplied: true,
               ),
-              release: () => removeComposerMediaDirectory(ownedDirectory),
+              release: () => removeStagingDirectory(ownedDirectory),
             );
           } catch (_) {
             // Optimization is optional; read/codec/cache failures must not prevent
@@ -128,7 +129,7 @@ class ComposerImageOptimizer {
             return original;
           } finally {
             if (!retained && directory != null) {
-              await removeComposerMediaDirectory(directory);
+              await removeStagingDirectory(directory);
             }
           }
         },

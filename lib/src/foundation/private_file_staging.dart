@@ -55,11 +55,15 @@ Future<T> withPrivateStagingPath<T>(
     await ensurePrivateDirectory(directory);
     return await use(File('${directory.path}/${_pathComponent(filename)}'));
   } finally {
-    try {
-      await directory.delete(recursive: true);
-    } on FileSystemException {
-      // A share target may still hold the file; the directory stays private.
-    }
+    await removeStagingDirectory(directory);
+  }
+}
+
+Future<void> removeStagingDirectory(Directory directory) async {
+  try {
+    await directory.delete(recursive: true);
+  } on FileSystemException {
+    // The OS may have reclaimed the directory or a consumer may still hold it.
   }
 }
 
