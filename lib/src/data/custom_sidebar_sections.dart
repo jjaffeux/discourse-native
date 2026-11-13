@@ -152,11 +152,14 @@ final class CustomSidebarSections {
       state.reloadAfterWrites = true;
       return Future.value();
     }
-    late final Future<void> request;
-    request = _load(state, state.readVersion).whenComplete(() {
-      if (identical(state.load, request)) state.load = null;
-    });
+    final completion = Completer<void>();
+    final request = completion.future;
     state.load = request;
+    completion.complete(
+      _load(state, state.readVersion).whenComplete(() {
+        if (identical(state.load, request)) state.load = null;
+      }),
+    );
     return request;
   }
 

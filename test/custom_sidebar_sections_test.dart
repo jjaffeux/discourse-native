@@ -196,6 +196,30 @@ final class _Harness {
 
 void main() {
   group('custom sidebar loads', () {
+    test('an ensure during credential lookup joins the sidebar load', () async {
+      final h = _Harness();
+      Future<void>? joined;
+      h.credentials.readKey = () {
+        h.credentials.readKey = null;
+        joined = h.owner.ensure(_site);
+        return Future.value(h.credentials.key);
+      };
+
+      final loading = h.owner.ensure(_site);
+      await _flush();
+      for (final read in h.api.reads) {
+        read.result.complete([
+          _section(9, [11]),
+        ]);
+      }
+      await loading;
+      await joined;
+
+      expect(h.api.reads, hasLength(1));
+      expect(h.changes, 1);
+      expect(joined, same(loading));
+    });
+
     test(
       'signed-in production owner publishes anonymous custom artwork',
       () async {
