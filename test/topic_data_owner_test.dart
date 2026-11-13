@@ -161,11 +161,12 @@ final class _FeedApi extends FakeDiscourseApi {
 
 final class _Credentials extends FakeAuthenticator {
   int reads = 0;
+  Future<String?>? pendingKey;
 
   @override
   Future<String?> apiKeyFor(String siteUrl) {
     reads++;
-    return super.apiKeyFor(siteUrl);
+    return pendingKey ?? super.apiKeyFor(siteUrl);
   }
 }
 
@@ -296,6 +297,40 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  for (final mega in [false, true]) {
+    test('retired tracking skips timeline requests (mega: $mega)', () async {
+      final f = _Fixture();
+      final key = Completer<String?>();
+      f.credentials.pendingKey = key.future;
+      final data = f.owner.forSite(_site);
+      final pending = mega
+          ? data.ensureMegaRun(
+              7,
+              slug: 'topic',
+              postNumber: 42,
+              isInterested: () => true,
+            )
+          : data.ensurePosts(
+              7,
+              [42],
+              shouldFetch: () => true,
+              shouldPublish: () => true,
+            );
+      f.tracking.retire();
+      key.complete('key');
+      await pumpEventQueue();
+      final topicReads = f.api.topicReads.length;
+      final postReads = f.api.postReads.length;
+      for (final read in f.api.topicReads) {
+        read.result.complete(_payload([]));
+      }
+      for (final read in f.api.postReads) {
+        read.result.complete([]);
+      }
+      expect(await pending, mega ? isNull : isFalse);
+      expect([topicReads, postReads], [0, 0]);
+    });
+  }
   test(
     'canonical refresh reconciles category and tags into a retained row',
     () async {

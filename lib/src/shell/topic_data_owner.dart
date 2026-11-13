@@ -1655,7 +1655,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     if (!postIds.any(isMissing)) return true;
     final stamp = _stamp(topicId);
     final credential = await _requests.keyCredentials(_owner.credentials);
-    if (!isCurrent || !shouldFetch()) return false;
+    if (!_readIsCurrent(stamp) || !shouldFetch()) return false;
     final missing = postIds.where(isMissing).toList();
     if (missing.isEmpty) return true;
     final fetched = await credential.run(
@@ -1686,7 +1686,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     if (held != null) return held;
     final stamp = _stamp(topicId);
     final credential = await _requests.credentials(_owner.credentials);
-    if (!isCurrent || !isInterested()) return null;
+    if (!_readIsCurrent(stamp) || !isInterested()) return null;
     final refreshed = _heldMegaPostNumber(topicId, postNumber);
     if (refreshed != null) return refreshed;
     final payload = await credential.run(
