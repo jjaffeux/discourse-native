@@ -30,14 +30,19 @@ final class CoalescingSnapshotWriter<T> {
   final Future<void> Function(T value) _write;
   final _SnapshotLane _lane;
 
-  /// Calls coalesced into the same pending slot deliberately receive the same
-  /// future: they are all waiting for the same newest accepted value. Once a
+  /// Calls coalesced into the same pending slot share a future within each
+  /// error zone. They all wait for the same newest accepted value. Once a
   /// write has been extracted from that slot, later saves form the next slot;
   /// the extracted save settles only after its own physical write.
   Future<void> save(T value) {
     _lane.sharedReads.clear();
     final submitter = Zone.current;
-    final result = _lane.pending?.result ?? Completer<void>();
+    final results = _lane.pending?.results ?? <Zone, Completer<void>>{};
+    final settled = _lane.pending?.settled ?? Completer<void>();
+    final result = results.putIfAbsent(
+      submitter.errorZone,
+      Completer<void>.new,
+    );
     Future<void> write() {
       final completion = Completer<void>();
       unawaited(
@@ -50,8 +55,8 @@ final class CoalescingSnapshotWriter<T> {
       return completion.future;
     }
 
-    _lane.pending = (write: write, result: result);
-    _lane.latestResult = result.future;
+    _lane.pending = (write: write, results: results, settled: settled);
+    _lane.latestResult = settled.future;
     if (!_lane.saving) {
       _lane.saving = true;
       unawaited(_drain());
@@ -77,9 +82,7 @@ final class CoalescingSnapshotWriter<T> {
     Future<void> pending,
     Future<R> Function() readSnapshot,
   ) async {
-    try {
-      await pending;
-    } catch (_) {}
+    await pending;
     return _enqueueRead(readSnapshot);
   }
 
@@ -106,7 +109,7 @@ final class CoalescingSnapshotWriter<T> {
       while (true) {
         final pending = _lane.pending;
         if (pending == null) break;
-        final (:write, :result) = pending;
+        final (:write, :results, :settled) = pending;
         _lane.pending = null;
 
         try {
@@ -115,11 +118,16 @@ final class CoalescingSnapshotWriter<T> {
             key: _key,
             operation: write,
           );
-          result.complete();
+          for (final result in results.values) {
+            result.complete();
+          }
         } catch (error, stackTrace) {
-          result.completeError(error, stackTrace);
+          for (final result in results.values) {
+            result.completeError(error, stackTrace);
+          }
         }
-        _clearLatest(result.future);
+        _clearLatest(settled.future);
+        settled.complete();
       }
     } finally {
       _lane.saving = false;
@@ -144,7 +152,12 @@ final class CoalescingSnapshotWriter<T> {
 
 final class _SnapshotLane {
   final sharedReads = <(Type, Object?), Future<Object?>>{};
-  ({Future<void> Function() write, Completer<void> result})? pending;
+  ({
+    Future<void> Function() write,
+    Map<Zone, Completer<void>> results,
+    Completer<void> settled,
+  })?
+  pending;
   bool saving = false;
   Future<void>? latestResult;
 }

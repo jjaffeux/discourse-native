@@ -4,6 +4,35 @@ import 'package:discourse_native/src/data/coalescing_snapshot_writer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('coalesced callers receive failure in their own error zones', () async {
+    final failure = StateError('disk unavailable');
+    final observed = Completer<Object>();
+    final uncaught = <Object>[];
+    final writer = CoalescingSnapshotWriter<int>(
+      owner: Object(),
+      key: 'snapshot',
+      writeSnapshot: (_) async => throw failure,
+    );
+    final first = writer.save(1);
+    final firstError = expectLater(first, throwsA(same(failure)));
+    runZonedGuarded(() {
+      unawaited(
+        writer
+            .save(2)
+            .then<void>(
+              (_) => observed.complete('unexpected success'),
+              onError: (Object error, StackTrace _) => observed.complete(error),
+            ),
+      );
+    }, (error, _) => uncaught.add(error));
+
+    await firstError;
+    await Future<void>.delayed(Duration.zero);
+    expect(observed.isCompleted, isTrue);
+    expect(await observed.future, same(failure));
+    expect(uncaught, isEmpty);
+  });
+
   test(
     'a superseded save waits for the newer snapshot to be durable',
     () async {
