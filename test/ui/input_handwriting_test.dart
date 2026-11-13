@@ -48,6 +48,28 @@ void main() {
     },
   );
 
+  test('inputs requested by the native query share its result', () async {
+    var requests = 0;
+    Future<void>? joined;
+    late final InputHandwriting handwriting;
+    handwriting = InputHandwriting(
+      loadIosModel: () {
+        requests++;
+        if (requests == 1) joined = handwriting.ensureLoaded();
+        return Future.value('iPhone');
+      },
+    );
+    addTearDown(handwriting.dispose);
+
+    final loading = handwriting.ensureLoaded();
+    await loading;
+    await joined;
+
+    expect(requests, 1);
+    expect(joined, same(loading));
+    expect(handwriting.value, isFalse);
+  });
+
   test('concurrent inputs share a pending native query', () async {
     final model = Completer<String>();
     var requests = 0;

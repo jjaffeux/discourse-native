@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,7 +14,13 @@ class InputHandwriting extends ValueNotifier<bool> {
   final Future<String> Function() _loadIosModel;
   Future<void>? _loading;
 
-  Future<void> ensureLoaded() => _loading ??= _load();
+  Future<void> ensureLoaded() {
+    if (_loading case final pending?) return pending;
+    final completion = Completer<void>();
+    _loading = completion.future;
+    completion.complete(_load());
+    return completion.future;
+  }
 
   Future<void> _load() async {
     final String model;
