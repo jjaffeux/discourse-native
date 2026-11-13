@@ -20,6 +20,7 @@ import 'post_flag_editor.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_share.dart';
+import 'topic_share_content.dart';
 
 class TopicBookmarkButton extends StatelessWidget {
   const TopicBookmarkButton({

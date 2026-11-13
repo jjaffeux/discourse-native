@@ -32,6 +32,7 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_change_owner.dart';
 import 'topic_share.dart';
+import 'topic_share_content.dart';
 
 class PostActions extends StatefulWidget {
   const PostActions({

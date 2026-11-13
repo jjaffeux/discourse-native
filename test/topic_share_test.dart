@@ -1,5 +1,5 @@
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/shell/topic_share.dart';
+import 'package:discourse_native/src/shell/topic_share_content.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
