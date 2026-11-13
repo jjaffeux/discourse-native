@@ -85,7 +85,7 @@ final class NotificationFeedRefreshOwner {
     await loadOther(instance, (_) async {
       if (!_owns(account)) return const [];
       final types = await _siteTypes(account);
-      if (!_owns(account)) return const [];
+      if (types == null || !_owns(account)) return const [];
       final current = instanceFor(siteUrl);
       if (current == null) return const [];
       final claimed = claimedTypes(current);
@@ -108,11 +108,11 @@ final class NotificationFeedRefreshOwner {
     ).keyCredentials(credentials);
     if (!_owns(account) || credential.apiKey == null) return;
     final types = await _siteTypes(account, credential: credential);
-    if (!_owns(account)) return;
+    if (types == null || !_owns(account)) return;
     await markAllRead(instance, types);
   }
 
-  Future<List<NotificationWireType>> _siteTypes(
+  Future<List<NotificationWireType>?> _siteTypes(
     _NotificationFeedAccount account, {
     AccountRequestCredentials? credential,
   }) {
@@ -120,7 +120,7 @@ final class NotificationFeedRefreshOwner {
     if (cached != null) return Future.value(cached);
     final active = account.request;
     if (active != null) return active.future;
-    final result = Completer<List<NotificationWireType>>();
+    final result = Completer<List<NotificationWireType>?>();
     account.request = result;
     unawaited(_loadTypes(account, result, credential));
     return result.future;
@@ -128,7 +128,7 @@ final class NotificationFeedRefreshOwner {
 
   Future<void> _loadTypes(
     _NotificationFeedAccount account,
-    Completer<List<NotificationWireType>> request,
+    Completer<List<NotificationWireType>?> request,
     AccountRequestCredentials? credential,
   ) async {
     try {
@@ -218,7 +218,7 @@ final class _NotificationFeedAccount {
   final String siteUrl;
   final SiteLease lease;
   List<NotificationWireType>? catalog;
-  Completer<List<NotificationWireType>>? request;
+  Completer<List<NotificationWireType>?>? request;
   Timer? timer;
   void Function()? detach;
   bool _retired = false;
@@ -232,8 +232,9 @@ final class _NotificationFeedAccount {
     detach = null;
     timer?.cancel();
     timer = null;
-    request?.future.ignore();
+    final pending = request;
     request = null;
+    pending?.complete(null);
     catalog = null;
   }
 }

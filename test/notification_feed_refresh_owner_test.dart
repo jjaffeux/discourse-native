@@ -156,13 +156,18 @@ void main() {
   test('forget without lease invalidation fences original catalog', () async {
     final h = _Harness();
     addTearDown(h.dispose);
-    final old = h.owner.markAllNotificationsRead(_site);
+    var oldFinished = false;
+    final old = h.owner.markAllNotificationsRead(_site).then((_) {
+      oldFinished = true;
+    });
     await pumpEventQueue();
     h.owner.forget(_site);
     final next = h.owner.markAllNotificationsRead(_site);
     await pumpEventQueue();
+    final finishedBeforeFetchSettled = oldFinished;
     h.api.catalogs.first.complete([CoreNotificationTypes.replied]);
     await old;
+    expect(finishedBeforeFetchSettled, isTrue);
     expect(h.api.markedTypesRead, isEmpty);
     h.api.catalogs.last.complete([_serverType]);
     await next;
