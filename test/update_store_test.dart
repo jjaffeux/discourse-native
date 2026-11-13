@@ -16,6 +16,27 @@ void main() {
   });
 
   group('update channel preference', () {
+    test('overlapping reads share storage on each side of a write', () async {
+      final persistence = _ControlledUpdatePersistence()
+        ..channelName = 'stable';
+      final first = UpdateStore(persistence: persistence);
+      final second = UpdateStore(persistence: persistence);
+      final before = [first.readChannel(), second.readChannel()];
+      final saving = second.writeChannel(UpdateChannel.canary);
+      final after = [second.readChannel(), first.readChannel()];
+
+      expect(await Future.wait(before), [
+        UpdateChannel.stable,
+        UpdateChannel.stable,
+      ]);
+      await saving;
+      expect(await Future.wait(after), [
+        UpdateChannel.canary,
+        UpdateChannel.canary,
+      ]);
+      expect(persistence.channelReadCount, 2);
+    });
+
     test('reads as no preference when nothing was stored', () async {
       expect(await store.readChannel(), isNull);
     });

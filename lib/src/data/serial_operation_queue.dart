@@ -9,6 +9,26 @@ import 'dart:async';
 /// that initiated it.
 final class SerialOperationQueue {
   final Map<_SerialOperationKey, Future<void>> _tails = {};
+  final Map<_SerialOperationKey, Future<Object?>> _reads = {};
+
+  /// Shares consecutive pending reads. Readers for a given owner and key
+  /// must be equivalent. A regular [run] starts a new group.
+  Future<T> readShared<T>({
+    required Object owner,
+    required Object key,
+    required Future<T> Function() operation,
+  }) {
+    final queueKey = _SerialOperationKey(owner, key);
+    if (_reads[queueKey] case final Future<T> active) return active;
+    late final Future<T> read;
+    read = run(owner: owner, key: key, operation: operation).whenComplete(() {
+      if (identical(_reads[queueKey], read)) {
+        final _ = _reads.remove(queueKey);
+      }
+    });
+    _reads[queueKey] = read;
+    return read;
+  }
 
   Future<T> run<T>({
     required Object owner,
@@ -16,6 +36,7 @@ final class SerialOperationQueue {
     required Future<T> Function() operation,
   }) {
     final queueKey = _SerialOperationKey(owner, key);
+    final _ = _reads.remove(queueKey);
     final previous = _tails[queueKey] ?? Future<void>.value();
     final result = Completer<T>();
     final current = previous.then<void>((_) async {

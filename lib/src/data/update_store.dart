@@ -55,7 +55,7 @@ class UpdateStore {
     try {
       // byName rather than values.byName: a channel this build no longer has
       // must read as "no preference" instead of throwing on launch.
-      final name = await _operations.run<String?>(
+      final name = await _operations.readShared<String?>(
         owner: _persistence,
         key: SharedPreferencesUpdatePersistence._channelKey,
         operation: _persistence.readChannelName,
@@ -83,7 +83,7 @@ class UpdateStore {
 
   Future<DateTime?> readLastChecked() async {
     try {
-      final millis = await _operations.run<int?>(
+      final millis = await _operations.readShared<int?>(
         owner: _persistence,
         key: SharedPreferencesUpdatePersistence._lastCheckedKey,
         operation: _persistence.readLastCheckedMillis,
