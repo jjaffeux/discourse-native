@@ -512,18 +512,17 @@ class _ActivityListState extends State<_ActivityList> {
               if (feed.loaded &&
                   !feed.loading &&
                   feed.error == null &&
-                  items.isEmpty)
+                  items.isEmpty &&
+                  !feed.hasMore)
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(appL10n.noActivityYet),
                 ),
-              if (feed.hasMore && !feed.loading && feed.error == null)
-                Center(
-                  child: DButton(
-                    label: Text(appL10n.loadMore),
-                    onPressed: () => unawaited(onLoadMore()),
-                  ),
-                ),
+              ScrollPageTrigger(
+                enabled: !filling && _admits(hasMore: feed.hasMore),
+                onLoad: () => unawaited(onLoadMore()),
+                child: const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -691,7 +690,9 @@ class _ActivityListState extends State<_ActivityList> {
                                 );
                               },
                             ),
-                            if (items.isEmpty && !feed.hasPrevious)
+                            if (items.isEmpty &&
+                                !feed.hasPrevious &&
+                                !feed.hasMore)
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
@@ -716,12 +717,14 @@ class _ActivityListState extends State<_ActivityList> {
                                         semanticsLabel:
                                             context.l10n.loadingMoreActivity,
                                       )
-                                    : Center(
-                                        child: DButton(
-                                          label: Text(context.l10n.loadMore),
-                                          onPressed: () =>
-                                              unawaited(onLoadMore()),
-                                        ),
+                                    : ScrollPageTrigger(
+                                        enabled: _admits(hasMore: feed.hasMore),
+                                        onLoad: () {
+                                          if (!viewport.restoring) {
+                                            unawaited(onLoadMore());
+                                          }
+                                        },
+                                        child: const SizedBox.shrink(),
                                       ),
                               ),
                           ],

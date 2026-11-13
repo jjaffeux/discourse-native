@@ -188,13 +188,12 @@ void main() {
       );
       await _pumpBrowse(tester, api);
       await tester.enterText(_filter, 'new');
-      await tester.tap(find.text('Load more'));
       await tester.pump();
-      expect(_offsets(api), [0]);
+      expect(_offsets(api), [0, 1]);
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       expect(_card(3), findsOneWidget);
-      expect(_offsets(api), [0, 0]);
+      expect(_offsets(api), [0, 1, 0]);
     });
 
     testWidgets('retained view retires old pages when its site changes', (
@@ -221,6 +220,7 @@ void main() {
         tester,
         api,
         sites: [_site, other],
+        settle: false,
         body: ValueListenableBuilder<String>(
           valueListenable: selectedSite,
           builder: (context, site, _) => ChatBrowseChannelsView(siteUrl: site),
@@ -232,7 +232,6 @@ void main() {
       );
       chat.inboxFilters.browseFor(other).query = 'other';
       final previousState = tester.state(_browse);
-      await tester.tap(find.text('Load more'));
       await tester.pump();
       selectedSite.value = other;
       await tester.pump();
@@ -264,9 +263,13 @@ void main() {
             },
           );
           final gate = _holdPage(oldApi, offset: 1);
-          await _pumpBrowse(tester, oldApi, sites: [_site, other]);
+          await _pumpBrowse(
+            tester,
+            oldApi,
+            sites: [_site, other],
+            settle: false,
+          );
           final previousState = tester.state(_browse);
-          await tester.tap(find.text('Load more'));
           await tester.pump();
           final newApi = _BrowseApi(
             chatBrowsePagesByKey: {
@@ -370,8 +373,7 @@ void main() {
       await _pumpBrowse(tester, api);
 
       expect(_card(1), findsOneWidget);
-      expect(find.text('Load more'), findsOneWidget);
-      await tester.tap(find.text('Load more'));
+      expect(find.text('Load more'), findsNothing);
       await tester.pumpAndSettle();
 
       expect(_offsets(api), [0, 25]);
@@ -395,7 +397,6 @@ void main() {
       );
       await _pumpBrowse(tester, api);
 
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
 
       expect(_offsets(api), [0, 2]);
@@ -424,9 +425,7 @@ void main() {
       await _pumpBrowse(tester, api);
 
       expect(find.text(_emptyMessage), findsNothing);
-      expect(find.text('Load more'), findsOneWidget);
-      expect(_offsets(api), [0]);
-      await tester.tap(find.text('Load more'));
+      expect(find.text('Load more'), findsNothing);
       await tester.pumpAndSettle();
 
       expect(find.text('Try again'), findsOneWidget);
@@ -437,10 +436,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(_emptyMessage), findsNothing);
-      expect(find.text('Load more'), findsOneWidget);
-      expect(_offsets(api), [0, 25, 25]);
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
+      expect(find.text('Load more'), findsNothing);
+      expect(_offsets(api), [0, 25, 25, 50]);
 
       expect(_card(3), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
@@ -524,10 +521,7 @@ void main() {
         expect(_card(1), findsNothing);
         expect(_card(2), findsNothing);
         expect(find.text(_emptyMessage), findsNothing);
-        expect(find.text('Load more'), findsOneWidget);
-        expect(_offsets(api), [0]);
-
-        await tester.tap(find.text('Load more'));
+        expect(find.text('Load more'), findsNothing);
         await tester.pumpAndSettle();
 
         expect(_card(3), findsOneWidget);
@@ -568,10 +562,7 @@ void main() {
           (channelId: 1, following: !joined),
         ]);
         expect(_card(1), findsNothing);
-        expect(find.text('Load more'), findsOneWidget);
-        expect(_offsets(api), [0]);
-
-        await tester.tap(find.text('Load more'));
+        expect(find.text('Load more'), findsNothing);
         await tester.pumpAndSettle();
 
         expect(_card(2), findsOneWidget);
@@ -579,7 +570,7 @@ void main() {
       });
     }
 
-    testWidgets('keeps paging explicitly across consecutive hidden pages', (
+    testWidgets('keeps paging automatically across consecutive hidden pages', (
       tester,
     ) async {
       final api = _BrowseApi(
@@ -596,15 +587,10 @@ void main() {
       await _pumpBrowse(tester, api);
       await _selectMembership(tester, 'Joined');
 
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Load more'), findsOneWidget);
-      expect(find.text(_emptyMessage), findsNothing);
-      expect(_offsets(api), [0, 1]);
-
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
+      expect(find.text('Load more'), findsNothing);
+      expect(_offsets(api), [0, 1, 2]);
 
       expect(find.text(_emptyMessage), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
@@ -626,7 +612,6 @@ void main() {
       await _pumpBrowse(tester, api);
       await _selectMembership(tester, 'Joined');
 
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
 
       expect(find.text('Try again'), findsOneWidget);
@@ -706,11 +691,9 @@ void main() {
         },
       );
       final gate = _holdPage(api, offset: 1);
-      await _pumpBrowse(tester, api);
-      await _selectMembership(tester, 'Joined');
+      await _pumpBrowse(tester, api, settle: false);
+      await _selectMembership(tester, 'Joined', settle: false);
 
-      await tester.tap(find.text('Load more'));
-      await tester.tap(find.text('Load more'));
       await tester.pump();
       await tester.drag(_list, const Offset(0, -100));
       await tester.pump();
@@ -753,9 +736,8 @@ void main() {
         },
       );
       final gate = _holdPage(api, offset: 1);
-      await _pumpBrowse(tester, api);
-      await _selectMembership(tester, 'Joined');
-      await tester.tap(find.text('Load more'));
+      await _pumpBrowse(tester, api, settle: false);
+      await _selectMembership(tester, 'Joined', settle: false);
       await tester.pump();
 
       await tester.enterText(
@@ -799,7 +781,6 @@ void main() {
         },
       );
       await _pumpBrowse(tester, api);
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
       expect(_offsets(api), [0, 1]);
       final text = _filterText(tester);
@@ -839,7 +820,6 @@ void main() {
       expect(api.chatBrowseRequested, hasLength(1));
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
       expect(_card(3), findsOneWidget);
       expect(_card(4), findsOneWidget);
@@ -968,12 +948,11 @@ void main() {
 
     _mobileTest(
       'a keyboard over large text on a narrow phone scrolls the filters away '
-      'to reach every channel and Load more',
+      'to reach every channel and the next page',
       (tester) async {
         final api = await _pumpShortBrowse(tester);
         final browse = tester.getRect(_browse);
-        final initialOffsets = _offsets(api).toList();
-        final loadMore = find.widgetWithText(DButton, 'Load more');
+        expect(_offsets(api), [0]);
         final lastChannel = _card(ChatChannelBrowsePage.pageSize);
 
         // At enlarged text sizes a row can be taller than the viewport. Its
@@ -987,7 +966,6 @@ void main() {
             const ValueKey('chat-join-${ChatChannelBrowsePage.pageSize}'),
           ),
           find.descendant(of: lastChannel, matching: find.byType(DButton)).last,
-          loadMore,
         ]) {
           await tester.scrollUntilVisible(target, 100, scrollable: _scrollable);
           await Scrollable.ensureVisible(tester.element(target), alignment: .5);
@@ -998,16 +976,15 @@ void main() {
           expect(target.hitTestable(), findsOneWidget);
         }
         expect(tester.getRect(_filter).bottom, lessThan(browse.top));
-        expect(_offsets(api), initialOffsets);
-
-        await tester.tap(loadMore);
+        await tester.scrollUntilVisible(
+          _card(ChatChannelBrowsePage.pageSize + 1),
+          100,
+          scrollable: _scrollable,
+        );
         await tester.pumpAndSettle();
-        expect(_offsets(api), [
-          ...initialOffsets,
-          ChatChannelBrowsePage.pageSize,
-        ]);
+        expect(_offsets(api), [0, ChatChannelBrowsePage.pageSize]);
         expect(_card(ChatChannelBrowsePage.pageSize + 1), findsOneWidget);
-        expect(loadMore, findsNothing);
+        expect(find.text('Load more'), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -1235,9 +1212,13 @@ TextEditingController _filterText(WidgetTester tester) => tester
 Iterable<int> _offsets(FakeDiscourseApi api) =>
     api.chatBrowseRequested.map((request) => request.offset);
 
-Future<void> _selectMembership(WidgetTester tester, String label) async {
+Future<void> _selectMembership(
+  WidgetTester tester,
+  String label, {
+  bool settle = true,
+}) async {
   await tester.tap(find.byKey(const ValueKey('chat-browse-joined')));
-  await tester.pumpAndSettle();
+  await _pumpBrowseFrames(tester, settle);
   await tester.tap(
     find.byWidgetPredicate(
       (widget) =>
@@ -1246,13 +1227,14 @@ Future<void> _selectMembership(WidgetTester tester, String label) async {
           widget.properties.label == label,
     ),
   );
-  await tester.pumpAndSettle();
+  await _pumpBrowseFrames(tester, settle);
 }
 
 Future<ShellController> _pumpBrowse(
   WidgetTester tester,
   FakeDiscourseApi api, {
   Widget? body,
+  bool settle = true,
   List<String> sites = const [_site],
 }) async {
   final authenticator = FakeAuthenticator();
@@ -1289,8 +1271,18 @@ Future<ShellController> _pumpBrowse(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await _pumpBrowseFrames(tester, settle);
   return controller;
+}
+
+Future<void> _pumpBrowseFrames(WidgetTester tester, bool settle) async {
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+  }
 }
 
 Completer<void> _holdPage(_BrowseApi api, {required int offset}) {

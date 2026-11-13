@@ -896,17 +896,7 @@ void main() {
       expect(find.text('91'), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-42')), findsOneWidget);
       await tester.tap(find.text(_topic.title));
-      await tester.scrollUntilVisible(
-        find.text('Load more assignments'),
-        200,
-        scrollable: find
-            .descendant(
-              of: find.byType(CustomScrollView),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.tap(find.text('Load more assignments'));
+      expect(find.text('Load more assignments'), findsNothing);
 
       expect(presentation.openedTopics, [_topic]);
       expect(presentation.loadMoreTopicCalls, 1);
@@ -923,11 +913,8 @@ void main() {
       );
       await tester.pump();
 
-      final loadMore = tester.widget<DButton>(
-        find.byKey(const ValueKey('assigned-load-more-topics')),
-      );
-      expect(loadMore.loading, isFalse);
-      expect(loadMore.onPressed, isNull);
+      expect(find.text('Load more assignments'), findsNothing);
+      expect(presentation.loadMoreTopicCalls, 1);
     });
 
     testWidgets('disposes presentations when the route changes and unmounts', (

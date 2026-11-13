@@ -17,6 +17,47 @@ Widget frame(Widget child) => MaterialApp(
   home: Scaffold(body: child),
 );
 void main() {
+  testWidgets('a short cakeday page automatically follows its continuation', (
+    tester,
+  ) async {
+    final fixture = CakedayFixture();
+    addTearDown(fixture.dispose);
+    const initial = '/cakeday/birthdays.json?page=0&filter=today';
+    const next = '/cakeday/birthdays.json?page=1&filter=today';
+    fixture.transport.responders['GET $initial'] = (_) =>
+        page([celebration(1)], total: 2, next: '/community$next');
+    fixture.transport.failures['GET $next'] = StateError('offline');
+
+    await tester.pumpWidget(
+      frame(
+        CakedayDirectory(
+          site: cakedaySite,
+          query: birthdayQuery,
+          controller: fixture.controller,
+          navigation: fixture.navigation,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(fixture.transport.reads.map((read) => read.path), [initial, next]);
+    expect(find.text('Load more members'), findsNothing);
+    expect(find.text('Member 1'), findsOneWidget);
+
+    fixture.transport.failures.clear();
+    fixture.transport.responders['GET $next'] = (_) =>
+        page([celebration(2)], total: 1);
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(fixture.transport.reads.map((read) => read.path), [
+      initial,
+      next,
+      next,
+    ]);
+    expect(find.text('Member 2'), findsOneWidget);
+    fixture.controller.setForeground(false);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'regression fifth: birthday avatar initials preserve Unicode characters',
     (tester) async {

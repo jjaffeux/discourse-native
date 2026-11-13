@@ -328,7 +328,10 @@ class _GlobalSearchCategoryEditorState
                               ],
                             ),
                           ),
-                        if (!_loading && _loadError == null && _choices.isEmpty)
+                        if (!_loading &&
+                            !_hasMore &&
+                            _loadError == null &&
+                            _choices.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
                             child: Column(
@@ -352,12 +355,11 @@ class _GlobalSearchCategoryEditorState
                               ],
                             ),
                           ),
-                        if (_hasMore && !_loading && _loadError == null)
-                          DButton(
-                            label: Text(context.l10n.loadMoreCategories),
-                            variant: DButtonVariant.ghost,
-                            onPressed: () => unawaited(_load(append: true)),
-                          ),
+                        ScrollPageTrigger(
+                          enabled: _hasMore && !_loading && _loadError == null,
+                          onLoad: () => unawaited(_load(append: true)),
+                          child: const SizedBox.shrink(),
+                        ),
                       ],
                     ),
                   ],

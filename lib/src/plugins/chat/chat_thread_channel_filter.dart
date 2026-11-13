@@ -99,6 +99,14 @@ class _ChatThreadChannelFilterState extends State<ChatThreadChannelFilter> {
     super.dispose();
   }
 
+  Widget _resultLabel(Widget label, {required bool isLast}) => isLast
+      ? ScrollPageTrigger(
+          enabled: _hasMore && !_loading && _error == null,
+          onLoad: () => unawaited(_load(more: true)),
+          child: label,
+        )
+      : label;
+
   @override
   Widget build(BuildContext context) {
     final selected = widget.selected;
@@ -140,10 +148,6 @@ class _ChatThreadChannelFilterState extends State<ChatThreadChannelFilter> {
           onEscape: _popover.close,
           onSelected: (id) {
             if (!_session.isCurrent) return;
-            if (id == -1) {
-              unawaited(_load(more: true));
-              return;
-            }
             if (id == -2) {
               unawaited(_load(more: _offset > 0));
               return;
@@ -177,7 +181,10 @@ class _ChatThreadChannelFilterState extends State<ChatThreadChannelFilter> {
                         value: 0,
                         checked: selected == null,
                         semanticLabel: context.l10n.allChannels,
-                        child: Text(context.l10n.allChannels),
+                        child: _resultLabel(
+                          Text(context.l10n.allChannels),
+                          isLast: _channels.isEmpty,
+                        ),
                       ),
                     for (final channel in _channels)
                       DCommandItem<int>(
@@ -192,7 +199,10 @@ class _ChatThreadChannelFilterState extends State<ChatThreadChannelFilter> {
                           '#',
                           style: TextStyle(color: channel.categoryColor),
                         ),
-                        child: Text(channel.title),
+                        child: _resultLabel(
+                          Text(channel.title),
+                          isLast: identical(channel, _channels.last),
+                        ),
                       ),
                     if (_loading)
                       DCommandLoading(
@@ -230,14 +240,12 @@ class _ChatThreadChannelFilterState extends State<ChatThreadChannelFilter> {
                       DCommandItem<int>(
                         value: -2,
                         child: Text(context.l10n.tryAgain),
-                      )
-                    else if (!_loading && _hasMore)
-                      DCommandItem<int>(
-                        value: -1,
-                        child: Text(context.l10n.loadMore),
                       ),
                     DCommandEmpty(
-                      child: Text(context.l10n.noChannelsMatchTheseFilters),
+                      child: _resultLabel(
+                        Text(context.l10n.noChannelsMatchTheseFilters),
+                        isLast: true,
+                      ),
                     ),
                   ],
                 ),

@@ -349,8 +349,10 @@ void main() {
       expect(opened, '$_site/badges/1/autobiographer?username=sam');
       await tester.tap(find.text('Welcome to the community').first);
       expect(opened, '$_site/t/welcome/100/3');
-      await tester.tap(find.byKey(const ValueKey('badge-load-more')));
-      expect(more, 1);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(more, greaterThan(0));
+      expect(find.text('Load more'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

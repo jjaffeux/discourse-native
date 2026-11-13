@@ -9,6 +9,7 @@ import '../data/invites_api.dart';
 import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/invite.dart';
+import '../utils/pagination.dart';
 import 'external_link.dart';
 import 'invite_editor.dart';
 import 'invites_controller.dart';
@@ -267,9 +268,14 @@ class _InviteListState extends State<InviteList> {
                 when !controller.loaded || controller.invites.isEmpty)
               UserMenuMessage(
                 text: error,
-                onRetry: () => unawaited(controller.load(search: _search.text)),
+                onRetry: () => unawaited(
+                  controller.load(
+                    more: controller.loaded && controller.hasMore,
+                    search: _search.text,
+                  ),
+                ),
               )
-            else if (controller.invites.isEmpty)
+            else if (controller.invites.isEmpty && !controller.hasMore)
               UserMenuMessage(
                 text: controller.search.isEmpty
                     ? controller.filter.emptyMessage
@@ -300,12 +306,10 @@ class _InviteListState extends State<InviteList> {
                 if (controller.loading)
                   UserMenuLoading(semanticsLabel: context.l10n.loadingInvites)
                 else
-                  DButton(
-                    label: Text(context.l10n.loadMore),
-                    variant: DButtonVariant.ghost,
-                    onPressed: controller.writing
-                        ? null
-                        : () => unawaited(controller.load(more: true)),
+                  ScrollPageTrigger(
+                    enabled: !controller.writing,
+                    onLoad: () => unawaited(controller.load(more: true)),
+                    child: const SizedBox.shrink(),
                   ),
             ],
             const DSeparator(),

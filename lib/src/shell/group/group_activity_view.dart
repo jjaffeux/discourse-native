@@ -170,7 +170,11 @@ class _ActivityRows extends StatelessWidget {
         ),
       );
     }
-    if (page!.posts.isEmpty && !loading) {
+    if (page!.posts.isEmpty &&
+        !loading &&
+        !loadingMore &&
+        !hasMore &&
+        error == null) {
       return _GroupState(
         icon: DIcons.comment,
         title: context.l10n.noYet((kind).toString()),
@@ -181,11 +185,18 @@ class _ActivityRows extends StatelessWidget {
       builder: (context, lane) => ListView.separated(
         key: PageStorageKey('group-activity-$kind-scroll'),
         padding: lane.padding,
-        itemCount: page!.posts.length + (hasMore || loadingMore ? 1 : 0),
+        itemCount:
+            page!.posts.length +
+            (hasMore || loadingMore || error != null ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           if (index == page!.posts.length) {
-            return _LoadMoreRow(loading: loadingMore, onPressed: onLoadMore);
+            return _GroupPageFooter(
+              loading: loading || loadingMore,
+              error: error,
+              hasMore: hasMore,
+              onLoadMore: onLoadMore,
+            );
           }
           final post = page!.posts[index];
           return Center(
@@ -261,6 +272,7 @@ class _RequestsSection extends StatelessWidget {
   const _RequestsSection({
     required this.page,
     required this.loading,
+    required this.loadingMore,
     required this.mutating,
     required this.error,
     required this.onAction,
@@ -270,6 +282,7 @@ class _RequestsSection extends StatelessWidget {
 
   final GroupRequestersPage? page;
   final bool loading;
+  final bool loadingMore;
   final bool mutating;
   final String? error;
   final Future<void> Function(GroupRequester, GroupRequestAction)? onAction;
@@ -286,7 +299,11 @@ class _RequestsSection extends StatelessWidget {
         semanticsLabel: context.l10n.loadingDembed(context.l10n.requests),
       );
     }
-    if (page!.requesters.isEmpty && !loading) {
+    if (page!.requesters.isEmpty &&
+        !loading &&
+        !loadingMore &&
+        !hasMore &&
+        error == null) {
       return _GroupState(
         icon: DIcons.userPlus,
         title: context.l10n.thereAreNoPendingMembershipRequests,
@@ -297,11 +314,18 @@ class _RequestsSection extends StatelessWidget {
       builder: (context, lane) => ListView.separated(
         key: const PageStorageKey('group-requests-scroll'),
         padding: lane.padding,
-        itemCount: page!.requesters.length + (hasMore ? 1 : 0),
+        itemCount:
+            page!.requesters.length +
+            (hasMore || loadingMore || error != null ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           if (index == page!.requesters.length) {
-            return _LoadMoreRow(loading: loading, onPressed: onLoadMore);
+            return _GroupPageFooter(
+              loading: loading || loadingMore,
+              error: error,
+              hasMore: hasMore,
+              onLoadMore: onLoadMore,
+            );
           }
           final requester = page!.requesters[index];
           return Center(

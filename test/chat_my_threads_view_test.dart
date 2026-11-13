@@ -93,8 +93,10 @@ void main() {
       expect(find.text('Design thread'), findsOneWidget);
       expect(find.text('Thread 1'), findsNothing);
       expect(
-        api.chatBrowseRequested.every((request) => request.offset == 0),
-        isTrue,
+        api.chatBrowseRequested
+            .where((request) => request.filter == 'design')
+            .map((request) => request.offset),
+        [0],
       );
 
       final reads = api.chatBrowseRequested.length;
@@ -185,7 +187,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(option('design'), findsOneWidget);
     expect(option('general'), findsNothing);
-    expect(_threadPages(api), [(9, 0)]);
+    expect(_threadPages(api), [(9, 0), (9, 1)]);
     expect(tester.takeException(), isNull);
   });
 
@@ -224,7 +226,6 @@ void main() {
       of: find.byType(DCommandList<int>),
       matching: find.text(text),
     );
-    await tester.tap(option('Load more'));
     await tester.pumpAndSettle();
     expect(option('Try again'), findsOneWidget);
     pages[FakeDiscourseApi.chatBrowseKey(filter: 'design', offset: 1)] =
@@ -240,7 +241,7 @@ void main() {
           .map((request) => request.offset),
       [0, 1, 1],
     );
-    expect(_threadPages(api), [(9, 0)]);
+    expect(_threadPages(api), [(9, 0), (9, 1)]);
     expect(tester.takeException(), isNull);
   });
 
@@ -383,7 +384,6 @@ void main() {
     final controller = await _pump(tester, api);
     Iterable<int> offsets() =>
         api.chatChannelThreadPagesRequested.map((request) => request.offset);
-    await tester.tap(find.text('Load more'));
     await tester.pumpAndSettle();
     expect(offsets(), [0, 1]);
     expect(find.text('Thread 2'), findsOneWidget);
@@ -417,18 +417,22 @@ void main() {
     );
     await _pump(tester, api);
     await _selectChannel(tester, 'general');
-    expect(find.text('Load more'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
 
-    await tester.tap(find.text('Load more'));
     await tester.pumpAndSettle();
 
     expect(_threadPages(api), [(9, 0), (9, 0), (9, 1)]);
-    expect(api.chatBrowseRequested.map((request) => request.offset), [0, 0]);
+    expect(api.chatBrowseRequested.map((request) => request.offset), [
+      0,
+      1,
+      0,
+      1,
+    ]);
     expect(find.text('Thread 2'), findsOneWidget);
     expect(find.text('Load more'), findsNothing);
 
     await _selectChannel(tester, 'All channels');
-    expect(find.text('Load more'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
   });
 
   testWidgets('a selected channel leaves out another channel’s failed load', (
@@ -457,7 +461,6 @@ void main() {
 
     await _selectChannel(tester, 'general');
     expect(find.text('Could not load this channel’s threads.'), findsNothing);
-    await tester.tap(find.text('Load more'));
     await tester.pumpAndSettle();
 
     expect(_threadPages(api), [(9, 0), (10, 0), (9, 0), (9, 1)]);

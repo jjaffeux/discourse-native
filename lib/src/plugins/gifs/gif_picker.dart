@@ -136,24 +136,11 @@ class _GifPickerState extends State<GifPicker> {
   void initState() {
     super.initState();
     _search = TextEditingController(text: widget.controller.query);
-    _resultsScroll.addListener(_maybeLoadMore);
-  }
-
-  void _maybeLoadMore() {
-    if (!widget.controller.paging.admits ||
-        !_resultsScroll.hasClients ||
-        _resultsScroll.position.extentAfter >
-            paginationPrefetchDistance(_resultsScroll.position)) {
-      return;
-    }
-    unawaited(widget.controller.loadMore());
   }
 
   @override
   void dispose() {
-    _resultsScroll
-      ..removeListener(_maybeLoadMore)
-      ..dispose();
+    _resultsScroll.dispose();
     _search.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -211,51 +198,59 @@ class _GifPickerState extends State<GifPicker> {
 
   Widget _buildContent(BuildContext context) {
     final controller = widget.controller;
-    if (controller.results.isNotEmpty) {
+    if (controller.results.isNotEmpty ||
+        controller.loadingMore ||
+        controller.paging.admits) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (controller.error case final error?)
             _InlineError(message: error, onRetry: controller.retry),
           Expanded(
-            child: GridView.builder(
+            child: CustomScrollView(
               key: const ValueKey('gif-picker-results'),
               controller: _resultsScroll,
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 180,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 1,
-              ),
-              itemCount: controller.results.length,
-              itemBuilder: (context, index) => _GifResultTile(
-                key: ValueKey('gif-result-$index'),
-                result: controller.results[index],
-                onPicked: (result) {
-                  if (controller.isCurrent &&
-                      controller.results.contains(result)) {
-                    widget.onPicked(result);
-                  }
-                },
-              ),
+              slivers: [
+                SliverGrid.builder(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 180,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: controller.results.length,
+                  itemBuilder: (context, index) => _GifResultTile(
+                    key: ValueKey('gif-result-$index'),
+                    result: controller.results[index],
+                    onPicked: (result) {
+                      if (controller.isCurrent &&
+                          controller.results.contains(result)) {
+                        widget.onPicked(result);
+                      }
+                    },
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: ScrollPageTrigger(
+                    enabled: controller.paging.admits,
+                    onLoad: controller.loadMore,
+                    child: const SizedBox.shrink(),
+                  ),
+                ),
+              ],
             ),
           ),
-          if (controller.loadingMore || controller.canLoadMore)
+          if (controller.loadingMore)
             Center(
-              child: controller.loadingMore
-                  ? DSkeletonRegion(
-                      key: const ValueKey('gif-picker-page-loading'),
-                      semanticsLabel: context.l10n.loading,
-                      color: skeletonFill(
-                        context,
-                        on: SkeletonSurface.floating,
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: DSpacing.sm),
-                        child: DSkeleton(width: 96, height: 20),
-                      ),
-                    )
-                  : _loadMoreButton(context),
+              child: DSkeletonRegion(
+                key: const ValueKey('gif-picker-page-loading'),
+                semanticsLabel: context.l10n.loading,
+                color: skeletonFill(context, on: SkeletonSurface.floating),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: DSpacing.sm),
+                  child: DSkeleton(width: 96, height: 20),
+                ),
+              ),
             ),
         ],
       );
@@ -332,16 +327,8 @@ class _GifPickerState extends State<GifPicker> {
     return _PickerMessage(
       icon: DIcons.magnifyingGlass,
       message: context.l10n.noGIFsFound,
-      action: controller.canLoadMore ? _loadMoreButton(context) : null,
     );
   }
-
-  Widget _loadMoreButton(BuildContext context) => DButton(
-    key: const ValueKey('gif-picker-load-more'),
-    label: Text(context.l10n.loadMore),
-    onPressed: widget.controller.loadMore,
-    variant: DButtonVariant.link,
-  );
 }
 
 class _GifGridSkeleton extends StatelessWidget {

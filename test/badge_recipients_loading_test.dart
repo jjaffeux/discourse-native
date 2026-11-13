@@ -175,7 +175,7 @@ void main() {
     });
   }
 
-  testWidgets('Native badge Load more retains rows with visible progress', (
+  testWidgets('badge recipient paging retains rows with visible progress', (
     tester,
   ) async {
     final next = Completer<http.Response>();
@@ -195,9 +195,10 @@ void main() {
     });
     addTearDown(client.close);
     final shell = await _pump(tester, client);
-    final more = find.byKey(const ValueKey('badge-load-more'));
+    final last = find.byKey(const ValueKey('badge-grant-96'));
+    final more = find.text('Load more');
     await tester.scrollUntilVisible(
-      more,
+      last,
       500,
       scrollable: find
           .descendant(
@@ -208,10 +209,12 @@ void main() {
       maxScrolls: 40,
     );
     await tester.pumpAndSettle();
-    final last = find.byKey(const ValueKey('badge-grant-96'));
     expect(last, findsOneWidget);
     final oldRow = tester.element(last);
-    await tester.tap(more);
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -100),
+    );
     await tester.pumpAndSettle();
     expect(sent.last.url.queryParameters['offset'], '96');
     expect(shell.badges.stateFor(_site, _route).loadingMore, isTrue);

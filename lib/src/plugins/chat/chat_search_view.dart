@@ -38,7 +38,6 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   ValueListenable<GlobalChatSearchState>? _resultsRef;
   final TextEditingController _query = TextEditingController();
   late final FocusNode _focus;
-  late final ScrollController _scroll;
   VoidCallback? _unregisterRefresher;
   bool _ready = false;
   String? _pageQuery;
@@ -47,7 +46,6 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   void initState() {
     super.initState();
     _focus = FocusNode(debugLabel: 'chat search');
-    _scroll = ScrollController()..addListener(_maybeLoadMore);
   }
 
   @override
@@ -124,25 +122,9 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   @override
   void dispose() {
     _detach();
-    _scroll.dispose();
     _focus.dispose();
     _query.dispose();
     super.dispose();
-  }
-
-  void _maybeLoadMore() {
-    if (!_scroll.hasClients ||
-        _scroll.position.extentAfter >
-            paginationPrefetchDistance(_scroll.position)) {
-      return;
-    }
-    final state = _search.globalState(widget.siteUrl);
-    final paging = ScrollPagingGate(
-      hasMore: state.hasMore,
-      busy: state.loadingMore,
-      lastPageFailed: state.error != null,
-    );
-    if (paging.admits) _search.loadMore(widget.siteUrl);
   }
 
   void _setQuery(String value) {
@@ -194,7 +176,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
         ),
       );
     }
-    if (state.phase == ChatSearchPhase.empty) {
+    if (state.phase == ChatSearchPhase.empty && !state.hasMore) {
       return _SearchMessage(
         icon: DIcons.magnifyingGlass,
         text: appL10n.noChatMessagesFound,
@@ -206,7 +188,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
         onRetry: () => _search.retryGlobal(widget.siteUrl),
       );
     }
-    if (state.hits.isEmpty) return const SizedBox.shrink();
+    if (state.hits.isEmpty && !state.hasMore) return const SizedBox.shrink();
 
     final activation = (
       siteUrl: widget.siteUrl,
@@ -220,7 +202,6 @@ class _ChatSearchViewState extends State<ChatSearchView> {
       basePadding: const EdgeInsets.symmetric(vertical: 8),
       builder: (context, lane) => ListView.separated(
         key: const PageStorageKey('chat-search-results'),
-        controller: _scroll,
         padding: lane.padding,
         itemCount: state.hits.length + (hasFooter ? 1 : 0),
         separatorBuilder: (_, _) => const DSeparator(space: 1),
@@ -228,6 +209,13 @@ class _ChatSearchViewState extends State<ChatSearchView> {
           if (index == state.hits.length) {
             if (state.loadingMore) {
               return const _ChatSearchSkeleton(rows: 2);
+            }
+            if (state.error == null) {
+              return ScrollPageTrigger(
+                enabled: state.hasMore,
+                onLoad: () => _search.loadMore(widget.siteUrl),
+                child: const SizedBox.shrink(),
+              );
             }
             return Padding(
               padding: const EdgeInsets.all(12),
@@ -239,9 +227,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
                     const SizedBox(height: 8),
                   ],
                   DButton(
-                    label: Text(
-                      state.error == null ? appL10n.loadMore : appL10n.tryAgain,
-                    ),
+                    label: Text(appL10n.tryAgain),
                     onPressed: () => _search.loadMore(widget.siteUrl),
                   ),
                 ],

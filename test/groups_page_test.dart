@@ -428,10 +428,7 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       expect(opened, same(_support));
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('groups-load-more')),
-      );
-      await tester.tap(find.byKey(const ValueKey('groups-load-more')));
+      expect(find.text('Load more'), findsNothing);
       expect(more, greaterThanOrEqualTo(1));
       expect(tester.takeException(), isNull);
     },

@@ -269,23 +269,40 @@ class _SubsectionNavigationItem extends StatelessWidget {
   );
 }
 
-class _LoadMoreRow extends StatelessWidget {
-  const _LoadMoreRow({required this.loading, required this.onPressed});
+class _GroupPageFooter extends StatelessWidget {
+  const _GroupPageFooter({
+    required this.loading,
+    required this.error,
+    required this.hasMore,
+    required this.onLoadMore,
+  });
 
   final bool loading;
-  final VoidCallback? onPressed;
+  final String? error;
+  final bool hasMore;
+  final VoidCallback? onLoadMore;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: DButton(
-        key: const ValueKey('group-load-more'),
-        label: Text(context.l10n.loadMore),
-        onPressed: loading ? null : onPressed,
-      ),
-    ),
-  );
+  Widget build(BuildContext context) {
+    if (loading) {
+      return Center(child: DProgress(semanticsLabel: context.l10n.loading));
+    }
+    if (error case final message?) {
+      return Column(
+        children: [
+          _InlineError(message: message),
+          if (onLoadMore != null && hasMore)
+            DButton(label: Text(context.l10n.tryAgain), onPressed: onLoadMore),
+        ],
+      );
+    }
+    if (!hasMore || onLoadMore == null) return const SizedBox.shrink();
+    return ScrollPageTrigger(
+      enabled: true,
+      onLoad: onLoadMore!,
+      child: const SizedBox.shrink(),
+    );
+  }
 }
 
 class _InlineError extends StatelessWidget {

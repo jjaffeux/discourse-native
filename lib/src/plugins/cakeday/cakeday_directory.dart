@@ -25,13 +25,11 @@ class CakedayDirectory extends StatefulWidget {
 }
 
 class _CakedayDirectoryState extends State<CakedayDirectory> {
-  final _scroll = ScrollController();
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_changed);
     widget.controller.retain(widget.site, widget.query);
-    _scroll.addListener(_scrollChanged);
   }
 
   @override
@@ -51,27 +49,10 @@ class _CakedayDirectoryState extends State<CakedayDirectory> {
     if (mounted) setState(() {});
   }
 
-  void _scrollChanged() {
-    if (_scroll.hasClients && _scroll.position.extentAfter < 300) {
-      final state = widget.controller.state(widget.site, widget.query);
-      final paging = ScrollPagingGate(
-        hasMore: state.loaded && state.nextPage != null,
-        busy: state.loading || state.loadingMore,
-        lastPageFailed: state.failure != null,
-      );
-      if (paging.admits) {
-        unawaited(
-          widget.controller.load(widget.site, widget.query, more: true),
-        );
-      }
-    }
-  }
-
   @override
   void dispose() {
     widget.controller.removeListener(_changed);
     widget.controller.release(widget.site, widget.query);
-    _scroll.dispose();
     super.dispose();
   }
 
@@ -225,7 +206,6 @@ class _CakedayDirectoryState extends State<CakedayDirectory> {
             : null,
         child: ContentReadingLane(
           builder: (context, lane) => CustomScrollView(
-            controller: _scroll,
             key: PageStorageKey((widget.site, widget.query.id)),
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -269,7 +249,9 @@ class _CakedayDirectoryState extends State<CakedayDirectory> {
                         )
                       else if (!state.loaded && state.failure != null)
                         SliverToBoxAdapter(child: _error())
-                      else if (state.loaded && state.members.isEmpty)
+                      else if (state.loaded &&
+                          state.members.isEmpty &&
+                          state.nextPage == null)
                         SliverToBoxAdapter(
                           child: DEmpty(
                             children: [
@@ -326,31 +308,28 @@ class _CakedayDirectoryState extends State<CakedayDirectory> {
                         SliverToBoxAdapter(
                           child: _error(more: (state.failedPage ?? 0) > 0),
                         ),
-                      if (state.loadingMore)
-                        SliverToBoxAdapter(
-                          child: Center(
-                            child: DSpinner(semanticLabel: l10n.loading),
-                          ),
-                        ),
-                      if (state.nextPage != null &&
-                          !state.loadingMore &&
-                          state.failure == null)
-                        SliverToBoxAdapter(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: DButton(
-                              variant: DButtonVariant.ghost,
-                              label: Text(l10n.cakedayLoadMore),
-                              onPressed: () => unawaited(
-                                widget.controller.load(
-                                  widget.site,
-                                  widget.query,
-                                  more: true,
-                                ),
-                              ),
+                      SliverToBoxAdapter(
+                        child: ScrollPageTrigger(
+                          enabled:
+                              state.loaded &&
+                              state.nextPage != null &&
+                              !state.loading &&
+                              !state.loadingMore &&
+                              state.failure == null,
+                          onLoad: () => unawaited(
+                            widget.controller.load(
+                              widget.site,
+                              widget.query,
+                              more: true,
                             ),
                           ),
+                          child: state.loadingMore
+                              ? Center(
+                                  child: DSpinner(semanticLabel: l10n.loading),
+                                )
+                              : const SizedBox.shrink(),
                         ),
+                      ),
                     ],
                   ],
                 ),

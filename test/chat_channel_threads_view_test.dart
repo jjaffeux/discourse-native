@@ -87,7 +87,7 @@ void main() {
           0,
         );
         final pages = {
-          firstPage: ChatThreadPage(threads: [_thread(1)], hasMore: true),
+          firstPage: ChatThreadPage(threads: [_thread(1)], hasMore: more),
           FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 1):
               ChatThreadPage(threads: [_thread(2)]),
         };
@@ -98,19 +98,18 @@ void main() {
           },
           chatChannelThreadPagesByKey: pages,
         );
-        final shell = await _pump(tester, api);
+        if (more) api.heldOffset = 1;
+        final pagingGate = more ? (api.pageGate = Completer<void>()) : null;
+        final shell = await _pump(tester, api, settle: !more);
         final chat = shell.pluginSession.require(chatControllerService);
         if (!more) pages[firstPage] = ChatThreadPage(threads: [_thread(2)]);
-        final gate = api.pageGate = Completer<void>();
+        final gate = pagingGate ?? (api.pageGate = Completer<void>());
         addTearDown(() {
           if (!gate.isCompleted) gate.complete();
         });
-        final loading = chat.loadChannelThreads(
-          _site,
-          _channelId,
-          more: more,
-          force: !more,
-        );
+        final loading = more
+            ? Future<void>.value()
+            : chat.loadChannelThreads(_site, _channelId, force: true);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
@@ -287,7 +286,6 @@ void main() {
     final controller = await _pump(tester, api);
     Iterable<int> offsets() =>
         api.chatChannelThreadPagesRequested.map((request) => request.offset);
-    await tester.tap(find.text('Load more'));
     await tester.pumpAndSettle();
     expect(offsets(), [0, 1]);
     expect(find.text('Thread 2'), findsOneWidget);
@@ -484,7 +482,11 @@ Future<ShellController> _pumpMobileThreads(
   return shell;
 }
 
-Future<ShellController> _pump(WidgetTester tester, FakeDiscourseApi api) async {
+Future<ShellController> _pump(
+  WidgetTester tester,
+  FakeDiscourseApi api, {
+  bool settle = true,
+}) async {
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
@@ -501,7 +503,11 @@ Future<ShellController> _pump(WidgetTester tester, FakeDiscourseApi api) async {
       .require(chatControllerService)
       .loadChannels(_site);
   await _mount(tester, controller);
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
   return controller;
 }
 
@@ -545,6 +551,7 @@ final class _GatedThreadsApi extends FakeDiscourseApi {
   });
 
   Completer<void>? pageGate;
+  int? heldOffset;
 
   @override
   Future<ChatThreadPage> chatChannelThreads({
@@ -563,7 +570,10 @@ final class _GatedThreadsApi extends FakeDiscourseApi {
       limit: limit,
       clientId: clientId,
     );
-    if (pageGate case final held?) await held.future;
+    if (pageGate case final held?
+        when heldOffset == null || heldOffset == offset) {
+      await held.future;
+    }
     return page;
   }
 }

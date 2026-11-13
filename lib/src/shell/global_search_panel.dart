@@ -15,6 +15,7 @@ import '../models/topic.dart';
 import '../plugin_api/global_search_filters.dart';
 import '../plugin_api/global_search_models.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'global_search_api.dart';
@@ -678,6 +679,37 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       widget.onRefocus?.call();
     }
 
+    Future<void> loadChoices() async {
+      if (_loadingChoices || !_hasMoreChoices) return;
+      final revision = _lookupRevision;
+      setState(() {
+        _loadingChoices = true;
+        _choiceError = null;
+      });
+      try {
+        final page = await controller.lookupCategoryChoices(
+          controller.stagedTerm,
+          page: _categoryPage + 1,
+        );
+        if (!mounted || revision != _lookupRevision) return;
+        setState(() {
+          _choices = {
+            for (final choice in [..._choices, ...page.choices])
+              choice.value: choice,
+          }.values.toList();
+          _categoryPage++;
+          _hasMoreChoices = page.hasMore;
+          _loadingChoices = false;
+        });
+      } catch (error) {
+        if (!mounted || revision != _lookupRevision) return;
+        setState(() {
+          _loadingChoices = false;
+          _choiceError = GlobalSearchApi.failureMessage(error);
+        });
+      }
+    }
+
     return DScrollBar(
       controller: _scroll,
       child: ListView(
@@ -722,38 +754,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             DButton(
               label: Text(context.l10n.retry),
               variant: DButtonVariant.ghost,
-              onPressed: () => setState(() => _lookupKey = null),
-            ),
-          if (_hasMoreChoices)
-            DButton(
-              label: Text(context.l10n.loadMore),
-              loading: _loadingChoices,
-              onPressed: () async {
-                final revision = _lookupRevision;
-                setState(() => _loadingChoices = true);
-                try {
-                  final page = await controller.lookupCategoryChoices(
-                    controller.stagedTerm,
-                    page: _categoryPage + 1,
-                  );
-                  if (!mounted || revision != _lookupRevision) return;
-                  setState(() {
-                    _choices = {
-                      for (final choice in [..._choices, ...page.choices])
-                        choice.value: choice,
-                    }.values.toList();
-                    _categoryPage++;
-                    _hasMoreChoices = page.hasMore;
-                    _loadingChoices = false;
-                  });
-                } catch (error) {
-                  if (!mounted || revision != _lookupRevision) return;
-                  setState(() {
-                    _loadingChoices = false;
-                    _choiceError = GlobalSearchApi.failureMessage(error);
-                  });
-                }
-              },
+              onPressed: _hasMoreChoices
+                  ? loadChoices
+                  : () => setState(() => _lookupKey = null),
             ),
           for (final choice in choices)
             _action(
@@ -860,6 +863,12 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ],
               ),
             ),
+          ScrollPageTrigger(
+            enabled:
+                _hasMoreChoices && !_loadingChoices && _choiceError == null,
+            onLoad: loadChoices,
+            child: const SizedBox.shrink(),
+          ),
         ],
       ),
     );
@@ -1129,14 +1138,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     if (phase == GlobalSearchPhase.loading && results.isEmpty) {
       return _loadingResults(context);
     }
-    if (phase == GlobalSearchPhase.failed && results.isEmpty) {
+    if (phase == GlobalSearchPhase.failed &&
+        results.isEmpty &&
+        !controller.hasMore) {
       return _status(
         context.l10n.searchCouldNotLoad,
         controller.error ?? context.l10n.pleaseTryAgain,
         error: true,
       );
     }
-    if (phase == GlobalSearchPhase.empty) {
+    if (phase == GlobalSearchPhase.empty && !controller.hasMore) {
       return _status(
         context.l10n.noResultsFound,
         context.l10n.tryDifferentWordsOrRemoveACondition,
@@ -1186,7 +1197,6 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           ],
       ],
       if (controller.error != null &&
-          results.isNotEmpty &&
           !controller.sections.any(
             (section) => section.error == controller.error,
           ))
@@ -1197,22 +1207,34 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             style: TextStyle(color: DTokens.of(context).destructive),
           ),
         ),
-      if (controller.hasMore || controller.loadingMore)
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Center(
-            child: DButton(
-              key: const ValueKey('global-search-load-more'),
-              label: Text(context.l10n.loadMore),
-              loading: controller.loadingMore,
-              onPressed: controller.loadMore,
-              variant: DButtonVariant.outline,
-            ),
-          ),
-        ),
       if (controller.wordsQuery.trim().isEmpty &&
           controller.hintedFilters.isEmpty)
         ..._filterRows(context),
+      if (controller.hasMore || controller.loadingMore)
+        ScrollPageTrigger(
+          enabled:
+              controller.hasMore &&
+              !controller.loadingMore &&
+              controller.error == null &&
+              phase != GlobalSearchPhase.loading,
+          onLoad: controller.loadMore,
+          child: controller.loadingMore
+              ? DSkeletonRegion(
+                  semanticsLabel: context.l10n.loading,
+                  color: skeletonFill(context, on: SkeletonSurface.floating),
+                  child: const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: DSkeleton(height: 16),
+                  ),
+                )
+              : controller.error != null
+              ? DButton(
+                  label: Text(context.l10n.tryAgain),
+                  onPressed: controller.loadMore,
+                  variant: DButtonVariant.ghost,
+                )
+              : const SizedBox.shrink(),
+        ),
     ];
     final ids = {for (final result in results) result.id};
     _resultKeys.removeWhere(

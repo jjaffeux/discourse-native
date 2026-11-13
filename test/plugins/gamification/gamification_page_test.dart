@@ -91,13 +91,11 @@ void main() {
       await gameTap(tester, find.text('All time'));
       await gameTap(tester, find.text('Last week'));
       expect(
-        f.transport.reads.last.path,
-        '/leaderboard/?format=json&page=0&period=weekly',
-      );
-      await gameTap(tester, find.text('Load more'));
-      expect(
-        f.transport.reads.last.path,
-        '/leaderboard/?format=json&page=1&period=weekly',
+        f.transport.reads.map((read) => read.path),
+        containsAllInOrder([
+          '/leaderboard/?format=json&page=0&period=weekly',
+          '/leaderboard/?format=json&page=1&period=weekly',
+        ]),
       );
       expect(find.text('Load more'), findsNothing);
       tester
@@ -190,12 +188,19 @@ void main() {
       find.text('This leaderboard is restricted or no longer available.'),
       findsOneWidget,
     );
-    final before = f.transport.reads.length;
+    final before = f.transport.reads
+        .where((read) => read.path == '/leaderboard/?format=json&page=0')
+        .length;
     f.transport.failures.remove(path);
     f.publicResponse = gameResponse(users: [gameUser(id: 9)]);
     await pull(tester);
     await tester.pumpAndSettle();
-    expect(f.transport.reads.length, before + 1);
+    expect(
+      f.transport.reads.where(
+        (read) => read.path == '/leaderboard/?format=json&page=0',
+      ),
+      hasLength(before + 1),
+    );
     expect(find.text('Member 9'), findsWidgets);
     await tester.pumpWidget(const SizedBox.shrink());
   });

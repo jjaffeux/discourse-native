@@ -198,7 +198,7 @@ final class ChatSearchController {
     final account = _accounts[siteUrl];
     if (account == null || !_owns(siteUrl, account)) return;
     final held = account.ref.value;
-    if (held.hits.isEmpty || !held.hasMore || held.loadingMore) {
+    if (!held.hasMore || held.loadingMore) {
       return;
     }
     unawaited(_searchGlobal(siteUrl, account, append: true));
@@ -299,7 +299,7 @@ final class ChatSearchController {
                 ? ChatSearchPhase.empty
                 : ChatSearchPhase.results,
             hits: hits,
-            hasMore: page.hasMore,
+            hasMore: page.hasMore && page.consumedCount > 0,
             nextOffset: (append ? held.nextOffset : 0) + page.consumedCount,
           ),
         );

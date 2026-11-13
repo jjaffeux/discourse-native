@@ -75,16 +75,6 @@ class _PostVotingReaderState extends State<PostVotingReader> {
           (id) => reader.post(id)?.contentRedacted == false,
         ),
       );
-      final paging = ScrollPagingGate(
-        hasMore: _controller.hasMore,
-        busy: _controller.loading || _controller.loadingMore,
-        lastPageFailed: _controller.error != null,
-      );
-      if (_scroll.hasClients &&
-          _scroll.position.extentAfter < 220 &&
-          paging.admits) {
-        unawaited(_page());
-      }
     });
   }
 
@@ -152,8 +142,13 @@ class _PostVotingReaderState extends State<PostVotingReader> {
     _schedule();
   }
 
+  bool get _canPage =>
+      !_controller.loading &&
+      !_controller.loadingMore &&
+      _controller.error == null;
+
   Future<void> _page({bool earlier = false}) async {
-    if (_controller.loading || _controller.loadingMore) return;
+    if (!_canPage) return;
     _restore = _snapshot();
     await _controller.loadMore(earlier: earlier);
     _schedule();
@@ -374,19 +369,12 @@ class _PostVotingReaderState extends State<PostVotingReader> {
                     ),
                   if (question != null) _post(question),
                   if (count > 0) _answerControls(context),
-                  if (_controller.hasEarlier)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: DButton(
-                        variant: DButtonVariant.ghost,
-                        label: Text(context.l10n.postVotingLoadEarlier),
-                        loading: _controller.loadingMore,
-                        onPressed:
-                            _controller.loadingMore || _controller.loading
-                            ? null
-                            : () => unawaited(_page(earlier: true)),
-                      ),
-                    ),
+                  ScrollPageTrigger(
+                    leading: true,
+                    enabled: _canPage && _controller.hasEarlier,
+                    onLoad: () => unawaited(_page(earlier: true)),
+                    child: const SizedBox.shrink(),
+                  ),
                   for (final id in _controller.answerIds) _post(id),
                   if (_controller.error != null)
                     Padding(
@@ -411,17 +399,11 @@ class _PostVotingReaderState extends State<PostVotingReader> {
                       padding: EdgeInsets.all(12),
                       child: Center(child: DSpinner()),
                     ),
-                  if (_controller.hasMore && !_controller.loadingMore)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: DButton(
-                        variant: DButtonVariant.ghost,
-                        label: Text(context.l10n.loadMore),
-                        onPressed: _controller.loading
-                            ? null
-                            : () => unawaited(_page()),
-                      ),
-                    ),
+                  ScrollPageTrigger(
+                    enabled: _canPage && _controller.hasMore,
+                    onLoad: () => unawaited(_page()),
+                    child: const SizedBox.shrink(),
+                  ),
                   const SizedBox(height: 20),
                 ],
               ),

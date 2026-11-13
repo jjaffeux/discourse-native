@@ -1041,9 +1041,7 @@ void main() {
       final api = _PanelApi()..moreCategories = true;
       await _pump(tester, api: api);
       await _filter(tester, 'category');
-      expect(find.text('2 of 3 categories'), findsOneWidget);
-      await tester.tap(find.text('Load more categories'));
-      await tester.pumpAndSettle();
+      expect(find.text('Load more categories'), findsNothing);
       expect(find.text('Beyond the preload'), findsOneWidget);
       expect(find.text('All categories · 3'), findsOneWidget);
       expect(api.categoryPages, [1, 2]);

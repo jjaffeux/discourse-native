@@ -204,8 +204,7 @@ void main() {
     await tester.tap(find.text('Replies').last);
     await tester.pumpAndSettle();
     expect(find.text('Started 1'), findsNothing);
-    await tester.tap(find.text('Load more'));
-    await tester.pumpAndSettle();
+    expect(find.text('Load more'), findsNothing);
     expect(find.text('A later reply'), findsOneWidget);
     expect(find.text('Replied'), findsOneWidget);
     await tester.tap(find.text('A later reply'));
@@ -287,6 +286,9 @@ void main() {
         }
         expect(find.text('$prefix $pageSize'), findsOneWidget);
         final skeleton = find.byType(DSkeletonRegion);
+        if (page == _Page.bookmarks) {
+          await tester.scrollUntilVisible(skeleton, 160, scrollable: scrollable);
+        }
         expect(skeleton, findsOneWidget);
         expect(find.byType(DSkeleton), findsWidgets);
         expect(find.byType(DSpinner), findsNothing);

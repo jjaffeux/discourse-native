@@ -1124,16 +1124,7 @@ void main() {
         ],
       );
       expect(find.byTooltip('Remove draft').evaluate().length, lessThan(15));
-      await tester.scrollUntilVisible(
-        find.text('Load more'),
-        400,
-        scrollable: find.byType(Scrollable),
-      );
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Load more'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
+      expect(find.text('Load more'), findsNothing);
       await tester.scrollUntilVisible(
         find.byWidgetPredicate(
           (widget) => widget is TopicTitle && widget.title == 'Draft 59',
@@ -1144,6 +1135,7 @@ void main() {
       expect(fixture.api.userDraftRequests, [
         (siteUrl: _siteUrl, offset: 0, limit: 30),
         (siteUrl: _siteUrl, offset: 30, limit: 30),
+        (siteUrl: _siteUrl, offset: 60, limit: 30),
       ]);
       expect(tester.takeException(), isNull);
     });
@@ -1215,16 +1207,7 @@ void main() {
         api: _ProjectedDraftsApi(pages!, requestedOffsets),
       );
 
-      expect(find.byTooltip('Remove draft'), findsNothing);
       expect(find.text('No drafts yet'), findsNothing);
-      expect(find.text('Load more'), findsOneWidget);
-
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Load more'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Load more'));
-      await tester.pumpAndSettle();
-
       expect(requestedOffsets, [0, 30]);
       expect(find.byTooltip('Remove draft'), findsOneWidget);
       expect(

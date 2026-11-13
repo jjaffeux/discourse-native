@@ -80,10 +80,9 @@ void main() {
     final shell = await _pump(tester, api);
     await tester.enterText(_field, 'deploy');
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.pumpAndSettle();
+    await tester.pump();
     final search = shell.pluginSession.require(chatSearchControllerService);
     expect(search.globalState(_site).hits, hasLength(2));
-    await tester.tap(find.widgetWithText(DButton, 'Load more'));
     await tester.pump();
     expect(api.chatSearchesRequested.map((query) => query.offset), [0, 2]);
     expect(search.globalState(_site).loadingMore, isTrue);

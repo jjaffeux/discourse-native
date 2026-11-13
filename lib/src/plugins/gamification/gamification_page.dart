@@ -331,15 +331,21 @@ class GamificationResults extends StatelessWidget {
               ],
             ),
           ),
-        if (!compact &&
-            snapshot.users.isNotEmpty &&
-            state.append != GamificationAppend.exhausted)
-          DButton(
-            label: Text(context.l10n.gamificationMore),
-            onPressed:
-                state.refreshing || state.append == GamificationAppend.loading
-                ? null
-                : () => unawaited(handle.loadNextPage()),
+        if (!compact)
+          ScrollPageTrigger(
+            enabled:
+                !state.refreshing && state.append == GamificationAppend.idle,
+            onLoad: () => unawaited(handle.loadNextPage()),
+            child: switch (state.append) {
+              GamificationAppend.loading => const Center(child: DSpinner()),
+              GamificationAppend.failed => DButton(
+                label: Text(context.l10n.retry),
+                onPressed: state.refreshing
+                    ? null
+                    : () => unawaited(handle.loadNextPage()),
+              ),
+              _ => const SizedBox.shrink(),
+            },
           ),
       ],
     );
