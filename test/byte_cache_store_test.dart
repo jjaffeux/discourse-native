@@ -37,6 +37,31 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('an expired read preserves a fresh replacement', () async {
+      final entry = await seed('expired', [1], now);
+      final replacement = await seed('replacement', [2, 3], now);
+      final fresh = await replacement.readAsBytes();
+      ByteData.sublistView(fresh).setInt64(
+        4,
+        expiresAt.add(const Duration(days: 1)).millisecondsSinceEpoch,
+      );
+      await replacement.writeAsBytes(fresh);
+      var replace = true;
+      final store = FileByteCacheStore(
+        directory,
+        clock: () {
+          if (replace) {
+            replace = false;
+            replacement.renameSync(entry.path);
+          }
+          return expiresAt;
+        },
+      );
+
+      expect(await store.read(_url('expired')), isNull);
+      expect(await store.read(_url('expired')), [2, 3]);
+    });
+
     test('a header-only entry is a miss and can be replaced', () async {
       final entry = await seed('empty-body', [1], now);
       final bytes = await entry.readAsBytes();
@@ -217,7 +242,7 @@ void main() {
 
       expect(bytes, isNull);
       expect(growing.requestedBytes, 17);
-      expect(await entry.exists(), isFalse);
+      expect(await entry.exists(), isTrue);
     });
 
     test(
@@ -713,11 +738,13 @@ final class _ChangingCacheFile implements File {
   final File file;
   final bool shortenRead;
   int? requestedBytes;
+  bool _grew = false;
 
   @override
   Future<FileStat> stat() async {
     final original = await file.stat();
-    if (!shortenRead) {
+    if (!shortenRead && !_grew) {
+      _grew = true;
       await file.writeAsBytes(List.filled(128, 9), mode: FileMode.append);
     }
     return original;

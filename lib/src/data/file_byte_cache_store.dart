@@ -105,7 +105,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     if (stat.type != FileSystemEntityType.file ||
         stat.size <= _headerBytes ||
         stat.size > maxEncodedBytes) {
-      await _delete(file);
+      await _discardUnchanged(file, stat);
       return null;
     }
 
@@ -128,7 +128,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     }
 
     if (encoded.length <= _headerBytes || !_hasMagic(encoded)) {
-      await _delete(file);
+      await _discardUnchanged(file, stat);
       return null;
     }
     final DateTime expiresAt;
@@ -138,13 +138,13 @@ final class FileByteCacheStore implements ByteCacheStore {
         isUtc: true,
       );
     } on RangeError {
-      await _delete(file);
+      await _discardUnchanged(file, stat);
       return null;
     }
     final bodyLength = encoded.length - _headerBytes;
     final now = _clock();
     if (!expiresAt.isAfter(now.toUtc()) || bodyLength > maxEntryBytes) {
-      await _delete(file);
+      await _discardUnchanged(file, stat);
       return null;
     }
 
@@ -302,6 +302,20 @@ final class FileByteCacheStore implements ByteCacheStore {
       }
       keptEntries++;
       keptBytes += entry.bytes;
+    }
+  }
+
+  static Future<void> _discardUnchanged(File file, FileStat observed) async {
+    try {
+      final current = await file.stat();
+      if (current.type == observed.type &&
+          current.size == observed.size &&
+          current.modified == observed.modified &&
+          current.changed == observed.changed) {
+        await _delete(file);
+      }
+    } on FileSystemException {
+      return;
     }
   }
 
