@@ -63,6 +63,12 @@ void main() {
     await pending;
     expect(shell.tagDirectoryFeedFor(_site).tags, isEmpty);
     expect(finishedBeforeResponse, isTrue);
+
+    api.answerNewAccount();
+    configs[_site] = const SiteConfig();
+    await shell.sitePresentation.refreshConfig(_site);
+    await shell.loadTags(_site);
+    expect(shell.tagDirectoryFeedFor(_site).tags, [_newTag]);
   });
 
   test('concurrent category page callers wait for the shared result', () async {

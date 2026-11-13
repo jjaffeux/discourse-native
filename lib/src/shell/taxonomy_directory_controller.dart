@@ -42,6 +42,7 @@ final class _TaxonomySite {
   categoryNotificationAuthorities = {};
   Completer<void>? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
+  bool tagDirectoryDisabled = false;
   ({RequestIntentOperation<void> operation, Completer<void> cancellation})?
   tagDirectoryRequest;
   List<SidebarTag> siteTopTags = const [];
@@ -564,7 +565,10 @@ final class _TaxonomyDirectoryController
       _clearDisabledTagDirectory(site);
       return;
     }
-    final held = site.tagDirectoryFeed;
+    final held = site.tagDirectoryDisabled
+        ? const TagDirectoryFeed()
+        : site.tagDirectoryFeed;
+    site.tagDirectoryDisabled = false;
     final active = site.tagDirectoryRequest;
     if (active != null) return active.operation.join();
     if (!force && held.loaded) return;
@@ -584,6 +588,7 @@ final class _TaxonomyDirectoryController
   }
 
   void _clearDisabledTagDirectory(_TaxonomySite site) {
+    site.tagDirectoryDisabled = true;
     final pending = site.tagDirectoryRequest;
     site.tagDirectoryRequest = null;
     if (pending != null && site.directoryWaiters.remove(pending.cancellation)) {
