@@ -1290,45 +1290,52 @@ void main() {
       },
     );
 
-    test(
-      'app lifecycle close drains an in-flight hook before teardown',
-      () async {
-        final events = <String>[];
-        final hookStarted = Completer<void>();
-        final releaseHook = Completer<void>();
-        final installed = PluginInstaller.install(
-          PluginManifest([
-            _Module(
-              'feature',
-              appLifecycle: _GatedAppLifecycle(
-                events,
-                hookStarted: hookStarted,
-                releaseHook: releaseHook,
+    for (final reentrant in [false, true]) {
+      test(
+        'app lifecycle close drains an in-flight hook before teardown (reentrant: $reentrant)',
+        () async {
+          final events = <String>[];
+          final hookStarted = Completer<void>();
+          final releaseHook = Completer<void>();
+          Future<void>? reentrantClose;
+          late final InstalledPlugins installed;
+          installed = PluginInstaller.install(
+            PluginManifest([
+              _Module(
+                'feature',
+                appLifecycle: _GatedAppLifecycle(
+                  events,
+                  hookStarted: hookStarted,
+                  releaseHook: releaseHook,
+                  onObserve: reentrant
+                      ? () => reentrantClose = installed.close()
+                      : null,
+                ),
               ),
-            ),
-          ]),
-        );
-        await installed.startPhase(PluginStartupPhase.bootstrap);
-        events.clear();
+            ]),
+          );
+          await installed.startPhase(PluginStartupPhase.bootstrap);
+          events.clear();
 
-        final observing = installed.observeAppState(
-          'paused',
-          foreground: false,
-        );
-        await hookStarted.future;
-        final closing = installed.close();
-        await Future<void>.delayed(Duration.zero);
+          final observing = installed.observeAppState(
+            'paused',
+            foreground: false,
+          );
+          await hookStarted.future;
+          final closing = reentrantClose ?? installed.close();
+          await Future<void>.delayed(Duration.zero);
 
-        expect(events, ['observe:start']);
-        await installed.flush();
-        expect(events, ['observe:start']);
+          expect(events, ['observe:start']);
+          await installed.flush();
+          expect(events, ['observe:start']);
 
-        releaseHook.complete();
-        await observing;
-        await closing;
-        expect(events, ['observe:start', 'observe:end', 'close']);
-      },
-    );
+          releaseHook.complete();
+          await observing;
+          await closing;
+          expect(events, ['observe:start', 'observe:end', 'close']);
+        },
+      );
+    }
   });
 
   group('session authority and lifecycle', () {
@@ -2580,15 +2587,18 @@ final class _GatedAppLifecycle extends PluginAppLifecycle {
     this.events, {
     required this.hookStarted,
     required this.releaseHook,
+    this.onObserve,
   });
 
   final List<String> events;
   final Completer<void> hookStarted;
   final Completer<void> releaseHook;
+  final void Function()? onObserve;
 
   @override
   Future<void> observeAppState(String state, {required bool foreground}) async {
     events.add('observe:start');
+    onObserve?.call();
     hookStarted.complete();
     await releaseHook.future;
     events.add('observe:end');

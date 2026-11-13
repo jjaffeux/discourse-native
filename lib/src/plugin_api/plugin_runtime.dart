@@ -43,17 +43,20 @@ final class _PluginLifecycleOperationQueue {
 
   Future<void> run(FutureOr<void> Function() operation) {
     final previous = _tail;
-    final next = previous == null
-        ? Future<void>.sync(operation)
-        : previous.then((_) => Future<void>.sync(operation));
-    final absorbed = next.then<void>((_) {}, onError: (_, _) {});
+    final completion = Completer<void>();
+    final absorbed = completion.future.then<void>((_) {}, onError: (_, _) {});
     _tail = absorbed;
     unawaited(
       absorbed.whenComplete(() {
         if (identical(_tail, absorbed)) _tail = null;
       }),
     );
-    return next;
+    completion.complete(
+      previous == null
+          ? Future<void>.sync(operation)
+          : previous.then((_) => Future<void>.sync(operation)),
+    );
+    return completion.future;
   }
 }
 
