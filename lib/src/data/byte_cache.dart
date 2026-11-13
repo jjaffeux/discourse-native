@@ -248,7 +248,7 @@ abstract class ByteCache<T extends Object> {
       return owner.._complete(null);
     }
     if (_cooledDown(url)) {
-      _cache.remove(url);
+      _removeCachedEntry(url);
       _transientFailures.remove(url);
     }
     if (_cache.containsKey(url)) {
@@ -310,8 +310,7 @@ abstract class ByteCache<T extends Object> {
   }
 
   void _put(String url, T? value, {required int byteSize}) {
-    final replaced = _cache.remove(url);
-    if (replaced != null) _cachedBytes -= replaced.byteSize;
+    _removeCachedEntry(url);
 
     final entry = _CacheEntry(value, byteSize: byteSize);
     _cache[url] = entry;
@@ -322,9 +321,11 @@ abstract class ByteCache<T extends Object> {
     }
   }
 
-  void _evictLeastRecentlyUsed() {
-    final evicted = _cache.remove(_cache.keys.first)!;
-    _cachedBytes -= evicted.byteSize;
+  void _evictLeastRecentlyUsed() => _removeCachedEntry(_cache.keys.first);
+
+  void _removeCachedEntry(String url) {
+    final removed = _cache.remove(url);
+    if (removed != null) _cachedBytes -= removed.byteSize;
   }
 
   void _touch(String url) {
@@ -350,7 +351,7 @@ abstract class ByteCache<T extends Object> {
       final expired = _transientFailures.keys.first;
       _transientFailures.remove(expired);
       if (_cache[expired] case _CacheEntry(value: null)) {
-        _cache.remove(expired);
+        _removeCachedEntry(expired);
       }
     }
     _put(url, null, byteSize: 0);
