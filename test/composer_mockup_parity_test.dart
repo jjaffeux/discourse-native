@@ -24,6 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 const _capture = ValueKey('composer-parity-capture');
@@ -728,30 +729,24 @@ void main() {
               tokens.mutedForeground,
             );
 
+            expect(tester.widget<DButton>(submit).onPressed, isNull);
+            final neutralFill = buttonSurface(tester, of: close).color;
+            expect(buttonSurface(tester, of: submit).color, neutralFill);
+            expect(neutralFill, isNot(tokens.primary));
+
             final composer = h.shell.visibleComposer!;
-            composer.title.text = 'A title long enough to publish';
-            composer.text.text = 'A body long enough to publish.';
+            composer.title.text = 'Weekend ride along the river';
+            composer.text.text =
+                'I’m planning a Saturday ride along the river. Anyone want to join?';
             await tester.pumpAndSettle();
             expect(tester.widget<DButton>(submit).onPressed, isNotNull);
-            expect(tester.widget<DIcon>(submitGlyph).color, isNull);
+            expect(submit.hitTestable(), findsOneWidget);
+            expect(buttonSurface(tester, of: submit).color, tokens.primary);
             expect(
               IconTheme.of(tester.element(submitGlyph)).color,
-              tokens.foreground,
+              Colors.white,
             );
-            expect(
-              tester
-                  .widget<DButton>(find.byKey(const ValueKey('composer-close')))
-                  .variant,
-              DButtonVariant.quiet,
-            );
-            expect(
-              tester
-                  .widget<DButton>(
-                    find.byKey(const ValueKey('composer-submit')),
-                  )
-                  .variant,
-              DButtonVariant.quiet,
-            );
+            expect(buttonSurface(tester, of: close).color, neutralFill);
             await _render(
               tester,
               'phone-header-actions-${dark ? 'dark' : 'light'}-$scale',

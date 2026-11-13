@@ -14,6 +14,7 @@ class DModalHeaderAction extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.primary = false,
     this.semanticLabel,
     this.focusNode,
     this.hasPopup = false,
@@ -31,12 +32,17 @@ class DModalHeaderAction extends StatelessWidget {
     this.hasPopup = false,
     this.expanded = false,
     this.loading = false,
-  }) : icon = const _CloseIcon();
+  }) : icon = const _CloseIcon(),
+       primary = false;
 
   final Widget icon;
   final Key? buttonKey;
   final String? tooltip;
   final VoidCallback? onPressed;
+
+  /// Gives an enabled action an accent fill and white glyph on touch.
+  final bool primary;
+
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool hasPopup;
@@ -61,6 +67,8 @@ class DModalHeaderAction extends StatelessWidget {
   Widget _build(BuildContext context) {
     final touch = DControlStyle.isTouch(context);
     final tokens = DTokens.of(context);
+    final enabled = onPressed != null && !loading;
+    final accented = touch && primary && enabled;
     return DButton.iconOnly(
       key: buttonKey,
       icon: touch
@@ -77,14 +85,20 @@ class DModalHeaderAction extends StatelessWidget {
       expanded: expanded,
       loading: loading,
       size: _sizeOf(context),
-      variant: DButtonVariant.quiet,
-      foregroundColor: touch && onPressed != null && !loading
+      variant: accented ? DButtonVariant.primary : DButtonVariant.quiet,
+      foregroundColor: accented
+          ? Colors.white
+          : touch && enabled
           ? tokens.foreground
           : null,
-      backgroundColor: touch
+      backgroundColor: accented
+          ? tokens.primary
+          : touch
           ? tokens.foreground.withValues(alpha: expanded ? .16 : .10)
           : null,
-      interactiveBackgroundColor: touch
+      interactiveBackgroundColor: accented
+          ? Color.lerp(tokens.primary, Colors.black, .08)
+          : touch
           ? tokens.foreground.withValues(alpha: .16)
           : null,
     );
