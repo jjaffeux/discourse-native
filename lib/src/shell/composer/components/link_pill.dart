@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../../../data/site_pdf_thumbnail_repository.dart';
+import '../../../models/pdf_attachment_type.dart';
 import '../../pdf_attachment.dart';
 import '../../site_emoji_text.dart';
 

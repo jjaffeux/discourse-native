@@ -8,6 +8,7 @@ import '../data/site_lifecycle.dart';
 import '../data/site_pdf_thumbnail_repository.dart';
 import '../data/thumbnail_request.dart';
 import '../foundation/icons/d_native_icons.dart';
+import '../models/pdf_attachment_type.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';

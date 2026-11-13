@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_pdf_thumbnail_repository.dart';
 import 'package:discourse_native/src/data/thumbnail_request.dart';
 import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/models/pdf_attachment_type.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/upload_attachment.dart';

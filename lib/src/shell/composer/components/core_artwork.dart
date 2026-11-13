@@ -4,8 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../../../data/site_pdf_thumbnail_repository.dart';
 import '../../../models/found_hashtag.dart';
+import '../../../models/pdf_attachment_type.dart';
 import '../../../plugin_api/composer_syntax.dart';
 import '../../../plugin_api/hashtag_kind.dart';
 import '../../hashtag.dart';
