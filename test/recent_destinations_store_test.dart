@@ -37,6 +37,23 @@ const _other = ContentRoute(
 );
 
 void main() {
+  test('overlapping loads share storage and preserve local visits', () async {
+    final persistence = _HeldRecentPersistence();
+    final first = RecentDestinationsStore(persistence: persistence);
+    final second = RecentDestinationsStore(persistence: persistence);
+    final loading = first.load();
+    final joined = second.load();
+    await persistence.started.future;
+    first.remember(_site, _account, _fromSidebar);
+    second.remember(_site, _account, _other);
+    persistence.response.complete(null);
+    await Future.wait([loading, joined]);
+
+    expect(first.categoriesFor(_site, _account), [_fromSidebar]);
+    expect(second.categoriesFor(_site, _account), [_other]);
+    expect(persistence.reads, 1);
+  });
+
   test(
     'account identities cannot collide through delimiter characters',
     () async {

@@ -148,7 +148,7 @@ class RecentDestinationsStore {
   Future<void> _load(_RecentDestinationsHydration hydration) async {
     final String? raw;
     try {
-      raw = await _snapshots.read(_persistence.read);
+      raw = await _snapshots.readShared(_persistence.read);
     } catch (_) {
       _unreadable = true;
       return;
