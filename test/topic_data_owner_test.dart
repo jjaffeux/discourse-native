@@ -297,6 +297,24 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  test(
+    'topic and bookmark data require a lease for their site and registry',
+    () {
+      final f = _Fixture();
+      final foreign = SiteLifecycle().capture(_site);
+      final otherSite = f.lifecycle.capture('https://other.example');
+      expect(f.owner.forLease(_site, foreign), isNull);
+      expect(f.bookmarks.forLease(_site, otherSite), isNull);
+
+      final current = f.lifecycle.capture(_site);
+      expect(f.owner.forLease(_site, current), same(f.data));
+      expect(
+        f.bookmarks.forLease(_site, current),
+        same(f.bookmarks.forSite(_site)),
+      );
+    },
+  );
+
   test('forgetting another site preserves a pending topic prefetch', () async {
     final f = _Fixture();
     final data = f.data;

@@ -134,9 +134,8 @@ final class TopicDataOwner {
   }
 
   TopicDataSession? forLease(String siteUrl, SiteLease lease) {
-    if (_disposed || !lease.isCurrent) return null;
-    final account = forSite(siteUrl);
-    return identical(account.lease.session, lease.session) ? account : null;
+    if (_disposed || !lifecycle.owns(siteUrl, lease)) return null;
+    return forSite(siteUrl);
   }
 
   void validatePrefetch() => _prefetch.validate();

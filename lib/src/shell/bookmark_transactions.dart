@@ -103,9 +103,8 @@ final class BookmarkTransactions {
   }
 
   BookmarkAccountSession? forLease(String siteUrl, SiteLease lease) {
-    if (_disposed || !lease.isCurrent) return null;
-    final account = forSite(siteUrl);
-    return identical(account.lease.session, lease.session) ? account : null;
+    if (_disposed || !lifecycle.owns(siteUrl, lease)) return null;
+    return forSite(siteUrl);
   }
 
   BookmarkTargetHost bookmarkTarget(BookmarkTargetType type) {
