@@ -44,6 +44,7 @@ final class _TaxonomySite {
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
   bool tagDirectoryDisabled = false;
   int tagSearchRevision = 0;
+  final tagSearchWaiters = <Completer<List<TopicFilterLookupValue>>>{};
   ({RequestIntentOperation<void> operation, Completer<void> cancellation})?
   tagDirectoryRequest;
   List<SidebarTag> siteTopTags = const [];
@@ -55,6 +56,7 @@ final class _TaxonomySite {
   _KnownTagIndex? knownTagIndex;
 
   void retire() {
+    retireTagSearches();
     for (final waiter in directoryWaiters) {
       waiter.complete();
     }
@@ -67,6 +69,14 @@ final class _TaxonomySite {
       }
     }
     categoryIdRequests.clear();
+  }
+
+  void retireTagSearches() {
+    tagSearchRevision++;
+    for (final waiter in tagSearchWaiters) {
+      waiter.complete(const []);
+    }
+    tagSearchWaiters.clear();
   }
 }
 
@@ -431,24 +441,34 @@ final class _TaxonomyDirectoryController
         site.tagSearchRevision == revision &&
         _shell.siteConfigFor(siteUrl).taggingEnabled;
     if (!canSearch()) return const [];
-    final remote = await _shell.topicFilterLookups.run<TopicFilterLookupValue>(
-      siteUrl,
-
-      (apiKey, clientId) {
-        if (!canSearch()) return Future.value(const <TopicFilterLookupValue>[]);
-        return _shell.api.lookups.searchFilterTags(
-          siteUrl: siteUrl,
-          term: term,
-          categoryId: categoryId,
-          limit: _shell
-              .siteConfigFor(siteUrl)
-              .maxTagSearchResults
-              .clamp(1, TopicTagSearch.maximumResults),
-          apiKey: apiKey,
-          clientId: clientId,
-        );
-      },
-    );
+    final retired = Completer<List<TopicFilterLookupValue>>();
+    site.tagSearchWaiters.add(retired);
+    final List<TopicFilterLookupValue> remote;
+    try {
+      remote = await Future.any([
+        retired.future,
+        _shell.topicFilterLookups.run<TopicFilterLookupValue>(siteUrl, (
+          apiKey,
+          clientId,
+        ) {
+          if (!canSearch())
+            return Future.value(const <TopicFilterLookupValue>[]);
+          return _shell.api.lookups.searchFilterTags(
+            siteUrl: siteUrl,
+            term: term,
+            categoryId: categoryId,
+            limit: _shell
+                .siteConfigFor(siteUrl)
+                .maxTagSearchResults
+                .clamp(1, TopicTagSearch.maximumResults),
+            apiKey: apiKey,
+            clientId: clientId,
+          );
+        }),
+      ]);
+    } finally {
+      site.tagSearchWaiters.remove(retired);
+    }
     if (!canSearch()) return const [];
     final byName = <String, _TagSearchEntry>{};
     for (final tag in remote) {
@@ -599,7 +619,7 @@ final class _TaxonomyDirectoryController
   }
 
   void _clearDisabledTagDirectory(_TaxonomySite site) {
-    site.tagSearchRevision++;
+    site.retireTagSearches();
     site.tagDirectoryDisabled = true;
     final pending = site.tagDirectoryRequest;
     site.tagDirectoryRequest = null;

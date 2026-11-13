@@ -50,11 +50,19 @@ void main() {
       addTearDown(shell.dispose);
       final response = Completer<List<TopicFilterLookupValue>>();
       api.lookupResponse = response;
-      final pending = shell.searchFilterTags(siteUrl: _site, term: 'tag');
+      var finished = false;
+      final pending = shell.searchFilterTags(siteUrl: _site, term: 'tag').then((
+        tags,
+      ) {
+        finished = true;
+        return tags;
+      });
       await pumpEventQueue();
       expect(api.filterTagRequests, isNotEmpty);
       configs[_site] = const SiteConfig(taggingEnabled: false);
       await shell.sitePresentation.refreshConfig(_site);
+      await pumpEventQueue();
+      final finishedBeforeResponse = finished;
       final requests = api.filterTagRequests.length;
       expect(
         await shell.searchFilterTags(siteUrl: _site, term: 'tag'),
@@ -66,6 +74,7 @@ void main() {
       expect(shell.siteConfigFor(_site).taggingEnabled, isTrue);
       response.complete(const [TopicFilterLookupValue(name: 'tag')]);
       expect(await pending, isEmpty);
+      expect(finishedBeforeResponse, isTrue);
       expect(
         await shell.searchFilterTags(siteUrl: _site, term: 'tag'),
         isNotEmpty,
