@@ -17,7 +17,7 @@ void main() {
     final bootstrap = await SiteMessageBusBootstrap.fromHtml(
       source,
       siteUrl: 'https://example.com',
-      models: const DiscourseModelCodec.core(),
+      decodeUser: const DiscourseModelCodec.core().currentUser,
     );
     expect(bootstrap!.serverPluginNames, {
       'discourse-bbcode-color',
@@ -67,7 +67,7 @@ void main() {
       final bootstrap = await SiteMessageBusBootstrap.fromHtml(
         document,
         siteUrl: 'https://example.com',
-        models: const DiscourseModelCodec.core(),
+        decodeUser: const DiscourseModelCodec.core().currentUser,
       );
 
       expect(bootstrap?.currentUser?.id, 42);
@@ -106,7 +106,7 @@ void main() {
       final bootstrap = await SiteMessageBusBootstrap.fromHtml(
         document,
         siteUrl: 'https://example.com',
-        models: const DiscourseModelCodec.core(),
+        decodeUser: const DiscourseModelCodec.core().currentUser,
       );
 
       expect(bootstrap?.currentUser, isNull);
@@ -129,7 +129,7 @@ void main() {
       final bootstrap = await SiteMessageBusBootstrap.fromHtml(
         document,
         siteUrl: 'https://example.com',
-        models: const DiscourseModelCodec.core(),
+        decodeUser: const DiscourseModelCodec.core().currentUser,
       );
 
       expect(bootstrap?.currentUserState, isNull);
@@ -145,7 +145,7 @@ void main() {
 </script>
 ''',
         siteUrl: 'https://example.com',
-        models: const DiscourseModelCodec.core(),
+        decodeUser: const DiscourseModelCodec.core().currentUser,
       );
 
       expect(bootstrap, isNull);
@@ -155,7 +155,7 @@ void main() {
       final bootstrap = await SiteMessageBusBootstrap.fromHtml(
         '<html><body></body></html>',
         siteUrl: 'https://example.com',
-        models: const DiscourseModelCodec.core(),
+        decodeUser: const DiscourseModelCodec.core().currentUser,
       );
 
       expect(bootstrap, isNull);
@@ -176,7 +176,7 @@ void main() {
           SiteMessageBusBootstrap.fromHtml(
             document,
             siteUrl: 'https://example.com',
-            models: const DiscourseModelCodec.core(),
+            decodeUser: const DiscourseModelCodec.core().currentUser,
           ).then((bootstrap) {
             completionOrder.add('parsed');
             return bootstrap;

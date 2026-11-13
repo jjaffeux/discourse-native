@@ -61,6 +61,6 @@ void main() {
           entry.key.startsWith('lib/src/plugins/') &&
           entry.value.contains(_sdk),
     );
-    expect(fullSdkPluginLibraries.length, 87);
+    expect(fullSdkPluginLibraries.length, 86);
   });
 }

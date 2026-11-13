@@ -208,7 +208,7 @@ final class _Fixture {
   void retain(String raw, List<ComposerUploadResult> uploads) =>
       chat.retainComposerDraft(_site, _target, raw: raw, uploads: uploads);
 
-  ChatComposerDraftSession open({
+  ChatComposerDraftSession<ComposerController> open({
     Completer<ComposerUploadResult>? transfer,
     ChatMessage? editingMessage,
     ChatStreamTarget target = _target,

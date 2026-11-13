@@ -9,7 +9,6 @@ import '../foundation/active_use.dart';
 import '../models/json.dart';
 import '../models/site_appearance.dart';
 import 'account_request_session.dart';
-import 'discourse_api_contracts.dart';
 import 'discourse_get_sender.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_basic_auth.dart';
@@ -18,6 +17,8 @@ import 'http_url_safety.dart';
 import 'json_decode.dart';
 import 'request_intent.dart';
 import 'site_appearance_loader.dart';
+import 'site_lookup_failure.dart';
+import 'write_failure.dart';
 
 final class DiscourseHeadResponse {
   const DiscourseHeadResponse(this.url, this.statusCode, this.headers);

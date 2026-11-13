@@ -188,7 +188,7 @@ class _ChatComposerState extends State<ChatComposer> {
   PluginEmojiHost? _emoji;
 
   ChatController? _chat;
-  ChatComposerDraftSession? _draftSession;
+  ChatComposerDraftSession<ComposerController>? _draftSession;
   _TargetSendState? _targetSendState;
   ComposerController? get _composer => _draftSession?.composer;
   String _cookingLocale = 'en';

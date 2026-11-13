@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/preference_storage_scope.dart';
 import '../data/scalar_preference_repository.dart';
 import '../data/site_preference_keys.dart';
+import '../foundation/d_header_tuning.dart';
 import '../foundation/frame_safe_notifier.dart';
 
 @PreferenceStorage.adapter(

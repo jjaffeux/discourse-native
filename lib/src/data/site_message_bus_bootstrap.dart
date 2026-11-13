@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart' as html;
 
-import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/json.dart';
 import '../models/preserved_json.dart';
@@ -76,7 +75,7 @@ final class SiteMessageBusBootstrap {
   static Future<SiteMessageBusBootstrap?> fromHtml(
     String source, {
     required String siteUrl,
-    required DiscourseModelCodec models,
+    required DiscourseUser Function(Map<String, dynamic>, String) decodeUser,
   }) async {
     final decoded = await compute<String, Map<String, Object?>?>(
       _decodePreloadedDocument,
@@ -92,7 +91,7 @@ final class SiteMessageBusBootstrap {
     DiscourseUser? currentUser;
     if (currentUserState != null) {
       try {
-        currentUser = models.currentUser(currentUserState, siteUrl);
+        currentUser = decodeUser(currentUserState, siteUrl);
       } on Object {
         // One plugin field or older serializer must not discard the independent
         // topic-tracking snapshot and positions.

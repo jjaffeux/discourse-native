@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'gif_picker.dart';
 import 'gif_picker_session_impl.dart';
 import 'gifs_api.dart';
 import 'gifs_api_client.dart';
@@ -29,6 +30,7 @@ final class GifsModule implements PluginModule {
             PluginService<Object>(
               gifsPickerSessionService,
               createGifPickerSession(
+                show: showGifPicker,
                 api: apiFactory?.call(transport) ?? GifsApiClient(transport),
                 requests: bindings.require(corePluginRequestPort),
                 siteConfigFor: bindings

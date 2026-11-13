@@ -20,6 +20,7 @@ import '../../models/preserved_json.dart';
 import '../../models/site_config.dart';
 import '../../models/site_emoji.dart';
 import '../../models/topic_tag.dart';
+import '../../plugin_api/composer_draft_editor.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/composer_target.dart';
 import '../../plugin_api/hashtag_kind.dart';
@@ -163,6 +164,7 @@ final class _ComposerUnresolved extends _ComposerSentState {
 
 class ComposerController extends ChangeNotifier
     implements
+        ComposerDraftEditor,
         ComposerEditorHost,
         ComposerMetadataEditorHost,
         ComposerRecipientTarget {
@@ -512,6 +514,7 @@ class ComposerController extends ChangeNotifier
 
   final bool Function()? isCurrentComposer;
 
+  @override
   final MarkdownEditingController text;
   late final ComposerEditHistory history;
   final bool _ownsHistory;
@@ -1148,8 +1151,10 @@ class ComposerController extends ChangeNotifier
 
   ComposerUploadPreview? uploadPreview(int id) =>
       _uploadTransactions.previewFor(id);
+  @override
   List<ComposerUploadResult> get completedUploads =>
       _uploadTransactions.completedUploads;
+  @override
   bool get hasActiveUploads => _uploadTransactions.hasActiveUploads;
   bool get canUpload => _uploadTransactions.canUpload;
 
@@ -2021,6 +2026,7 @@ class ComposerController extends ChangeNotifier
   Duration get openDuration => _now().difference(_openedAt);
 
   /// New posts keep leading Markdown indentation, as PostCreator does.
+  @override
   String get raw =>
       _uploadTransactions.uploadPlaceholders.strip(text.text).trimRight();
 
@@ -2512,6 +2518,7 @@ class ComposerController extends ChangeNotifier
   /// its keyboard. A remount would close the session and iOS would start
   /// dismissing the keyboard before focus could reopen it. Undo already lives
   /// in [history], which the replacement resets.
+  @override
   void clearDocument() {
     if (_disposed) return;
     _retireSubmission();
@@ -2531,6 +2538,7 @@ class ComposerController extends ChangeNotifier
     _notify();
   }
 
+  @override
   void replacePluginDocument({
     required String raw,
     required Iterable<ComposerUploadResult> uploads,

@@ -88,7 +88,7 @@ final class AppRuntime {
     _store =
         dependencies.store ??
         InstanceStore(
-          models: _plugins.models,
+          extensions: _plugins.models.extensions,
           basicAuth: HttpBasicAuthStore.instance,
         );
     _api =
@@ -221,7 +221,7 @@ final class AppRuntime {
         _store =
             _dependencies.store ??
             InstanceStore(
-              models: _plugins.models,
+              extensions: _plugins.models.extensions,
               basicAuth: HttpBasicAuthStore.instance,
             );
       }

@@ -1,4 +1,20 @@
-part of 'shell_controller.dart';
+import 'dart:async';
+import 'dart:math' as math;
+
+import '../data/site_lifecycle.dart';
+import '../data/store.dart';
+import '../models/content_route.dart';
+import '../models/post.dart';
+import 'topic_data_owner.dart';
+
+abstract interface class TopicNavigationTab {
+  String? get siteUrl;
+  String? get tabId;
+  ContentRoute? get currentContent;
+  TopicDetail? get currentTopic;
+  List<int> get currentTopicStreamIds;
+  bool get currentTopicSummary;
+}
 
 final class _TopicJumpAttempt {
   const _TopicJumpAttempt({
@@ -29,8 +45,8 @@ final class _TopicPostHighlight {
   bool visible = false;
 }
 
-final class _TopicNavigationAttempts {
-  _TopicNavigationAttempts({
+final class TopicNavigationAttempts {
+  TopicNavigationAttempts({
     required this._focusedContext,
     required this._store,
     required this._topicData,
@@ -41,7 +57,7 @@ final class _TopicNavigationAttempts {
     required this._loadTimeout,
   });
 
-  final ShellTabContext Function() _focusedContext;
+  final TopicNavigationTab Function() _focusedContext;
   final Store _store;
   final TopicDataOwner _topicData;
   final SiteLifecycle _lifecycle;

@@ -255,7 +255,7 @@ final class DiscourseSiteApi {
     return SiteMessageBusBootstrap.fromHtml(
       response.body,
       siteUrl: siteUrl,
-      models: _models,
+      decodeUser: _models.currentUser,
     );
   }
 

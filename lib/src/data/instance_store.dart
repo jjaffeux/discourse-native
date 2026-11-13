@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/discourse_instance.dart';
-import '../models/discourse_model_codec.dart';
+import '../models/plugin_data.dart';
 import 'coalescing_snapshot_writer.dart';
 import 'http_basic_auth.dart';
 import 'preference_storage_scope.dart';
@@ -41,15 +41,15 @@ final class SharedPreferencesInstancePersistence
 class InstanceStore {
   InstanceStore({
     InstancePersistence? persistence,
-    DiscourseModelCodec? models,
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
     this._basicAuth,
   }) : _persistence =
            persistence ?? const SharedPreferencesInstancePersistence(),
-       _models = models ?? const DiscourseModelCodec.core();
+       _codec = StoredInstanceCodec(extensions);
 
   final HttpBasicAuthStore? _basicAuth;
   final InstancePersistence _persistence;
-  final DiscourseModelCodec _models;
+  final StoredInstanceCodec _codec;
   Map<DiscourseInstance, String> _encodedInstances = Map.identity();
   late final CoalescingSnapshotWriter<List<DiscourseInstance>> _snapshots =
       CoalescingSnapshotWriter(
@@ -79,7 +79,7 @@ class InstanceStore {
         // Persistence is an untrusted boundary: old or damaged preferences
         // must not revive a plaintext remote endpoint or leave a relative URL
         // that crashes a later `DiscourseInstance.host` read during startup.
-        final instance = _models.storedInstance({
+        final instance = _codec.decode({
           ...entry,
           'url': requireStoredForumBase(entry['url']),
         });
@@ -109,7 +109,7 @@ class InstanceStore {
       for (final instance in instances)
         _encodedInstances.putIfAbsent(
           instance,
-          () => jsonEncode(_models.storeInstance(instance)),
+          () => jsonEncode(_codec.encode(instance)),
         ),
     ];
     await _persistence.write('[${entries.join(',')}]');

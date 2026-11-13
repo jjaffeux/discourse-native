@@ -1,4 +1,5 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_composer_drafts.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -7,7 +8,7 @@ import 'chat_message.dart';
 import 'chat_stream_target.dart';
 
 /// Binds one editor to the shared draft without sharing its edit preparation.
-final class ChatComposerDraftSession {
+final class ChatComposerDraftSession<Editor extends ComposerDraftEditor> {
   ChatComposerDraftSession({
     required this.chat,
     required this.siteUrl,
@@ -30,7 +31,7 @@ final class ChatComposerDraftSession {
   final ChatController chat;
   final String siteUrl;
   final ChatStreamTarget target;
-  final ComposerController composer;
+  final Editor composer;
   final Object editCookingOwner = Object();
   final _replyChanges = FrameSafeValueNotifier<ChatReplyTo?>(null);
   late ValueListenable<ChatComposerDraft?> _retainedDraft;

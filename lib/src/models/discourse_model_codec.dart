@@ -67,11 +67,6 @@ final class DiscourseModelCodec {
     );
   }
 
-  PluginNotificationCounterCodec get _notificationCounterCodec =>
-      extensions is PluginNotificationCounterCodec
-      ? extensions as PluginNotificationCounterCodec
-      : const EmptyPluginNotificationCounterCodec();
-
   UserPreferences userPreferences(
     Map<String, dynamic> json, {
     UserPreferences fallback = const UserPreferences(),
@@ -226,7 +221,7 @@ final class DiscourseModelCodec {
   NotificationTotals notificationTotals(Map<String, dynamic> json) =>
       NotificationTotals.fromJson(
         json,
-        counterCodec: _notificationCounterCodec,
+        counterCodec: notificationCounterCodecFor(extensions),
       );
 
   DiscourseUser currentUser(Map<String, dynamic> json, String siteUrl) {
@@ -309,14 +304,10 @@ final class DiscourseModelCodec {
   }
 
   DiscourseInstance storedInstance(Map<String, dynamic> json) =>
-      DiscourseInstance.fromJson(
-        json,
-        extensions: extensions,
-        counterCodec: _notificationCounterCodec,
-      );
+      StoredInstanceCodec(extensions).decode(json);
 
-  Map<String, dynamic> storeInstance(DiscourseInstance instance) => instance
-      .toJson(extensions: extensions, counterCodec: _notificationCounterCodec);
+  Map<String, dynamic> storeInstance(DiscourseInstance instance) =>
+      StoredInstanceCodec(extensions).encode(instance);
 
   SiteConfig preserveUnknownSiteSettings(
     SiteConfig held,

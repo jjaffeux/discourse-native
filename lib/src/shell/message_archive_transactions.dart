@@ -1,7 +1,23 @@
-part of 'shell_controller.dart';
+import 'dart:async';
 
-final class _MessageArchiveTransactions {
-  _MessageArchiveTransactions({
+import 'package:discourse_native/l10n/strings.dart';
+
+import '../data/account_request_session.dart';
+import '../data/api_credentials.dart';
+import '../data/discourse_api_contracts.dart' show TopicMutationsApi;
+import '../data/site_lifecycle.dart';
+import '../data/store.dart';
+import '../data/write_credential.dart';
+import '../data/write_failure.dart';
+import '../models/content_route.dart';
+import '../models/discourse_instance.dart';
+import '../models/group_route.dart';
+import '../models/post.dart';
+import 'topic_data_owner.dart';
+import 'topic_feed_controller.dart';
+
+final class MessageArchiveTransactions {
+  MessageArchiveTransactions({
     required this.store,
     required this.credentials,
     required this.lifecycle,

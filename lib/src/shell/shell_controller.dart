@@ -148,6 +148,7 @@ import 'forum_tab_scope.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'groups_controller.dart';
+import 'message_archive_transactions.dart';
 import 'mobile_navigation.dart';
 import 'notification_feed_refresh_owner.dart';
 import 'notification_preference_transactions.dart';
@@ -171,6 +172,7 @@ import 'topic_filter_lookups.dart';
 import 'topic_filter_scope.dart';
 import 'topic_list_cursor_coordinator.dart';
 import 'topic_list_transitions.dart';
+import 'topic_navigation_attempts.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
 import 'topic_reader_projections.dart';
@@ -187,7 +189,6 @@ part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'current_user_directory.dart';
 part 'instance_rail_transactions.dart';
-part 'message_archive_transactions.dart';
 part 'post_commands.dart';
 part 'post_mutation_policy.dart';
 part 'selected_post_moderation.dart';
@@ -196,7 +197,6 @@ part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
 part 'topic_action_transactions.dart';
 part 'topic_metadata_transactions.dart';
-part 'topic_navigation_attempts.dart';
 part 'workspace_controller.dart';
 
 enum MobilePane { sidebar, content }
@@ -3986,7 +3986,7 @@ class ShellController extends FrameSafeNotifier
     mutationProblem: _postMutationPolicy.problem,
     failedMutation: _postMutationPolicy.failed,
   );
-  late final _messageArchives = _MessageArchiveTransactions(
+  late final _messageArchives = MessageArchiveTransactions(
     store: store,
     credentials: credentials,
     lifecycle: lifecycle,
@@ -3995,7 +3995,7 @@ class ShellController extends FrameSafeNotifier
     instanceAt: _instanceAt,
     topicFeeds: topicFeeds,
   );
-  late final _topicNavigation = _TopicNavigationAttempts(
+  late final _topicNavigation = TopicNavigationAttempts(
     focusedContext: () => focusedTabContext,
     store: store,
     topicData: _topicData,

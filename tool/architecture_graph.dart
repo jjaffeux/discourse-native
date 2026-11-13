@@ -289,7 +289,8 @@ void main(List<String> entries) {
   for (final target in targets) {
     stdout.writeln(
       '$target reaches ${graph.closureOf(target).length}, '
-      'invalidated by ${graph.dependentsOf(target).length}',
+      'invalidated by ${graph.dependentsOf(target).length}, '
+      '${graph.widgetLibrariesReachedBy(target).length} widget libraries',
     );
   }
 }

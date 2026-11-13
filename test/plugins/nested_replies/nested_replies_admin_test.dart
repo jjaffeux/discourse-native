@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_admin.dart';
+import 'package:discourse_native/src/plugins/nested_replies/nested_replies_admin_controller.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_api.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_data.dart';
 import 'package:flutter/material.dart';

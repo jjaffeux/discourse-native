@@ -175,7 +175,9 @@ void main() {
 
   group('round trip', () {
     test('brings back everything save() was given', () async {
-      final pluginStore = InstanceStore(models: installedPlugins.models);
+      final pluginStore = InstanceStore(
+        extensions: installedPlugins.models.extensions,
+      );
       final instance = DiscourseInstance(
         url: 'https://meta.discourse.org',
         title: 'Meta',
@@ -307,7 +309,9 @@ void main() {
       });
       final productionPlugins = PluginInstaller.install(bundledPluginManifest);
       addTearDown(productionPlugins.close);
-      final pluginStore = InstanceStore(models: productionPlugins.models);
+      final pluginStore = InstanceStore(
+        extensions: productionPlugins.models.extensions,
+      );
 
       final loaded = await pluginStore.load();
       await pluginStore.save(loaded);
@@ -357,7 +361,9 @@ void main() {
     test(
       'core-only load and save preserves plugin notification counters',
       () async {
-        final pluginStore = InstanceStore(models: installedPlugins.models);
+        final pluginStore = InstanceStore(
+          extensions: installedPlugins.models.extensions,
+        );
         final coreStore = InstanceStore();
         final connected = DiscourseInstance(
           url: 'https://counter.example.com',
@@ -669,7 +675,7 @@ void main() {
       final persistence = ControlledInstancePersistence();
       final pluginStore = InstanceStore(
         persistence: persistence,
-        models: installedPlugins.models,
+        extensions: installedPlugins.models.extensions,
       );
       final coreStore = InstanceStore(persistence: persistence);
       final instance = DiscourseInstance(

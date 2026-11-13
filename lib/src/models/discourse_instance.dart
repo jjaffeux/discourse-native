@@ -34,6 +34,24 @@ final RegExp _instanceTitleWord = RegExp(r'\S+');
   return owner;
 }
 
+final class StoredInstanceCodec {
+  const StoredInstanceCodec(this._extensions);
+
+  final PluginDataDecoder _extensions;
+
+  DiscourseInstance decode(Map<String, dynamic> json) =>
+      DiscourseInstance.fromJson(
+        json,
+        extensions: _extensions,
+        counterCodec: notificationCounterCodecFor(_extensions),
+      );
+
+  Map<String, dynamic> encode(DiscourseInstance instance) => instance.toJson(
+    extensions: _extensions,
+    counterCodec: notificationCounterCodecFor(_extensions),
+  );
+}
+
 @immutable
 class DiscourseInstance {
   const DiscourseInstance({

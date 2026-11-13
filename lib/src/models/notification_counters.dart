@@ -269,6 +269,11 @@ abstract interface class PluginNotificationCounterCodec {
   );
 }
 
+PluginNotificationCounterCodec notificationCounterCodecFor(Object decoder) =>
+    decoder is PluginNotificationCounterCodec
+    ? decoder
+    : const EmptyPluginNotificationCounterCodec();
+
 final class EmptyPluginNotificationCounterCodec
     implements PluginNotificationCounterCodec {
   const EmptyPluginNotificationCounterCodec();

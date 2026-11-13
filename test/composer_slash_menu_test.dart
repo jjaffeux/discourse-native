@@ -3,6 +3,7 @@ import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/slash_menu.dart';
+import 'package:discourse_native/src/shell/composer/slash_query.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

@@ -110,3 +110,6 @@ rerunnable proof each, and the proof manifest to rerun them.
 
 [Round eleven](layer-dependencies-round11.md) records ten reductions in
 dependency reach across data, plugins, and the shell.
+
+[Round twelve](layer-dependencies-round12.md) records ten more dependency
+reductions and the import graph and behavior checks for each.

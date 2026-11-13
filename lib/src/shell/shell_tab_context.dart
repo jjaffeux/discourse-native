@@ -1,6 +1,6 @@
 part of 'shell_controller.dart';
 
-final class ShellTabContext implements TopicListCursorTab {
+final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
   ShellTabContext._(this.shell, this.tabId)
     : _contentRoute = null,
       siteUrl = shell.currentInstance?.url,
@@ -26,6 +26,7 @@ final class ShellTabContext implements TopicListCursorTab {
   }
 
   final ShellController shell;
+  @override
   final String? tabId;
   @override
   final String? siteUrl;
@@ -273,6 +274,7 @@ final class ShellTabContext implements TopicListCursorTab {
 
   bool get canReplyHere => currentTopic?.canCreatePost ?? false;
 
+  @override
   TopicDetail? get currentTopic {
     final instance = _instance;
     final topicId = currentContent?.topicId;
@@ -282,6 +284,7 @@ final class ShellTabContext implements TopicListCursorTab {
 
   List<int> get currentPostIds => _currentPostWindow().ids;
 
+  @override
   List<int> get currentTopicStreamIds {
     final instance = _instance;
     final detail = currentTopic;
@@ -300,6 +303,7 @@ final class ShellTabContext implements TopicListCursorTab {
     );
   }
 
+  @override
   bool get currentTopicSummary {
     final instance = _instance;
     final topicId = currentContent?.topicId;
