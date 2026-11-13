@@ -12,6 +12,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/scaling_benchmark.dart';
 
 void main() {
+  test('overlapping loads share one persistence read', () async {
+    final persistence = _ControlledPersistence();
+    final first = ForumTabStore(persistence: persistence);
+    final second = ForumTabStore(persistence: persistence);
+    await Future.wait([first.load(), second.load()]);
+    expect(persistence.readCount, 1);
+    await first.load();
+    expect(persistence.readCount, 2);
+  });
+
+  test('a save separates overlapping loads across stores', () async {
+    final gate = Completer<void>();
+    final persistence = _ControlledPersistence(firstReadGate: gate);
+    final first = ForumTabStore(persistence: persistence);
+    final second = ForumTabStore(persistence: persistence);
+    final before = first.load();
+    await persistence.firstReadStarted.future;
+    final workspace = _workspace('new');
+    final saving = second.save([workspace]);
+    final after = first.load();
+    gate.complete();
+
+    expect((await before).workspaces, isEmpty);
+    await saving;
+    expect((await after).workspaces, [workspace]);
+    expect(persistence.readCount, 2);
+  });
+
   test(
     'loaded selection and workspaces stay immutable across later IO',
     () async {
@@ -650,8 +678,10 @@ List<ForumWorkspace> _edited(List<ForumWorkspace> workspaces, Random random) {
 }
 
 final class _ControlledPersistence implements ForumTabPersistence {
-  _ControlledPersistence({this.firstWriteGate});
+  _ControlledPersistence({this.firstReadGate, this.firstWriteGate});
 
+  final Completer<void>? firstReadGate;
+  final firstReadStarted = Completer<void>();
   final Completer<void>? firstWriteGate;
   final Completer<void> firstWriteStarted = Completer<void>();
 
@@ -662,7 +692,10 @@ final class _ControlledPersistence implements ForumTabPersistence {
 
   @override
   Future<String?> read() async {
-    readCount++;
+    if (++readCount == 1) {
+      firstReadStarted.complete();
+      await firstReadGate?.future;
+    }
     if (readError case final error?) throw error;
     return stored;
   }

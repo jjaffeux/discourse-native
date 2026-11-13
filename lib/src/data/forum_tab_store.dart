@@ -57,6 +57,7 @@ class ForumTabStore {
   static const String storageKey = 'discourse_native.forum_tabs';
   static const int formatVersion = 1;
   final ForumTabPersistence _persistence;
+  static final _reads = Expando<Future<String?>>();
   late final CoalescingSnapshotWriter<ForumTabSnapshot> _snapshots =
       CoalescingSnapshotWriter(
         owner: _persistence,
@@ -72,7 +73,7 @@ class ForumTabStore {
   Future<ForumTabSnapshot> load() async {
     final String? raw;
     try {
-      raw = await _snapshots.read(_persistence.read);
+      raw = await _readShared();
       _unreadable = false;
     } catch (error) {
       _unreadable = true;
@@ -112,6 +113,15 @@ class ForumTabStore {
     }
   }
 
+  Future<String?> _readShared() {
+    if (_reads[_persistence] case final pending?) return pending;
+    late final Future<String?> read;
+    read = _snapshots.read(_persistence.read).whenComplete(() {
+      if (identical(_reads[_persistence], read)) _reads[_persistence] = null;
+    });
+    return _reads[_persistence] = read;
+  }
+
   /// Completes once these workspaces, or newer ones saved before their write
   /// started, are written, or once that write's failure has been reported.
   Future<void> save(
@@ -119,6 +129,7 @@ class ForumTabStore {
     String? selectedSiteUrl,
   }) {
     if (_unreadable) return Future<void>.value();
+    _reads[_persistence] = null;
     // Workspaces are immutable, so copying the list captures the snapshot.
     // It is encoded only when its write starts: navigation and scrolling save
     // far more often than a write completes, and a snapshot superseded before
