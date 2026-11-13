@@ -75,7 +75,8 @@ class DraftFeed {
       page.rawItemCount,
     );
     final start = requestOffset ?? nextOffset;
-    final updated = _heldWindow.withPage(
+    final base = _heldWindow;
+    final updated = base.withPage(
       incoming: page.drafts,
       start: start,
       end: start + consumed,
@@ -86,8 +87,7 @@ class DraftFeed {
     );
     final rows = updated.items;
     final retainedAll =
-        retainedAllRows &&
-        updated.packets.length == _heldWindow.packets.length + 1;
+        retainedAllRows && updated.packets.length == base.packets.length + 1;
     final more = prepend
         ? hasMore || updated.end < nextOffset
         : page.rawItemCount >= limit;

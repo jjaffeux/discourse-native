@@ -42,7 +42,20 @@ class AccountFeedWindow<T> {
   int get end => packets.lastOrNull?.end ?? 0;
   List<T> get items {
     if (packets.length == 1) return packets.first.items;
-    return List.unmodifiable([for (final packet in packets) ...packet.items]);
+    List<T>? firstRows;
+    List<T>? combined;
+    for (final packet in packets) {
+      final rows = packet.items;
+      if (rows.isEmpty) continue;
+      if (firstRows == null) {
+        firstRows = rows;
+      } else {
+        (combined ??= List.of(firstRows)).addAll(rows);
+      }
+    }
+    return combined == null
+        ? firstRows ?? const []
+        : List.unmodifiable(combined);
   }
 
   int estimatedBytes(int Function(T) estimate) => packets.fold(

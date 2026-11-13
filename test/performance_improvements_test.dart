@@ -309,6 +309,20 @@ void main() {
     expect(reads, 0);
   });
 
+  test('cursor-only packets reuse the only populated packet row list', () {
+    final populated = AccountFeedPacket(start: 2, end: 4, items: const [1, 2]);
+    final window = AccountFeedWindow<int>(
+      packets: [
+        AccountFeedPacket(start: 0, end: 2, items: const []),
+        populated,
+        AccountFeedPacket(start: 4, end: 6, items: const []),
+      ],
+    );
+    expect((window.start, window.end), (0, 6));
+    expect(window.items, same(populated.items));
+    expect(() => window.items.clear(), throwsUnsupportedError);
+  });
+
   test('tag intersection visits the rarest bucket regardless of tag order', () {
     final reads = _SetReads();
     final tracking = TopicTrackingState([
