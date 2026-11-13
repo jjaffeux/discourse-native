@@ -440,7 +440,10 @@ void main() {
       expect(shell.topicListFilterTagsFor(_site), [_oldTop, _oldTag]);
 
       api.holdOldRefreshes();
-      final oldCategories = shell.loadCategories(_site, force: true);
+      var categoriesFinished = false;
+      final oldCategories = shell.loadCategories(_site, force: true).then((_) {
+        categoriesFinished = true;
+      });
       final oldTags = shell.loadTags(_site, force: true);
       await Future.wait([
         api.oldCategoryRequested.future,
@@ -451,6 +454,8 @@ void main() {
           .instanceFor(_site)!
           .copyWith(user: const DiscourseUser(id: 8, username: 'new-reader'));
       shell.lifecycle.invalidate(_site);
+      await pumpEventQueue();
+      expect(categoriesFinished, isTrue);
       shell.clearAccountSessionState(_site);
       shell.applyAccountSessionInstance(
         replacement,

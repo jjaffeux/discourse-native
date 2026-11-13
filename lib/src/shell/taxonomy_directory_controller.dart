@@ -30,6 +30,7 @@ final class _TaxonomySite {
   _TaxonomySite(this.lease);
 
   final SiteLease lease;
+  final categoryWaiters = <Completer<void>>{};
   void Function()? detach;
   bool categorised = false;
   RequestIntentOperation<void>? categoryRequest;
@@ -50,6 +51,10 @@ final class _TaxonomySite {
   _KnownTagIndex? knownTagIndex;
 
   void retire() {
+    for (final waiter in categoryWaiters) {
+      waiter.complete();
+    }
+    categoryWaiters.clear();
     detach?.call();
     detach = null;
     for (final request in categoryIdRequests.values.toSet()) {
@@ -785,6 +790,8 @@ final class _TaxonomyDirectoryController
     if (force) site.categoryPageRequest = null;
     site.categorised = true;
     final request = RequestIntentOperation<void>();
+    final retired = Completer<void>();
+    site.categoryWaiters.add(retired);
     bool requestIsCurrent() =>
         !_shell.accountSessionDisposed &&
         site.lease.isCurrent &&
@@ -793,15 +800,19 @@ final class _TaxonomyDirectoryController
     site.categoryRequest = request;
     request.start(
       () =>
-          Future<void>.microtask(
-            () => _loadCategories(
-              instance,
-              site,
-              existingFeed: existingFeed,
-              replace: force,
-              isCurrent: requestIsCurrent,
+          Future.any<void>([
+            Future<void>.microtask(
+              () => _loadCategories(
+                instance,
+                site,
+                existingFeed: existingFeed,
+                replace: force,
+                isCurrent: requestIsCurrent,
+              ),
             ),
-          ).whenComplete(() {
+            retired.future,
+          ]).whenComplete(() {
+            site.categoryWaiters.remove(retired);
             if (identical(site.categoryRequest, request)) {
               site.categoryRequest = null;
             }
