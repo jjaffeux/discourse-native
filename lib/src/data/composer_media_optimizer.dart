@@ -1,4 +1,5 @@
 import 'package:discourse_video_optimizer/discourse_video_optimizer.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
@@ -15,8 +16,11 @@ class ComposerMediaOptimizer {
   }) => file.isVideo
       ? ComposerVideoOptimizer(
           native: const NativeVideoOptimizer(),
+          temporaryDirectory: getTemporaryDirectory,
         ).prepare(file, canUpload: canUpload, abortTrigger: abortTrigger)
-      : ComposerImageOptimizer().prepare(
+      : ComposerImageOptimizer(
+          temporaryDirectory: getTemporaryDirectory,
+        ).prepare(
           file,
           settings: imageSettings,
           canUpload: canUpload,

@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:discourse_video_optimizer/encoder.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../models/composer_upload.dart';
 import 'composer_media_preparation.dart';
@@ -11,13 +10,13 @@ import 'composer_media_preparation.dart';
 /// Optional, bounded video preparation shared by post and chat composers.
 class ComposerVideoOptimizer {
   ComposerVideoOptimizer({
-    Future<Directory> Function()? temporaryDirectory,
+    required this._temporaryDirectory,
     required this.native,
     this.minimumBytes = 1024 * 1024,
     this.maximumBytes = 2 * 1024 * 1024 * 1024,
     this.ioTimeout = const Duration(seconds: 30),
     this.encodingTimeout = const Duration(minutes: 11),
-  }) : _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
+  });
 
   final Future<Directory> Function() _temporaryDirectory;
   final VideoEncoder native;

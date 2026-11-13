@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
@@ -15,9 +14,9 @@ import 'composer_media_preparation.dart';
 /// concurrently. Callers own the returned preparation through retries.
 class ComposerImageOptimizer {
   ComposerImageOptimizer({
-    Future<Directory> Function()? temporaryDirectory,
+    required this._temporaryDirectory,
     this.workerTimeout = const Duration(seconds: 30),
-  }) : _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
+  });
 
   final Future<Directory> Function() _temporaryDirectory;
   final Duration workerTimeout;
