@@ -929,6 +929,37 @@ void main() {
     },
   );
 
+  test('account retirement stops a stalled staging directory lookup', () async {
+    environment.savePath = '${directory.path}/retired.mp4';
+    final started = Completer<void>();
+    final temporary = Completer<Directory>();
+    environment.onTemporaryDirectory = () {
+      started.complete();
+      return temporary.future;
+    };
+    var sends = 0;
+    final pending = download(
+      MockClient((_) async {
+        sends++;
+        return http.Response.bytes([1], 200);
+      }),
+    );
+    final rejected = expectLater(
+      pending,
+      throwsA(isA<VideoDownloadException>()),
+    );
+    await started.future;
+    lifecycle.invalidate(siteUrl);
+    try {
+      await rejected.timeout(const Duration(seconds: 1));
+    } finally {
+      temporary.complete(directory);
+    }
+    await Future<void>.delayed(Duration.zero);
+    expect(sends, 0);
+    expect(directory.listSync(), isEmpty);
+  });
+
   test('a stalled body times out and removes its partial file', () async {
     environment.savePath = '${directory.path}/stalled.mp4';
     final body = StreamController<List<int>>();
@@ -1005,6 +1036,7 @@ class _Environment implements MediaDownloadEnvironment {
   String? savePath;
   String? suggestedName;
   VoidCallback? onChoose;
+  Future<Directory> Function()? onTemporaryDirectory;
   List<int>? sharedBytes;
   String? sharedName;
   String? sharedPathName;
@@ -1035,7 +1067,8 @@ class _Environment implements MediaDownloadEnvironment {
   }
 
   @override
-  Future<Directory> temporaryDirectory() async => directory;
+  Future<Directory> temporaryDirectory() async =>
+      onTemporaryDirectory?.call() ?? directory;
 
   @override
   Future<MediaShareOutcome> shareFile(

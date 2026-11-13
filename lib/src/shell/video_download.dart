@@ -75,12 +75,17 @@ final class NativeVideoDownloader implements VideoDownloader {
             credentials: credentials,
             requireCurrent: () => _requireCurrent(lease),
             waitForCredential: <T>(Future<T> operation) =>
-                _waitForCredential(operation, lease),
+                _waitWhileCurrent(operation, lease),
           )
         : null;
 
+    final temporary = await _waitWhileCurrent(
+      _environment.temporaryDirectory(),
+      lease,
+    );
+    _requireCurrent(lease);
     return withPrivateStagingPath(
-      await _environment.temporaryDirectory(),
+      temporary,
       prefix: 'video-download-',
       filename: filename,
       createFile: true,
@@ -129,7 +134,7 @@ final class NativeVideoDownloader implements VideoDownloader {
     );
   }
 
-  Future<T> _waitForCredential<T>(Future<T> operation, SiteLease? lease) =>
+  Future<T> _waitWhileCurrent<T>(Future<T> operation, SiteLease? lease) =>
       lease?.waitWhileCurrent(
         operation,
         const VideoDownloadException(),
