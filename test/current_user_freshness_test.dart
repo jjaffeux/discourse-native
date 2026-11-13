@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -10,7 +11,9 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
+import 'package:discourse_native/src/shell/current_user_directory.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/user_status_overrides.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -76,6 +79,38 @@ final class _GatedFreshnessApi extends FakeDiscourseApi {
 }
 
 void main() {
+  test('foreign leases cannot mark or refresh the current user', () async {
+    final lifecycle = SiteLifecycle();
+    final statuses = UserStatusOverrides();
+    final account = instance('meta.discourse.org').copyWith(user: _user);
+    var reads = 0;
+    final directory = CurrentUserDirectory(
+      lifecycle: lifecycle,
+      statuses: statuses,
+      canAcceptCurrentUser: (_) => true,
+      instanceAt: (_) => account,
+      readSessionUser: (_, _, _) async {
+        reads++;
+        return null;
+      },
+      acceptDoNotDisturbSnapshot: (_, user, {required isCurrent}) => user,
+      publishFreshCurrentUser: (_, _, _, _) => true,
+    );
+    addTearDown(statuses.dispose);
+    addTearDown(directory.dispose);
+    final wrongSite = lifecycle.capture('https://other.example');
+    final wrongRegistry = SiteLifecycle().capture(_site);
+    directory.markConnectedUserFresh(_site, wrongSite);
+    expect(directory.isFresh(_site), isFalse);
+    await directory.refresh(_site, 'key', lease: wrongRegistry, force: true);
+    expect(reads, 0);
+    final current = lifecycle.capture(_site);
+    await directory.refresh(_site, 'key', lease: current, force: true);
+    expect(reads, 1);
+    directory.markConnectedUserFresh(_site, current);
+    expect(directory.isFresh(_site), isTrue);
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 

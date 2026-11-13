@@ -77,7 +77,7 @@ final class CurrentUserDirectory {
       isFresh(siteUrl) ? _instanceAt(siteUrl)?.user : null;
 
   void markConnectedUserFresh(String siteUrl, SiteLease lease) {
-    if (_disposed || !lease.isCurrent) return;
+    if (_disposed || !lifecycle.owns(siteUrl, lease)) return;
     _accountFor(siteUrl, lease).confirmation = Object();
   }
 
@@ -89,7 +89,7 @@ final class CurrentUserDirectory {
   }) {
     if (_disposed || _instanceAt(siteUrl) == null) return Future.value();
     final session = lease ?? lifecycle.capture(siteUrl);
-    if (!session.isCurrent) return Future.value();
+    if (!lifecycle.owns(siteUrl, session)) return Future.value();
     final account = _accountFor(siteUrl, session);
     if (!force && account.fresh) {
       return Future.value(_instanceAt(siteUrl)?.user);
