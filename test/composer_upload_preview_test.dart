@@ -10,6 +10,42 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'release from the staged-file notification skips native generation',
+    () async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channel = MethodChannel('org.discourse.native/video_thumbnails');
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call.method);
+        return null;
+      });
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = previous;
+        messenger.setMockMethodCallHandler(channel, null);
+      });
+
+      final preview = ComposerUploadPreview.forFile(
+        ComposerUploadFile(
+          name: 'video.mp4',
+          length: () async => 4,
+          openRead: () => Stream.value([1, 2, 3, 4]),
+        ),
+      )!;
+      late File staged;
+      preview.addListener(() {
+        staged = preview.file!;
+        preview.release();
+      });
+      await preview.ready;
+      await _waitUntilRemoved(staged);
+      expect(calls, isEmpty);
+    },
+  );
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     test(
       'staged video requests native artwork on supported platforms ($platform)',

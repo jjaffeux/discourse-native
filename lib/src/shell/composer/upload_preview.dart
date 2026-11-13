@@ -26,6 +26,7 @@ final class ComposerUploadPreview extends ChangeNotifier {
   Directory? _directory;
   final _aborted = Completer<void>();
   int _references = 1;
+  bool _notifying = false;
   ThumbnailRequest? _thumbnail;
   bool get isVideo => original.isVideo;
 
@@ -81,15 +82,15 @@ final class ComposerUploadPreview extends ChangeNotifier {
         }
       }
       if (_references == 0) return;
-      notifyListeners();
-      if (isVideo && nativeThumbnailsSupported) {
+      _publish();
+      if (_references > 0 && isVideo && nativeThumbnailsSupported) {
         final request = generateNativeVideoThumbnail(staged.uri);
         _thumbnail = request;
         try {
           final bytes = await request.result;
           if (_references > 0 && identical(_thumbnail, request)) {
             poster = bytes;
-            notifyListeners();
+            _publish();
           }
         } finally {
           request.dispose();
@@ -122,7 +123,17 @@ final class ComposerUploadPreview extends ChangeNotifier {
     _thumbnail = null;
     final staging = _ready;
     if (staging != null) unawaited(staging.then((_) => _removeFile()));
-    super.dispose();
+    if (!_notifying) super.dispose();
+  }
+
+  void _publish() {
+    _notifying = true;
+    try {
+      notifyListeners();
+    } finally {
+      _notifying = false;
+      if (_references == 0) super.dispose();
+    }
   }
 
   Future<void> _removeFile() async {
