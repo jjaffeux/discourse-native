@@ -27,6 +27,7 @@ import '../../plugin_api/hashtag_kind.dart';
 import 'artwork.dart';
 import 'autocomplete.dart';
 import 'block_controller.dart';
+import 'block_surface_host.dart';
 import 'component_artwork.dart';
 import 'components/core.dart';
 import 'components/document_body_controller.dart';
@@ -36,7 +37,6 @@ import 'components/list_source.dart';
 import 'components/quote_source.dart';
 import 'components/upload.dart';
 import 'edit_history.dart';
-import 'history_host.dart';
 import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 import 'marks.dart';
@@ -166,9 +166,9 @@ final class _ComposerUnresolved extends _ComposerSentState {
 
 class ComposerController extends ChangeNotifier
     implements
+        ComposerBlockSurfaceHost,
         ComposerDraftEditor,
         ComposerEditorHost,
-        ComposerHistoryHost,
         ComposerMetadataEditorHost,
         ComposerRecipientTarget,
         ComposerSelectionFormattingHost {
@@ -528,6 +528,7 @@ class ComposerController extends ChangeNotifier
   /// before they become edits to the canonical Markdown.
   List<TextInputFormatter> get inputFormatters => const [];
   bool get singleNewlineParagraphs => false;
+  @override
   late final ComposerBlockController blocks;
   final TextEditingController title;
 

@@ -5,9 +5,10 @@ import 'package:flutter/foundation.dart';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/serial_operation_queue.dart';
 import '../data/site_lifecycle.dart';
+import '../data/user_preferences_api.dart';
+import '../data/write_failure.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';

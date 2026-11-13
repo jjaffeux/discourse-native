@@ -122,7 +122,12 @@ final class _Harness {
   _Harness({required DiscourseUser? user})
     : current = instance('meta.discourse.org', user: user) {
     policy = SiteReadPolicy(
-      api: api,
+      siteAppearance: api.siteAppearance,
+      siteConfig: api.siteConfig,
+      customEmojis: api.customEmojis,
+      emojiCatalog: api.emojiCatalog,
+      emojiSearchAliases: api.emojiSearchAliases,
+      forumAbout: api.forumAbout,
       credentials: credentials,
       lifecycle: lifecycle,
       instanceFor: (_) => current,

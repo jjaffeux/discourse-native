@@ -2,8 +2,8 @@ part of 'preview_requests.dart';
 
 final class PreviewLoadingOwner {
   PreviewLoadingOwner({
-    required this._site,
-    required this._topicContent,
+    required this._userCard,
+    required this._postLikers,
     required this._credentials,
     required this._lifecycle,
     required this._store,
@@ -11,8 +11,18 @@ final class PreviewLoadingOwner {
     this.onStatusAccepted,
   });
 
-  final ShellSiteApi _site;
-  final TopicContentApi _topicContent;
+  final Future<UserCard> Function({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+  })
+  _userCard;
+  final Future<PostLikers> Function({
+    required String siteUrl,
+    required int postId,
+    String? apiKey,
+  })
+  _postLikers;
   final SiteApiKeyReader _credentials;
   final SiteLifecycle _lifecycle;
   final Store _store;
@@ -72,7 +82,7 @@ final class PreviewLoadingOwner {
       ).keyCredentials(_credentials);
       if (!_ownsLikers(account, postId, request)) return;
       final fetched = await credential.run(
-        () => _topicContent.postLikers(
+        () => _postLikers(
           siteUrl: targetSite,
           postId: postId,
           apiKey: credential.apiKey,
@@ -126,7 +136,7 @@ final class PreviewLoadingOwner {
       if (!_ownsCard(account, key, request)) return;
       final statusTicket = userStatuses?.beginSnapshot(targetSite);
       final card = await credential.run(
-        () => _site.userCard(
+        () => _userCard(
           siteUrl: targetSite,
           username: username,
           apiKey: credential.apiKey,

@@ -9,13 +9,13 @@ import 'package:flutter/widgets.dart';
 
 import '../../foundation/icons/d_icons.dart';
 import '../platform.dart';
+import 'block_surface_host.dart';
 import 'blocks.dart';
-import 'controller.dart';
 import 'drop_geometry.dart';
 
 class _BlockDrag {
   const _BlockDrag(this.composer, this.id, this.revision, this.sourceGap);
-  final ComposerController composer;
+  final ComposerBlockSurfaceHost composer;
   final int id;
   final int revision;
   final int sourceGap;
@@ -37,7 +37,7 @@ class ComposerBlockSurface extends StatefulWidget {
     this.geometryChanges,
   });
 
-  final ComposerController composer;
+  final ComposerBlockSurfaceHost composer;
   final Widget child;
   final double lineHeight;
   final Rect? Function(ComposerBodyBlock block) blockActionRect;
@@ -82,7 +82,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   double? _actionCenter;
   ({double top, double translationY})? _dropPlacement;
 
-  ComposerController get composer => widget.composer;
+  ComposerBlockSurfaceHost get composer => widget.composer;
 
   ComposerBodyBlock? get _activeBlock =>
       composer.blocks.index.byId(_drag?.id ?? _hoveredId ?? -1) ??

@@ -5,7 +5,6 @@ import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_model_codec.dart';
-import '../models/do_not_disturb.dart';
 import '../models/forum_about.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
@@ -28,13 +27,12 @@ import '../models/topic_filter.dart';
 import '../models/topic_tracking_state.dart';
 import '../models/user_activity.dart';
 import '../models/user_card.dart';
-import '../models/user_draft.dart';
-import '../models/user_preferences.dart';
-import '../models/user_summary.dart';
 import 'account_session_api.dart';
 import 'bookmarks_write_api.dart';
 import 'category_load_result.dart';
 import 'discourse_search_contract.dart';
+import 'do_not_disturb_api.dart';
+import 'drafts_api.dart';
 import 'dsa_notice_contracts.dart';
 import 'http_basic_auth.dart';
 import 'plugin_transport.dart';
@@ -43,15 +41,21 @@ import 'site_lookup_failure.dart';
 import 'site_message_bus_bootstrap.dart';
 import 'topic_feeds_api.dart';
 import 'topic_reads_api.dart';
+import 'user_preferences_api.dart';
+import 'user_summaries_api.dart';
 import 'write_failure.dart';
 
 export 'bookmarks_write_api.dart';
 export 'category_load_result.dart';
 export 'discourse_search_contract.dart';
+export 'do_not_disturb_api.dart';
+export 'drafts_api.dart';
 export 'dsa_notice_contracts.dart';
 export 'site_lookup_failure.dart';
 export 'topic_feeds_api.dart';
 export 'topic_reads_api.dart';
+export 'user_preferences_api.dart';
+export 'user_summaries_api.dart';
 export 'write_failure.dart';
 
 /// The sentence a user is shown for a failed request.
@@ -743,21 +747,6 @@ abstract interface class ComposerPersistenceApi {
   });
 }
 
-abstract interface class DoNotDisturbApi {
-  Future<DateTime> enterDoNotDisturb({
-    required String siteUrl,
-    required String apiKey,
-    required DoNotDisturbDuration duration,
-    String? clientId,
-  });
-
-  Future<void> leaveDoNotDisturb({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  });
-}
-
 abstract interface class AccountActivityApi {
   Future<NotificationTotals> notificationTotals({
     required String siteUrl,
@@ -810,51 +799,6 @@ abstract interface class AccountActivityApi {
     required String siteUrl,
     required String apiKey,
     required List<NotificationTypeName> types,
-    String? clientId,
-  });
-}
-
-abstract interface class UserPreferencesApi {
-  Future<UserPreferences> loadUserPreferences({
-    required String siteUrl,
-    required String apiKey,
-    required String username,
-    String? clientId,
-  });
-
-  Future<UserPreferences> updateUserPreferences({
-    required String siteUrl,
-    required String apiKey,
-    required String username,
-    required UserPreferences fallback,
-    required Map<String, Object?> values,
-    String? clientId,
-  });
-}
-
-abstract interface class DraftsApi {
-  Future<UserDraftPage> userDrafts({
-    required String siteUrl,
-    required String apiKey,
-    int offset = 0,
-    int limit = 30,
-    String? clientId,
-  });
-
-  Future<void> deleteUserDraft({
-    required String siteUrl,
-    required String apiKey,
-    required String draftKey,
-    required int sequence,
-    String? clientId,
-  });
-}
-
-abstract interface class UserSummariesApi {
-  Future<UserSummary> userSummary({
-    required String siteUrl,
-    required String apiKey,
-    required String username,
     String? clientId,
   });
 }

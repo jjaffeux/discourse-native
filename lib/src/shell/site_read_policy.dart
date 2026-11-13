@@ -1,7 +1,7 @@
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../data/site_lookup_failure.dart';
 import '../models/discourse_instance.dart';
 import '../models/forum_about.dart';
 import '../models/site_appearance.dart';
@@ -15,14 +15,55 @@ import '../models/site_emoji.dart';
 /// boundary, so a signed-out site is read publicly and never receives that key.
 final class SiteReadPolicy {
   const SiteReadPolicy({
-    required this._api,
+    required this._siteAppearance,
+    required this._siteConfig,
+    required this._customEmojis,
+    required this._emojiCatalog,
+    required this._emojiSearchAliases,
+    required this._forumAbout,
     required this._credentials,
     required this._lifecycle,
     required this._instanceFor,
     required this._isDisposed,
   });
 
-  final ShellSiteApi _api;
+  final Future<SiteAppearance?> Function({
+    required String siteUrl,
+    String? username,
+    String? apiKey,
+    String? clientId,
+  })
+  _siteAppearance;
+  final Future<SiteConfig> Function({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  })
+  _siteConfig;
+  final Future<Map<String, String>> Function({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  })
+  _customEmojis;
+  final Future<SiteEmojiCatalog> Function({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  })
+  _emojiCatalog;
+  final Future<Map<String, List<String>>> Function({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  })
+  _emojiSearchAliases;
+  final Future<ForumAbout> Function({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  })
+  _forumAbout;
   final ApiCredentialReader _credentials;
   final SiteLifecycle _lifecycle;
   final DiscourseInstance? Function(String siteUrl) _instanceFor;
@@ -34,7 +75,7 @@ final class SiteReadPolicy {
     String? clientId,
   }) {
     final forwarded = _forwarded(siteUrl, apiKey, clientId);
-    return _api.siteAppearance(
+    return _siteAppearance(
       siteUrl: siteUrl,
       username: forwarded.username,
       apiKey: forwarded.apiKey,
@@ -48,7 +89,7 @@ final class SiteReadPolicy {
     String? clientId,
   }) {
     final forwarded = _forwarded(siteUrl, apiKey, clientId);
-    return _api.siteConfig(
+    return _siteConfig(
       siteUrl: siteUrl,
       apiKey: forwarded.apiKey,
       clientId: forwarded.clientId,
@@ -61,7 +102,7 @@ final class SiteReadPolicy {
     String? clientId,
   }) {
     final forwarded = _forwarded(siteUrl, apiKey, clientId);
-    return _api.customEmojis(
+    return _customEmojis(
       siteUrl: siteUrl,
       apiKey: forwarded.apiKey,
       clientId: forwarded.clientId,
@@ -74,7 +115,7 @@ final class SiteReadPolicy {
     String? clientId,
   }) {
     final forwarded = _forwarded(siteUrl, apiKey, clientId);
-    return _api.emojiCatalog(
+    return _emojiCatalog(
       siteUrl: siteUrl,
       apiKey: forwarded.apiKey,
       clientId: forwarded.clientId,
@@ -87,7 +128,7 @@ final class SiteReadPolicy {
     String? clientId,
   }) {
     final forwarded = _forwarded(siteUrl, apiKey, clientId);
-    return _api.emojiSearchAliases(
+    return _emojiSearchAliases(
       siteUrl: siteUrl,
       apiKey: forwarded.apiKey,
       clientId: forwarded.clientId,
@@ -108,7 +149,7 @@ final class SiteReadPolicy {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     final about = await credential.run(
-      () => _api.forumAbout(
+      () => _forumAbout(
         siteUrl: siteUrl,
         apiKey: credential.apiKey,
         clientId: credential.clientId,

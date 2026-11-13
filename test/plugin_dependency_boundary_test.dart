@@ -335,6 +335,7 @@ void main() {
           if (_publicPluginContracts.containsKey(directive.target)) continue;
           if (!const {
             'lib/discourse_math_types.dart',
+            'lib/discourse_site_urls.dart',
             'lib/discourse_plugin_composer.dart',
             'lib/discourse_plugin_composer_drafts.dart',
             'lib/discourse_plugin_contracts.dart',

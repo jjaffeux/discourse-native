@@ -8,12 +8,12 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/shell/global_search_api.dart': (54, 0),
   'lib/src/shell/recent_search_history.dart': (64, 0),
   'lib/src/data/custom_sidebar_sections.dart': (37, 0),
-  'lib/src/plugins/nested_replies/nested_replies_reader_memory.dart': (177, 2),
-  'lib/src/plugins/post_voting/post_voting_category_controller.dart': (177, 2),
-  'lib/src/plugins/voice/voice_call_controller_port.dart': (176, 2),
+  'lib/src/plugins/nested_replies/nested_replies_reader_memory.dart': (181, 2),
+  'lib/src/plugins/post_voting/post_voting_category_controller.dart': (181, 2),
+  'lib/src/plugins/voice/voice_call_controller_port.dart': (180, 2),
   'lib/src/shell/current_user_directory.dart': (38, 0),
   'lib/src/shell/instance_rail_transactions.dart': (31, 0),
-  'lib/src/shell/topic_metadata_transactions.dart': (121, 1),
+  'lib/src/shell/topic_metadata_transactions.dart': (125, 1),
   'lib/src/shell/composer/history_scope.dart': (3, 1),
 };
 

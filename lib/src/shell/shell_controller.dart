@@ -878,8 +878,8 @@ class ShellController extends FrameSafeNotifier
   late final UserStatusOverrides userStatuses = UserStatusOverrides();
 
   late final PreviewLoadingOwner _previews = PreviewLoadingOwner(
-    site: api.site,
-    topicContent: api.topicContent,
+    userCard: api.site.userCard,
+    postLikers: api.topicContent.postLikers,
     credentials: credentials,
     lifecycle: lifecycle,
     store: store,
@@ -1036,7 +1036,12 @@ class ShellController extends FrameSafeNotifier
       );
 
   late final SiteReadPolicy siteReads = SiteReadPolicy(
-    api: api.site,
+    siteAppearance: api.site.siteAppearance,
+    siteConfig: api.site.siteConfig,
+    customEmojis: api.site.customEmojis,
+    emojiCatalog: api.site.emojiCatalog,
+    emojiSearchAliases: api.site.emojiSearchAliases,
+    forumAbout: api.site.forumAbout,
     credentials: credentials,
     lifecycle: lifecycle,
     instanceFor: _instanceAt,

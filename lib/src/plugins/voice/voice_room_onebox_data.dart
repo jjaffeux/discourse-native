@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:discourse_native/discourse_site_urls.dart';
 import 'package:html/dom.dart' as dom;
 
 /// Baked room metadata. Presence always comes from the viewer's live directory.

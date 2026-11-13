@@ -402,8 +402,8 @@ void main() {
 final class _Fixture {
   _Fixture() {
     owner = PreviewLoadingOwner(
-      site: api,
-      topicContent: api,
+      userCard: api.userCard,
+      postLikers: api.postLikers,
       credentials: credentials,
       lifecycle: lifecycle,
       store: store,
