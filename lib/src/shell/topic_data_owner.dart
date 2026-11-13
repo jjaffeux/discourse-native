@@ -2172,27 +2172,38 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     final fresh = <int, Post>{};
     try {
       final credential = await _requests.keyCredentials(_CapturedKey(apiKey));
+      const pageSize = TopicDetail.maximumInitialPosts;
+      const concurrentPages = 3;
       for (
         var start = 0;
         start < postIds.length;
-        start += TopicDetail.maximumInitialPosts
+        start += pageSize * concurrentPages
       ) {
         if (!_ownsLease(original)) return PostProjectionFreshness.retired;
-        final end = math.min(
-          start + TopicDetail.maximumInitialPosts,
-          postIds.length,
-        );
-        final posts = await credential.run(
-          () => _owner.content.posts(
-            siteUrl: siteUrl,
-            topicId: topicId,
-            ids: postIds.sublist(start, end),
-            apiKey: credential.apiKey,
-          ),
-        );
+        final pages = await Future.wait([
+          for (
+            var offset = start;
+            offset < postIds.length &&
+                offset < start + pageSize * concurrentPages;
+            offset += pageSize
+          )
+            credential.run(
+              () => _owner.content.posts(
+                siteUrl: siteUrl,
+                topicId: topicId,
+                ids: postIds.sublist(
+                  offset,
+                  math.min(offset + pageSize, postIds.length),
+                ),
+                apiKey: credential.apiKey,
+              ),
+            ),
+        ]);
         if (!_ownsLease(original)) return PostProjectionFreshness.retired;
-        for (final post in posts) {
-          if (postIds.contains(post.id)) fresh[post.id] = post;
+        for (final posts in pages) {
+          for (final post in posts) {
+            if (postIds.contains(post.id)) fresh[post.id] = post;
+          }
         }
       }
     } catch (error) {

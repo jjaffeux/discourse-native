@@ -59,7 +59,9 @@ final class NestedRepliesAdminController extends ChangeNotifier {
   bool get canConvert =>
       canChangeCategory && categoryDefault && !categoryConverted;
 
-  Future<void> loadCategory() async {
+  Future<void> loadCategory() => _loadCategory();
+
+  Future<void> _loadCategory({Future<void>? topicRefresh}) async {
     final id = reader.topic?.categoryId;
     if (!canOpen || id == null || loadingCategory) return;
     loadingCategory = true;
@@ -73,6 +75,7 @@ final class NestedRepliesAdminController extends ChangeNotifier {
         categoryId: id,
         credentials: credential,
       );
+      await topicRefresh;
       if (!canOpen || reader.topic?.categoryId != id) return;
       category = result;
     } catch (_) {
@@ -91,9 +94,16 @@ final class NestedRepliesAdminController extends ChangeNotifier {
     problem = null;
     _notify();
     try {
-      await reader.refreshMetadata();
+      final initialCategory = reader.topic?.categoryId;
+      final topicRefresh = reader.refreshMetadata();
+      await Future.wait([
+        topicRefresh,
+        if (initialCategory != null) _loadCategory(topicRefresh: topicRefresh),
+      ]);
       if (!canOpen) return;
-      await loadCategory();
+      if (reader.topic?.categoryId != initialCategory) {
+        await loadCategory();
+      }
       if (canOpen && problem == null) needsRecheck = false;
     } catch (_) {
       if (isCurrent) problem = NestedRepliesAdminProblem.failed;

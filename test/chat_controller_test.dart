@@ -726,6 +726,48 @@ void main() {
     },
   );
 
+  test(
+    'thread page waits for the accepted detail before publication',
+    () async {
+      final gate = Completer<void>();
+      const target = ChatThreadTarget(channelId: 9, threadId: 3);
+      final reply = message(42);
+      final api = FakeDiscourseApi(
+        chatThreadGate: gate,
+        chatThreadsByKey: {
+          '9~3': const ChatThread(
+            id: 3,
+            channelId: 9,
+            status: 'open',
+            replyCount: 1,
+            membership: ChatThreadMembership(
+              threadId: 3,
+              lastReadMessageId: 42,
+            ),
+          ),
+        },
+        chatMessagesByKey: {
+          'thread-9-3': page([reply]),
+        },
+      );
+      final subject = build(api: api, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+
+      final opening = subject.chat.openThread(site, target);
+      await pumpEventQueue();
+      expect(api.chatThreadMessagesRequested, hasLength(1));
+      expect(subject.chat.message(site, 42), isNull);
+      expect(subject.chat.streamFor(site, target).messageIds, isEmpty);
+
+      gate.complete();
+      await opening;
+      final stream = subject.chat.streamFor(site, target);
+      expect(stream.messageIds, [42]);
+      expect(stream.lastReadOnOpen, 42);
+      expect(stream.anchorMessageId, 42);
+    },
+  );
+
   group('loading a site’s channels', () {
     test(
       'puts the channels in the store and keeps the order it was given',
