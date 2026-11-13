@@ -7,6 +7,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/manual_scheduler.dart';
 
 void main() {
+  test('a priority callback can cool down an earlier candidate', () async {
+    final scheduler = ManualScheduler();
+    final gate = OriginRequestGate(
+      maxConcurrent: 1,
+      maxConcurrentPerOrigin: 1,
+      maxQueuedPerOrigin: 10,
+      cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      cooldownFactory: () => OriginCooldown(
+        clock: scheduler.now,
+        timerFactory: scheduler.createTimer,
+      ),
+    );
+    addTearDown(gate.close);
+    final first = Uri.parse('https://first.example');
+    final second = Uri.parse('https://second.example');
+    final active = await gate.acquire(first);
+    final order = <String>[];
+    final earlier = gate.run(first, (_) async => order.add('first'));
+    var cooled = false;
+    final later = gate.run(
+      second,
+      (_) async => order.add('second'),
+      resolvePriority: () {
+        if (!cooled) {
+          cooled = true;
+          gate.extendCooldown(first, const Duration(seconds: 1));
+        }
+        return OriginRequestPriority.normal;
+      },
+    );
+    active.release();
+    await later;
+    final beforeExpiry = List.of(order);
+    scheduler.advance(const Duration(seconds: 1));
+    await earlier;
+
+    expect(beforeExpiry, ['second']);
+    expect(order, ['second', 'first']);
+  });
+
   test(
     'a failed priority capability rejects only its admission and preserves peer progress',
     () async {

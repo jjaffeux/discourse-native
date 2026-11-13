@@ -305,6 +305,9 @@ final class OriginRequestGate {
     }
     if (cooldownPolicy == OriginRequestCooldownPolicy.reject) {
       _rejectWaitingForCooldown(origin, state, remaining);
+    } else if (state.waiting.isNotEmpty) {
+      // A priority resolver may cool down a candidate already scanned.
+      _waitingRevision++;
     }
   }
 
