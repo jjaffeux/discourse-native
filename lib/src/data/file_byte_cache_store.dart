@@ -84,7 +84,7 @@ final class FileByteCacheStore implements ByteCacheStore {
         // Allow one extra byte to detect growth after measuring the open file.
         final readLimit = length < maxEncodedBytes ? length : maxEncodedBytes;
         encoded = await handle.read(readLimit + 1);
-        if (encoded.length > readLimit && readLimit < maxEncodedBytes) {
+        if (encoded.length <= maxEncodedBytes && encoded.length != length) {
           return null;
         }
       } finally {

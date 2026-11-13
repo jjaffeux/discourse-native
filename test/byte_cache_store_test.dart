@@ -37,6 +37,18 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('treats a short disk read as a cache miss', () async {
+      final entry = await seed('short', [1, 2, 3, 4], now);
+      final store = FileByteCacheStore(directory, clock: () => now);
+      final bytes = await IOOverrides.runZoned(
+        () => store.read(_url('short')),
+        createFile: (_) => _ChangingCacheFile(entry, shortenRead: true),
+      );
+
+      expect(bytes, isNull);
+      expect(await store.read(_url('short')), [1, 2, 3, 4]);
+    });
+
     test('a failed replacement preserves the existing cached bytes', () async {
       final entry = await seed('retained', [1, 2], now);
       final store = FileByteCacheStore(directory, clock: () => now);
@@ -66,7 +78,7 @@ void main() {
 
     test('bounds the read when an entry grows after its stat', () async {
       final entry = await seed('growing', [1, 2, 3, 4], now);
-      final growing = _GrowingCacheFile(entry);
+      final growing = _ChangingCacheFile(entry);
       final store = FileByteCacheStore(
         directory,
         maxEntryBytes: 4,
@@ -570,16 +582,19 @@ Future<void> _pollUntil(bool Function() done, Duration limit) async {
 
 String _url(String key) => 'https://cdn.test/$key.png';
 
-final class _GrowingCacheFile implements File {
-  _GrowingCacheFile(this.file);
+final class _ChangingCacheFile implements File {
+  _ChangingCacheFile(this.file, {this.shortenRead = false});
 
   final File file;
+  final bool shortenRead;
   int? requestedBytes;
 
   @override
   Future<FileStat> stat() async {
     final original = await file.stat();
-    await file.writeAsBytes(List.filled(128, 9), mode: FileMode.append);
+    if (!shortenRead) {
+      await file.writeAsBytes(List.filled(128, 9), mode: FileMode.append);
+    }
     return original;
   }
 
@@ -590,7 +605,7 @@ final class _GrowingCacheFile implements File {
   Future<RandomAccessFile> open({FileMode mode = FileMode.read}) async =>
       _RecordedCacheRead(await file.open(mode: mode), (count) {
         requestedBytes = count;
-      });
+      }, shortenRead: shortenRead);
 
   @override
   Future<FileSystemEntity> delete({bool recursive = false}) =>
@@ -601,10 +616,11 @@ final class _GrowingCacheFile implements File {
 }
 
 final class _RecordedCacheRead implements RandomAccessFile {
-  _RecordedCacheRead(this.file, this.onRead);
+  _RecordedCacheRead(this.file, this.onRead, {required this.shortenRead});
 
   final RandomAccessFile file;
   final void Function(int) onRead;
+  final bool shortenRead;
 
   @override
   Future<int> length() => file.length();
@@ -612,7 +628,7 @@ final class _RecordedCacheRead implements RandomAccessFile {
   @override
   Future<Uint8List> read(int bytes) {
     onRead(bytes);
-    return file.read(bytes);
+    return file.read(shortenRead ? bytes - 2 : bytes);
   }
 
   @override
