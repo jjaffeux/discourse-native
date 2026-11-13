@@ -36,59 +36,6 @@ part 'group/group_shared_view.dart';
 
 const double _groupDesktopBreakpoint = 720;
 
-@immutable
-final class GroupPageData {
-  const GroupPageData({
-    this.detail,
-    this.members,
-    this.requesters,
-    this.activity,
-    this.permissions = const [],
-    this.logs,
-    this.currentUserData = PluginData.none,
-    this.canSendPrivateMessages = false,
-    this.canInviteToForum = false,
-    this.currentUserStaff = false,
-    this.isAdmin = false,
-    this.memberFilter = '',
-    this.memberOrder = 'last_seen_at',
-    this.memberAscending = false,
-    this.mentionsEnabled = true,
-    this.smtpEnabled = false,
-    this.taggingEnabled = true,
-    this.sectionLoading = false,
-    this.loadingMore = false,
-    this.mutating = false,
-    this.error,
-    this.sectionError,
-    this.hasMore = false,
-  });
-
-  final GroupDetail? detail;
-  final GroupMembersPage? members;
-  final GroupRequestersPage? requesters;
-  final GroupActivityPage? activity;
-  final List<GroupPermission> permissions;
-  final GroupLogsPage? logs;
-  final PluginData currentUserData;
-  final bool canSendPrivateMessages;
-  final bool canInviteToForum;
-  final bool currentUserStaff;
-  final bool isAdmin;
-  final String memberFilter;
-  final String memberOrder;
-  final bool memberAscending;
-  final bool mentionsEnabled;
-  final bool smtpEnabled;
-  final bool taggingEnabled;
-  final bool sectionLoading;
-  final bool loadingMore;
-  final bool mutating;
-  final String? error;
-  final String? sectionError;
-  final bool hasMore;
-}
-
 class GroupPage extends StatefulWidget {
   const GroupPage({
     super.key,

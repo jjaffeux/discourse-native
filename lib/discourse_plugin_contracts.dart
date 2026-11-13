@@ -54,6 +54,7 @@ export 'src/data/store.dart' show Ref, Store, StorePolicy;
 export 'src/foundation/calendar_day.dart';
 export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
+export 'src/foundation/d_calendar_date.dart';
 export 'src/foundation/elapsed_time.dart';
 export 'src/foundation/frame_safe_notifier.dart'
     show FrameSafeNotifier, FrameSafeValueNotifier;
@@ -111,6 +112,12 @@ export 'src/plugin_api/bookmark_host.dart';
 export 'src/plugin_api/category_settings.dart';
 export 'src/plugin_api/composer_component.dart';
 export 'src/plugin_api/composer_syntax.dart';
+export 'src/plugin_api/composer_target.dart'
+    show
+        ComposerTargetKind,
+        ComposerTargetPolicy,
+        ComposerTargetRequest,
+        ComposerUploadDisposition;
 export 'src/plugin_api/core_link_projection.dart';
 export 'src/plugin_api/core_plugin_host.dart';
 export 'src/plugin_api/global_search.dart';

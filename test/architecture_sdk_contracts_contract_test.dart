@@ -52,7 +52,7 @@ void main() {
   });
 
   test('the contracts barrel stays within its closure budget', () {
-    expect(closure.length, 163);
+    expect(closure.length, 164);
   });
 
   test('the plugin libraries on the full SDK stay within their budget', () {
@@ -61,6 +61,6 @@ void main() {
           entry.key.startsWith('lib/src/plugins/') &&
           entry.value.contains(_sdk),
     );
-    expect(fullSdkPluginLibraries.length, 94);
+    expect(fullSdkPluginLibraries.length, 87);
   });
 }

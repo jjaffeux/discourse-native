@@ -547,7 +547,7 @@ class _BoardsPageState extends State<BoardsPage> {
           onPressed: () => _addTopic(column),
           child: Text(context.l10n.boardsAddTopicAsCard),
         ),
-        if (widget.controller.composer != null)
+        if (widget.controller.canOpenNewTopic)
           DDropdownMenuItem(
             onPressed: _handle!.composing(column.id)
                 ? null
@@ -801,7 +801,7 @@ class _BoardsPageState extends State<BoardsPage> {
                 child: Text(context.l10n.edit),
               ),
             if (card.kind == BoardCardKind.standalone &&
-                widget.controller.composer != null)
+                widget.controller.canOpenNewTopic)
               DDropdownMenuItem(
                 onPressed: _handle!.composing(column.id, cardId: card.id)
                     ? null

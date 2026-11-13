@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
@@ -30,20 +30,24 @@ final class BoardsController extends FrameSafeNotifier
     required this.siteState,
     required this.trackers,
     required this.topics,
-    this.composer,
+    this._openNewTopic,
   });
+
   final BoardsApi api;
   final PluginRequestHost requests;
   final PluginSiteStateHost siteState;
   final PluginTrackerReader trackers;
   final PluginTopicRefreshHost topics;
-  final PluginComposerHost? composer;
+  final PluginNewTopicComposerOpener? _openNewTopic;
+
   final _settingsListeners = <String, (Listenable, VoidCallback)>{};
   final _composing = <(String, int, int), PluginSiteLease>{};
   final _createdTopics =
       <(String, int, int), ({int topicId, PluginSiteLease lease})>{};
   final _entries = <(String, int), BoardHandle>{};
   final _accounts = <String, _BoardAccount>{};
+  bool get canOpenNewTopic => _openNewTopic != null;
+
   bool _closing = false;
 
   /// Boards no view holds, least recently released first. They keep their
@@ -732,13 +736,13 @@ final class BoardHandle extends ChangeNotifier {
     int columnId, {
     int? cardId,
   }) async {
-    final composer = owner.composer;
+    final openNewTopic = owner._openNewTopic;
     final board = snapshot;
     final column = board?.column(columnId);
     final card = cardId == null ? null : board?.card(cardId);
     final key = (site, id, cardId ?? -columnId);
     if (!canWrite ||
-        composer == null ||
+        openNewTopic == null ||
         board == null ||
         column == null ||
         owner._composing.containsKey(key) ||
@@ -768,7 +772,7 @@ final class BoardHandle extends ChangeNotifier {
     }
 
     try {
-      final result = await composer.openNewTopic(
+      final result = await openNewTopic(
         OpenNewTopicComposerRequest(
           siteUrl: site,
           sourceRouteId: sourceRouteId,

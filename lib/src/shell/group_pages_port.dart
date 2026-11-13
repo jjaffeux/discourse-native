@@ -4,7 +4,7 @@ import '../models/found_user.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../models/topic_feed.dart';
-import 'group_page.dart';
+import 'group/group_page_types.dart';
 import 'group_pages_coordinator.dart';
 import 'groups_controller.dart';
 

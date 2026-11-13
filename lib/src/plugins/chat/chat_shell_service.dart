@@ -2,7 +2,7 @@
 
 import 'dart:async';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show BuildContext;
@@ -42,7 +42,7 @@ final class ChatShellService
     required this.chat,
     required PluginNavigationHost host,
     required PluginRouteNavigationHost routeNavigation,
-    required this.composerHost,
+    required this.openNewTopic,
     required this.store,
     required PluginPostFlagCatalogReader postFlagCatalog,
     PluginRoutePresentationHost? presentationHost,
@@ -56,7 +56,7 @@ final class ChatShellService
   }
 
   final ChatController chat;
-  final PluginComposerHost composerHost;
+  final PluginNewTopicComposerOpener openNewTopic;
   final Store store;
   final PluginNavigationHost _host;
   final PluginRouteNavigationHost _routeNavigation;
@@ -783,7 +783,7 @@ final class ChatShellService
     }
     bool sourceStillCurrent() =>
         !_disposed && shellRoute.sameDestinationAs(_host.currentContent);
-    final result = await composerHost.openNewTopic(
+    final result = await openNewTopic(
       OpenNewTopicComposerRequest(
         siteUrl: siteUrl,
         sourceRouteId: shellRoute.id,

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart'
+import 'package:discourse_native/discourse_plugin_reader.dart'
     show HtmlBodyMountingNotification, HtmlBodyTiming;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';

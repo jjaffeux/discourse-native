@@ -20,7 +20,6 @@ import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
-import 'package:discourse_native/src/shell/composer/plugin_composer_host.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -341,13 +340,7 @@ Future<_Fixture> _fixture({
     chat: chat,
     host: host,
     routeNavigation: host,
-    composerHost: PluginComposerHost(
-      buildComposer: (_) => null,
-      openNewTopic: (_) async => OpenComposerResult.unavailable,
-      isActive: (_) => false,
-      siteConfigFor: (_) => config,
-      siteConfigListenableFor: (_) => settingsListenable,
-    ),
+    openNewTopic: (_) async => OpenComposerResult.unavailable,
     store: store,
     postFlagCatalog: (_) => const [],
   );

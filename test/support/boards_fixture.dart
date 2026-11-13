@@ -179,7 +179,7 @@ final class BoardsFixture {
           if (topicReloadFailure case final failure?) throw failure;
         },
       ),
-      composer: composer,
+      openNewTopic: composer?.openNewTopic,
     );
     host = BoardsFixtureNavigation(connected: connected);
     navigation = BoardsNavigation(

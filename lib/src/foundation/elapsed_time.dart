@@ -14,3 +14,8 @@ Duration elapsedSince(DateTime start, {required DateTime now}) {
 }
 
 const _longerThanAnyWindow = Duration(microseconds: 0x7FFFFFFFFFFFFFFF);
+
+int? timeGapDaysBetween(DateTime? earlier, DateTime? later) {
+  if (earlier == null || later == null) return null;
+  return later.difference(earlier).inDays;
+}

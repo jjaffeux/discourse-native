@@ -11,7 +11,7 @@ import '../models/group_route.dart';
 import '../models/plugin_data.dart';
 import '../models/topic_feed.dart';
 import 'external_link.dart';
-import 'group_page.dart';
+import 'group/group_page_types.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
 import 'groups_controller.dart';

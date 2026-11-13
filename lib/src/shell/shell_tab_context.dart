@@ -1,6 +1,6 @@
 part of 'shell_controller.dart';
 
-final class ShellTabContext {
+final class ShellTabContext implements TopicListCursorTab {
   ShellTabContext._(this.shell, this.tabId)
     : _contentRoute = null,
       siteUrl = shell.currentInstance?.url,
@@ -27,6 +27,7 @@ final class ShellTabContext {
 
   final ShellController shell;
   final String? tabId;
+  @override
   final String? siteUrl;
   final String? accountIdentity;
   final SiteLease? lease;
@@ -36,6 +37,7 @@ final class ShellTabContext {
   ShellTabContext atContent(ContentRoute route) =>
       ShellTabContext._atContent(this, route);
 
+  @override
   bool get isCurrent =>
       !shell._tabContextDisposed &&
       tabId != null &&
@@ -55,6 +57,7 @@ final class ShellTabContext {
   String? get activeTabId => tab?.id;
   DiscourseInstance? get _instance => isCurrent ? shell.currentInstance : null;
 
+  @override
   ContentRoute? get currentContent => contentStack.lastOrNull;
 
   UserDirectoryQuery get usersQuery => siteUrl == null || !isCurrent
@@ -111,6 +114,7 @@ final class ShellTabContext {
     return null;
   }
 
+  @override
   String? get currentFeedId {
     final route = currentContent?.isTopic == true
         ? topicListContent ?? currentContent
@@ -123,6 +127,7 @@ final class ShellTabContext {
     return topicListTab?.rootDestinationId;
   }
 
+  @override
   TopicFeed? get currentFeed {
     final instance = _instance;
     final feedId = currentFeedId;
@@ -189,6 +194,7 @@ final class ShellTabContext {
     return route.isTopicListFilter ? TopicListMode.latest : null;
   }
 
+  @override
   int? get readingTopicId {
     if (!isCurrent) return null;
     if (!shell.desktopTopicTabs) return currentContent?.topicId;
@@ -401,6 +407,7 @@ final class ShellTabContext {
     await shell.loadFeed(destinationId, force: force, context: this);
   }
 
+  @override
   Future<void> loadMoreFeed(String destinationId) async {
     if (!isCurrent) return;
     await shell.loadMoreFeed(destinationId);
@@ -432,6 +439,19 @@ final class ShellTabContext {
     await shell.loadEarlierPosts(batchSize: batchSize, tabId: tabId);
   }
 
+  @override
+  TopicFeed? cursorSourceFeed(String destination) =>
+      shell.topicFeeds.feedFor(siteUrl!, destination);
+
+  @override
+  Topic? cursorTopic(int id) =>
+      siteUrl == null ? null : shell.store.read<Topic>(siteUrl!, id);
+
+  @override
+  bool hasCursorTopic(int id) =>
+      shell.store.containsRecord<Topic>(siteUrl!, id);
+
+  @override
   Future<void> ensureFeedRange(
     String destinationId, {
     required int firstRow,
@@ -447,6 +467,7 @@ final class ShellTabContext {
     );
   }
 
+  @override
   Future<Topic?> restoreFeedTopic(String destinationId, int topicId) async {
     final instance = _instance;
     if (instance == null) return null;

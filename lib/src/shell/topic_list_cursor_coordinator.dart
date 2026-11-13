@@ -2,16 +2,35 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/content_route.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
-import 'shell_controller.dart';
 import 'topic_feed_controller.dart';
+
+abstract interface class TopicListCursorTab {
+  bool get isCurrent;
+  String? get siteUrl;
+  String? get currentFeedId;
+  TopicFeed? get currentFeed;
+  ContentRoute? get currentContent;
+  int? get readingTopicId;
+  TopicFeed? cursorSourceFeed(String destination);
+  Topic? cursorTopic(int id);
+  bool hasCursorTopic(int id);
+  Future<void> ensureFeedRange(
+    String destination, {
+    required int firstRow,
+    required int lastRow,
+  });
+  Future<void> loadMoreFeed(String destination);
+  Future<Topic?> restoreFeedTopic(String destination, int topicId);
+}
 
 typedef TopicListCursor = ({int topicId, int index, bool keyboard});
 
 final class TopicListCursorCoordinator {
   TopicListCursorCoordinator({
-    required ShellTabContext tab,
+    required TopicListCursorTab tab,
     required this._feed,
     TopicListCursor? savedCursor,
     required this._keyboardAvailable,
@@ -24,7 +43,7 @@ final class TopicListCursorCoordinator {
        _destination = tab.currentFeedId ?? 'latest',
        _cursor = ValueNotifier(savedCursor);
 
-  final ShellTabContext _tab;
+  final TopicListCursorTab _tab;
   final String _destination;
   TopicFeed _feed;
   final ValueNotifier<TopicListCursor?> _cursor;
@@ -47,9 +66,7 @@ final class TopicListCursorCoordinator {
 
   TopicFeed _latestFeed() => _tab.currentFeed ?? _feed;
 
-  Topic? _readTopic(int id) => _tab.siteUrl == null
-      ? null
-      : _tab.shell.store.read<Topic>(_tab.siteUrl!, id);
+  Topic? _readTopic(int id) => _tab.cursorTopic(id);
 
   Future<void> _ensureSourceRange(int first, int last) async {
     if (!_isCurrent) return;
@@ -133,8 +150,7 @@ final class TopicListCursorCoordinator {
       final cursor = _cursor.value;
       final anchor = cursor?.topicId ?? _tab.readingTopicId;
       var index = anchor == null ? -1 : feed.indexOfTopic(anchor);
-      TopicFeed sourceFeed() =>
-          _tab.shell.topicFeeds.feedFor(_tab.siteUrl!, _destination) ?? feed;
+      TopicFeed sourceFeed() => _tab.cursorSourceFeed(_destination) ?? feed;
       if (index < 0 &&
           cursor != null &&
           sourceFeed().rowCount > sourceFeed().topicIds.length) {
@@ -189,8 +205,7 @@ final class TopicListCursorCoordinator {
       if (!isCurrent() || current.rowCount == 0) return;
       target = target.clamp(0, current.rowCount - 1);
       final candidate = current.topicIdAt(target);
-      if (candidate == null ||
-          !_tab.shell.store.containsRecord<Topic>(_tab.siteUrl!, candidate)) {
+      if (candidate == null || !_tab.hasCursorTopic(candidate)) {
         await _ensureSourceRange(
           current.sourceRowFor(target),
           current.sourceRowFor(target),

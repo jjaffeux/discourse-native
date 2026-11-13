@@ -1,7 +1,9 @@
 /// Plugin compatibility boundary; plugins must not import the package's `src`.
 library;
 
+export 'discourse_plugin_composer.dart';
 export 'discourse_plugin_contracts.dart';
+export 'discourse_plugin_reader.dart';
 export 'discourse_ui.dart'
     show
         DSelectSize,
@@ -39,18 +41,10 @@ export 'src/shell/composer/components/emoji.dart'
     show openEmojiPickerForComposer;
 export 'src/shell/composer/components/link_dialog.dart'
     show showComposerLinkDialog;
-export 'src/shell/composer/controller.dart'
-    show
-        ComposerController,
-        ComposerTargetKind,
-        ComposerTargetPolicy,
-        ComposerTargetRequest,
-        ComposerUploadDisposition;
+export 'src/shell/composer/controller.dart' show ComposerController;
 export 'src/shell/composer/drop.dart'
     show NativeDropTarget, composerUploadFilesFromDrop, dropContainsDirectory;
 export 'src/shell/composer/embedded_editor.dart' show ComposerEmbeddedEditor;
-export 'src/shell/composer/markdown_editing_controller.dart'
-    show MarkdownEditingController;
 export 'src/shell/composer/panel.dart' show ComposerEditor, ComposerUploadQueue;
 export 'src/shell/composer/plugin_composer_host.dart';
 export 'src/shell/composer/slash_menu.dart' show ComposerSlashAction;
@@ -99,8 +93,6 @@ export 'src/shell/plugin_topic_reader.dart'
 export 'src/shell/post_action_leading.dart' show PostActionLeading;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
-export 'src/shell/progressive_html_mode.dart'
-    show HtmlBodyMountingNotification, HtmlBodyTiming;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'
     show ReactionPill, ReactionPills, ReactionUsersList, ReactionUsersPanel;

@@ -167,6 +167,7 @@ import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
 import 'topic_filter_lookups.dart';
 import 'topic_filter_scope.dart';
+import 'topic_list_cursor_coordinator.dart';
 import 'topic_list_transitions.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';

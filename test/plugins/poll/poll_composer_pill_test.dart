@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer_editing.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';

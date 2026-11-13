@@ -131,7 +131,7 @@ final class ChatModule implements PluginModule {
             final PluginRoutePresentationHost host => host,
             _ => null,
           },
-          composerHost: composerHost,
+          openNewTopic: composerHost.openNewTopic,
           store: store,
           postFlagCatalog: bindings.require(corePluginPostFlagCatalogPort),
         );

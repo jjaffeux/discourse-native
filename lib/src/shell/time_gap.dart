@@ -1,10 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-int? timeGapDaysBetween(DateTime? earlier, DateTime? later) {
-  if (earlier == null || later == null) return null;
-  return later.difference(earlier).inDays;
-}
+export '../foundation/elapsed_time.dart' show timeGapDaysBetween;
 
 String timeGapLabel(int daysSince) {
   assert(daysSince >= 0);
