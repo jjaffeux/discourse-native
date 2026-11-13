@@ -10,6 +10,28 @@ void main() {
   const url = 'https://forum.example/image';
 
   test(
+    'clearing queued transfers immediately frees backlog capacity',
+    () async {
+      final client = _Client();
+      final cache = _Cache(client: client, maxConcurrent: 1, maxEntries: 2);
+      addTearDown(cache.close);
+      final blocker = cache.load('https://forum.example/blocker');
+      final abandoned = cache.request(url);
+      await _pump();
+      cache.clear();
+      final revisit = cache.request(url);
+
+      expect(await abandoned.result, isNull);
+      client.sent.single.complete([0]);
+      expect(await blocker, [0]);
+      await _pump();
+      expect(client.sent, hasLength(2));
+      client.sent.last.complete([4]);
+      expect(await revisit.result, [4]);
+    },
+  );
+
+  test(
     'releasing a queued transfer immediately frees backlog capacity',
     () async {
       final client = _Client();

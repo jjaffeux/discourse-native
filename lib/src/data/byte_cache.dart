@@ -759,7 +759,8 @@ abstract class ByteCache<T extends Object> {
     _cachedBytes = 0;
     _inFlight.clear();
     _transientFailures.clear();
-    for (final waiter in _waiting.values) {
+    for (final MapEntry(key: transfer, value: waiter) in _waiting.entries) {
+      _transfers.remove(transfer);
       waiter.complete(false);
     }
     _waiting.clear();
