@@ -1497,6 +1497,44 @@ void main() {
     expect(controller.error, isNull);
   });
 
+  testWidgets(
+    'a loading listener can cancel pagination before it reaches the API',
+    (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api)
+        ..setScope(GlobalSearchScope.forum)
+        ..setQuery('design order:bogus');
+      addTearDown(controller.dispose);
+      await tester.pump(const Duration(milliseconds: 10));
+      api.pending.single.complete(_page('first', hasMore: true));
+      await tester.pump();
+
+      void cancelPage() {
+        if (!controller.loadingMore) return;
+        controller.removeListener(cancelPage);
+        controller.submit();
+      }
+
+      controller.addListener(cancelPage);
+      controller.loadMore();
+      await tester.pump();
+      expect(controller.phase, GlobalSearchPhase.failed);
+      expect(controller.results.single.title, 'first');
+      expect(api.requests, hasLength(1));
+
+      controller.loadMore();
+      await tester.pump();
+      expect(api.requests, hasLength(2));
+      expect(api.requests.last.offset, 1);
+      api.pending.last.complete(_page('second'));
+      await tester.pump();
+      expect(controller.results.map((result) => result.title), [
+        'first',
+        'second',
+      ]);
+    },
+  );
+
   testWidgets('invalid submission releases canceled pagination for retry', (
     tester,
   ) async {

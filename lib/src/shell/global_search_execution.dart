@@ -89,7 +89,9 @@ final class _GlobalSearchExecution {
   }
 
   void loadMore() {
-    if (_disposed ||
+    final run = _run;
+    if (run == null ||
+        !_current(run) ||
         !hasMore ||
         loadingMore ||
         phase == GlobalSearchPhase.loading) {
@@ -97,8 +99,8 @@ final class _GlobalSearchExecution {
     }
     loadingMore = true;
     error = null;
+    _dispatch(run, append: true);
     notify();
-    if (_run case final run?) _dispatch(run, append: true);
   }
 
   bool _current(_SearchRun run) =>
