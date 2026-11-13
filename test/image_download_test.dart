@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
+import 'package:discourse_native/src/shell/media_download_environment.dart';
 import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -620,7 +621,7 @@ SiteImageRepository _repository(
   client: MockClient(handler),
 );
 
-final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
+final class _FakeImageDownloadEnvironment implements MediaDownloadEnvironment {
   _FakeImageDownloadEnvironment(
     this.temporary, {
     this.savePath,
@@ -654,7 +655,7 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
   }
 
   @override
-  Future<void> saveImage(
+  Future<void> saveBytes(
     Uint8List bytes, {
     required String path,
     required String filename,
@@ -667,14 +668,19 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
   }
 
   @override
+  Future<void> saveFile(File file, String path) =>
+      throw UnsupportedError('Image downloads save from bytes');
+
+  @override
   Future<Directory> temporaryDirectory() async {
     onTemporaryDirectory?.call();
     return temporary;
   }
 
   @override
-  Future<MediaShareOutcome> shareImage(
+  Future<MediaShareOutcome> shareFile(
     File file, {
+    String? filename,
     required String mimeType,
     Rect? sharePositionOrigin,
   }) async {
@@ -682,7 +688,7 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
     sharedPath = file.path;
     sharedMode = (await file.stat()).mode & 0x1ff;
     bytes = await file.readAsBytes();
-    filename = file.uri.pathSegments.last;
+    this.filename = filename ?? file.uri.pathSegments.last;
     this.mimeType = mimeType;
     shareOrigin = sharePositionOrigin;
     if (shareError case final error?) throw error;

@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
+import 'package:discourse_native/src/shell/media_download_environment.dart';
 import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -2078,7 +2079,7 @@ void main() {
 }
 
 final class _RenamedImageDownloadEnvironment
-    implements ImageDownloadEnvironment {
+    implements MediaDownloadEnvironment {
   _RenamedImageDownloadEnvironment(this.destination);
 
   final String destination;
@@ -2089,7 +2090,7 @@ final class _RenamedImageDownloadEnvironment
       destination;
 
   @override
-  Future<void> saveImage(
+  Future<void> saveBytes(
     Uint8List bytes, {
     required String path,
     required String filename,
@@ -2100,11 +2101,16 @@ final class _RenamedImageDownloadEnvironment
   }
 
   @override
+  Future<void> saveFile(File file, String path) =>
+      throw UnsupportedError('Image downloads save from bytes');
+
+  @override
   Future<Directory> temporaryDirectory() => throw UnimplementedError();
 
   @override
-  Future<MediaShareOutcome> shareImage(
+  Future<MediaShareOutcome> shareFile(
     File file, {
+    String? filename,
     required String mimeType,
     Rect? sharePositionOrigin,
   }) => throw UnimplementedError();

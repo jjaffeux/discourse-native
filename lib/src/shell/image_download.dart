@@ -1,36 +1,13 @@
-import 'dart:io';
-
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../data/site_image_repository.dart';
 import '../foundation/private_file_staging.dart';
 import 'download_filename.dart';
+import 'media_download_environment.dart';
 import 'media_download_result.dart';
 import 'site_url.dart';
-
-abstract interface class ImageDownloadEnvironment {
-  Future<String?> chooseSavePath({required String suggestedName});
-
-  Future<void> saveImage(
-    Uint8List bytes, {
-    required String path,
-    required String filename,
-    required String mimeType,
-  });
-
-  Future<Directory> temporaryDirectory();
-
-  Future<MediaShareOutcome> shareImage(
-    File file, {
-    required String mimeType,
-    Rect? sharePositionOrigin,
-  });
-}
 
 abstract interface class LightboxImageDownloader {
   Future<MediaDownloadResult> download({
@@ -45,12 +22,12 @@ abstract interface class LightboxImageDownloader {
 final class NativeLightboxImageDownloader implements LightboxImageDownloader {
   NativeLightboxImageDownloader({
     TargetPlatform? platform,
-    ImageDownloadEnvironment? environment,
+    MediaDownloadEnvironment? environment,
   }) : _platform = platform ?? defaultTargetPlatform,
-       _environment = environment ?? const _NativeImageDownloadEnvironment();
+       _environment = environment ?? const NativeMediaDownloadEnvironment();
 
   final TargetPlatform _platform;
-  final ImageDownloadEnvironment _environment;
+  final MediaDownloadEnvironment _environment;
 
   bool get _usesSaveDialog => switch (_platform) {
     TargetPlatform.linux ||
@@ -99,7 +76,7 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
     );
     final mimeType = image.mediaType?.mimeType ?? 'application/octet-stream';
     if (destination != null) {
-      await _environment.saveImage(
+      await _environment.saveBytes(
         image.bytes,
         path: destination,
         filename: filename,
@@ -120,7 +97,7 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
       use: (file) async {
         // Staging yields, and a retired account must not reach the sheet.
         if (!lease.isCurrent) throw const ImageDownloadException();
-        return _environment.shareImage(
+        return _environment.shareFile(
           file,
           mimeType: mimeType,
           sharePositionOrigin: sharePositionOrigin,
@@ -131,51 +108,6 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
       MediaShareOutcome.shared => const MediaDownloadShared(),
       MediaShareOutcome.cancelled => const MediaDownloadCancelled(),
     };
-  }
-}
-
-final class _NativeImageDownloadEnvironment
-    implements ImageDownloadEnvironment {
-  const _NativeImageDownloadEnvironment();
-
-  @override
-  Future<String?> chooseSavePath({required String suggestedName}) async {
-    final destination = await selector.getSaveLocation(
-      suggestedName: suggestedName,
-    );
-    return destination?.path;
-  }
-
-  @override
-  Future<void> saveImage(
-    Uint8List bytes, {
-    required String path,
-    required String filename,
-    required String mimeType,
-  }) => selector.XFile.fromData(
-    bytes,
-    name: filename,
-    mimeType: mimeType,
-  ).saveTo(path);
-
-  @override
-  Future<Directory> temporaryDirectory() => getTemporaryDirectory();
-
-  @override
-  Future<MediaShareOutcome> shareImage(
-    File file, {
-    required String mimeType,
-    Rect? sharePositionOrigin,
-  }) async {
-    final result = await sharing.SharePlus.instance.share(
-      sharing.ShareParams(
-        files: [sharing.XFile(file.path, mimeType: mimeType)],
-        sharePositionOrigin: sharePositionOrigin,
-      ),
-    );
-    return result.status == sharing.ShareResultStatus.dismissed
-        ? MediaShareOutcome.cancelled
-        : MediaShareOutcome.shared;
   }
 }
 

@@ -2,13 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
@@ -17,20 +14,8 @@ import '../data/site_asset_account.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/private_file_permissions.dart';
 import 'download_filename.dart';
+import 'media_download_environment.dart';
 import 'media_download_result.dart';
-
-abstract interface class VideoDownloadEnvironment {
-  Future<String?> chooseSavePath({required String suggestedName});
-
-  Future<Directory> temporaryDirectory();
-
-  Future<MediaShareOutcome> shareVideo(
-    File file, {
-    required String filename,
-    required String mimeType,
-    Rect? sharePositionOrigin,
-  });
-}
 
 abstract interface class VideoDownloader {
   Future<MediaDownloadResult> download({
@@ -46,15 +31,15 @@ abstract interface class VideoDownloader {
 final class NativeVideoDownloader implements VideoDownloader {
   NativeVideoDownloader({
     TargetPlatform? platform,
-    VideoDownloadEnvironment? environment,
+    MediaDownloadEnvironment? environment,
     http.Client? client,
     this.requestTimeout = const Duration(seconds: 30),
   }) : _platform = platform ?? defaultTargetPlatform,
-       _environment = environment ?? const _NativeVideoDownloadEnvironment(),
+       _environment = environment ?? const NativeMediaDownloadEnvironment(),
        _client = client == null ? null : SafeHttpClient.borrowed(client);
 
   final TargetPlatform _platform;
-  final VideoDownloadEnvironment _environment;
+  final MediaDownloadEnvironment _environment;
   final http.Client? _client;
   final Duration requestTimeout;
 
@@ -116,7 +101,7 @@ final class NativeVideoDownloader implements VideoDownloader {
       );
       _requireCurrent(lease);
       if (destination != null) {
-        await selector.XFile(file.path).saveTo(destination);
+        await _environment.saveFile(file, destination);
         return MediaDownloadSaved(
           Uri.file(
             destination,
@@ -137,7 +122,7 @@ final class NativeVideoDownloader implements VideoDownloader {
           ? file
           : await file.rename('${directory.path}/$shareFilename');
       _requireCurrent(lease);
-      final outcome = await _environment.shareVideo(
+      final outcome = await _environment.shareFile(
         shareFile,
         filename: shareFilename,
         mimeType: mediaType?.mimeType ?? 'application/octet-stream',
@@ -240,37 +225,6 @@ final class NativeVideoDownloader implements VideoDownloader {
 void _requireCurrent(SiteLease? lease) {
   if (lease != null && !lease.isCurrent) {
     throw const VideoDownloadException();
-  }
-}
-
-final class _NativeVideoDownloadEnvironment
-    implements VideoDownloadEnvironment {
-  const _NativeVideoDownloadEnvironment();
-
-  @override
-  Future<String?> chooseSavePath({required String suggestedName}) async =>
-      (await selector.getSaveLocation(suggestedName: suggestedName))?.path;
-
-  @override
-  Future<Directory> temporaryDirectory() => getTemporaryDirectory();
-
-  @override
-  Future<MediaShareOutcome> shareVideo(
-    File file, {
-    required String filename,
-    required String mimeType,
-    Rect? sharePositionOrigin,
-  }) async {
-    final result = await sharing.SharePlus.instance.share(
-      sharing.ShareParams(
-        files: [sharing.XFile(file.path, mimeType: mimeType)],
-        fileNameOverrides: [filename],
-        sharePositionOrigin: sharePositionOrigin,
-      ),
-    );
-    return result.status == sharing.ShareResultStatus.dismissed
-        ? MediaShareOutcome.cancelled
-        : MediaShareOutcome.shared;
   }
 }
 

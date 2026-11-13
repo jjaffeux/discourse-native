@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/shell/media_download_environment.dart';
 import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:discourse_native/src/shell/video_download.dart';
 import 'package:flutter/widgets.dart';
@@ -957,7 +958,7 @@ void main() {
   });
 }
 
-class _Environment implements VideoDownloadEnvironment {
+class _Environment implements MediaDownloadEnvironment {
   _Environment(this.directory);
 
   final Directory directory;
@@ -978,12 +979,25 @@ class _Environment implements VideoDownloadEnvironment {
   }
 
   @override
+  Future<void> saveBytes(
+    Uint8List bytes, {
+    required String path,
+    required String filename,
+    required String mimeType,
+  }) => throw UnsupportedError('Video downloads stream directly to disk');
+
+  @override
+  Future<void> saveFile(File file, String path) async {
+    await file.copy(path);
+  }
+
+  @override
   Future<Directory> temporaryDirectory() async => directory;
 
   @override
-  Future<MediaShareOutcome> shareVideo(
+  Future<MediaShareOutcome> shareFile(
     File file, {
-    required String filename,
+    String? filename,
     required String mimeType,
     Rect? sharePositionOrigin,
   }) async {
