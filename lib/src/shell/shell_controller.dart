@@ -4721,7 +4721,7 @@ class ShellController extends FrameSafeNotifier
         subtitle: route.subtitle,
         color: route.color,
       );
-      _topicNavigation.explicitTarget(tab.id);
+      _topicNavigation.explicitTarget(document.siteUrl!, tab.id);
       _workspace.navigateTab(
         document.siteUrl!,
         tab.copyWith(

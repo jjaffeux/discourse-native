@@ -830,15 +830,23 @@ void main() {
     test('other navigation supersedes a drag load', () async {
       final (:shell, :api, authenticator: _) = await _fixture();
       final load = api.gatePost(300);
-      final moved = shell.scrubCurrentTopicToIndex(3, isWanted: () => true);
+      var finished = false;
+      final moved = shell
+          .scrubCurrentTopicToIndex(3, isWanted: () => true)
+          .then((result) {
+            finished = true;
+            return result;
+          });
       await load.started.future;
 
       shell.openCurrentTopicPost(1);
       await pumpEventQueue();
       final settled = shell.topicNavigationRevision;
+      final finishedBeforeResponse = finished;
       load.release.complete();
 
       expect(await moved, isFalse);
+      expect(finishedBeforeResponse, isTrue);
       await pumpEventQueue();
       expect(shell.currentContent?.postNumber, 1);
       expect(shell.topicNavigationRevision, settled);

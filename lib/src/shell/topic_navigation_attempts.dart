@@ -85,8 +85,11 @@ final class TopicNavigationAttempts {
 
   int revisionFor(String? tabId) => _revisions[tabId] ?? 0;
 
-  void explicitTarget(String tabId) {
+  void explicitTarget(String siteUrl, String tabId) {
     _revisions[tabId] = revisionFor(tabId) + 1;
+    _retireJumps(
+      (attempt) => attempt.key.siteUrl == siteUrl && attempt.tabId == tabId,
+    );
   }
 
   Future<bool> jumpToCurrentTopicIndex(int index) async {
@@ -322,10 +325,7 @@ final class TopicNavigationAttempts {
   }
 
   void closeTab(String siteUrl, String tabId) {
-    explicitTarget(tabId);
-    _retireJumps(
-      (attempt) => attempt.key.siteUrl == siteUrl && attempt.tabId == tabId,
-    );
+    explicitTarget(siteUrl, tabId);
     final highlight = _highlight;
     if (highlight?.siteUrl == siteUrl && highlight?.tabId == tabId) {
       clearHighlight(notify: false);
