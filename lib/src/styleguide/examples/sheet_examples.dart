@@ -82,9 +82,9 @@ final sheetExamples = ComponentExamples(
           'The handle stays at the top edge. Header actions share the built-in '
           'close button style and keep their corner positions as titles wrap.',
       code:
-          'DSheetHeader(leading: DSheetHeaderAction(icon: backIcon, '
+          'DSheetHeader(leading: DModalHeaderAction(icon: backIcon, '
           'tooltip: backLabel, onPressed: goBack), trailing: '
-          'DSheetHeaderAction.close(onPressed: close), children: [title])',
+          'DModalHeaderAction.close(onPressed: close), children: [title])',
       builder: (_) => DSheet<void>(
         trigger: DSheetTrigger(
           builder: (context, open) => _trigger('Open sheet actions', open),
@@ -96,12 +96,12 @@ final sheetExamples = ComponentExamples(
           children: [
             DSheetClose<void>(
               builder: (context, close) => DSheetHeader(
-                leading: DSheetHeaderAction(
+                leading: DModalHeaderAction(
                   icon: const DIcon(DIcons.arrowLeft),
                   tooltip: 'Back',
                   onPressed: close,
                 ),
-                trailing: DSheetHeaderAction.close(onPressed: close),
+                trailing: DModalHeaderAction.close(onPressed: close),
                 children: const [DSheetTitle(child: Text('Sheet actions'))],
               ),
             ),

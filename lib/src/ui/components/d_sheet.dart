@@ -19,10 +19,10 @@ import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/sheet_page_band.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/touch_target.dart';
-import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_history_transition.dart';
 import 'd_mobile_dock_geometry.dart';
+import 'd_modal_header_action.dart';
 import 'd_page_header.dart';
 import 'd_page_surface.dart';
 import 'd_swipe_hint.dart';
@@ -2783,7 +2783,7 @@ class DSheetContent extends StatelessWidget {
                           right: DSpacing.md,
                           child: (DSheetClose<void>(
                             builder: (context, close) =>
-                                DSheetHeaderAction.close(
+                                DModalHeaderAction.close(
                                   onPressed: close,
                                   tooltip: closeSemanticLabel,
                                 ),
@@ -2835,12 +2835,7 @@ class DSheetHeader extends StatelessWidget {
 
   /// The height of a pinned header containing one row of corner actions.
   static double actionRowHeightOf(BuildContext context) =>
-      2 * DSpacing.md +
-      DControlStyle.scaledHeight(
-        DControlSize.small,
-        MediaQuery.textScalerOf(context),
-        context: context,
-      );
+      2 * DSpacing.md + DModalHeaderAction.extentOf(context);
 
   @override
   Widget build(BuildContext context) =>
@@ -2909,61 +2904,6 @@ class _DSheetHeaderScope extends InheritedWidget {
   @override
   bool updateShouldNotify(_DSheetHeaderScope oldWidget) =>
       showCloseButton != oldWidget.showCloseButton;
-}
-
-/// A circular corner action shared by sheet headers and the built-in close.
-class DSheetHeaderAction extends StatelessWidget {
-  const DSheetHeaderAction({
-    super.key,
-    this.buttonKey,
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    this.semanticLabel,
-    this.focusNode,
-    this.hasPopup = false,
-    this.expanded = false,
-    this.loading = false,
-  });
-
-  const DSheetHeaderAction.close({
-    super.key,
-    this.buttonKey,
-    required this.onPressed,
-    this.tooltip,
-    this.semanticLabel,
-    this.focusNode,
-    this.hasPopup = false,
-    this.expanded = false,
-    this.loading = false,
-  }) : icon = const _DSheetCloseIcon();
-
-  final Widget icon;
-  final Key? buttonKey;
-  final String? tooltip;
-  final VoidCallback? onPressed;
-  final String? semanticLabel;
-  final FocusNode? focusNode;
-  final bool hasPopup;
-  final bool expanded;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) => DMenuContentScale.unscaled(
-    child: DButton.iconOnly(
-      key: buttonKey,
-      icon: icon,
-      tooltip: tooltip ?? context.l10n.close,
-      onPressed: onPressed,
-      semanticLabel: semanticLabel,
-      focusNode: focusNode,
-      hasPopup: hasPopup,
-      expanded: expanded,
-      loading: loading,
-      size: DButtonSize.small,
-      variant: DButtonVariant.quiet,
-    ),
-  );
 }
 
 class DSheetTitle extends StatelessWidget {
@@ -3070,41 +3010,6 @@ class DSheetClose<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       DDialogClose<T>(result: null, builder: builder);
-}
-
-class _DSheetCloseIcon extends StatelessWidget {
-  const _DSheetCloseIcon();
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: 16,
-    child: CustomPaint(
-      painter: _DSheetCloseIconPainter(
-        IconTheme.of(context).color ?? DTokens.of(context).foreground,
-      ),
-    ),
-  );
-}
-
-class _DSheetCloseIconPainter extends CustomPainter {
-  const _DSheetCloseIconPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 4 / 3
-      ..strokeCap = StrokeCap.round;
-    canvas
-      ..drawLine(const Offset(4, 4), const Offset(12, 12), paint)
-      ..drawLine(const Offset(12, 4), const Offset(4, 12), paint);
-  }
-
-  @override
-  bool shouldRepaint(_DSheetCloseIconPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 typedef DSheetContentBuilder<T> =

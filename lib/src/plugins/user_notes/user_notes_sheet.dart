@@ -35,9 +35,10 @@ Future<void> showUserNotes({
           scrollWholeSheet: false,
           semanticLabel: context.l10n.userNotesTitle,
           children: [
+            const DSheetHeader(children: []),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 44, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: UserNotesPanel(session: reader, onClose: dialog.close),
               ),
             ),

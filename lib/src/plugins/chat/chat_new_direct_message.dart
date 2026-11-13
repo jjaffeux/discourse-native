@@ -304,9 +304,7 @@ class _ChatNewDirectMessageDialogState
   String get _title =>
       _editing.composingGroup ? appL10n.newGroupChat : appL10n.startChatting;
 
-  Widget _closeButton() => DButton.iconOnly(
-    icon: const DIcon(DIcons.xmark),
-    variant: DButtonVariant.ghost,
+  Widget _closeButton() => DModalHeaderAction.close(
     onPressed: widget.dialog.close,
     tooltip: appL10n.close,
     semanticLabel: appL10n.closeStartChatting,

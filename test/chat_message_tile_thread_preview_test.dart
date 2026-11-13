@@ -2844,7 +2844,7 @@ void main() {
           );
           final closeButton = tester.widget<DButton>(close);
           expect(
-            find.ancestor(of: close, matching: find.byType(DSheetHeaderAction)),
+            find.ancestor(of: close, matching: find.byType(DModalHeaderAction)),
             findsOneWidget,
           );
           expect(closeButton.variant, DButtonVariant.quiet);

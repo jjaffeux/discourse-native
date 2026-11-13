@@ -156,15 +156,23 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
             child: DSheetHeader(
               trailing: DSheetClose<void>(
                 builder: (context, close) =>
-                    DSheetHeaderAction.close(onPressed: close),
+                    DModalHeaderAction.close(onPressed: close),
               ),
-              children: [
-                DSheetTitle(child: Text(title)),
-                DSheetDescription(child: Text(description)),
-              ],
+              children: [DSheetTitle(child: Text(title))],
             ),
           ),
-          Expanded(child: DSheetBody(child: form)),
+          Expanded(
+            child: DSheetBody(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: DSpacing.lg,
+                children: [
+                  DSheetDescription(child: Text(description)),
+                  form,
+                ],
+              ),
+            ),
+          ),
           if (_deleteFailed)
             DFieldError(child: Text(context.l10n.voiceRoomDeleteFailed)),
           DSheetFooter(children: actions),

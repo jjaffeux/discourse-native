@@ -5360,10 +5360,10 @@ void _mobileVoiceFormTests() {
           );
           expect(closeButton.variant, DButtonVariant.quiet);
           expect(
-            find.ancestor(of: close, matching: find.byType(DSheetHeaderAction)),
+            find.ancestor(of: close, matching: find.byType(DModalHeaderAction)),
             findsOneWidget,
           );
-          expect(closeButton.size, DButtonSize.small);
+          expect(tester.getSize(close), const Size.square(44));
           expect(close.hitTestable(), findsOneWidget);
           final footerButtons = find.descendant(
             of: find.byType(DSheetFooter),

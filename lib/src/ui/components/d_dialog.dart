@@ -6,9 +6,10 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
+import '../foundation/control_style.dart';
 import '../foundation/d_overlay_route.dart';
 import '../foundation/surface_depth.dart';
-import 'd_button.dart';
+import 'd_modal_header_action.dart';
 
 /// Why an open-state change was requested.
 enum DDialogChangeReason {
@@ -753,6 +754,40 @@ class DDialogContent extends StatelessWidget {
               .clamp(0.0, maxHeight)
               .toDouble();
     final edges = DSurfaceEdges.resolve(context, DSurfaceDepth.menu);
+    final reserveClose = showCloseButton && DControlStyle.isTouch(context);
+    const closeInset = DSpacing.sm;
+
+    Widget padContent(Widget child, {required bool first}) {
+      if (!first || !reserveClose) {
+        return Padding(padding: contentPadding, child: child);
+      }
+      final extent = DModalHeaderAction.extentOf(context);
+      final reservedEnd = extent + 2 * closeInset;
+      final minimumHeight = extent + closeInset - verticalPadding;
+      final direction = Directionality.of(context);
+      final padding = contentPadding.resolve(direction);
+      final safePadding = direction == TextDirection.ltr
+          ? padding.copyWith(
+              right: padding.right.clamp(reservedEnd, double.infinity),
+            )
+          : padding.copyWith(
+              left: padding.left.clamp(reservedEnd, double.infinity),
+            );
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: minimumHeight.clamp(0, double.infinity),
+        ),
+        child: Align(
+          alignment: Alignment.topCenter,
+          heightFactor: 1,
+          child: SizedBox(
+            width: double.infinity,
+            child: Padding(padding: safePadding, child: child),
+          ),
+        ),
+      );
+    }
+
     final body = Material(
       animationDuration: Duration.zero,
       color: tokens.surface,
@@ -780,10 +815,10 @@ class DDialogContent extends StatelessWidget {
                   Flexible(
                     flex: child.flex,
                     fit: child.fit,
-                    child: Padding(padding: contentPadding, child: child.child),
+                    child: padContent(child.child, first: index == 0),
                   )
                 else
-                  Padding(padding: contentPadding, child: children[index]),
+                  padContent(children[index], first: index == 0),
               ],
               if (children.isEmpty || children.last is! DDialogFooter)
                 SizedBox(height: verticalPadding),
@@ -791,16 +826,13 @@ class DDialogContent extends StatelessWidget {
           ),
           if (showCloseButton)
             PositionedDirectional(
-              top: DSpacing.sm,
-              end: DSpacing.sm,
+              top: closeInset,
+              end: closeInset,
               child:
                   closeButton ??
                   DDialogClose<void>(
-                    builder: (context, close) => DButton.iconOnly(
+                    builder: (context, close) => DModalHeaderAction.close(
                       onPressed: close,
-                      size: DButtonSize.small,
-                      variant: DButtonVariant.ghost,
-                      icon: const _DDialogCloseIcon(),
                       tooltip: closeSemanticLabel,
                       semanticLabel: closeSemanticLabel,
                     ),
@@ -996,40 +1028,6 @@ class DDialogClose<T> extends StatelessWidget {
     final scope = _DDialogContentScope.of(context);
     return builder(context, () => scope.close(result));
   }
-}
-
-class _DDialogCloseIcon extends StatelessWidget {
-  const _DDialogCloseIcon();
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: 16,
-    child: CustomPaint(
-      painter: _DDialogCloseIconPainter(
-        IconTheme.of(context).color ?? DTokens.of(context).foreground,
-      ),
-    ),
-  );
-}
-
-class _DDialogCloseIconPainter extends CustomPainter {
-  const _DDialogCloseIconPainter(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 4 / 3
-      ..strokeCap = StrokeCap.round;
-    canvas
-      ..drawLine(const Offset(4, 4), const Offset(12, 12), paint)
-      ..drawLine(const Offset(12, 4), const Offset(4, 12), paint);
-  }
-
-  @override
-  bool shouldRepaint(_DDialogCloseIconPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 /// Opens a route-owned Dialog and returns its typed result.

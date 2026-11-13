@@ -218,7 +218,7 @@ class _SheetBody extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: headingInset),
           child: DSheetHeader(
             leading: nested
-                ? DSheetHeaderAction(
+                ? DModalHeaderAction(
                     onPressed: () => DDialogClose.close<void>(context),
                     tooltip: context.l10n.back,
                     icon: const DIcon(DIcons.arrowLeft),
@@ -226,7 +226,7 @@ class _SheetBody extends StatelessWidget {
                 : null,
             trailing: nested || grabbed
                 ? null
-                : DSheetHeaderAction.close(
+                : DModalHeaderAction.close(
                     onPressed: () => DDialogClose.close<void>(context),
                   ),
             children: [

@@ -81,12 +81,10 @@ Future<GifResult?> showGifPicker({
       builder: (dialogContext, dialog) => DDialogContent(
         maxWidth: 620,
         semanticLabel: appL10n.searchGIFs,
-        closeButton: DButton.iconOnly(
-          key: const ValueKey('gif-picker-close'),
+        closeButton: DModalHeaderAction.close(
+          buttonKey: const ValueKey('gif-picker-close'),
           onPressed: dialog.close,
-          variant: DButtonVariant.ghost,
           tooltip: appL10n.close,
-          icon: const DIcon(DIcons.xmark),
         ),
         children: [
           DDialogHeader(

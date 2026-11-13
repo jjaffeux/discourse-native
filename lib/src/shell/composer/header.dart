@@ -270,7 +270,7 @@ class ComposerHeader extends StatelessWidget {
             ],
           ),
           child: DDropdownMenuTrigger(
-            builder: (context, trigger) => DSheetHeaderAction.close(
+            builder: (context, trigger) => DModalHeaderAction.close(
               buttonKey: const ValueKey('composer-close'),
               onPressed: empty ? onClose : trigger.toggle,
               tooltip: empty

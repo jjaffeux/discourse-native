@@ -16,7 +16,7 @@ class ComposerSheetHeader extends StatelessWidget {
   Widget build(BuildContext context) => DSheetDragRegion(
     child: DSheetHeader(
       trailing: DSheetClose<void>(
-        builder: (context, close) => DSheetHeaderAction.close(
+        builder: (context, close) => DModalHeaderAction.close(
           buttonKey: closeButtonKey,
           onPressed: close,
           tooltip: context.l10n.close,

@@ -1264,7 +1264,6 @@ class _Chrome extends StatelessWidget {
               : context.l10n.download,
           onTap: downloading ? null : onDownload,
         ),
-      _Button(icon: DIcons.xmark, tooltip: context.l10n.close, onTap: onClose),
     ];
 
     return SafeArea(
@@ -1282,19 +1281,38 @@ class _Chrome extends StatelessWidget {
             spacing: _barGap,
             children: [
               Expanded(child: _position(context)),
-              // Every control at a large text size does not fit a phone; they
-              // shrink together rather than overflow or take the whole bar.
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: constraints.maxWidth * .8,
                 ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: _barGap,
-                    children: actions,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: _barGap,
+                  children: [
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: _barGap,
+                          children: actions,
+                        ),
+                      ),
+                    ),
+                    if (context.isTouch)
+                      Theme(
+                        data: AppTheme.dark.copyWith(
+                          platform: Theme.of(context).platform,
+                        ),
+                        child: DModalHeaderAction.close(onPressed: onClose),
+                      )
+                    else
+                      _Button(
+                        icon: DIcons.xmark,
+                        tooltip: context.l10n.close,
+                        onTap: onClose,
+                      ),
+                  ],
                 ),
               ),
             ],
