@@ -424,12 +424,14 @@ final class _VoiceCallSession {
         clearError: true,
       );
 
-      await _requestStateSync();
+      final stateSync = _requestStateSync();
+      // Send the native mute before awaiting the network so a later user
+      // unmute cannot be overtaken by the initial setting.
+      await Future.wait([
+        stateSync,
+        if (_call?.muted == true) controller.systemCall.setMuted(true),
+      ]);
       if (!isCurrent()) return;
-      if (initiallyMuted) {
-        await controller.systemCall.setMuted(true);
-        if (!isCurrent()) return;
-      }
       await controller.systemCall.connected();
 
       if (!isCurrent()) return;

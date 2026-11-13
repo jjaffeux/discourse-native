@@ -834,6 +834,10 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
     try {
       final auth = await owner.requests.credentialsFor(site);
       if (!current()) return;
+      final pendingIndex = owner.enabled(site)
+          ? auth.run(() => owner.api.readAdminIndex(site, auth))
+          : null;
+      pendingIndex?.ignore();
       final global = await auth.run(
         () => owner.api.readGlobalSettings(site, auth),
       );
@@ -841,9 +845,9 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
       settings = global;
       owner._confirmEnablement(site, global.enabled, this);
       if (global.enabled && owner.enabled(site)) {
-        final value = await auth.run(
-          () => owner.api.readAdminIndex(site, auth),
-        );
+        final value =
+            await (pendingIndex ??
+                auth.run(() => owner.api.readAdminIndex(site, auth)));
         if (!current()) return;
         index = value;
       } else {

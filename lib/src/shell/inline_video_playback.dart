@@ -435,51 +435,55 @@ final class _WebViewInlineVideoPlaybackSession
       controller: controller,
       gestureRecognizers: mediaPlayerGestureRecognizers,
     );
-    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-    if (!_isCurrent(controller)) return;
-    await controller.addJavaScriptChannel(
-      _videoBridgeName,
-      onMessageReceived: (message) {
-        if (!_isCurrent(controller)) return;
-        if (request.audioOnly && message.message.startsWith('{')) {
-          _audioState(message.message);
-          return;
+    void onBridgeMessage(JavaScriptMessage message) {
+      if (!_isCurrent(controller)) return;
+      if (request.audioOnly && message.message.startsWith('{')) {
+        _audioState(message.message);
+        return;
+      }
+      switch (message.message) {
+        case 'play':
+          _publishReady(isPlaying: true);
+        case 'error':
+          _fail(
+            StateError('The WebKit media element could not play the video.'),
+          );
+      }
+    }
+
+    final navigation = NavigationDelegate(
+      onNavigationRequest: (request) {
+        if (!_isCurrent(controller)) return NavigationDecision.prevent;
+        if (!request.isMainFrame || _loadingDocument) {
+          return NavigationDecision.navigate;
         }
-        switch (message.message) {
-          case 'play':
-            _publishReady(isPlaying: true);
-          case 'error':
-            _fail(
-              StateError('The WebKit media element could not play the video.'),
-            );
-        }
+        unawaited(openExternalLink(request.url));
+        return NavigationDecision.prevent;
+      },
+      onPageFinished: (_) {
+        if (!_isCurrent(controller) || !_loadingDocument) return;
+        _loadingDocument = false;
+        _publishReady(isPlaying: false);
+        if (shouldAutoplay) unawaited(play());
+      },
+      onWebResourceError: (error) {
+        if (error.isForMainFrame == false || !_isCurrent(controller)) return;
+        _fail(error);
       },
     );
-    if (!_isCurrent(controller)) return;
-    await controller.setBackgroundColor(Colors.black);
-    if (!_isCurrent(controller)) return;
-    await controller.setNavigationDelegate(
-      NavigationDelegate(
-        onNavigationRequest: (request) {
-          if (!_isCurrent(controller)) return NavigationDecision.prevent;
-          if (!request.isMainFrame || _loadingDocument) {
-            return NavigationDecision.navigate;
-          }
-          unawaited(openExternalLink(request.url));
-          return NavigationDecision.prevent;
-        },
-        onPageFinished: (_) {
-          if (!_isCurrent(controller) || !_loadingDocument) return;
-          _loadingDocument = false;
-          _publishReady(isPlaying: false);
-          if (shouldAutoplay) unawaited(play());
-        },
-        onWebResourceError: (error) {
-          if (error.isForMainFrame == false || !_isCurrent(controller)) return;
-          _fail(error);
-        },
+    await Future.wait([
+      Future<void>.sync(
+        () => controller.setJavaScriptMode(JavaScriptMode.unrestricted),
       ),
-    );
+      Future<void>.sync(
+        () => controller.addJavaScriptChannel(
+          _videoBridgeName,
+          onMessageReceived: onBridgeMessage,
+        ),
+      ),
+      Future<void>.sync(() => controller.setBackgroundColor(Colors.black)),
+      Future<void>.sync(() => controller.setNavigationDelegate(navigation)),
+    ], eagerError: true);
     if (!_isCurrent(controller)) return;
     _publishReady(isPlaying: false);
     await controller.loadHtmlString(

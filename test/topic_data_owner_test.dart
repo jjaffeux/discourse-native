@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
 
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
@@ -2441,6 +2442,36 @@ void main() {
       },
     );
   }
+  test(
+    'whole-topic recovery reads known posts while discovering new IDs',
+    () async {
+      final f = _Fixture()..seed();
+      f.store.put(_site, _post(2, 'deleted'));
+      final reading = f.data.reconcileUncertainMutation(
+        7,
+        [1, 2],
+        'key',
+        wholeTopic: true,
+        alreadyHeld: false,
+      );
+      await f.api.waitTopics(1);
+      await f.api.waitPosts(1);
+      expect(f.api.postReads.single.ids, containsAll([1, 2]));
+      f.api.postReads.single.result.complete([_post(1, 'recovered')]);
+      await _drain();
+      expect(f.store.read<Post>(_site, 1)?.cooked, '<p>initial</p>');
+      expect(f.store.read<Post>(_site, 2), isNotNull);
+      f.api.topicReads.single.result.complete(_payload([], stream: [1, 3]));
+      await f.api.waitPosts(2);
+      expect(f.api.postReads.last.ids, [3]);
+      f.api.postReads.last.result.complete([_post(3, 'new')]);
+      expect((await reading).projection, PostProjectionFreshness.fresh);
+      expect(f.store.read<Post>(_site, 1)?.cooked, '<p>recovered</p>');
+      expect(f.store.read<Post>(_site, 2), isNull);
+      expect(f.store.read<Post>(_site, 3)?.cooked, '<p>new</p>');
+    },
+  );
+
   test(
     'forced opening reserves its reader before pending moderation recovery',
     () async {

@@ -124,6 +124,13 @@ void main() {
       );
       semantics.dispose();
       grants.complete(_json(badgeGrantsWire()));
+      for (
+        var frame = 0;
+        frame < 20 && shell.badges.stateFor(_site, _route).loading;
+        frame++
+      ) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
       await tester.pumpAndSettle();
       expect(find.byType(DSkeletonRegion), findsNothing);
       expect(find.byKey(const ValueKey('badge-grant-1')), findsOneWidget);

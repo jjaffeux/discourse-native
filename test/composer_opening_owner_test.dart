@@ -338,6 +338,11 @@ void main() {
       expect(harness.categoryFor(_site, 5), same(plan.placeholderCategory));
       final composer = harness.build(plan);
       final setup = harness.owner.start(plan, composer);
+      await pumpEventQueue();
+      expect(harness.api.categoryIdsRequested, [
+        [5],
+      ]);
+      expect(harness.categoryFor(_site, 5), same(plan.placeholderCategory));
       harness.metadataReady.complete();
       await setup;
       await pumpEventQueue();

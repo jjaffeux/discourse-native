@@ -1,0 +1,167 @@
+{
+  "baseline": "d66b18efb0efd5e54abfae1ecfd283f93a2d223b",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "unit": "microseconds per operation",
+  "runs": {
+    "refresh_warm_dashboard": {
+      "before": [
+        69440,
+        67824,
+        72854,
+        69722,
+        73013
+      ],
+      "after": [
+        33437,
+        34732,
+        35204,
+        34657,
+        35787
+      ]
+    },
+    "open_badge_detail_and_recipients": {
+      "before": [
+        65415,
+        64991,
+        64904,
+        64894,
+        64598
+      ],
+      "after": [
+        32641,
+        32978,
+        32613,
+        32671,
+        32738
+      ]
+    },
+    "reopen_presented_chat_thread": {
+      "before": [
+        66018,
+        66008,
+        66038,
+        65679,
+        67469
+      ],
+      "after": [
+        33326,
+        33703,
+        32314,
+        32244,
+        33024
+      ]
+    },
+    "refresh_enabled_gamification_admin": {
+      "before": [
+        64742,
+        64727,
+        66976,
+        67250,
+        67235
+      ],
+      "after": [
+        32418,
+        32830,
+        32463,
+        32357,
+        33541
+      ]
+    },
+    "join_voice_room_initially_muted": {
+      "before": [
+        65121,
+        65080,
+        64354,
+        65337,
+        65969
+      ],
+      "after": [
+        33190,
+        33932,
+        32570,
+        32383,
+        33783
+      ]
+    },
+    "open_composer_in_uncached_category": {
+      "before": [
+        63542.0,
+        64880.0,
+        63831.0,
+        64973.0,
+        64688.0
+      ],
+      "after": [
+        32426.0,
+        32433.0,
+        32398.0,
+        31982.0,
+        32403.0
+      ]
+    },
+    "reconcile_whole_topic_moderation": {
+      "before": [
+        65924.0,
+        64680.0,
+        63824.0,
+        64540.0,
+        63679.0
+      ],
+      "after": [
+        32094.0,
+        32469.0,
+        31854.0,
+        32531.0,
+        32496.0
+      ]
+    },
+    "disconnect_account_and_purge_drafts": {
+      "before": [
+        83034,
+        83237,
+        82007,
+        82247,
+        81567
+      ],
+      "after": [
+        57736,
+        57819,
+        57138,
+        57235,
+        56984
+      ]
+    },
+    "prepare_linux_inline_video_webview": {
+      "before": [
+        42598,
+        42777,
+        42293,
+        42715,
+        42711
+      ],
+      "after": [
+        14344,
+        14054,
+        14375,
+        14364,
+        14361
+      ]
+    },
+    "restore_server_composer_draft": {
+      "before": [
+        78764,
+        79352,
+        78887,
+        79696,
+        79945
+      ],
+      "after": [
+        56241,
+        56079,
+        55914,
+        56088,
+        56517
+      ]
+    }
+  }
+}

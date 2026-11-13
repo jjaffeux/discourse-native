@@ -1233,6 +1233,7 @@ final class ComposerDraftCoordinator {
       _commitSequence(target, listedDraft.sequence);
     }
 
+    final pendingRetiredSave = _draftStates[key]?.retiredSaves != null;
     var localRead = await _localStore.readChecked(localSite, target.draftKey);
     if (!localRead.succeeded ||
         (localRead.value?.length ?? 0) >
@@ -1243,7 +1244,8 @@ final class ComposerDraftCoordinator {
     if (!isCurrent()) return true;
     if (local == null) {
       final session = _sessions[composer];
-      if (session != null) {
+      if (session != null &&
+          (pendingRetiredSave || _draftStates[key]?.retiredSaves != null)) {
         await _waitForRetiredSaves(target, session);
         if (!isCurrent()) return true;
         // A retired controller may have failed its first local write and then

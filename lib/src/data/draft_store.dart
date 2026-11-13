@@ -147,10 +147,16 @@ final class ApplicationSupportDraftPersistence implements DraftPersistence {
   });
 
   @override
-  Future<void> deletePrefix(String prefix) => _document.update((state) {
-    state.values.removeWhere((key, _) => key.startsWith(prefix));
-    state.blockedLegacyKeys.removeWhere((key) => key.startsWith(prefix));
-    state.blockedLegacyPrefixes.add(prefix);
+  Future<void> deletePrefix(String prefix) => _deletePrefixes([prefix]);
+
+  Future<void> _deletePrefixes(
+    List<String> prefixes, {
+    bool Function()? ifCurrent,
+  }) => _document.update((state) {
+    if (ifCurrent?.call() == false) return PrivateFileResult.done;
+    state.values.removeWhere((key, _) => prefixes.any(key.startsWith));
+    state.blockedLegacyKeys.removeWhere((key) => prefixes.any(key.startsWith));
+    state.blockedLegacyPrefixes.addAll(prefixes);
     return PrivateFileResult.done;
   });
 
@@ -530,10 +536,16 @@ class DraftStore {
       }
     }
 
+    final persistence = _persistence;
     try {
-      for (final prefix in prefixes) {
+      if (persistence is ApplicationSupportDraftPersistence) {
+        await persistence._deletePrefixes(prefixes, ifCurrent: ifCurrent);
         if (ifCurrent?.call() == false) return;
-        await _persistence.deletePrefix(prefix);
+      } else {
+        for (final prefix in prefixes) {
+          if (ifCurrent?.call() == false) return;
+          await persistence.deletePrefix(prefix);
+        }
       }
     } catch (error, stackTrace) {
       // This is an account boundary. Continuing without a durable site blocker
