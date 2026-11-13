@@ -488,7 +488,7 @@ abstract class ByteCache<T extends Object> {
             responseAllowsPersistentByteCache(streamed.headers);
         final location = streamed.headers['location'];
         if (isHttpRedirectStatus(streamed.statusCode) && location != null) {
-          _cancel(streamed.stream);
+          cancelUnreadHttpBody(streamed.stream).ignore();
           if (redirects >= maxRedirects) {
             throw http.ClientException(appL10n.tooManyImageRedirects, current);
           }
@@ -499,7 +499,7 @@ abstract class ByteCache<T extends Object> {
 
         final contentLength = streamed.contentLength;
         if (contentLength != null && contentLength > maxResponseBytes) {
-          _cancel(streamed.stream);
+          cancelUnreadHttpBody(streamed.stream).ignore();
           return (
             response: _response(streamed, Uint8List(0)),
             oversized: true,
@@ -508,7 +508,7 @@ abstract class ByteCache<T extends Object> {
         }
 
         if (streamed.statusCode != 200) {
-          _cancel(streamed.stream);
+          cancelUnreadHttpBody(streamed.stream).ignore();
           return (
             response: _response(streamed, Uint8List(0)),
             oversized: false,
@@ -521,7 +521,7 @@ abstract class ByteCache<T extends Object> {
           remaining = _remaining(elapsed);
         } on TimeoutException {
           _abort(sent.timeoutAbort);
-          _cancel(streamed.stream);
+          cancelUnreadHttpBody(streamed.stream).ignore();
           rethrow;
         }
         final Uint8List? bytes;
@@ -638,7 +638,7 @@ abstract class ByteCache<T extends Object> {
       if (error is TimeoutException || transfer.cancelled) _abort(timeoutAbort);
       response
           ?.then<void>(
-            (lateResponse) => _cancel(lateResponse.stream),
+            (lateResponse) => cancelUnreadHttpBody(lateResponse.stream),
             onError: (Object _, StackTrace _) {},
           )
           .ignore();
@@ -714,9 +714,6 @@ abstract class ByteCache<T extends Object> {
       },
     );
   }
-
-  void _cancel(Stream<List<int>> stream) =>
-      stream.listen(null).cancel().ignore();
 
   Duration _remaining(Stopwatch elapsed) {
     final remaining = timeout - elapsed.elapsed;

@@ -127,13 +127,13 @@ Future<http.Response> sendBoundedHttpRequest(
   } on TimeoutException {
     timeoutAbort.complete();
     response
-        .then<void>((lateResponse) => _cancel(lateResponse.stream))
+        .then<void>((lateResponse) => cancelUnreadHttpBody(lateResponse.stream))
         .ignore();
     rethrow;
   }
   final contentLength = streamed.contentLength;
   if (contentLength != null && contentLength > maxBodyBytes) {
-    _cancel(streamed.stream);
+    cancelUnreadHttpBody(streamed.stream).ignore();
     throw HttpResponseTooLargeException(request.url, maxBodyBytes);
   }
 
@@ -142,7 +142,7 @@ Future<http.Response> sendBoundedHttpRequest(
     remaining = _remaining(timeout, elapsed);
   } on TimeoutException {
     timeoutAbort.complete();
-    _cancel(streamed.stream);
+    cancelUnreadHttpBody(streamed.stream).ignore();
     rethrow;
   }
   final Uint8List bytes;
@@ -271,4 +271,6 @@ Duration _remaining(Duration timeout, Stopwatch elapsed) {
   return remaining;
 }
 
-void _cancel(Stream<List<int>> stream) => stream.listen(null).cancel().ignore();
+/// Releases a response body whose bytes the caller will never consume.
+Future<void> cancelUnreadHttpBody(Stream<List<int>> stream) =>
+    stream.listen(null).cancel();

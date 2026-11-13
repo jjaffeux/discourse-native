@@ -155,12 +155,12 @@ final class NativeVideoDownloader implements VideoDownloader {
           // A transport may complete despite the abort signal. Release any
           // late body instead of leaving its connection without a consumer.
           pending
-              .then<void>((late) => late.stream.listen(null).cancel())
+              .then<void>((late) => cancelUnreadHttpBody(late.stream))
               .ignore();
           rethrow;
         }
         if (isHttpRedirectStatus(response.statusCode)) {
-          await response.stream.listen(null).cancel();
+          await cancelUnreadHttpBody(response.stream);
           final location = response.headers['location'];
           if (location == null || redirects >= 5) {
             throw const VideoDownloadException();
@@ -175,7 +175,7 @@ final class NativeVideoDownloader implements VideoDownloader {
                     .trim()
                     .toLowerCase() ==
                 'text/html') {
-          await response.stream.listen(null).cancel();
+          await cancelUnreadHttpBody(response.stream);
           throw const VideoDownloadException();
         }
 
@@ -197,7 +197,7 @@ final class NativeVideoDownloader implements VideoDownloader {
         } finally {
           // Until the loop takes ownership, a retired account or a file-open
           // failure still leaves the response waiting for a consumer.
-          if (!bodyStarted) response.stream.listen(null).cancel().ignore();
+          if (!bodyStarted) cancelUnreadHttpBody(response.stream).ignore();
           await output?.close();
         }
         if (length == 0) throw const VideoDownloadException();

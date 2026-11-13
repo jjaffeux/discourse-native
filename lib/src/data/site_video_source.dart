@@ -160,14 +160,14 @@ final class SiteVideoSourceResolver {
         // Closing or timing out can win just before the transport delivers
         // headers. The abandoned response still needs its body cancelled.
         pending
-            .then<void>((late) => late.stream.listen(null).cancel())
+            .then<void>((late) => cancelUnreadHttpBody(late.stream))
             .ignore();
         rethrow;
       }
       // Only status and redirect headers are needed, even if the server
       // ignores the byte range. Release the body without buffering it.
       await _guard(
-        response.stream.listen(null).cancel(),
+        cancelUnreadHttpBody(response.stream),
         elapsed,
         lease: lease,
       );
