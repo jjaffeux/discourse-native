@@ -263,6 +263,7 @@ class ShellController extends FrameSafeNotifier
     SiteVideoThumbnailRepository? videoThumbnails,
     SitePdfThumbnailRepository? pdfThumbnails,
     this._discoverSites,
+    this._onLoaded,
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
     UpdateStore? updateStore,
@@ -380,6 +381,7 @@ class ShellController extends FrameSafeNotifier
   final ShellApiPorts api;
 
   DiscoverSites? _discoverSites;
+  final void Function(ShellController)? _onLoaded;
   DiscoverSites get discoverSites => _discoverSites ??= DiscoverSites();
 
   final bool ownsApi;
@@ -1872,6 +1874,7 @@ class ShellController extends FrameSafeNotifier
     // Refresh only the selected account; persisted metadata can draw inactive
     // sites until their first selection.
     unawaited(_refreshAccountState(initialInstance));
+    _onLoaded?.call(this);
   }
 
   bool contains(String url) => _instances.any((i) => i.url == url);

@@ -143,6 +143,9 @@ final class AppRuntime {
   ShellController get controller => _controller;
 
   ShellController _createController() => ShellController(
+    onLoaded: (controller) {
+      if (_isCurrent(controller)) _notificationIngress.ready(controller);
+    },
     instanceStore: _store,
     api: _api,
     authenticator: _authenticator,
@@ -305,7 +308,6 @@ final class AppRuntime {
     try {
       await controller.load();
       if (!_isCurrent(controller)) return;
-      _notificationIngress.ready(controller);
       if (pluginsStarted) {
         await plugins.startPhase(
           PluginStartupPhase.appReady,

@@ -348,6 +348,59 @@ void main() {
     },
   );
 
+  test('notification taps survive a failed instance load and retry', () async {
+    final connected = instance(
+      'one.example',
+    ).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
+    final store = _RetryableStore([connected]);
+    final opened = <String>[];
+    final manifest = PluginManifest([
+      _Module(
+        _LifecycleProbe(),
+        session: () => PluginSessionContribution(
+          lifecycle: _SessionProbe(),
+          capabilities: [
+            _LinkHandler((url) async {
+              opened.add(url);
+              return true;
+            }),
+          ],
+        ),
+      ),
+    ]);
+    final fixture = _Fixture();
+    final runtime = _runtime(
+      fixture.dependencies(
+        store: store,
+        authenticator: FakeAuthenticator.signedIn([
+          connected,
+        ], site: fixture.api),
+        manifest: manifest,
+      ),
+    );
+    final urls = StreamController<String>(sync: true);
+    addTearDown(() async {
+      runtime.dispose();
+      await urls.close();
+      await _turn();
+    });
+    runtime.listenNotificationOpens(urls.stream);
+    const first = 'https://one.example/t/cold-start/42';
+    const second = 'https://one.example/t/while-failed/43';
+    urls.add(first);
+    await runtime.start(runtime.controller);
+    expect(runtime.controller.loadStatus, InstanceLoadStatus.failed);
+    urls.add(second);
+    await _turn();
+    expect(opened, isEmpty);
+
+    store.failLoad = false;
+    await runtime.controller.load();
+    await _turn();
+    expect(runtime.controller.loadStatus, InstanceLoadStatus.ready);
+    expect(opened, [first, second]);
+  });
+
   for (final lateFailure in [false, true]) {
     test(
       'replacement resumes notification delivery before retired navigation ${lateFailure ? 'fails' : 'finishes'}',
@@ -831,6 +884,18 @@ final class _LifecycleProbe extends PluginAppLifecycle {
     closes++;
     events?.add('plugin');
     await closeGate;
+  }
+}
+
+final class _RetryableStore extends FakeInstanceStore {
+  _RetryableStore(super.initial);
+
+  bool failLoad = true;
+
+  @override
+  Future<List<DiscourseInstance>> load() async {
+    if (failLoad) throw StateError('instance store unavailable');
+    return super.load();
   }
 }
 
