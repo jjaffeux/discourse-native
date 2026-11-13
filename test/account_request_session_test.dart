@@ -43,8 +43,12 @@ void main() {
         await pumpEventQueue();
         lifecycle.invalidate(_site);
         final successor = lifecycle.capture(_site);
-        gate.complete('replacement-credential');
-        await rejected;
+        try {
+          await rejected.timeout(const Duration(seconds: 1));
+        } finally {
+          gate.completeError(StateError('late credential read failed'));
+        }
+        await pumpEventQueue();
         expect(successor.isCurrent, isTrue);
         if (stage == 'key') expect(reader.clientReads, 0);
       },

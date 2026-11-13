@@ -19,7 +19,10 @@ final class AccountRequestSession {
     SiteApiKeyReader reader,
   ) async {
     _requireCurrent();
-    final apiKey = await reader.apiKeyFor(siteUrl);
+    final apiKey = await lease.waitWhileCurrent(
+      reader.apiKeyFor(siteUrl),
+      const AccountRequestRetiredException(),
+    );
     _requireCurrent();
     return AccountRequestCredentials._(this, apiKey, '');
   }
@@ -33,9 +36,17 @@ final class AccountRequestSession {
     ApiCredentialReader reader,
   ) async {
     _requireCurrent();
-    final apiKey = await reader.apiKeyFor(siteUrl);
+    final apiKey = await lease.waitWhileCurrent(
+      reader.apiKeyFor(siteUrl),
+      const AccountRequestRetiredException(),
+    );
     _requireCurrent();
-    final clientId = apiKey == null ? '' : await reader.clientId();
+    final clientId = apiKey == null
+        ? ''
+        : await lease.waitWhileCurrent(
+            reader.clientId(),
+            const AccountRequestRetiredException(),
+          );
     _requireCurrent();
     return AccountRequestCredentials._(this, apiKey, clientId);
   }
