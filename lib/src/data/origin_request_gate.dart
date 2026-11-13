@@ -337,6 +337,7 @@ final class OriginRequestGate {
     const error = OriginRequestGateClosedException();
     final stackTrace = StackTrace.current;
     for (final state in _origins.values) {
+      state.waiting.clear();
       state.cooldown.cancel();
     }
     for (final queued in _waiting.values) {
