@@ -3,9 +3,57 @@ import 'dart:io';
 
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer/upload_preview.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
+    test(
+      'staged video requests native artwork on supported platforms ($platform)',
+      () async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = platform;
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        const channel = MethodChannel('org.discourse.native/video_thumbnails');
+        final calls = <MethodCall>[];
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          return call.method == 'generate' ? Uint8List.fromList([42]) : null;
+        });
+        addTearDown(() {
+          debugDefaultTargetPlatformOverride = previous;
+          messenger.setMockMethodCallHandler(channel, null);
+        });
+
+        final preview = ComposerUploadPreview.forFile(
+          ComposerUploadFile(
+            name: 'video.mp4',
+            length: () async => 4,
+            openRead: () => Stream.value([1, 2, 3, 4]),
+          ),
+        )!;
+        await preview.ready;
+        final staged = preview.file!;
+        try {
+          if (platform == TargetPlatform.macOS) {
+            expect(calls.map((call) => call.method), ['generate', 'cancel']);
+            expect(preview.poster, [42]);
+          } else {
+            expect(calls, isEmpty);
+            expect(preview.poster, isNull);
+          }
+        } finally {
+          preview.release();
+          await _waitUntilRemoved(staged);
+        }
+      },
+    );
+  }
+
   test(
     'a viewer retains its staged original after the upload is removed',
     () async {

@@ -81,10 +81,7 @@ final class ComposerUploadPreview extends ChangeNotifier {
       }
       if (_references == 0) return;
       notifyListeners();
-      if (isVideo &&
-          !kIsWeb &&
-          (defaultTargetPlatform == TargetPlatform.iOS ||
-              defaultTargetPlatform == TargetPlatform.macOS)) {
+      if (isVideo && nativeThumbnailsSupported) {
         final request = generateNativeVideoThumbnail(staged.uri);
         _thumbnail = request;
         try {
