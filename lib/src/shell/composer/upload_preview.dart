@@ -17,7 +17,14 @@ final class ComposerUploadPreview extends ChangeNotifier {
 
   final ComposerUploadFile original;
   Future<void>? _ready;
-  Future<void> get ready => _ready ??= _stage();
+  Future<void> get ready {
+    if (_ready case final pending?) return pending;
+    final ready = Completer<void>();
+    _ready = ready.future;
+    ready.complete(_stage());
+    return ready.future;
+  }
+
   void start() => unawaited(ready);
   File? file;
   Uint8List? poster;

@@ -113,6 +113,29 @@ void main() {
     expect(preview.file, isNull);
   });
 
+  test('reentrant readiness shares the same staging operation', () async {
+    var reads = 0;
+    late final ComposerUploadPreview preview;
+    Future<void>? reentrant;
+    preview = ComposerUploadPreview.forFile(
+      ComposerUploadFile(
+        name: 'photo.png',
+        length: () async {
+          if (++reads == 1) reentrant = preview.ready;
+          return 0;
+        },
+        openRead: () => throw StateError('Empty file must not be read'),
+      ),
+    )!;
+    addTearDown(preview.release);
+
+    final ready = preview.ready;
+    await ready;
+    await reentrant;
+    expect(reentrant, same(ready));
+    expect(reads, 1);
+  });
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     test(
       'staged video requests native artwork on supported platforms ($platform)',
