@@ -42,26 +42,42 @@ class PostChecklistUpdate {
 class PostChecklistDocument {
   PostChecklistDocument(String source) : this._(html.parseFragment(source));
 
-  PostChecklistDocument._(this._document) {
-    _boxes = _document.querySelectorAll('span.chcklst-box').where((box) {
-      for (var parent = box.parent; parent != null; parent = parent.parent) {
-        if (parent.localName == 'aside' &&
-            parent.classes.contains('quote') &&
-            [
-              'data-username',
-              'data-post',
-              'data-topic',
-            ].any(parent.attributes.containsKey)) {
-          return false;
-        }
-      }
-      return true;
-    }).toList();
-  }
+  PostChecklistDocument._(this._document);
 
   static const indexAttribute = 'data-native-checklist-index';
   final dom.DocumentFragment _document;
-  late final List<dom.Element> _boxes;
+  late final List<dom.Element> _boxes = _ownedBoxes(_document);
+
+  static List<dom.Element> _ownedBoxes(
+    dom.DocumentFragment document, {
+    bool clearIndexes = false,
+  }) {
+    final boxes = <dom.Element>[];
+    void visit(dom.Node parent, {bool quoted = false}) {
+      for (final node in parent.nodes) {
+        if (node is! dom.Element) continue;
+        if (clearIndexes) node.attributes.remove(indexAttribute);
+        final excluded =
+            quoted ||
+            (node.localName == 'aside' &&
+                node.classes.contains('quote') &&
+                (node.attributes.containsKey('data-username') ||
+                    node.attributes.containsKey('data-post') ||
+                    node.attributes.containsKey('data-topic')));
+        if (!excluded &&
+            node.localName == 'span' &&
+            node.classes.contains('chcklst-box')) {
+          boxes.add(node);
+        }
+        if (!excluded || clearIndexes) visit(node, quoted: excluded);
+      }
+    }
+
+    visit(document);
+    return boxes;
+  }
+
+  static final _sourcePattern = RegExp(r'^\d+:\d+$');
 
   late final List<PostChecklistTarget> targets = List.unmodifiable([
     for (var i = 0; i < _boxes.length; i++)
@@ -71,9 +87,7 @@ class PostChecklistDocument {
         checked: _boxes[i].classes.contains('checked'),
         permanent: _boxes[i].classes.contains('permanent'),
         source:
-            RegExp(
-              r'^\d+:\d+$',
-            ).hasMatch(_boxes[i].attributes['data-chk-src'] ?? '')
+            _sourcePattern.hasMatch(_boxes[i].attributes['data-chk-src'] ?? '')
             ? _boxes[i].attributes['data-chk-src']
             : null,
       ),
@@ -85,21 +99,16 @@ class PostChecklistDocument {
 
   /// Every build of a checklist post renders this, so it is kept rather than
   /// derived again: nothing modifies the parsed tree it is derived from.
-  late final String annotatedHtml = _annotate(
-    // A deep copy has the parsed tree's structure, so it finds the same boxes
-    // in the same order without parsing the markup a second time.
-    PostChecklistDocument._(_document.clone(true)),
-  );
+  late final String annotatedHtml = _annotate();
 
-  static String _annotate(PostChecklistDocument copy) {
+  String _annotate() {
+    final copy = _document.clone(true);
     // Untrusted markup cannot supply an index for an excluded quote.
-    for (final node in copy._document.querySelectorAll('[$indexAttribute]')) {
-      node.attributes.remove(indexAttribute);
+    final boxes = _ownedBoxes(copy, clearIndexes: true);
+    for (var i = 0; i < boxes.length; i++) {
+      boxes[i].attributes[indexAttribute] = '$i';
     }
-    for (var i = 0; i < copy._boxes.length; i++) {
-      copy._boxes[i].attributes[indexAttribute] = '$i';
-    }
-    return copy._document.outerHtml;
+    return copy.outerHtml;
   }
 
   String withStates(Map<int, bool> states) {

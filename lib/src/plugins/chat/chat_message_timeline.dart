@@ -176,18 +176,18 @@ abstract final class ChatMessageTimeline {
     ChatTimelineSnapshot held,
     Iterable<ChatMessage> arrived,
   ) {
-    final dates = <int, DateTime>{
-      for (final id in held.ids)
-        if (held._message(id) case final message?)
-          id: message.createdAt ?? _wireEpoch,
-      for (final message in arrived)
-        message.id: message.createdAt ?? _wireEpoch,
+    final messages = <int, ChatMessage>{
+      for (final id in held.ids) id: ?held._message(id),
+      for (final message in arrived) message.id: message,
     };
-
-    return dates.keys.toList()..sort((a, b) {
-      final byDate = dates[a]!.compareTo(dates[b]!);
-      return byDate != 0 ? byDate : a.compareTo(b);
-    });
+    final ordered = messages.entries.toList()
+      ..sort((a, b) {
+        final byDate = (a.value.createdAt ?? _wireEpoch).compareTo(
+          b.value.createdAt ?? _wireEpoch,
+        );
+        return byDate != 0 ? byDate : a.key.compareTo(b.key);
+      });
+    return [for (final entry in ordered) entry.key];
   }
 
   static List<int> _mergeDirectional(
@@ -195,18 +195,26 @@ abstract final class ChatMessageTimeline {
     Iterable<ChatMessage> arrived, {
     required bool prepend,
   }) {
-    final heldIds = held.toSet();
-    final dates = <int, DateTime>{
-      for (final message in arrived)
-        if (!heldIds.contains(message.id))
-          message.id: message.createdAt ?? _wireEpoch,
-    };
+    final dates = <int, DateTime>{};
+    int? firstId;
+    int? lastId;
+    for (final message in arrived) {
+      final id = message.id;
+      dates[id] = message.createdAt ?? _wireEpoch;
+      if (firstId == null || id < firstId) firstId = id;
+      if (lastId == null || id > lastId) lastId = id;
+    }
+    if (firstId == null) return held;
+    for (final id in held) {
+      if (id < firstId || id > lastId!) continue;
+      dates.remove(id);
+      if (dates.isEmpty) return held;
+    }
     final fresh = dates.keys.toList()
       ..sort((a, b) {
         final byDate = dates[a]!.compareTo(dates[b]!);
         return byDate != 0 ? byDate : a.compareTo(b);
       });
-    if (fresh.isEmpty) return held;
 
     return List.unmodifiable(
       prepend ? [...fresh, ...held] : [...held, ...fresh],

@@ -87,12 +87,17 @@ Object? _decodeEncodedJson(_EncodedJson input) =>
 
 Encoding _encoding(String name) => Encoding.getByName(name) ?? utf8;
 
+final _charsetParameter = RegExp(r'''charset\s*=\s*["']?([^;\s"']+)''');
+
 String _responseEncodingName(Map<String, String> headers) {
-  final contentType = headers['content-type']?.toLowerCase();
+  final header = headers['content-type'];
+  if (header == 'application/json' ||
+      header == 'application/json; charset=utf-8') {
+    return 'utf-8';
+  }
+  final contentType = header?.toLowerCase();
   if (contentType != null) {
-    final charset = RegExp(
-      r'''charset\s*=\s*["']?([^;\s"']+)''',
-    ).firstMatch(contentType)?.group(1);
+    final charset = _charsetParameter.firstMatch(contentType)?.group(1);
     if (charset != null && Encoding.getByName(charset) != null) return charset;
     final mime = contentType.split(';').first.trim();
     if (mime == 'application/json' || mime.endsWith('+json')) return 'utf-8';

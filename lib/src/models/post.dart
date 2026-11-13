@@ -1266,30 +1266,33 @@ class TopicDetail with Storable<TopicDetail> {
       plugins: incoming.plugins.mergeTopicRecordsFrom(plugins),
     );
     if (incoming.isMegaTopic) return _mergeMegaTopic(incoming);
-    final arrived = incoming.stream.toSet();
     // A refetch can answer from before a reply that was just appended here,
     // so an id after every post it returned is kept. One it leaves out from
     // between those posts is one the site no longer serves to this reader:
     // kept, it would move behind later replies as an id no read can fill.
-    final caughtUp = stream.lastIndexWhere(arrived.contains);
-    // A locally expanded gap id is absent from the server's filtered stream
-    // by design. When a full topic refetch arrives, let it collapse back into
-    // the incoming gap rather than mistaking that id for a brand-new reply and
-    // appending it at the end of the topic.
-    final incomingGapIds = {
-      for (final gap in incoming.gapsBefore.values) ...gap,
-      for (final gap in incoming.gapsAfter.values) ...gap,
-    };
-    final missing = [
-      for (final id in stream.skip(caughtUp + 1))
-        if (!incomingGapIds.contains(id)) id,
-    ];
-    var merged = missing.isEmpty
-        ? incoming
-        : incoming.copyWith(
+    var merged = incoming;
+    if (stream.isNotEmpty && stream.last != incoming.stream.lastOrNull) {
+      final arrived = incoming.stream.toSet();
+      final caughtUp = stream.lastIndexWhere(arrived.contains);
+      if (caughtUp < stream.length - 1) {
+        // A locally expanded gap id is absent from the server's filtered
+        // stream by design. Collapse it back into the incoming gap on refetch.
+        final incomingGapIds = {
+          for (final gap in incoming.gapsBefore.values) ...gap,
+          for (final gap in incoming.gapsAfter.values) ...gap,
+        };
+        final missing = [
+          for (final id in stream.skip(caughtUp + 1))
+            if (!incomingGapIds.contains(id)) id,
+        ];
+        if (missing.isNotEmpty) {
+          merged = incoming.copyWith(
             stream: [...incoming.stream, ...missing],
             postsCount: incoming.postsCount + missing.length,
           );
+        }
+      }
+    }
     if (merged.recommendations == null && recommendations != null) {
       merged = merged.copyWith(recommendations: recommendations);
     }

@@ -412,12 +412,17 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
   return ResolvedSitePalette.fromJson(json);
 }
 
+final _paletteSelectorSpelling = RegExp(r'root|avatar|\\');
+
 /// Parses top-level rules independently so one modern construct csslib does
 /// not understand cannot make it stop before a later `:root` palette override.
 /// Nested conditional roots remain excluded, matching the browser-independent
 /// contract of this parser.
 Iterable<RuleSet> _topLevelRules(String source) sync* {
   for (final block in _topLevelBlocks(source)) {
+    // The selectors we use need one of these identifiers. Escaped spellings
+    // still go through csslib.
+    if (!_paletteSelectorSpelling.hasMatch(block)) continue;
     final StyleSheet sheet;
     try {
       sheet = css.parse(block, errors: []);

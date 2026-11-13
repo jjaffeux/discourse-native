@@ -36,16 +36,18 @@ class ComposerLiteralContainers {
   }
 
   ComposerLiteralContainers(String source) {
+    final codeClosers = source.contains('[/')
+        ? _codeClose.allMatches(source).toList()
+        : const <RegExpMatch>[];
+    if (!source.contains('<!--') &&
+        codeClosers.isEmpty &&
+        !_hasNestedContext(source)) {
+      return;
+    }
     final indents = <int>[];
-    final codeClosers = _codeClose.allMatches(source).toList();
     final codeBlocks = <int, int?>{};
     final gridBlocks = <int, int?>{};
     final gridClosers = _gridClose.allMatches(source).toList();
-    if (!source.contains('<!--') &&
-        codeClosers.isEmpty &&
-        !_nestedContext.hasMatch(source)) {
-      return;
-    }
     String? fence;
     var fenceIndent = 0;
     var fenceStart = 0;
@@ -436,6 +438,24 @@ final _nestedContext = RegExp(
   r'^(?:[ \t]|>|[-+*][ \t]|\d{1,9}[.)][ \t])',
   multiLine: true,
 );
+
+bool _hasNestedContext(String source) {
+  // Preserve the multiline pattern's other line terminators.
+  if (source.contains('\r') ||
+      source.contains('\u2028') ||
+      source.contains('\u2029')) {
+    return _nestedContext.hasMatch(source);
+  }
+  var start = 0;
+  while (start < source.length) {
+    if (_nestedContext.matchAsPrefix(source, start) != null) return true;
+    final newline = source.indexOf('\n', start);
+    if (newline == -1) return false;
+    start = newline + 1;
+  }
+  return false;
+}
+
 final _quote = RegExp(r' {0,3}>[ \t]?');
 final _list = RegExp(r'^( {0,3})([-+*]|\d{1,9}[.)])([ \t]+)');
 final _fence = RegExp(r'^ {0,3}(`{3,}|~{3,})(.*)$');

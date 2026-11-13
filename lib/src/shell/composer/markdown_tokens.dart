@@ -185,6 +185,17 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
       ? _markdownLabelEnds(source, start, limit, skipInline)
       : const <int, int>{};
   for (var offset = start; offset < limit; offset += 1) {
+    if (skipInline == null && labels.isEmpty) {
+      final opener = source.indexOf('[', offset);
+      if (opener < 0 || opener >= limit) break;
+      var escapeStart = opener;
+      while (escapeStart > offset &&
+          source.codeUnitAt(escapeStart - 1) == 0x5c) {
+        escapeStart -= 1;
+      }
+      offset = opener;
+      if ((opener - escapeStart).isOdd) continue;
+    }
     final skipped = skipInline?.call(offset, limit);
     if (skipped != null && skipped > offset) {
       offset = skipped - 1;

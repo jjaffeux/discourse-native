@@ -404,43 +404,31 @@ final class SitePresentationController extends FrameSafeNotifier {
     if (catalog == null) return const [];
 
     final needle = query.toLowerCase();
-    // Ranked insertion below decides the whole result from (rank, name), and
-    // names are unique in the catalog, so the answer does not depend on the
-    // order the catalog is walked in. Sorting a copy of every emoji the site
-    // has first only spent a keystroke's budget arriving back where it was.
-    final best = <(int, SiteEmoji)>[];
+    final prefixes = <SiteEmoji>[];
+    final aliasMatches = <SiteEmoji>[];
+    final infixes = <SiteEmoji>[];
     final aliases = _emojiSearchAliases[siteUrl] ?? const {};
-    for (final emoji in catalog.byName.values) {
-      final name = emoji.name.toLowerCase();
-      final rank = name.startsWith(needle)
-          ? 0
-          : (aliases[emoji.name]?.any(
-                  (alias) => alias.toLowerCase().startsWith(needle),
-                ) ??
-                false)
-          ? 1
-          : name.indexOf(needle) > 0
-          ? 2
-          : null;
-      if (rank == null) continue;
-
-      final candidate = (rank, emoji);
-      var index = 0;
-      while (index < best.length &&
-          _compareEmoji(best[index], candidate) <= 0) {
-        index++;
+    for (final emoji in catalog.alphabetical) {
+      final nameMatch = emoji.name.toLowerCase().indexOf(needle);
+      if (nameMatch == 0) {
+        prefixes.add(emoji);
+        if (prefixes.length == cappedLimit) return prefixes;
+      } else if (aliasMatches.length < cappedLimit) {
+        final matchesAlias =
+            aliases[emoji.name]?.any(
+              (alias) => alias.toLowerCase().startsWith(needle),
+            ) ??
+            false;
+        if (matchesAlias) {
+          aliasMatches.add(emoji);
+        } else if (infixes.length < cappedLimit && nameMatch > 0) {
+          infixes.add(emoji);
+        }
       }
-      if (index >= cappedLimit) continue;
-
-      best.insert(index, candidate);
-      if (best.length > cappedLimit) best.removeLast();
     }
-    return [for (final match in best) match.$2];
-  }
-
-  static int _compareEmoji((int, SiteEmoji) a, (int, SiteEmoji) b) {
-    if (a.$1 != b.$1) return a.$1.compareTo(b.$1);
-    return a.$2.name.compareTo(b.$2.name);
+    prefixes.addAll(aliasMatches.take(cappedLimit - prefixes.length));
+    prefixes.addAll(infixes.take(cappedLimit - prefixes.length));
+    return prefixes;
   }
 
   static Map<String, List<String>> _immutableAliases(

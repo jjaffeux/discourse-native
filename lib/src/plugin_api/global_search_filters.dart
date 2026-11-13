@@ -842,8 +842,17 @@ List<GlobalSearchOrder> globalSearchOrders(
 String? validateGlobalSearchCondition(
   GlobalSearchCondition condition,
   GlobalSearchCapabilities c,
+) => _validateGlobalSearchCondition(
+  condition,
+  c,
+  globalSearchFilter(condition.filterId, c),
+);
+
+String? _validateGlobalSearchCondition(
+  GlobalSearchCondition condition,
+  GlobalSearchCapabilities c,
+  GlobalSearchFilter? d,
 ) {
-  final d = globalSearchFilter(condition.filterId, c);
   if (d == null || !globalSearchFilterAvailable(d, c)) {
     return appL10n.thisFilterIsUnavailableOnThisSite;
   }
@@ -1012,6 +1021,10 @@ GlobalSearchExpression parseGlobalSearchExpression(
   final target = scope == GlobalSearchScope.all
       ? GlobalSearchScope.forum
       : scope;
+  late final definitions = globalSearchDefinitions(c);
+  late final scopedDefinitions = definitions
+      .where((d) => d.scope == target)
+      .toList();
   final aliases = switch (target) {
     GlobalSearchScope.forum => {
       'l': 'order:latest',
@@ -1052,12 +1065,11 @@ GlobalSearchExpression parseGlobalSearchExpression(
       continue;
     }
     GlobalSearchCondition? condition;
-    for (final d in globalSearchDefinitions(
-      c,
-    ).where((d) => d.scope == target)) {
+    final foldedToken = token.toLowerCase();
+    for (final d in scopedDefinitions) {
       for (final choice in d.choices) {
-        if (choice.token?.toLowerCase() == token.toLowerCase() ||
-            '${d.id}:${choice.value}'.toLowerCase() == token.toLowerCase()) {
+        if (choice.token?.toLowerCase() == foldedToken ||
+            '${d.id}:${choice.value}'.toLowerCase() == foldedToken) {
           condition = GlobalSearchCondition(
             filterId: d.id,
             operator: d.operators.first.value,
@@ -1067,8 +1079,8 @@ GlobalSearchExpression parseGlobalSearchExpression(
       }
     }
     if (condition == null) {
-      for (final d in globalSearchDefinitions(c)) {
-        if (d.scope != target || !const ['@', '#'].contains(d.token)) continue;
+      for (final d in scopedDefinitions) {
+        if (!const ['@', '#'].contains(d.token)) continue;
         if (token.startsWith(d.token!)) {
           condition = GlobalSearchCondition(
             filterId: d.id,
@@ -1122,12 +1134,11 @@ GlobalSearchExpression parseGlobalSearchExpression(
         );
       }
       if (condition == null) {
-        for (final d in globalSearchDefinitions(c).where(
-          (d) =>
-              d.scope == target &&
-              d.kind != GlobalSearchFilterKind.choice &&
-              d.kind != GlobalSearchFilterKind.multi,
-        )) {
+        for (final d in scopedDefinitions) {
+          if (d.kind == GlobalSearchFilterKind.choice ||
+              d.kind == GlobalSearchFilterKind.multi) {
+            continue;
+          }
           final ops = d.opTokens.entries.where((e) => e.value == key);
           if (d.token == key || d.id.toLowerCase() == key || ops.isNotEmpty) {
             if (d.kind == GlobalSearchFilterKind.date &&
@@ -1156,7 +1167,11 @@ GlobalSearchExpression parseGlobalSearchExpression(
       }
       plain.add(raw);
     } else {
-      final error = validateGlobalSearchCondition(condition, c);
+      final filterId = condition.filterId;
+      final filter = filterId == 'order'
+          ? globalSearchOrderFilter(c)
+          : definitions.where((d) => d.id == filterId).firstOrNull;
+      final error = _validateGlobalSearchCondition(condition, c, filter);
       if (error != null) throw FormatException(error);
       conditions.add(condition);
     }
