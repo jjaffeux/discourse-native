@@ -49,17 +49,23 @@ void main() {
       addTearDown(shell.dispose);
       final response = Completer<List<TopicCategory>>();
       api.pendingSearch = response.future;
-      final pending = shell.searchTopicCategoriesForEditor(
-        siteUrl: _site,
-        term: 'Directory',
-      );
+      var finished = false;
+      final pending = shell
+          .searchTopicCategoriesForEditor(siteUrl: _site, term: 'Directory')
+          .then((result) {
+            finished = true;
+            return result;
+          });
       await pumpEventQueue();
       expect(api.includeUncategorizedRequests, [true]);
       final lease = shell.lifecycle.capture(_site);
       shell.clearAccountSessionState(_site);
       expect(lease.isCurrent, isTrue);
+      await pumpEventQueue();
+      final finishedBeforeResponse = finished;
       response.complete([_directoryRoot]);
       expect(await pending, isEmpty);
+      expect(finishedBeforeResponse, isTrue);
     },
   );
 

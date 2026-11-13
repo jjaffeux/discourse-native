@@ -54,6 +54,21 @@ final class _TaxonomySite {
   _TagSearchEntriesCache? tagSearchEntriesCache;
   _KnownTagIndex? knownTagIndex;
 
+  Future<List<TopicCategory>> waitForCategories(
+    Future<List<TopicCategory>> Function() load,
+  ) async {
+    final retired = Completer<void>();
+    directoryWaiters.add(retired);
+    try {
+      return await Future.any([
+        retired.future.then((_) => const <TopicCategory>[]),
+        Future.sync(load),
+      ]);
+    } finally {
+      directoryWaiters.remove(retired);
+    }
+  }
+
   void retire() {
     retireTagSearches();
     for (final waiter in directoryWaiters) {
@@ -400,18 +415,20 @@ final class _TaxonomyDirectoryController
         identical(_sites[siteUrl], site) &&
         !_shell.accountSessionDisposed;
     if (!isCurrent()) return const [];
-    final categories = await _shell.topicFilterLookups.run(
-      siteUrl,
+    final categories = await site.waitForCategories(
+      () => _shell.topicFilterLookups.run(
+        siteUrl,
 
-      (apiKey, clientId) => apiKey == null || !isCurrent()
-          ? Future.value(const <TopicCategory>[])
-          : _shell.api.categories.searchCategories(
-              siteUrl: siteUrl,
-              term: term,
-              apiKey: apiKey,
-              includeAncestors: true,
-              clientId: clientId,
-            ),
+        (apiKey, clientId) => apiKey == null || !isCurrent()
+            ? Future.value(const <TopicCategory>[])
+            : _shell.api.categories.searchCategories(
+                siteUrl: siteUrl,
+                term: term,
+                apiKey: apiKey,
+                includeAncestors: true,
+                clientId: clientId,
+              ),
+      ),
     );
     if (!isCurrent()) return const [];
     if (categories.isNotEmpty) {
@@ -554,20 +571,22 @@ final class _TaxonomyDirectoryController
         identical(_sites[siteUrl], site) &&
         !_shell.accountSessionDisposed;
     if (!isCurrent()) return const [];
-    final held = await _shell._credentialForWrite(siteUrl, lease: lease);
-    if (!isCurrent()) return const [];
-    if (held.failure case final failure?) throw failure;
+    final categories = await site.waitForCategories(() async {
+      final held = await _shell._credentialForWrite(siteUrl, lease: lease);
+      if (!isCurrent()) return const <TopicCategory>[];
+      if (held.failure case final failure?) throw failure;
 
-    final categories = await held.request!.run(
-      () => _shell.api.categories.searchCategories(
-        siteUrl: siteUrl,
-        apiKey: held.apiKey!,
-        term: term,
-        includeUncategorized: _shell
-            .siteConfigFor(siteUrl)
-            .allowUncategorizedTopics,
-      ),
-    );
+      return held.request!.run(
+        () => _shell.api.categories.searchCategories(
+          siteUrl: siteUrl,
+          apiKey: held.apiKey!,
+          term: term,
+          includeUncategorized: _shell
+              .siteConfigFor(siteUrl)
+              .allowUncategorizedTopics,
+        ),
+      );
+    });
     if (!isCurrent()) return const [];
     lease.commit(() {
       mergeCategories(siteUrl, categories, notificationRead: notificationRead);
