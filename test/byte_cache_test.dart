@@ -689,6 +689,27 @@ void main() {
       expect(cache.isCached('https://site.test/c'), isTrue);
     });
 
+    test('evicting a cooldown also drops its cached miss', () async {
+      const first = 'https://site.test/a';
+      var firstRequests = 0;
+      final cache = _TestByteCache(
+        maxEntries: 2,
+        client: MockClient((request) async {
+          if (request.url.toString() == first && ++firstRequests == 2) {
+            return http.Response.bytes([7], 200);
+          }
+          return http.Response('', 503);
+        }),
+      );
+      addTearDown(cache.close);
+      await cache.load(first);
+      await cache.load('https://site.test/b');
+      await cache.load(first); // Touch the miss without extending its cooldown.
+      await cache.load('https://site.test/c');
+
+      expect(await cache.load(first), [7]);
+    });
+
     test('bounds cooldown records along with cached entries', () async {
       final requests = <String, int>{};
       final cache = _TestByteCache(

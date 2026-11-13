@@ -347,7 +347,11 @@ abstract class ByteCache<T extends Object> {
     _transientFailures.remove(url);
     _transientFailures[url] = failedAt;
     while (_transientFailures.length > maxEntries) {
-      _transientFailures.remove(_transientFailures.keys.first);
+      final expired = _transientFailures.keys.first;
+      _transientFailures.remove(expired);
+      if (_cache[expired] case _CacheEntry(value: null)) {
+        _cache.remove(expired);
+      }
     }
     _put(url, null, byteSize: 0);
   }
