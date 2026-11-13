@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/http_url_safety.dart';
+import 'package:discourse_native/src/data/platform_push_registration.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/data/secure_store.dart';

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/data/push_registration.dart';
+import 'package:discourse_native/src/data/platform_push_registration.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

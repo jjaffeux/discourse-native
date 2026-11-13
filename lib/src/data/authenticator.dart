@@ -23,15 +23,13 @@ class Authenticator implements ApiCredentialReader {
     WebAuthLauncher? launcher,
     AuthKeyPairGenerator? keyPairGenerator,
     String Function()? nonceGenerator,
-    PushRegistrationProvider? pushRegistrations,
+    this._pushRegistrations,
     this.protocol = const UserApiKeyProtocol(),
     this._applicationName,
   }) : store = store ?? SecureStore(),
        _launch = launcher ?? _launchWebAuth,
        _generateKeyPair = keyPairGenerator ?? _generateAuthKeyPair,
-       _generateNonce = nonceGenerator ?? SecureStore.randomToken,
-       _pushRegistrations =
-           pushRegistrations ?? PlatformPushRegistrationProvider();
+       _generateNonce = nonceGenerator ?? SecureStore.randomToken;
 
   final SecureStore store;
   final UserApiKeyProtocol protocol;
@@ -40,7 +38,7 @@ class Authenticator implements ApiCredentialReader {
   final WebAuthLauncher _launch;
   final AuthKeyPairGenerator _generateKeyPair;
   final String Function() _generateNonce;
-  final PushRegistrationProvider _pushRegistrations;
+  final PushRegistrationProvider? _pushRegistrations;
 
   final Map<String, Object> _connectionGenerations = {};
   PushRegistration? _knownPushRegistration;
@@ -68,7 +66,7 @@ class Authenticator implements ApiCredentialReader {
     _connectionGenerations[siteUrl] = generation;
     try {
       // Push identity is registered only through the authorization handshake.
-      final pushRegistration = await _pushRegistrations.registration();
+      final pushRegistration = await _pushRegistrations?.registration();
       await _rememberPushRegistration(pushRegistration);
       final clientId = await _readClientId();
       _ensureCurrent(siteUrl, generation);

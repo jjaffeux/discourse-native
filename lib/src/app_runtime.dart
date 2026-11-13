@@ -10,6 +10,7 @@ import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
+import 'data/platform_push_registration.dart';
 import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
@@ -94,7 +95,9 @@ final class AppRuntime {
     _api =
         dependencies.api ??
         DiscourseApi(models: _plugins.models, activeUse: activeUse);
-    _authenticator = dependencies.authenticator ?? Authenticator();
+    _authenticator =
+        dependencies.authenticator ??
+        Authenticator(pushRegistrations: PlatformPushRegistrationProvider());
     _appSettingsStore = dependencies.appSettingsStore ?? AppSettingsStore();
     _forumSettingsStore =
         dependencies.forumSettingsStore ?? ForumSettingsStore();
@@ -233,7 +236,11 @@ final class AppRuntime {
             DiscourseApi(models: _plugins.models, activeUse: activeUse);
       }
       if (!identical(_dependencies.authenticator, previous.authenticator)) {
-        _authenticator = _dependencies.authenticator ?? Authenticator();
+        _authenticator =
+            _dependencies.authenticator ??
+            Authenticator(
+              pushRegistrations: PlatformPushRegistrationProvider(),
+            );
       }
       if (!identical(
         _dependencies.appSettingsStore,
