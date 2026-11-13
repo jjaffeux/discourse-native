@@ -664,15 +664,12 @@ void main() {
     'cancelling a stalled source releases the queue and temporary files',
     () async {
       final started = Completer<void>();
-      final stream = StreamController<List<int>>();
+      final stream = StreamController<List<int>>(onListen: started.complete);
       final abort = Completer<void>();
       final source = ComposerUploadFile(
         name: 'photo.jpg',
         length: () async => 10,
-        openRead: () {
-          started.complete();
-          return stream.stream;
-        },
+        openRead: () => stream.stream,
       );
       final job = prepare(source, abort: abort.future);
       await started.future;

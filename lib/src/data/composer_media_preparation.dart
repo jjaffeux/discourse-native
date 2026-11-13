@@ -66,9 +66,7 @@ Future<bool> stageComposerMedia({
     ),
   );
 
-  Future<bool> waitForStep(Future<bool> operation) async {
-    // Observe the step even when cancellation or the deadline already won.
-    operation.ignore();
+  Future<bool> waitForStep(Future<bool> Function() start) async {
     if (abortFailure case (final error, final stack)) {
       Error.throwWithStackTrace(error, stack);
     }
@@ -77,7 +75,7 @@ Future<bool> stageComposerMedia({
     final step = Completer<bool>();
     waiting = step;
     unawaited(
-      operation.then<void>(
+      Future<bool>.sync(start).then<void>(
         (value) {
           if (!step.isCompleted) step.complete(value);
         },
@@ -106,7 +104,7 @@ Future<bool> stageComposerMedia({
     await ensurePrivateFile(input);
     sink = await input.open(mode: FileMode.write);
     var copied = 0;
-    while (await waitForStep(iterator.moveNext())) {
+    while (await waitForStep(iterator.moveNext)) {
       if (cancelled) return false;
       final chunk = iterator.current;
       copied += chunk.length;
@@ -114,8 +112,11 @@ Future<bool> stageComposerMedia({
       for (var start = 0; start < chunk.length; start += 64 * 1024) {
         if (cancelled) return false;
         final end = (start + 64 * 1024).clamp(0, chunk.length);
-        writing = sink.writeFrom(chunk, start, end);
-        final written = await waitForStep(writing.then((_) => true));
+        final written = await waitForStep(() {
+          final pending = sink!.writeFrom(chunk, start, end);
+          writing = pending;
+          return pending.then((_) => true);
+        });
         if (!written || cancelled) return false;
         writing = null;
       }

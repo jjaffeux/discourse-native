@@ -205,6 +205,27 @@ void main() {
       await input.delete();
     });
 
+    test(
+      'an expired staging deadline never subscribes to its source',
+      () async {
+        var listened = false;
+        final source = StreamController<List<int>>(
+          onListen: () {
+            listened = true;
+          },
+        );
+        addTearDown(() {
+          source.close().ignore();
+        });
+
+        await expectLater(
+          stage(source.stream, timeout: Duration.zero),
+          throwsA(isA<TimeoutException>()),
+        );
+        expect(listened, isFalse);
+      },
+    );
+
     test('empty chunks cannot extend the staging deadline', () async {
       Stream<List<int>> source() async* {
         while (true) {
