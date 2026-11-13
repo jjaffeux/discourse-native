@@ -253,6 +253,32 @@ void main() {
     },
   );
 
+  test('account feed eviction reuses byte estimates for unchanged rows', () {
+    final window = AccountFeedWindow<int>(
+      packets: [
+        for (var i = 0; i < 10; i++)
+          AccountFeedPacket(start: i, end: i + 1, items: [i]),
+      ],
+    );
+    final estimates = <int, int>{};
+    final updated = window.withPage(
+      incoming: [0, 10],
+      start: 10,
+      end: 12,
+      prepend: false,
+      identity: (id) => id,
+      merge: (_, id) => id,
+      estimate: (id) {
+        estimates.update(id, (count) => count + 1, ifAbsent: () => 1);
+        return id == 10 ? AccountFeedWindow.maximumEstimatedBytes : 1;
+      },
+    );
+    expect(updated.start, 10);
+    expect(updated.end, 12);
+    expect(updated.items, [0, 10]);
+    expect(estimates, {0: 2, for (var id = 1; id < 10; id++) id: 1, 10: 2});
+  });
+
   test('tag intersection visits the rarest bucket regardless of tag order', () {
     final reads = _SetReads();
     final tracking = TopicTrackingState([

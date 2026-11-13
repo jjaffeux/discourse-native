@@ -22,10 +22,14 @@ class AccountFeedPacket<T> {
 /// overlapping rows, so evicting payloads never loses the way back to them.
 @immutable
 class AccountFeedWindow<T> {
-  const AccountFeedWindow({
-    this.packets = const [],
+  AccountFeedWindow({
+    required Iterable<AccountFeedPacket<T>> packets,
     this.lastPageWasPrevious = false,
-  });
+  }) : packets = List.unmodifiable(packets);
+
+  const AccountFeedWindow.empty()
+    : packets = const [],
+      lastPageWasPrevious = false;
 
   static const maximumRows = 300;
   static const maximumPackets = 10;
@@ -109,18 +113,20 @@ class AccountFeedWindow<T> {
     );
     final bounded = prepend ? [added, ...retained] : [...retained, added];
     var rows = bounded.fold(0, (count, packet) => count + packet.items.length);
-    var bytes = bounded.fold(
-      0,
-      (count, packet) =>
-          count + packet.items.fold(0, (sum, row) => sum + estimate(row)),
-    );
+    final packetBytes = [
+      for (final packet in bounded)
+        packet.items.fold(0, (sum, row) => sum + estimate(row)),
+    ];
+    var bytes = packetBytes.fold(0, (total, size) => total + size);
+    final incomingBytes = <Object, int>{};
     while (bounded.length > 1 &&
         (bounded.length > maximumPackets ||
             rows > maximumRows ||
             bytes > maximumEstimatedBytes)) {
-      final removed = bounded.removeAt(prepend ? bounded.length - 1 : 0);
+      final removedIndex = prepend ? bounded.length - 1 : 0;
+      final removed = bounded.removeAt(removedIndex);
       rows -= removed.items.length;
-      bytes -= removed.items.fold(0, (sum, row) => sum + estimate(row));
+      bytes -= packetBytes.removeAt(removedIndex);
       final activeIndex = prepend ? 0 : bounded.length - 1;
       final active = bounded[activeIndex];
       final survivingIds = {
@@ -128,24 +134,26 @@ class AccountFeedWindow<T> {
           if (index != activeIndex)
             for (final row in bounded[index].items) identity(row),
       };
-      final activeRows = [
-        for (final entry in newById.entries)
-          if (!survivingIds.contains(entry.key)) entry.value,
-      ];
+      final activeRows = <T>[];
+      var activeBytes = 0;
+      for (final entry in newById.entries) {
+        if (survivingIds.contains(entry.key)) continue;
+        activeRows.add(entry.value);
+        activeBytes += incomingBytes.putIfAbsent(
+          entry.key,
+          () => estimate(entry.value),
+        );
+      }
       rows += activeRows.length - active.items.length;
-      bytes +=
-          activeRows.fold(0, (sum, row) => sum + estimate(row)) -
-          active.items.fold(0, (sum, row) => sum + estimate(row));
+      bytes += activeBytes - packetBytes[activeIndex];
+      packetBytes[activeIndex] = activeBytes;
       bounded[activeIndex] = AccountFeedPacket(
         start: active.start,
         end: active.end,
         items: activeRows,
       );
     }
-    return AccountFeedWindow(
-      packets: List.unmodifiable(bounded),
-      lastPageWasPrevious: prepend,
-    );
+    return AccountFeedWindow(packets: bounded, lastPageWasPrevious: prepend);
   }
 
   AccountFeedWindow<T> without(Object key, Object Function(T) identity) {
@@ -176,7 +184,7 @@ class AccountFeedWindow<T> {
     }
     if (updated == null) return this;
     return AccountFeedWindow(
-      packets: List.unmodifiable(updated),
+      packets: updated,
       lastPageWasPrevious: lastPageWasPrevious,
     );
   }

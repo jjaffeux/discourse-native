@@ -17,7 +17,7 @@ class UserActivityFeed {
     this.retryFromStart = false,
     this.retryPrevious = false,
     this.error,
-    this.window = const AccountFeedWindow(),
+    this.window = const AccountFeedWindow.empty(),
   });
 
   final List<UserActivityItem> items;
@@ -73,7 +73,7 @@ class UserActivityFeed {
   }) {
     final start = requestOffset ?? (replace ? 0 : nextOffset);
     final base = replace
-        ? const AccountFeedWindow<UserActivityItem>()
+        ? const AccountFeedWindow<UserActivityItem>.empty()
         : _heldWindow;
     final categories = <int, TopicCategory>{
       if (!replace) ...categoriesById,

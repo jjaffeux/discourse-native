@@ -19,7 +19,7 @@ class DraftFeed {
     this.retryPrevious = false,
     this.requiresRefresh = false,
     this.retainedAllRows = true,
-    this.window = const AccountFeedWindow(),
+    this.window = const AccountFeedWindow.empty(),
   });
 
   const DraftFeed.loading() : this(loading: true);

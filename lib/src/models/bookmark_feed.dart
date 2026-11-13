@@ -88,7 +88,7 @@ class BookmarkListFeed {
     this.retryFromStart = false,
     this.retryPrevious = false,
     this.error,
-    this.window = const AccountFeedWindow(),
+    this.window = const AccountFeedWindow.empty(),
   });
 
   final List<Bookmark> bookmarks;
@@ -127,7 +127,9 @@ class BookmarkListFeed {
     int? requestPage,
   }) {
     final start = requestPage ?? (replace ? 0 : nextPage);
-    final base = replace ? const AccountFeedWindow<Bookmark>() : _heldWindow;
+    final base = replace
+        ? const AccountFeedWindow<Bookmark>.empty()
+        : _heldWindow;
     final updated = base.withPage(
       incoming: page.bookmarks,
       start: start,
