@@ -4900,16 +4900,17 @@ class ShellController extends FrameSafeNotifier
         () => _presentation.ensureCustomEmojis(instance.url),
       ),
     );
+    final categoryId =
+        store.read<TopicDetail>(instance.url, topicId)?.categoryId ??
+        store.read<Topic>(instance.url, topicId)?.categoryId;
     unawaited(
       RequestIntent.background().run(
-        () => _taxonomy.ensureCategoriesFor(
-          instance,
-          categoryId: store
-              .read<TopicDetail>(instance.url, topicId)
-              ?.categoryId,
-        ),
+        () => _taxonomy.ensureCategoriesFor(instance),
       ),
     );
+    if (categoryId != null) {
+      unawaited(_taxonomy.ensureCategoryIds(instance, [categoryId]));
+    }
     await data.open(
       topicId,
       slug: slug,
@@ -5394,15 +5395,14 @@ class ShellController extends FrameSafeNotifier
     if (session == null || instance == null) {
       return PluginTopicRefreshResult.sourceChanged;
     }
-    final refreshed = await session.refreshAfterMutation(topicId);
-    if (!lease.isCurrent || isDisposed) {
-      return PluginTopicRefreshResult.sourceChanged;
-    }
+    final refreshing = session.refreshAfterMutation(topicId);
+    refreshing.ignore();
     final feeds = await topicFeeds.refreshRetained(
       instance: instance,
       lease: lease.value,
       incoming: _liveSessions.trackerFor(siteUrl)?.incoming,
     );
+    final refreshed = await refreshing;
     if (!lease.isCurrent || isDisposed) {
       return PluginTopicRefreshResult.sourceChanged;
     }

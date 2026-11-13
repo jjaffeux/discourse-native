@@ -47,10 +47,17 @@ class ComposerImageOptimizer {
     try {
       // The size limits are decided before queueing: a file that will never
       // be encoded must not wait behind another composer's image.
-      final length = await Future.any<int?>([
+      final lengthRequest = Future.any<int?>([
         file.length().timeout(workerTimeout),
         aborted.then((_) => null),
       ]);
+      lengthRequest.ignore();
+      final directoryLookup = Future.any<Directory?>([
+        Future.sync(_temporaryDirectory).timeout(workerTimeout),
+        aborted.then((_) => null),
+      ]);
+      directoryLookup.ignore();
+      final length = await lengthRequest;
       if (length == null ||
           length < settings.bytesThreshold ||
           length > composerImageMaxInputBytes) {
@@ -64,8 +71,8 @@ class ComposerImageOptimizer {
           var retained = false;
           try {
             if (cancelled) return original;
-            final root = await _temporaryDirectory();
-            if (cancelled) return original;
+            final root = await directoryLookup;
+            if (root == null || cancelled) return original;
             directory = await root.createTemp('composer-image-');
             final input = File('${directory.path}/source');
             final output = File('${directory.path}/optimized');

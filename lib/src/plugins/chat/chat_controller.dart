@@ -3661,6 +3661,7 @@ class ChatController extends FrameSafeNotifier {
     ChatThreadTarget target, {
     int? targetMessageId,
     bool force = false,
+    Future<bool>? admitWindow,
   }) async {
     if (isDisposed || target.channelId <= 0 || target.threadId <= 0) return;
     final key = _targetKey(siteUrl, target);
@@ -3675,7 +3676,8 @@ class ChatController extends FrameSafeNotifier {
     }
     if (!backed) _discardStaleCanonicalWindow(siteUrl, target, held);
     final conversation = _conversationFor(siteUrl, target);
-    final detail = refreshThreadDetail(siteUrl, target).then((detail) {
+    final detail = refreshThreadDetail(siteUrl, target).then((detail) async {
+      if (admitWindow != null && !await admitWindow) return null;
       if (detail != null && conversation.isCurrent) {
         _liveSync.ensureThreadSubscription(siteUrl, target);
       }

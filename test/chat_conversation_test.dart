@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -13,8 +15,9 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://chat.example.com';
 
 final class _ConversationApi extends FakeDiscourseApi {
-  _ConversationApi()
+  _ConversationApi({Completer<void>? channelGate})
     : super(
+        chatChannelGate: channelGate,
         chatChannelsById: const {
           42: ChatChannel(
             id: 42,
@@ -126,6 +129,27 @@ void main() {
       },
     );
 
+    test(
+      'waits for the channel before publishing its first thread page',
+      () async {
+        final gate = Completer<void>();
+        final fixture = _openConversation(channelGate: gate);
+
+        final refreshing = fixture.conversation.refresh();
+        await pumpEventQueue();
+        expect(fixture.api.chatThreadMessagesRequested, hasLength(1));
+        expect(fixture.conversation.value.messages, isEmpty);
+        expect(fixture.chat.message(_siteUrl, 10), isNull);
+
+        gate.complete();
+        await refreshing;
+        expect(
+          fixture.conversation.value.messages.map((message) => message.id),
+          [10],
+        );
+      },
+    );
+
     test('prepends an older thread page to the held conversation', () async {
       final fixture = _openConversation();
       await fixture.conversation.refresh();
@@ -185,8 +209,8 @@ void main() {
   ChatConversation conversation,
   FakeSiteTracker tracker,
 })
-_openConversation() {
-  final fixture = _createChat();
+_openConversation({Completer<void>? channelGate}) {
+  final fixture = _createChat(channelGate: channelGate);
   final conversation = ChatControllerConversationCapability(
     fixture.chat,
   ).openThread(siteUrl: _siteUrl, channelId: 42, threadId: 99);
@@ -200,8 +224,8 @@ _openConversation() {
 }
 
 ({_ConversationApi api, ChatController chat, FakeSiteTracker tracker})
-_createChat() {
-  final api = _ConversationApi();
+_createChat({Completer<void>? channelGate}) {
+  final api = _ConversationApi(channelGate: channelGate);
   final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
   final chat = ChatController(
     api: api,

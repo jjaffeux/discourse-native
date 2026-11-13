@@ -43,6 +43,10 @@ FIVE_MS_DRIVERS = (
     "benchmark_nested_reload_latency.dart",
     "benchmark_nested_admin_latency.dart",
     "benchmark_feed_latency_followup.dart",
+    "benchmark_picker_and_board_latency.dart",
+    "benchmark_image_and_event_latency.dart",
+    "benchmark_chat_feed_operation_latency.dart",
+    "benchmark_voice_device_restore_latency.dart",
 )
 
 

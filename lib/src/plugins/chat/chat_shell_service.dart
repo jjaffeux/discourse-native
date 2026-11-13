@@ -309,7 +309,19 @@ final class ChatShellService
     }
 
     final siteUrl = owner.forum.url;
-    await chat.loadChannels(siteUrl);
+    final channels = chat.loadChannels(siteUrl);
+    final threadId = link.route.threadId;
+    final thread = threadId == null
+        ? null
+        : chat.refreshThreadDetail(
+            siteUrl,
+            ChatThreadTarget(
+              channelId: link.route.channelId,
+              threadId: threadId,
+            ),
+          );
+    thread?.ignore();
+    await channels;
     if (superseded()) return true;
     if (chat.channel(siteUrl, link.route.channelId) == null) {
       // The snapshot lists only followed channels and the most recent direct
@@ -324,11 +336,8 @@ final class ChatShellService
       if (superseded()) return true;
       if (resolved == null) return false;
     }
-    if (link.route.threadId case final threadId?) {
-      final detail = await chat.refreshThreadDetail(
-        siteUrl,
-        ChatThreadTarget(channelId: link.route.channelId, threadId: threadId),
-      );
+    if (thread != null) {
+      final detail = await thread;
       if (superseded()) return true;
       if (detail == null) return false;
     }

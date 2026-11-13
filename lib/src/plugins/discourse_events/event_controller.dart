@@ -340,15 +340,26 @@ final class EventController extends FrameSafeNotifier
       entry.reconciling = mayHaveChanged && reread;
       entry.pending = false;
       if (reread) {
+        // Attendance also affects Watching/Tracking and server Chat membership.
+        final affectedTopic = entry.topicId;
+        if (mayHaveChanged && affectedTopic != null) {
+          unawaited(
+            Future.sync(
+              () => topics.reloadTopic(entry.site, affectedTopic),
+            ).catchError((Object _) {}),
+          );
+        }
         await _refresh(entry);
         if (_current(entry) && lease.isCurrent) {
           if (failure != null) entry.error = failure;
           _changed(entry);
-          // Attendance also affects Watching/Tracking and server Chat membership.
-          if (mayHaveChanged && entry.topicId != null) {
+          final refreshedTopic = entry.topicId;
+          if (mayHaveChanged &&
+              refreshedTopic != null &&
+              refreshedTopic != affectedTopic) {
             unawaited(
               topics
-                  .reloadTopic(entry.site, entry.topicId!)
+                  .reloadTopic(entry.site, refreshedTopic)
                   .catchError((Object _) {}),
             );
           }

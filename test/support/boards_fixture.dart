@@ -98,6 +98,7 @@ final class BoardsFixture {
     Map<String, dynamic>? json,
     PluginComposerHost? composer,
     PluginRequestHost? requestHost,
+    Future<void> Function(int)? beforeTopicReload,
     Map<int, TopicCategory> categories = const {},
   }) {
     settings = ValueNotifier(
@@ -175,6 +176,7 @@ final class BoardsFixture {
       trackers: (_) => live,
       topics: PluginTopicRefreshHost(
         reloadTopic: (_, id) async {
+          await beforeTopicReload?.call(id);
           refreshedTopics.add(id);
           if (topicReloadFailure case final failure?) throw failure;
         },

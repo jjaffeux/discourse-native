@@ -59,8 +59,10 @@ Map<String, Object?> watching({
 };
 
 final class EventTestPorts {
-  EventTestPorts({RecordingPluginTransport? transport})
-    : transport = transport ?? RecordingPluginTransport() {
+  EventTestPorts({
+    RecordingPluginTransport? transport,
+    Future<void> Function(String, int)? onTopicReload,
+  }) : transport = transport ?? RecordingPluginTransport() {
     environment.setDeviceTimezone('Etc/UTC');
     zones = PluginTimezoneHost(
       readerTimezone: environment.readerTimezone,
@@ -82,6 +84,7 @@ final class EventTestPorts {
       topics: PluginTopicRefreshHost(
         reloadTopic: (site, topic) async {
           refreshedTopics.add((site, topic));
+          await onTopicReload?.call(site, topic);
         },
       ),
       trackers: (_) => channels,
