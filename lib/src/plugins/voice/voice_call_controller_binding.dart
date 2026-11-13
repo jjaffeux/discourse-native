@@ -8,9 +8,9 @@ import 'voice_call_controller_port.dart';
 import 'voice_call_port.dart';
 import 'voice_controller.dart';
 import 'voice_picture_in_picture.dart';
-import 'voice_plugin.dart';
 import 'voice_reaction_widgets.dart';
 import 'voice_room_view.dart';
+import 'voice_services.dart';
 import 'voice_shell_service.dart';
 
 VoiceCallControllerPort bindVoiceCallController({
@@ -55,7 +55,7 @@ Future<void> _performControllerAction({
       shell.openRoom(
         siteUrl: call.siteUrl,
         route: ContentRoute(
-          destination: ExtensionDestination(VoicePlugin.routeId(call.room.id)),
+          destination: ExtensionDestination(voiceRoomRouteId(call.room.id)),
           title: call.room.name,
           icon: DIcons.microphoneLines,
           subtitle: call.siteName,

@@ -8424,12 +8424,65 @@ class ShellController extends FrameSafeNotifier
   void _persistMobileNavigation() {
     if (!mobileNavigationEnabled) return;
     final workspace = currentWorkspace;
-    final state = mobileNavigation.state;
-    if (workspace != null &&
-        workspace.accountIdentity == currentAccountIdentity &&
-        workspace.mobile != state) {
-      _workspace.put(workspace.copyWith(mobile: state));
+    if (workspace == null ||
+        workspace.accountIdentity != currentAccountIdentity) {
+      return;
     }
+    final updated = _withMobileBackPath(workspace);
+    final state = mobileNavigation.state;
+    if (workspace.mobile != state || !identical(workspace, updated)) {
+      _workspace.put(updated.copyWith(mobile: state));
+    }
+  }
+
+  ForumWorkspace _withMobileBackPath(ForumWorkspace workspace) {
+    mobileNavigation.restoreDocumentAncestors();
+    if (mobileNavigation.canGoBack) return workspace;
+    final route = mobileNavigation.location?.contentStack.last;
+    if (route == null) return workspace;
+
+    final parent = ContentPageContract.mobileParent(
+      route,
+      inMessages: mobileNavigation.tab == MobileTab.messages,
+    );
+    if (parent != null) {
+      mobileNavigation.prependAncestors([
+        ForumTabLocation(rootDestinationId: parent.id, contentStack: [parent]),
+      ]);
+      if (!route.isTopic) return workspace;
+      final updated = workspace.activeTab.copyWith(
+        rootDestinationId: parent.id,
+        contentStack: [parent, route],
+      );
+      mobileNavigation.updateCurrent(updated.location);
+      return workspace.copyWith(
+        tabs: [
+          for (final tab in workspace.tabs)
+            tab.id == updated.id ? updated : tab,
+        ],
+      );
+    }
+
+    if (route.destination is! ExtensionDestination) return workspace;
+
+    for (final entry
+        in _pluginSession.ownedCapabilities<PluginMobileBackPath>()) {
+      final path = entry.capability.mobileBackPath(route);
+      if (path.isEmpty) continue;
+      final usesPanelRoot = mobileNavigation.panelOwner == entry.owner.value;
+      mobileNavigation.prependAncestors([
+        for (final (index, parent) in path.indexed)
+          if (index == 0 && usesPanelRoot)
+            null
+          else
+            ForumTabLocation(
+              rootDestinationId: parent.id,
+              contentStack: [parent],
+            ),
+      ]);
+      break;
+    }
+    return workspace;
   }
 
   void _commitMobileDocument(_MobileVisitCommit commit) {
@@ -8624,6 +8677,7 @@ class ShellController extends FrameSafeNotifier
     _mobilePane = mobileNavigation.atRoot
         ? MobilePane.sidebar
         : MobilePane.content;
+    _persistMobileNavigation();
     return true;
   }
 

@@ -145,6 +145,36 @@ final class MobileNavigation {
     _entries = [..._entries.take(_index), (id: Object(), content: location)];
   }
 
+  void prependAncestors(List<ForumTabLocation?> ancestors) {
+    assert(!canGoBack && !atRoot);
+    assert(ancestors.skip(1).every((ancestor) => ancestor != null));
+    final retained = ancestors.length <= maximumPages
+        ? ancestors
+        : [
+            ancestors.first,
+            ...ancestors.skip(ancestors.length - maximumPages + 1),
+          ];
+    _entries = [
+      for (final ancestor in retained) (id: Object(), content: ancestor),
+      ..._entries.take(maximumPages + 1 - retained.length),
+    ];
+    _index = retained.length;
+  }
+
+  void restoreDocumentAncestors() {
+    final document = location;
+    if (canGoBack || document == null || document.contentStack.length < 2) {
+      return;
+    }
+    prependAncestors([
+      for (var length = 1; length < document.contentStack.length; length++)
+        ForumTabLocation(
+          rootDestinationId: document.rootDestinationId,
+          contentStack: document.contentStack.take(length).toList(),
+        ),
+    ]);
+  }
+
   void returnToPanelRoot() {
     closeSidebar();
     _index = 0;

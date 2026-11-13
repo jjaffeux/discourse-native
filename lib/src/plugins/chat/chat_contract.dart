@@ -9,4 +9,5 @@ export 'chat_inbox_rooms.dart'
         chatInboxRoomsService;
 export 'chat_message.dart' show ChatMessage;
 export 'chat_message_contract.dart';
+export 'chat_route.dart' show chatInboxRoute;
 export 'chat_service_identity.dart';

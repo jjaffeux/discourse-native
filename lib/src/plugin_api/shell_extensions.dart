@@ -221,6 +221,15 @@ abstract interface class PluginRouteHydrator
   });
 }
 
+/// Supplies the ancestor pages, from the section root to the immediate parent,
+/// when a phone visit has no predecessor. If the plugin's panel is selected,
+/// the shell uses that panel in place of the first page. An empty list declines
+/// the route.
+abstract interface class PluginMobileBackPath
+    implements PluginSessionCapability {
+  List<ContentRoute> mobileBackPath(ContentRoute route);
+}
+
 abstract interface class PluginSiteActivator
     implements PluginSessionCapability {
   FutureOr<void> activatePluginSite(String siteUrl, {required bool connected});

@@ -3,6 +3,7 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/widgets.dart';
 
+import '../chat/chat_contract.dart';
 import 'voice_controller.dart';
 import 'voice_join.dart';
 import 'voice_models.dart';
@@ -21,7 +22,11 @@ String? _noUsername(String _) => null;
 bool _siteDefaultOn(String _) => true;
 
 final class VoiceShellService
-    implements PluginLinkHandler, PluginSiteActivator, PluginTrackerAttachment {
+    implements
+        PluginLinkHandler,
+        PluginMobileBackPath,
+        PluginSiteActivator,
+        PluginTrackerAttachment {
   VoiceShellService({
     required this.controller,
     required PluginRouteNavigationHost host,
@@ -49,6 +54,10 @@ final class VoiceShellService
   PluginRouteSite? get currentInstance => _host.currentSite;
   ContentRoute? get currentContent => _host.currentContent;
 
+  @override
+  List<ContentRoute> mobileBackPath(ContentRoute route) =>
+      voiceRoomIdIn(route.id) == null ? const [] : [chatInboxRoute()];
+
   Listenable? get navigationChanges => _host is PluginRoutePresentationHost
       ? _host as PluginRoutePresentationHost
       : null;
@@ -62,7 +71,7 @@ final class VoiceShellService
     return call != null &&
         currentInstance?.url == call.siteUrl &&
         currentContent?.destination is ExtensionDestination &&
-        currentContent?.id == 'voice-room-${call.room.id}' &&
+        currentContent?.id == voiceRoomRouteId(call.room.id) &&
         (_host is! PluginRoutePresentationHost ||
             (_host as PluginRoutePresentationHost).currentContentVisible);
   }
@@ -147,7 +156,7 @@ final class VoiceShellService
     openRoom(
       siteUrl: siteUrl,
       route: ContentRoute(
-        destination: ExtensionDestination('voice-room-${room.id}'),
+        destination: ExtensionDestination(voiceRoomRouteId(room.id)),
         title: room.name,
         icon: DIcons.microphoneLines,
       ),
@@ -196,7 +205,7 @@ final class VoiceShellService
   void roomDeleted(String siteUrl, int roomId) {
     if (currentInstance?.url == siteUrl &&
         currentContent?.destination is ExtensionDestination &&
-        currentContent?.id == 'voice-room-$roomId') {
+        currentContent?.id == voiceRoomRouteId(roomId)) {
       _host.replaceCurrentContent(ContentRoute.topicList(TopicListMode.latest));
     }
   }
@@ -274,7 +283,7 @@ final class VoiceShellService
     if (room == null) return false;
     final invitedBy = match.group(2);
     final route = ContentRoute(
-      destination: ExtensionDestination('voice-room-${room.id}'),
+      destination: ExtensionDestination(voiceRoomRouteId(room.id)),
       title: room.name,
       icon: DIcons.microphoneLines,
     );
