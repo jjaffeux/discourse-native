@@ -152,7 +152,8 @@ List<ComposerInlineFormat> composerInlineFormats(String source) {
     var contentEnd = end;
     if (contentEnd - contentStart > 2 &&
         source[contentStart] == ' ' &&
-        source[contentEnd - 1] == ' ') {
+        source[contentEnd - 1] == ' ' &&
+        _nonSpace.hasMatch(source.substring(contentStart, contentEnd))) {
       contentStart++;
       contentEnd--;
     }
@@ -166,6 +167,8 @@ List<ComposerInlineFormat> composerInlineFormats(String source) {
   }
   return formats..sort((a, b) => (a.end - a.start).compareTo(b.end - b.start));
 }
+
+final _nonSpace = RegExp(r'[^ ]');
 
 final _tags = RegExp(
   r'(<(ins|del|sup|sub|kbd|mark|small|big)>)([\s\S]*?)(</\2>)'

@@ -1,3 +1,4 @@
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/shell/composer/inline_formatting.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/composer/markdown_style.dart';
@@ -204,6 +205,23 @@ void main() {
       ),
     );
     expect(result.text, 'before **literal** <ins>tag</ins>');
+  });
+
+  test('clearing an existing code span preserves all of its spaces', () async {
+    const source = 'before `   ` after';
+    final cooking = OfflineCookingService();
+    addTearDown(cooking.dispose);
+    final cooked = await cooking.cook(
+      CookingRequest(
+        raw: source,
+        snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+      ),
+    );
+    expect(cooked.html, contains('<code>   </code>'));
+
+    final result = clearComposerInlineFormatting(selection(source, '`   `'));
+    expect(result.text, 'before     after');
+    expect(result.selection.textInside(result.text), '   ');
   });
 
   test('clear formatting preserves block syntax, images and escaped marks', () {
