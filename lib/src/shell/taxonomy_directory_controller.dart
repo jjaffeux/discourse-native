@@ -33,7 +33,8 @@ final class _TaxonomySite {
   final directoryWaiters = <Completer<void>>{};
   void Function()? detach;
   bool categorised = false;
-  RequestIntentOperation<void>? categoryRequest;
+  ({RequestIntentOperation<void> operation, Completer<void> cancellation})?
+  categoryRequest;
   List<TopicCategory>? categories;
   CategoryFeed categoryFeed = const CategoryFeed();
   final Map<int, _CategoryIdRequest> categoryIdRequests = {};
@@ -795,10 +796,13 @@ final class _TaxonomyDirectoryController
     final site = _site(instance.url);
     if (!site.lease.isCurrent) return Future<void>.value();
     final active = site.categoryRequest;
-    if (!force && active != null) return active.join();
+    if (!force && active != null) return active.operation.join();
     if (!force && site.categorised) return Future<void>.value();
     final existingFeed = site.categoryFeed;
     if (force) {
+      if (active != null && site.directoryWaiters.remove(active.cancellation)) {
+        active.cancellation.complete();
+      }
       final page = site.categoryPageRequest;
       site.categoryPageRequest = null;
       if (page != null && site.directoryWaiters.remove(page)) page.complete();
@@ -811,8 +815,8 @@ final class _TaxonomyDirectoryController
         !_shell.accountSessionDisposed &&
         site.lease.isCurrent &&
         identical(_sites[instance.url], site) &&
-        identical(site.categoryRequest, request);
-    site.categoryRequest = request;
+        identical(site.categoryRequest?.operation, request);
+    site.categoryRequest = (operation: request, cancellation: retired);
     request.start(
       () =>
           Future.any<void>([
@@ -828,7 +832,7 @@ final class _TaxonomyDirectoryController
             retired.future,
           ]).whenComplete(() {
             site.directoryWaiters.remove(retired);
-            if (identical(site.categoryRequest, request)) {
+            if (identical(site.categoryRequest?.operation, request)) {
               site.categoryRequest = null;
             }
           }),
