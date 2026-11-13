@@ -146,7 +146,7 @@ void main() {
       final fresh = repository.request(siteUrl: site, url: url);
       credentials.keys[1].complete('fresh');
       await _pump();
-      credentials.keys[0].complete('stale');
+      credentials.keys[0].completeError(StateError('late storage failure'));
       await _pump();
       expect(client.sent, hasLength(1));
       expect(client.sent.single.headers['User-Api-Key'], 'fresh');
@@ -168,7 +168,7 @@ void main() {
       final pending = repository.request(siteUrl: site, url: url);
       repository.dispose();
       expect(await pending.result, isNull);
-      credentials.keys.single.complete('retired');
+      credentials.keys.single.completeError(StateError('late storage failure'));
       await _pump();
       expect(client.sent, isEmpty);
       expect(await repository.request(siteUrl: site, url: url).result, isNull);

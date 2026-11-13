@@ -192,6 +192,7 @@ final class SiteImageRepository {
     final pending = _opening[siteUrl];
     if (pending != null && pending.lease.isCurrent) return pending.result;
 
+    pending?.retire();
     final opening = _SiteImageOpening(lifecycle.capture(siteUrl));
     _opening[siteUrl] = opening;
     return opening.result = _open(siteUrl, opening);
@@ -210,6 +211,7 @@ final class SiteImageRepository {
       final account = await SiteAssetAccount.open(
         siteUrl: siteUrl,
         credentials: credentials,
+        waitForCredential: opening.waitForCredential,
         requireCurrent: () {
           if (!_isCurrentOpening(siteUrl, opening)) {
             throw StateError('Image account opening is no longer current.');
@@ -237,6 +239,7 @@ final class SiteImageRepository {
       if (_isCurrentOpening(siteUrl, opening)) rethrow;
       return null;
     } finally {
+      opening.retire();
       if (identical(_opening[siteUrl], opening)) {
         final _ = _opening.remove(siteUrl);
       }
@@ -247,7 +250,7 @@ final class SiteImageRepository {
     for (final request in _requests.toList(growable: false)) {
       if (request._siteUrl == siteUrl) request.release();
     }
-    final _ = _opening.remove(siteUrl);
+    _opening.remove(siteUrl)?.retire();
     _sessions.remove(siteUrl)?.retire();
   }
 
@@ -256,6 +259,9 @@ final class SiteImageRepository {
     _disposed = true;
     for (final request in _requests.toList(growable: false)) {
       request.release();
+    }
+    for (final opening in _opening.values) {
+      opening.retire();
     }
     _opening.clear();
     for (final session in _sessions.values.toList()) {
@@ -314,10 +320,27 @@ final class SiteImageRequest {
 }
 
 final class _SiteImageOpening {
-  _SiteImageOpening(this.lease);
+  _SiteImageOpening(this.lease) {
+    _detach = lease.onRetire(retire);
+  }
 
   final SiteLease lease;
   late final Future<_SiteImageSession?> result;
+  final _retired = Completer<void>();
+  void Function()? _detach;
+
+  Future<T> waitForCredential<T>(Future<T> operation) => Future.any<T>([
+    operation,
+    _retired.future.then<T>(
+      (_) => throw StateError('Image account opening is no longer current.'),
+    ),
+  ]);
+
+  void retire() {
+    _detach?.call();
+    _detach = null;
+    if (!_retired.isCompleted) _retired.complete();
+  }
 }
 
 final class _SiteImageSession {
