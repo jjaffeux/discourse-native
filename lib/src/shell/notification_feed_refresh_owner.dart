@@ -102,11 +102,26 @@ final class NotificationFeedRefreshOwner {
     if (instance == null || !instance.isConnected) return;
     final account = _account(siteUrl);
     if (account == null) return;
-    final credential = await AccountRequestSession(
-      siteUrl,
-      account.lease,
-    ).keyCredentials(credentials);
-    if (!_owns(account) || credential.apiKey == null) return;
+    final retired = Completer<void>();
+    account.credentialWaiters.add(retired);
+    final AccountRequestCredentials? credential;
+    try {
+      credential = await Future.any<AccountRequestCredentials?>([
+        AccountRequestSession(
+          siteUrl,
+          account.lease,
+        ).keyCredentials(credentials),
+        retired.future.then((_) {
+          if (!account.lease.isCurrent) {
+            throw const AccountRequestRetiredException();
+          }
+          return null;
+        }),
+      ]);
+    } finally {
+      account.credentialWaiters.remove(retired);
+    }
+    if (!_owns(account) || credential?.apiKey == null) return;
     final types = await _siteTypes(account, credential: credential);
     if (types == null || !_owns(account)) return;
     await markAllRead(instance, types);
@@ -217,6 +232,7 @@ final class _NotificationFeedAccount {
 
   final String siteUrl;
   final SiteLease lease;
+  final credentialWaiters = <Completer<void>>{};
   List<NotificationWireType>? catalog;
   Completer<List<NotificationWireType>?>? request;
   Timer? timer;
@@ -228,6 +244,10 @@ final class _NotificationFeedAccount {
   void retire() {
     if (_retired) return;
     _retired = true;
+    for (final waiter in credentialWaiters) {
+      waiter.complete();
+    }
+    credentialWaiters.clear();
     detach?.call();
     detach = null;
     timer?.cancel();

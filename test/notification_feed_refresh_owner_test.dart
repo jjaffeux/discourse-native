@@ -202,6 +202,27 @@ void main() {
   });
 
   test(
+    'forget releases mark-all while its credential read is pending',
+    () async {
+      final credentials = _GatedCredentials();
+      final h = _Harness(credentials: credentials);
+      addTearDown(h.dispose);
+      var finished = false;
+      final marking = h.owner.markAllNotificationsRead(_site).then((_) {
+        finished = true;
+      });
+      h.owner.forget(_site);
+      await pumpEventQueue();
+      final finishedBeforeCredentials = finished;
+      credentials.pending.complete('original');
+      await marking;
+      expect(finishedBeforeCredentials, isTrue);
+      expect(h.api.catalogs, isEmpty);
+      expect(h.api.markedTypesRead, isEmpty);
+    },
+  );
+
+  test(
     'retirement during credential admission preserves the error outcome',
     () async {
       final credentials = _GatedCredentials();
