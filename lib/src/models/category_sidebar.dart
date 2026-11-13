@@ -169,7 +169,7 @@ List<TopicCategory> orderedSidebarCategories(
 
   append(children[null] ?? const []);
   // Include anything trapped in a malformed cycle once, in stable name order.
-  append(sorted);
+  if (result.length < ids.length) append(sorted);
   return result;
 }
 

@@ -421,8 +421,16 @@ String? _normalizeEmojiCode(String value) {
   return normalized.isEmpty ? null : normalized;
 }
 
-String _baseEmojiName(String code) =>
-    code.replaceFirst(RegExp(r':t[2-6]$'), '');
+String _baseEmojiName(String code) {
+  final start = code.length - 3;
+  if (start < 0 ||
+      code.codeUnitAt(start) != 0x3a ||
+      code.codeUnitAt(start + 1) != 0x74) {
+    return code;
+  }
+  final tone = code.codeUnitAt(start + 2);
+  return tone >= 0x32 && tone <= 0x36 ? code.substring(0, start) : code;
+}
 
 String _canonicalSiteUrl(String value) {
   final trimmed = value.trim();

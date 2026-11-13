@@ -112,15 +112,15 @@ class SiteEmoji {
   final bool tonable;
   final bool animated;
 
+  static final _animatedPath = RegExp(r'/images/emoji/[^/]+/(.+)\.[^/.]+$');
+
   /// The animation shares the static asset's origin, subfolder and skin tone.
   /// Upload-backed custom emoji never match the standard emoji asset path.
   String? animatedUrlFor(EmojiSkinTone tone) {
     if (!animated) return null;
     final uri = Uri.tryParse(urlFor(tone));
     if (uri == null) return null;
-    final match = RegExp(
-      r'/images/emoji/[^/]+/(.+)\.[^/.]+$',
-    ).firstMatch(uri.path);
+    final match = _animatedPath.firstMatch(uri.path);
     if (match == null) return null;
     final prefix = uri.path.substring(0, match.start);
     return uri
@@ -237,8 +237,10 @@ final class SiteEmojiCatalog {
 
   SiteEmoji? emojiNamed(String name) => byName[name];
 
+  static final _toneSuffix = RegExp(r':t([1-6])$');
+
   String? animatedUrlFor(String code, {String? staticUrl}) {
-    final toned = RegExp(r':t([1-6])$').firstMatch(code);
+    final toned = _toneSuffix.firstMatch(code);
     final name = toned == null ? code : code.substring(0, toned.start);
     final tone = EmojiSkinTone.fromCode(
       toned?.group(1) == null ? null : int.parse(toned!.group(1)!),
