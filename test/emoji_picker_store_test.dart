@@ -537,6 +537,34 @@ void main() {
   });
 
   group('storage failure handling', () {
+    test(
+      'reopening after a failed read restores the saved emoji preferences',
+      () async {
+        final persistence = _FailingReadPersistence()
+          ..values[meta] = jsonEncode({
+            'version': 1,
+            'tone': 't5',
+            'history': {
+              'topic': ['wave'],
+            },
+          })
+          ..failReads = true;
+        final store = EmojiPickerStore(persistence: persistence);
+        expect(await store.readSkinTone(siteUrl: meta), EmojiSkinTone.neutral);
+
+        persistence.failReads = false;
+        expect(await store.readSkinTone(siteUrl: meta), EmojiSkinTone.t5);
+        expect(
+          await store.favoriteEmojiCodes(
+            siteUrl: meta,
+            context: CoreEmojiUsageContexts.topic,
+            catalog: _catalog(['wave']),
+          ),
+          ['wave'],
+        );
+      },
+    );
+
     test('falls back safely from a corrupt read', () async {
       final persistence = _MemoryPersistence()..values[meta] = '{not json';
 

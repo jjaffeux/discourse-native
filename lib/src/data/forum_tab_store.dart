@@ -80,12 +80,13 @@ class ForumTabStore {
       return const ForumTabSnapshot.empty();
     }
 
-    // Past here the document was read. Whatever it holds is either usable or
-    // already lost, so a save over it is the repair rather than the damage.
     try {
       if (raw == null || raw.isEmpty) return const ForumTabSnapshot.empty();
       final decoded = jsonDecode(raw);
-      if (decoded is! Map || decoded['version'] != formatVersion) {
+      if (decoded is! Map) return const ForumTabSnapshot.empty();
+      final version = decoded['version'];
+      if (version != formatVersion) {
+        _unreadable = version is int && version > formatVersion;
         return const ForumTabSnapshot.empty();
       }
       final selected = decoded['selectedSiteUrl'];

@@ -18,6 +18,17 @@ void main() {
     ]);
   });
 
+  test(
+    'plain shortcodes remain literal when immediately followed by a word',
+    () {
+      const source = ':cat:word :dog:t3:é :cat:𐐀 (:cat:) :dog:';
+      expect(siteEmojiShortcodeMatches(source).map((match) => match[0]), [
+        ':cat:',
+        ':dog:',
+      ]);
+    },
+  );
+
   group('EmojiSkinTone', () {
     test('maps the web picker t1 sentinel to an empty suffix', () {
       expect(EmojiSkinTone.fromCode('t1'), EmojiSkinTone.neutral);

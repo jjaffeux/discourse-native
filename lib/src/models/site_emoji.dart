@@ -12,6 +12,10 @@ final _emojiWordEnd = RegExp(
   r'[\p{Alphabetic}\p{Mark}\p{Decimal_Number}]$',
   unicode: true,
 );
+final _emojiWordStart = RegExp(
+  r'^[\p{Alphabetic}\p{Mark}\p{Decimal_Number}]',
+  unicode: true,
+);
 final _emojiBackticks = RegExp(r'`+');
 
 Iterable<({int start, int end})> _emojiLiteralCodeRanges(String text) sync* {
@@ -46,6 +50,12 @@ Iterable<RegExpMatch> siteEmojiShortcodeMatches(String text) sync* {
     if (match.start > 0 &&
         _emojiWordEnd.hasMatch(
           text.substring((match.start - 2).clamp(0, match.start), match.start),
+        )) {
+      continue;
+    }
+    if (match.end < text.length &&
+        _emojiWordStart.hasMatch(
+          text.substring(match.end, (match.end + 2).clamp(0, text.length)),
         )) {
       continue;
     }

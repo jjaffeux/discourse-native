@@ -69,9 +69,13 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
   bool _owns(String siteUrl, Object owner) =>
       identical(_state.siteOwners[siteUrl], owner);
 
+  bool _hasLoaded(String siteUrl) =>
+      _state.preferences.containsKey(siteUrl) &&
+      !_state.unreadable.contains(siteUrl);
+
   Future<void> ensureLoaded({required String siteUrl}) async {
     final canonicalSiteUrl = _canonicalSiteUrl(siteUrl);
-    if (_state.preferences.containsKey(canonicalSiteUrl)) return;
+    if (_hasLoaded(canonicalSiteUrl)) return;
 
     final existing = _state.loads[canonicalSiteUrl];
     if (existing != null) return existing;
@@ -81,8 +85,7 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
       owner: _persistence,
       key: canonicalSiteUrl,
       operation: () async {
-        if (!_owns(canonicalSiteUrl, owner) ||
-            _state.preferences.containsKey(canonicalSiteUrl)) {
+        if (!_owns(canonicalSiteUrl, owner) || _hasLoaded(canonicalSiteUrl)) {
           return;
         }
         final loaded = await _read(canonicalSiteUrl, owner);

@@ -79,6 +79,20 @@ void main() {
     }
   });
 
+  test('opening an older app preserves tabs from a newer format', () async {
+    final future = jsonEncode({
+      'version': ForumTabStore.formatVersion + 1,
+      'workspaces': [_workspace('newer-app').toJson()],
+    });
+    final persistence = _ControlledPersistence()..stored = future;
+    final store = ForumTabStore(persistence: persistence);
+    expect((await store.load()).workspaces, isEmpty);
+
+    await store.save([_workspace('fallback')]);
+    expect(persistence.stored, future);
+    expect(persistence.writeCount, 0);
+  });
+
   test('a document that could not be read is never written over', () async {
     final persistence = _ControlledPersistence()
       ..stored = jsonEncode({
