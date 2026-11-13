@@ -1,6 +1,8 @@
 /// Plugin compatibility boundary; plugins must not import the package's `src`.
 library;
 
+export 'package:discourse_cooking/discourse_cooking.dart';
+
 export 'discourse_plugin_composer.dart';
 export 'discourse_plugin_contracts.dart';
 export 'discourse_plugin_loading.dart';

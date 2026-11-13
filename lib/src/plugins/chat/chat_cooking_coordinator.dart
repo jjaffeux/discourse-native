@@ -2,7 +2,7 @@
 
 import 'dart:async';
 
-import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_cooking/contracts.dart';
 
 /// Coalesces draft revisions before assembling their immutable cooking context.
 ///

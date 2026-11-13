@@ -85,3 +85,10 @@ composition. Generic onebox dispatch reaches 587 app libraries, down from
 library graph now has zero import cycles. The onebox and cooked markup
 tests exercise rendering through the dispatcher, including quoted posts
 and generic fallbacks.
+
+The cooking package now exposes its request, result, configuration and host
+port through `package:discourse_cooking/contracts.dart`. The app's cooking
+consumers and plugin contracts use that entry point, while runtime composition
+uses the existing full package. A Dart-to-JavaScript compile of a contract
+consumer succeeds. The same probe through the full package reaches native
+FFI and fails on that target. The full plugin SDK retains its cooking exports.

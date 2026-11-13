@@ -4,7 +4,7 @@
 /// than `discourse_plugin_sdk.dart`, which re-exports all of it.
 library;
 
-export 'package:discourse_cooking/discourse_cooking.dart';
+export 'package:discourse_cooking/contracts.dart';
 
 export 'src/app_shortcuts.dart' show primaryShortcutForPlatform;
 export 'src/data/account_activity_api.dart';

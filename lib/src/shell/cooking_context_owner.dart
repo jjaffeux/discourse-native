@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_cooking/contracts.dart';
 import 'package:flutter/foundation.dart'
     show Listenable, VoidCallback, listEquals;
 

@@ -1,4 +1,4 @@
-import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_cooking/contracts.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 

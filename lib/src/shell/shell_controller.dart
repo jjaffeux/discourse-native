@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show Color, Rect;
 
-import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_cooking/contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show
