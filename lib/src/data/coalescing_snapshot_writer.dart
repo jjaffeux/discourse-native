@@ -63,13 +63,24 @@ final class CoalescingSnapshotWriter<T> {
   /// last durable snapshot, preserving the usual persistence-boundary policy.
   /// The shared queue also prevents a later physical write from overlapping
   /// the read even when another writer accepts it while this call is waiting.
-  Future<R> read<R>(Future<R> Function() readSnapshot) async {
-    await _waitForLatest();
-    return _operations.run<R>(
-      owner: _owner,
-      key: _key,
-      operation: readSnapshot,
-    );
+  Future<R> read<R>(Future<R> Function() readSnapshot) {
+    final pending = _lane.latestResult;
+    return pending == null
+        ? _enqueueRead(readSnapshot)
+        : _readAfter(pending, readSnapshot);
+  }
+
+  Future<R> _enqueueRead<R>(Future<R> Function() readSnapshot) =>
+      _operations.run<R>(owner: _owner, key: _key, operation: readSnapshot);
+
+  Future<R> _readAfter<R>(
+    Future<void> pending,
+    Future<R> Function() readSnapshot,
+  ) async {
+    try {
+      await pending;
+    } catch (_) {}
+    return _enqueueRead(readSnapshot);
   }
 
   /// Shares overlapping reads of the same result type. Callers using this
@@ -85,14 +96,6 @@ final class CoalescingSnapshotWriter<T> {
     });
     _lane.sharedReads[key] = pending;
     return pending;
-  }
-
-  Future<void> _waitForLatest() async {
-    final latest = _lane.latestResult;
-    if (latest == null) return;
-    try {
-      await latest;
-    } catch (_) {}
   }
 
   Future<void> _drain() async {
