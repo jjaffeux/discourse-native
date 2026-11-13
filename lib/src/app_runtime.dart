@@ -313,15 +313,17 @@ final class AppRuntime {
     final plugins = _plugins;
     final _ = controller.pluginSession;
     markStartup('runtime start');
-    try {
-      await plugins.startPhase(
-        PluginStartupPhase.bootstrap,
-        bindings: const PluginHostBindings.empty(),
-      );
-      if (!_isCurrent(controller)) return;
-      await _observePluginAppState(plugins, _lifecycleState);
-      if (_isCurrent(controller)) _bootstrappedController = controller;
-    } catch (_) {}
+    if (!identical(_bootstrappedController, controller)) {
+      try {
+        await plugins.startPhase(
+          PluginStartupPhase.bootstrap,
+          bindings: const PluginHostBindings.empty(),
+        );
+        if (!_isCurrent(controller)) return;
+        await _observePluginAppState(plugins, _lifecycleState);
+        if (_isCurrent(controller)) _bootstrappedController = controller;
+      } catch (_) {}
+    }
     if (!_isCurrent(controller)) return;
     markStartup('plugins bootstrapped');
     try {

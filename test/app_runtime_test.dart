@@ -256,7 +256,7 @@ void main() {
     expect(runtime.activeUse.isActive, isTrue);
   });
 
-  test('concurrent starts publish the initial plugin state once', () async {
+  test('concurrent and repeated starts publish initial plugin state once', () async {
     final gate = Completer<void>();
     final probe = _LifecycleProbe(bootstrap: gate.future);
     final runtime = _runtime(
@@ -268,6 +268,7 @@ void main() {
     final second = runtime.start(runtime.controller);
     gate.complete();
     await Future.wait([first, second]);
+    await runtime.start(runtime.controller);
 
     expect(probe.states, [('resumed', true)]);
     expect(probe.phases, [
