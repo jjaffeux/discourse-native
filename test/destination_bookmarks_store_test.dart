@@ -34,6 +34,25 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'adjacent loads share a read across stores with the same owner',
+    () async {
+      final persistence = _HeldReadBookmarksPersistence()..hold = true;
+      final first = DestinationBookmarksStore(persistence: persistence);
+      final replacement = DestinationBookmarksStore(persistence: persistence);
+      final loading = first.load();
+      await persistence.started.future;
+      final joined = replacement.load();
+      persistence.hold = false;
+      persistence.release.complete();
+      await Future.wait([loading, joined]);
+
+      expect(persistence.reads, 1);
+      await replacement.load();
+      expect(persistence.reads, 2);
+    },
+  );
+
+  test(
     'shared owner preserves bookmarks accepted by replacement stores',
     () async {
       final persistence = MemoryDestinationBookmarksPersistence();
@@ -125,14 +144,16 @@ void main() {
       },
     );
     await pumpEventQueue();
+    persistence.hold = false;
+    final reopened = DestinationBookmarksStore(persistence: persistence);
+    final afterMutation = reopened.load();
     persistence.release.complete();
+    await afterMutation;
+    expect(reopened.entriesFor(_site, _account).single.route, _page);
     await Future.wait([reload, observed]);
     expect(failure, isNull);
     expect(changed, isTrue);
-    final reopened = DestinationBookmarksStore(persistence: persistence);
-    persistence.hold = false;
-    await reopened.load();
-    expect(reopened.entriesFor(_site, _account).single.route, _page);
+    expect(persistence.reads, 3);
   });
 
   test(
@@ -380,9 +401,11 @@ final class _HeldReadBookmarksPersistence
   final started = Completer<void>();
   final release = Completer<void>();
   String? value;
+  int reads = 0;
 
   @override
   Future<String?> read() async {
+    reads++;
     final snapshot = value;
     if (hold) {
       started.complete();

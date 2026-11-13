@@ -75,8 +75,17 @@ final class DestinationBookmarksStore {
     String accountIdentity,
   ) => List.unmodifiable(_entries[(siteUrl, accountIdentity)] ?? const []);
 
-  Future<void> load() =>
-      _operations.run(owner: _owner, key: storageKey, operation: _load);
+  Future<void> load() {
+    if (_owner.pendingLoad case final pending?) return pending;
+    late final Future<void> load;
+    load = _operations
+        .run(owner: _owner, key: storageKey, operation: _load)
+        .whenComplete(() {
+          if (identical(_owner.pendingLoad, load)) _owner.pendingLoad = null;
+        });
+    _owner.pendingLoad = load;
+    return load;
+  }
 
   Future<void> _load() async {
     _readable = false;
@@ -131,50 +140,51 @@ final class DestinationBookmarksStore {
     DestinationBookmark bookmark, {
     required bool bookmarked,
     bool Function()? isCurrent,
-  }) => _operations.run(
-    owner: _owner,
-    key: storageKey,
-    operation: () async {
-      if (!_readable) {
-        throw StateError('Destination bookmarks could not be loaded.');
-      }
-      if (isCurrent?.call() == false) return false;
-      final key = (siteUrl, accountIdentity);
-      final held = _entries[key] ?? const <DestinationBookmark>[];
-      if (held.any((entry) => entry.identity == bookmark.identity) ==
-          bookmarked) {
-        return false;
-      }
-      final next = {
-        ..._entries,
-        key: [
-          if (bookmarked) bookmark,
-          ...held.where((entry) => entry.identity != bookmark.identity),
-        ],
-      };
-      await _snapshots.save(_encode(next));
-      _entries
-        ..clear()
-        ..addAll(next);
-      return true;
-    },
-  );
+  }) => _mutate(() async {
+    if (!_readable) {
+      throw StateError('Destination bookmarks could not be loaded.');
+    }
+    if (isCurrent?.call() == false) return false;
+    final key = (siteUrl, accountIdentity);
+    final held = _entries[key] ?? const <DestinationBookmark>[];
+    if (held.any((entry) => entry.identity == bookmark.identity) ==
+        bookmarked) {
+      return false;
+    }
+    final next = {
+      ..._entries,
+      key: [
+        if (bookmarked) bookmark,
+        ...held.where((entry) => entry.identity != bookmark.identity),
+      ],
+    };
+    await _snapshots.save(_encode(next));
+    _entries
+      ..clear()
+      ..addAll(next);
+    return true;
+  });
 
-  Future<void> forgetSite(String siteUrl) => _operations.run(
-    owner: _owner,
-    key: storageKey,
-    operation: () async {
-      if (!_readable) {
-        throw StateError('Destination bookmarks could not be loaded.');
-      }
-      final next = {..._entries}..removeWhere((key, _) => key.$1 == siteUrl);
-      if (next.length == _entries.length) return;
-      await _snapshots.save(_encode(next));
-      _entries
-        ..clear()
-        ..addAll(next);
-    },
-  );
+  Future<void> forgetSite(String siteUrl) => _mutate(() async {
+    if (!_readable) {
+      throw StateError('Destination bookmarks could not be loaded.');
+    }
+    final next = {..._entries}..removeWhere((key, _) => key.$1 == siteUrl);
+    if (next.length == _entries.length) return;
+    await _snapshots.save(_encode(next));
+    _entries
+      ..clear()
+      ..addAll(next);
+  });
+
+  Future<T> _mutate<T>(Future<T> Function() operation) {
+    _owner.pendingLoad = null;
+    return _operations.run(
+      owner: _owner,
+      key: storageKey,
+      operation: operation,
+    );
+  }
 
   Future<void> flush() =>
       _operations.run(owner: _owner, key: storageKey, operation: () async {});
@@ -210,5 +220,6 @@ final class _DestinationBookmarksOwner {
   final operations = SerialOperationQueue();
   final Map<(String, String), List<DestinationBookmark>> entries = {};
   bool readable = false;
+  Future<void>? pendingLoad;
   final CoalescingSnapshotWriter<String> snapshots;
 }
