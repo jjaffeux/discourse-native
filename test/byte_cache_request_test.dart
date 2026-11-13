@@ -10,6 +10,28 @@ void main() {
   const url = 'https://forum.example/image';
 
   test(
+    'releasing a queued transfer immediately frees backlog capacity',
+    () async {
+      final client = _Client();
+      final cache = _Cache(client: client, maxConcurrent: 1, maxEntries: 2);
+      addTearDown(cache.close);
+      final blocker = cache.load('https://forum.example/blocker');
+      final abandoned = cache.request(url);
+      await _pump();
+      abandoned.release();
+      final revisit = cache.request(url);
+
+      expect(await abandoned.result, isNull);
+      client.sent.single.complete([0]);
+      expect(await blocker, [0]);
+      await _pump();
+      expect(client.sent, hasLength(2));
+      client.sent.last.complete([4]);
+      expect(await revisit.result, [4]);
+    },
+  );
+
+  test(
     'release settles one consumer while a peer and save keep one transfer',
     () async {
       final client = _Client();
@@ -340,6 +362,7 @@ final class _Cache extends ByteCache<Uint8List> {
   _Cache({
     required super.client,
     super.maxConcurrent,
+    super.maxEntries,
     super.coordinator,
     super.requestPool,
   });

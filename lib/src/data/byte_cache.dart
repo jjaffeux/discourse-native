@@ -295,7 +295,11 @@ abstract class ByteCache<T extends Object> {
     if (identical(_inFlight[transfer.url], transfer)) {
       _inFlight.remove(transfer.url);
     }
-    _waiting.remove(transfer)?.complete(false);
+    final waiter = _waiting.remove(transfer);
+    if (waiter != null) {
+      _transfers.remove(transfer);
+      waiter.complete(false);
+    }
     transfer.abort.complete();
     for (final owner in transfer.owners) {
       owner._complete(null);
