@@ -188,6 +188,55 @@ void main() {
       );
     },
   );
+  test(
+    'an exhausted directory accepts a last page without a continuation',
+    () async {
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      f.transport.responses['GET /cakeday/birthdays.json?page=0&filter=today'] =
+          page(
+            [celebration(1), celebration(2)],
+            total: 3,
+            next: '/community/cakeday/birthdays?page=1&filter=today',
+          );
+      f.transport.responses['GET /cakeday/birthdays.json?page=1&filter=today'] =
+          page([celebration(3)], total: 3);
+
+      await f.controller.load(cakedaySite, birthdayQuery);
+      await f.controller.load(cakedaySite, birthdayQuery, more: true);
+
+      final state = f.controller.state(cakedaySite, birthdayQuery);
+      expect(state.members.map((member) => member.id), [1, 2, 3]);
+      expect(state.failure, isNull);
+      expect(state.nextPage, isNull);
+    },
+  );
+
+  test(
+    'a missing continuation still reports an incomplete directory',
+    () async {
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      f.transport.responses['GET /cakeday/birthdays.json?page=0&filter=today'] =
+          page(
+            [celebration(1), celebration(2)],
+            total: 4,
+            next: '/community/cakeday/birthdays?page=1&filter=today',
+          );
+      f.transport.responses['GET /cakeday/birthdays.json?page=1&filter=today'] =
+          page([celebration(3)], total: 4);
+
+      await f.controller.load(cakedaySite, birthdayQuery);
+      await f.controller.load(cakedaySite, birthdayQuery, more: true);
+
+      final state = f.controller.state(cakedaySite, birthdayQuery);
+      expect(state.members.map((member) => member.id), [1, 2]);
+      expect(state.failedPage, 1);
+      expect(state.failure, isNotNull);
+      expect(state.nextPage, 1);
+    },
+  );
+
   test('birthdays404 does not suppress available anniversaries', () async {
     final f = CakedayFixture();
     addTearDown(f.dispose);

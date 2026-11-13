@@ -132,7 +132,10 @@ class _AlertTableState extends State<_AlertTable> {
     final group = widget.group;
     final collapsed = _collapsed ?? group.defaultCollapsed;
     final theme = Theme.of(context);
-    final manager = alertWebUri(group.alerts.first.externalUrl);
+    final manager = group.alerts
+        .map((alert) => alertWebUri(alert.externalUrl))
+        .nonNulls
+        .firstOrNull;
     final textScale =
         MediaQuery.textScalerOf(context).scale(DiscourseTypography.base) /
         DiscourseTypography.base;

@@ -73,6 +73,18 @@ void main() {
     );
   });
 
+  test('blank onebox images do not resolve to the event topic page', () {
+    for (final source in ['', '   ']) {
+      final markup = _external().replaceFirst(
+        '<h3>',
+        '<img class="discourse-event-onebox__image" src="$source"><h3>',
+      );
+      final element = html.parseFragment(markup).children.single;
+      final event = EventOneboxData.from(element, eventSite)!;
+      expect(event.image, isNull, reason: 'src="$source"');
+    }
+  });
+
   test(
     'topic lookups keep active admission separate from cached answers',
     () async {

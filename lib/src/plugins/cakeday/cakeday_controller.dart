@@ -157,14 +157,17 @@ final class CakedayController extends FrameSafeNotifier
         () => api.load(site, query, page, credentials),
       );
       if (!current()) return;
+      final rows = <int, CakedayMember>{
+        if (more)
+          for (final member in held.members) member.id: member,
+        for (final member in result.members) member.id: member,
+      };
+      if (result.members.isNotEmpty &&
+          rows.length < result.total &&
+          result.nextPage == null) {
+        throw const FormatException('Missing celebration continuation');
+      }
       lease.commit(() {
-        final rows = <int, CakedayMember>{
-          for (final member in more ? held.members : const <CakedayMember>[])
-            member.id: member,
-        };
-        for (final member in result.members) {
-          rows[member.id] = member;
-        }
         _states[key] = CakedayDirectoryState(
           members: List.unmodifiable(rows.values),
           total: result.total,

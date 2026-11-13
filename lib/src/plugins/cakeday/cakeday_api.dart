@@ -25,9 +25,6 @@ final class CakedayApi {
       rows.map((v) => CakedayMember.read(v, query.kind)),
     );
     final more = json['load_more_$kind'];
-    if (members.isNotEmpty && total > members.length && more == null) {
-      throw const FormatException('Missing celebration continuation');
-    }
     final next = more == null ? null : _next(site, query, page, more);
     return CakedayPage(
       members,

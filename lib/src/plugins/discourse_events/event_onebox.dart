@@ -110,7 +110,10 @@ final class EventOneboxData {
   }
 
   static String? _imageUrl(String? source, Uri eventUrl) {
-    final reference = source == null ? null : Uri.tryParse(source);
+    final trimmed = source?.trim();
+    final reference = trimmed == null || trimmed.isEmpty
+        ? null
+        : Uri.tryParse(trimmed);
     if (reference == null) return null;
     final url = eventUrl.resolveUri(reference);
     return const {'http', 'https'}.contains(url.scheme) &&

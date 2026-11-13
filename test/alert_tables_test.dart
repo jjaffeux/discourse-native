@@ -218,6 +218,22 @@ void main() {
     },
   );
 
+  testWidgets('Alertmanager remains available when the first row omits it', (
+    tester,
+  ) async {
+    final launched = watchBrowser(tester);
+    await _pump(tester, [
+      alertJson(identifier: 'First')..remove('external_url'),
+      alertJson(identifier: 'Second'),
+    ]);
+
+    final manager = _button('Open Alertmanager');
+    expect(manager, findsOneWidget);
+    await tester.tap(manager);
+    await tester.pump();
+    expect(launched.single, 'https://alertmanager.example.com');
+  });
+
   testWidgets(
     'invalid links retain identifiers as text and empty descriptions add no column',
     (tester) async {
