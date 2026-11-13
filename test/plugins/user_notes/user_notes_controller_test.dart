@@ -10,6 +10,28 @@ import 'package:http/testing.dart';
 import 'user_notes_fixture.dart';
 
 void main() {
+  test('a loading listener joins the active notes refresh', () async {
+    final fixture = NotesFixture();
+    addTearDown(fixture.dispose);
+    final session = fixture.controller.open(siteUrl: notesSite, userId: 7);
+    await session.refresh();
+
+    Future<void>? joined;
+    var didJoin = false;
+    session.addListener(() {
+      if (session.status == UserNotesReadStatus.loading && !didJoin) {
+        didJoin = true;
+        joined = session.refresh();
+      }
+    });
+
+    final refresh = session.refresh();
+    await refresh;
+    await joined;
+    expect(joined, same(refresh));
+    expect(fixture.transport.reads, hasLength(2));
+  });
+
   test('member and disabled sessions admit no requests', () async {
     for (final f in [
       NotesFixture(staff: false),

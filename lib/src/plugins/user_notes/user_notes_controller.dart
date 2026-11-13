@@ -222,7 +222,11 @@ final class UserNotesSession extends FrameSafeNotifier {
 
   Future<void> refresh() {
     if (!isCurrent || writing) return Future.value();
-    return _reading ??= _read().whenComplete(() => _reading = null);
+    if (_reading case final pending?) return pending;
+    final reading = Completer<void>();
+    _reading = reading.future;
+    reading.complete(_read().whenComplete(() => _reading = null));
+    return reading.future;
   }
 
   Future<void> _read() async {
