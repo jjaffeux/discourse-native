@@ -29,7 +29,6 @@ import 'autocomplete.dart';
 import 'block_controller.dart';
 import 'block_surface_host.dart';
 import 'component_artwork.dart';
-import 'component_editing_host.dart';
 import 'components/core.dart';
 import 'components/document_body_range.dart';
 import 'components/gallery_source.dart';
@@ -170,7 +169,7 @@ class ComposerController extends ChangeNotifier
     implements
         ComposerBlockSurfaceHost,
         ComposerDraftEditor,
-        ComposerComponentEditingHost,
+        ComposerPolicyHost<ComposerController>,
         ComposerMetadataEditorHost,
         ComposerRecipientTarget,
         ComposerSelectionFormattingHost,
@@ -244,7 +243,7 @@ class ComposerController extends ChangeNotifier
        _whisper = _target.replyingToWhisper,
        _minimumRequiredTags = minimumRequiredTags {
     text.syntaxEditor = this;
-    text.syntaxPolicies.addAll(coreComposerSyntaxPolicies(this));
+    text.syntaxPolicies.addAll(coreComposerSyntaxPolicies(this, this));
     history =
         sharedHistory ??
         ComposerEditHistory(
@@ -332,16 +331,18 @@ class ComposerController extends ChangeNotifier
     );
   }
 
-  ComposerComponentArtwork? _artwork;
+  ComposerComponentArtwork<ComposerController>? _artwork;
 
   /// How the editor rendering this composer draws its core components.
   /// [ComposerEditor] installs it at mount; a composer rendered any other way
   /// has none, and drawing a component then is a wiring error.
-  ComposerComponentArtwork get artwork => _artwork ?? composerArtworkMissing();
+  @override
+  ComposerComponentArtwork<ComposerController> get artwork =>
+      _artwork ?? composerArtworkMissing();
 
   /// The document controller draws media, quotes and pills itself, so it
   /// shares the same artwork.
-  set artwork(ComposerComponentArtwork value) {
+  set artwork(ComposerComponentArtwork<ComposerController> value) {
     _artwork = value;
     text.artwork = value;
   }
@@ -530,6 +531,7 @@ class ComposerController extends ChangeNotifier
   /// Embedded list bodies share document history and adapt native proposals
   /// before they become edits to the canonical Markdown.
   List<TextInputFormatter> get inputFormatters => const [];
+  @override
   bool get singleNewlineParagraphs => false;
   @override
   late final ComposerBlockController blocks;
@@ -1148,6 +1150,7 @@ class ComposerController extends ChangeNotifier
     simultaneousLimit: simultaneousUploads,
   );
 
+  @override
   ComposerUploadPlaceholders get uploadPlaceholders =>
       _uploadTransactions.uploadPlaceholders;
 
@@ -1183,6 +1186,7 @@ class ComposerController extends ChangeNotifier
   ) => _uploadTransactions.addImagesToGallery(files, gallery);
 
   void retryUpload(int id) => _uploadTransactions.retryUpload(id);
+  @override
   void cancelUpload(int id) => _uploadTransactions.cancelUpload(id);
   void removeUpload(int id) => cancelUpload(id);
 

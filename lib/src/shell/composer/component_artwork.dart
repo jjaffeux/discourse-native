@@ -6,17 +6,15 @@ import 'components/details_source.dart';
 import 'components/document_body_range.dart';
 import 'components/list_source.dart';
 import 'components/table_source.dart';
-import 'controller.dart';
 
 export 'component_editor.dart';
 
-/// [ComposerArtwork] plus the core syntax components, whose widgets embed an
-/// editor bound to their [ComposerController]. The core policies read it
-/// through [ComposerController.artwork].
-abstract interface class ComposerComponentArtwork implements ComposerArtwork {
+/// Artwork for the core syntax components of an editor.
+abstract interface class ComposerComponentArtwork<Editor>
+    implements ComposerArtwork {
   Widget codeBlock({
     required Key key,
-    required ComposerController composer,
+    required Editor composer,
     required ComposerCodeBlock block,
     required bool highlighted,
     required VoidCallback? onSelect,
@@ -24,21 +22,21 @@ abstract interface class ComposerComponentArtwork implements ComposerArtwork {
 
   Widget details({
     required Key key,
-    required ComposerController composer,
+    required Editor composer,
     required ComposerDetailsBlock block,
     required bool highlighted,
   });
 
   Widget table({
     required Key key,
-    required ComposerController composer,
+    required Editor composer,
     required ComposerTableBlock table,
     required bool highlighted,
   });
 
   Widget listItem({
     required Key key,
-    required ComposerController composer,
+    required Editor composer,
     required ComposerListItem item,
     required bool highlighted,
     required ScrollController? scrollController,
@@ -46,7 +44,7 @@ abstract interface class ComposerComponentArtwork implements ComposerArtwork {
 
   Widget upload({
     required Key key,
-    required ComposerController composer,
+    required Editor composer,
     required int id,
     required bool highlighted,
   });
@@ -61,7 +59,7 @@ abstract interface class ComposerComponentArtwork implements ComposerArtwork {
 
   Widget embeddedDocument({
     required Key key,
-    required ComposerController parent,
+    required Editor parent,
     required ComposerDocumentBodyRange range,
     required ComposerDocumentBodyRange? Function(String document, int start)
     resolveRange,

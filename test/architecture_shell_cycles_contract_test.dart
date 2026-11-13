@@ -29,14 +29,6 @@ const _cookedRecursion = [
   'lib/src/shell/quote.dart',
 ];
 
-/// The controller constructs its core syntax policies, and each policy and
-/// the artwork that draws it are written against that controller.
-const _composerControllerCycle = [
-  'lib/src/shell/composer/component_artwork.dart',
-  'lib/src/shell/composer/components/core.dart',
-  _composerController,
-];
-
 void main() {
   final graph = LibraryGraph.load();
 
@@ -160,6 +152,8 @@ void main() {
         for (final name in const [
           'code',
           'details',
+          'list_policy',
+          'core',
           'table',
           'upload',
           'video',
@@ -174,10 +168,10 @@ void main() {
       },
     );
 
-    test('the cycle holds only the controller and its core policies', () {
+    test('the composer controller participates in no import cycle', () {
       expect(
         graph.cycles().where((cycle) => cycle.contains(_composerController)),
-        [_composerControllerCycle],
+        isEmpty,
       );
     });
   });

@@ -39,7 +39,8 @@ import 'todo_marker.dart';
 
 /// The artwork a composer editor installs: each core component drawn with
 /// the widget tree it owned before the controllers stopped importing it.
-final class CoreComposerArtwork implements ComposerComponentArtwork {
+final class CoreComposerArtwork
+    implements ComposerComponentArtwork<ComposerController> {
   const CoreComposerArtwork();
 
   @override

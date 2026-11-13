@@ -134,7 +134,8 @@ void main() {
 }
 
 /// Records what each projection asks for and draws a box in its place.
-final class _RecordingArtwork implements ComposerComponentArtwork {
+final class _RecordingArtwork
+    implements ComposerComponentArtwork<ComposerController> {
   final drawn = <String>[];
   final edited = <String>[];
 

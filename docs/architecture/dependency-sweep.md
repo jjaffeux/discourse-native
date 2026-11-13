@@ -63,3 +63,9 @@ owned it. The embedded document range is a standalone value type that reaches
 one app library. These changes remove the list and embedded document
 controllers from the composer cycle, leaving three libraries. The focused
 tests cover nested lists, task editing, embedded documents, and the cycle guard.
+
+Core policy setup now receives an editor interface and typed artwork. The
+artwork contract reaches 43 app libraries, down from 300, and core policy
+setup reaches 272, down from 300. The composer controller no longer
+participates in an import cycle. The cooked renderer remains the sole cycle,
+with five libraries.
