@@ -460,6 +460,23 @@ void main() {
       },
     );
 
+    testWidgets('an account retirement clears its post highlight', (
+      tester,
+    ) async {
+      final fixture = await tester.runAsync(_fixture);
+      final shell = fixture!.shell;
+      shell.openTopicPost(
+        siteUrl: _siteUrl,
+        topicId: 1,
+        postNumber: 1,
+        highlight: true,
+      );
+      expect(shell.isTopicPostHighlighted(_siteUrl, 1, 1), isTrue);
+      shell.lifecycle.invalidate(_siteUrl);
+      expect(shell.isTopicPostHighlighted(_siteUrl, 1, 1), isFalse);
+      await tester.runAsync(() async => pumpEventQueue());
+    });
+
     testWidgets('one highlight keeps aging while its tab is unfocused', (
       tester,
     ) async {

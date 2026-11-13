@@ -68,6 +68,7 @@ final class TopicNavigationAttempts {
   final _revisions = <String, int>{};
   final _jumps = <({String siteUrl, int topicId}), _TopicJumpAttempt>{};
   _TopicPostHighlight? _highlight;
+  void Function()? _detachHighlight;
   Timer? _highlightTimer;
   bool _disposed = false;
 
@@ -243,13 +244,19 @@ final class TopicNavigationAttempts {
     required int topicId,
     required int postNumber,
   }) {
-    _highlightTimer?.cancel();
-    _highlight = _TopicPostHighlight(
+    if (_disposed) return;
+    clearHighlight(notify: false);
+    final lease = _lifecycle.capture(siteUrl);
+    if (!lease.isCurrent) return;
+    final highlight = _highlight = _TopicPostHighlight(
       siteUrl: siteUrl,
       topicId: topicId,
       postNumber: postNumber,
       tabId: _focusedContext().tabId,
     );
+    _detachHighlight = lease.onRetire(() {
+      if (identical(_highlight, highlight)) clearHighlight(notify: false);
+    });
     _highlightTimer = Timer(_loadTimeout, clearHighlight);
     armHighlightIfLoaded();
   }
@@ -275,6 +282,8 @@ final class TopicNavigationAttempts {
 
   void clearHighlight({bool notify = true}) {
     final changed = _highlight != null;
+    _detachHighlight?.call();
+    _detachHighlight = null;
     _highlightTimer?.cancel();
     _highlightTimer = null;
     _highlight = null;
@@ -283,6 +292,7 @@ final class TopicNavigationAttempts {
 
   void forgetSite(String siteUrl) {
     _jumps.removeWhere((key, _) => key.siteUrl == siteUrl);
+    if (_highlight?.siteUrl == siteUrl) clearHighlight(notify: false);
   }
 
   void dispose() {
