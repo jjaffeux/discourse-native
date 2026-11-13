@@ -114,7 +114,7 @@ class ComposerVideoOptimizer {
                 length: output.length,
                 openRead: output.openRead,
               ),
-              release: () => _removeDirectory(ownedDirectory),
+              release: () => removeComposerMediaDirectory(ownedDirectory),
             );
           } catch (_) {
             // A missing plugin, unsupported codec, low storage, or export failure
@@ -134,7 +134,7 @@ class ComposerVideoOptimizer {
               }
             }
             if (!retained && directory != null) {
-              await _removeDirectory(directory);
+              await removeComposerMediaDirectory(directory);
             }
           }
         },
@@ -142,13 +142,5 @@ class ComposerVideoOptimizer {
     } catch (_) {
       return original;
     }
-  }
-}
-
-Future<void> _removeDirectory(Directory directory) async {
-  try {
-    await directory.delete(recursive: true);
-  } on FileSystemException {
-    // The system may already have reclaimed temporary storage.
   }
 }

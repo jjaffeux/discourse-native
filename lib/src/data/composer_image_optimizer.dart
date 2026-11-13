@@ -118,7 +118,7 @@ class ComposerImageOptimizer {
                 openRead: output.openRead,
                 imageOptimizationApplied: true,
               ),
-              release: () => _removeDirectory(ownedDirectory),
+              release: () => removeComposerMediaDirectory(ownedDirectory),
             );
           } catch (_) {
             // Optimization is optional; read/codec/cache failures must not prevent
@@ -126,7 +126,7 @@ class ComposerImageOptimizer {
             return original;
           } finally {
             if (!retained && directory != null) {
-              await _removeDirectory(directory);
+              await removeComposerMediaDirectory(directory);
             }
           }
         },
@@ -134,14 +134,6 @@ class ComposerImageOptimizer {
     } catch (_) {
       return original;
     }
-  }
-}
-
-Future<void> _removeDirectory(Directory directory) async {
-  try {
-    await directory.delete(recursive: true);
-  } on FileSystemException {
-    // The OS may have already reclaimed temporary storage.
   }
 }
 

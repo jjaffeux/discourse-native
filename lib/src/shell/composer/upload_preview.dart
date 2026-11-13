@@ -130,10 +130,6 @@ final class ComposerUploadPreview extends ChangeNotifier {
     file = null;
     poster = null;
     if (directory == null) return;
-    try {
-      await directory.delete(recursive: true);
-    } on FileSystemException {
-      // Temporary storage can be reclaimed by the operating system.
-    }
+    await removeComposerMediaDirectory(directory);
   }
 }
