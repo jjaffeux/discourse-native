@@ -15,6 +15,7 @@ import '../data/site_lifecycle.dart';
 import '../foundation/media_download_environment.dart';
 import '../foundation/native_media_download_environment.dart';
 import '../foundation/private_file_permissions.dart';
+import '../foundation/private_file_staging.dart';
 import 'download_filename.dart';
 import 'media_download_result.dart';
 
@@ -79,55 +80,54 @@ final class NativeVideoDownloader implements VideoDownloader {
           )
         : null;
 
-    final directory = await (await _environment.temporaryDirectory())
-        .createTemp('video-download-');
-    final client = _client ?? SafeHttpClient.create();
-    try {
-      final file = File('${directory.path}/$filename');
-      await ensurePrivateFile(file);
-      final mediaType = await _fetch(
-        client,
-        url: url,
-        account: account,
-        lease: lease,
-        file: file,
-      );
-      _requireCurrent(lease);
-      if (destination != null) {
-        await _environment.saveFile(file, destination);
-        return MediaDownloadResult.savedTo(
-          destination,
-          windows: _platform == TargetPlatform.windows,
-        );
-      }
-      final shareFilename = downloadFilename(
-        title: title,
-        url: url.toString(),
-        fallback: 'video',
-        mediaExtensions: _VideoMediaType.values.expand(
-          (type) => type.extensions,
-        ),
-        preferredExtensions: mediaType?.extensions ?? const [],
-      );
-      final shareFile = shareFilename == filename
-          ? file
-          : await file.rename('${directory.path}/$shareFilename');
-      _requireCurrent(lease);
-      final outcome = await _environment.shareFile(
-        shareFile,
-        filename: shareFilename,
-        mimeType: mediaType?.mimeType ?? 'application/octet-stream',
-        sharePositionOrigin: sharePositionOrigin,
-      );
-      return MediaDownloadResult.fromShare(outcome);
-    } finally {
-      client.close();
-      try {
-        await directory.delete(recursive: true);
-      } on FileSystemException {
-        // A share target may still hold the file; the private cache is temporary.
-      }
-    }
+    return withPrivateStagingPath(
+      await _environment.temporaryDirectory(),
+      prefix: 'video-download-',
+      filename: filename,
+      use: (file) async {
+        final client = _client ?? SafeHttpClient.create();
+        try {
+          await ensurePrivateFile(file);
+          final mediaType = await _fetch(
+            client,
+            url: url,
+            account: account,
+            lease: lease,
+            file: file,
+          );
+          _requireCurrent(lease);
+          if (destination != null) {
+            await _environment.saveFile(file, destination);
+            return MediaDownloadResult.savedTo(
+              destination,
+              windows: _platform == TargetPlatform.windows,
+            );
+          }
+          final shareFilename = downloadFilename(
+            title: title,
+            url: url.toString(),
+            fallback: 'video',
+            mediaExtensions: _VideoMediaType.values.expand(
+              (type) => type.extensions,
+            ),
+            preferredExtensions: mediaType?.extensions ?? const [],
+          );
+          final shareFile = shareFilename == filename
+              ? file
+              : await file.rename('${file.parent.path}/$shareFilename');
+          _requireCurrent(lease);
+          final outcome = await _environment.shareFile(
+            shareFile,
+            filename: shareFilename,
+            mimeType: mediaType?.mimeType ?? 'application/octet-stream',
+            sharePositionOrigin: sharePositionOrigin,
+          );
+          return MediaDownloadResult.fromShare(outcome);
+        } finally {
+          client.close();
+        }
+      },
+    );
   }
 
   Future<_VideoMediaType?> _fetch(
