@@ -131,13 +131,10 @@ extension SiteConfigReactionsSettings on SiteConfig {
 List<String> _offeredReactions(Object? raw, String? mainReaction) {
   final parts = switch (raw) {
     final String text => text.split('|'),
-    final List<dynamic> values => values.map(jsonText).whereType<String>(),
+    final List<dynamic> values => values,
     _ => const <String>[],
   };
-  final offered = [
-    for (final part in parts)
-      if (part.trim().isNotEmpty) part.trim(),
-  ];
+  final offered = _uniqueReactions(parts).toList();
   if (mainReaction != null && !offered.contains(mainReaction)) {
     offered.insert(0, mainReaction);
   }
@@ -145,4 +142,7 @@ List<String> _offeredReactions(Object? raw, String? mainReaction) {
 }
 
 List<String> _storedReactionList(Object? raw) =>
-    List.unmodifiable(jsonArray(raw).map(jsonText).whereType<String>());
+    List.unmodifiable(_uniqueReactions(jsonArray(raw)));
+
+Set<String> _uniqueReactions(Iterable<Object?> values) =>
+    values.map(jsonText).whereType<String>().toSet();

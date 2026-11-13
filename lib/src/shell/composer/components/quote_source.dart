@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../html_comments.dart';
 import '../markdown_highlight.dart';
 
 @immutable
@@ -54,7 +55,11 @@ List<ComposerQuoteBlock> parseComposerQuotes(
     return const [];
   }
 
-  final codeRanges = knownCodeRanges ?? markdownCodeRanges(source);
+  final comments = ComposerHtmlComments(source);
+  final codeRanges =
+      knownCodeRanges ?? markdownCodeRanges(comments.mask(source));
+  bool literalAt(int offset) =>
+      comments.contains(offset) || codeRanges.contains(offset);
   final tags = _QuoteTagScanner(source);
   final blocks = <ComposerQuoteBlock>[];
   var offset = 0;
@@ -62,7 +67,7 @@ List<ComposerQuoteBlock> parseComposerQuotes(
   while (offset < source.length) {
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
-    if (codeRanges.contains(opening) || !_startsBlock(source, opening)) {
+    if (literalAt(opening) || !_startsBlock(source, opening)) {
       offset = opening + 1;
       continue;
     }
@@ -73,7 +78,7 @@ List<ComposerQuoteBlock> parseComposerQuotes(
       continue;
     }
 
-    final closeTag = tags.matchingClose(openTag.end, codeRanges);
+    final closeTag = tags.matchingClose(openTag.end, literalAt);
     if (closeTag == null) {
       // As in core, an unmatched outer opener makes the rest ambiguous. Do
       // not turn a plausible inner quote into an editable-looking fragment.
@@ -280,13 +285,13 @@ class _QuoteTagScanner {
     );
   }
 
-  _QuoteTag? matchingClose(int offset, CodeRanges codeRanges) {
+  _QuoteTag? matchingClose(int offset, bool Function(int) literalAt) {
     var depth = 1;
     while (offset < source.length) {
       final next = source.indexOf('[', offset);
       if (next == -1) return null;
       offset = next + 1;
-      if (codeRanges.contains(next)) continue;
+      if (literalAt(next)) continue;
       final tag = at(next);
       if (tag == null) continue;
       if (tag.closing) {

@@ -16,6 +16,37 @@ typedef _ExpectedLink = ({
 });
 
 void main() {
+  test(
+    'Markdown links with titles expose their URL and preserve the title on edit',
+    () {
+      const source = '[guide](<https://example.com/one(two> "Read this")';
+      final links = parseComposerLinks(source);
+      expect(links.map((link) => link.kind), [ComposerLinkKind.markdown]);
+      final link = links.single;
+      expect(link.url, 'https://example.com/one(two');
+      for (final (url, expected) in [
+        (link.url, '[manual](<https://example.com/one(two> "Read this")'),
+        (
+          'https://example.com/new',
+          '[manual](https://example.com/new "Read this")',
+        ),
+      ]) {
+        final edited = composerLinkValue(
+          current: const TextEditingValue(text: source),
+          expectedText: source,
+          selection: const TextSelection(
+            baseOffset: 0,
+            extentOffset: source.length,
+          ),
+          url: url,
+          anchor: 'manual',
+          existingLink: link,
+        );
+        expect(edited?.text, expected);
+      }
+    },
+  );
+
   test('regression nov8: angle destinations allow literal parentheses', () {
     const source = '[guide](<https://example.com/one(two>)';
     final links = parseComposerLinks(source, enableLinkify: false);

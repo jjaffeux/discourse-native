@@ -50,7 +50,8 @@ class _TrackpadHistoryRegionState extends State<TrackpadHistoryRegion> {
     // A slow vertical scroll reports many updates that are sideways by a
     // pixel, so the whole run has to be sideways as well as each update.
     if (run.travel.abs() < TrackpadHistoryRegion.distance ||
-        event.pan.dx.abs() <= event.pan.dy.abs()) {
+        event.pan.dx.abs() <= event.pan.dy.abs() ||
+        event.pan.dx.sign != run.travel.sign) {
       return;
     }
     run.stepped = true;

@@ -47,7 +47,7 @@ final class DiscourseBadge {
         longDescription: jsonString(json['long_description']),
         icon: jsonText(json['icon']) ?? 'certificate',
         imageUrl: resolveAvatarUrl(jsonText(json['image_url']), siteUrl),
-        slug: jsonText(json['slug']),
+        slug: BadgeRoute.slugFromWire(json['slug']),
         tier: BadgeTier.fromId(
           jsonInt(
             json['badge_type_id'] ?? jsonObject(json['badge_type'])['id'],

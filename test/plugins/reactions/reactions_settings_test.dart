@@ -32,6 +32,24 @@ void main() {
     expect(config.desaturatedReactionPanel, isTrue);
   });
 
+  test('the picker receives each configured reaction once, in site order', () {
+    final config = SiteConfig.fromSettings(const {
+      'discourse_reactions_enabled': true,
+      'discourse_reactions_reaction_for_like': 'heart',
+      'discourse_reactions_enabled_reactions': 'clap| heart |clap|heart|+1',
+    }, extensions: _registry);
+
+    expect(config.offeredReactions, ['clap', 'heart', '+1']);
+  });
+
+  test('restoring stored reaction choices also removes duplicates', () {
+    final settings = ReactionsSettings.fromStored(const {
+      'offeredReactions': ['clap', ' heart ', 'clap', 'heart', '+1'],
+    });
+
+    expect(settings?.offeredReactions, ['clap', 'heart', '+1']);
+  });
+
   test('Reactions settings round-trip without flat feature keys', () {
     final config = SiteConfig.fromJson({
       'plugins': {

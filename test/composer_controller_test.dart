@@ -20,6 +20,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/composer_submission.dart';
 
 void main() {
+  test('changing the level of an empty heading replaces its marker', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    composer.text.value = const TextEditingValue(
+      text: '##\n\nBody',
+      selection: TextSelection.collapsed(offset: 2),
+    );
+
+    composer.setHeading(3);
+
+    expect(composer.raw, '### \n\nBody');
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 4));
+  });
+
   group('explicit command history', () {
     const image = '![First|100x80](upload://first)';
     const secondImage = '![Second](upload://second)';

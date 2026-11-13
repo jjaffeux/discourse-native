@@ -42,6 +42,25 @@ void main() {
     );
   });
 
+  test('a malformed expiration does not create a permanent user status', () {
+    const payload = {'description': 'Lunch', 'emoji': 'sandwich'};
+    expect(UserStatus.fromJson(payload)?.endsAt, isNull);
+    expect(UserStatus.fromJson({...payload, 'ends_at': 'soon'}), isNull);
+  });
+
+  test('a corrupted stored expiration cannot restore a permanent status', () {
+    final saved = const DiscourseUser(id: 7, username: 'sam').toJson();
+    final restored = DiscourseUser.fromJson({
+      ...saved,
+      'status': const {
+        'description': 'Lunch',
+        'emoji': 'sandwich',
+        'endsAt': 'soon',
+      },
+    });
+    expect(restored.status, isNull);
+  });
+
   test('retains status and DND state in connected-account persistence', () {
     final user = DiscourseUser(
       id: 7,

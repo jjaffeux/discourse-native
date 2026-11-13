@@ -132,35 +132,47 @@ ComposerMarkdownImageDestination? _imageDestination(
   }
   final end = destinationEnds.putIfAbsent(
     at,
-    () => _imageDestinationEnd(source, at, paragraphEnd),
+    () => _destinationEnd(source, at, paragraphEnd, multiline: true),
   );
   if (end < 0) return null;
   return (urlStart: urlStart, urlEnd: urlEnd, end: end);
 }
 
-int _imageDestinationEnd(String source, int start, int paragraphEnd) {
+int _destinationEnd(
+  String source,
+  int start,
+  int limit, {
+  required bool multiline,
+}) {
+  bool space(int unit) =>
+      unit == 0x20 ||
+      unit == 0x09 ||
+      (multiline && (unit == 0x0a || unit == 0x0d));
   var at = start;
-  while (at < paragraphEnd && _imageDestinationSpace(source.codeUnitAt(at))) {
+  while (at < limit && space(source.codeUnitAt(at))) {
     at++;
   }
-  if (at >= paragraphEnd) return -1;
+  if (at >= limit) return -1;
   if (source.codeUnitAt(at) == 0x29) return at + 1;
   if (at == start) return -1;
   var marker = source.codeUnitAt(at);
   if (marker != 0x22 && marker != 0x27 && marker != 0x28) return -1;
   if (marker == 0x28) marker = 0x29;
   at++;
-  while (at < paragraphEnd) {
+  while (at < limit) {
     final unit = source.codeUnitAt(at++);
     if (unit == marker) {
-      while (at < paragraphEnd &&
-          _imageDestinationSpace(source.codeUnitAt(at))) {
+      while (at < limit && space(source.codeUnitAt(at))) {
         at++;
       }
-      return at < paragraphEnd && source.codeUnitAt(at) == 0x29 ? at + 1 : -1;
+      return at < limit && source.codeUnitAt(at) == 0x29 ? at + 1 : -1;
     }
+    if (!multiline && (unit == 0x0a || unit == 0x0d)) return -1;
     if (unit == 0x28 && marker == 0x29) return -1;
-    if (unit == 0x5c && at < paragraphEnd) at++;
+    if (unit == 0x5c && at < limit) {
+      if (!multiline && (source[at] == '\n' || source[at] == '\r')) return -1;
+      at++;
+    }
   }
   return -1;
 }
@@ -228,7 +240,11 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
               source[offset + 1] == '('
           ? image && images != null
                 ? images.destinationAt(offset + 2, limit)?.end
-                : _markdownLinkDestinationEnd(source, offset + 2, limit)
+                : composerMarkdownLinkDestination(
+                    source,
+                    offset + 2,
+                    limit,
+                  )?.end
           : null;
       if (end == null && referenceLinks && offset + 1 < limit) {
         end = referenceEnds[offset + 1];
@@ -282,16 +298,29 @@ Map<int, int> _markdownLabelEnds(
   return ends;
 }
 
-int? _markdownLinkDestinationEnd(String source, int start, int limit) {
+({int urlStart, int urlEnd, int suffixStart, int end})?
+composerMarkdownLinkDestination(String source, int start, int limit) {
   if (start < limit && source.codeUnitAt(start) == 0x3C) {
     var at = start + 1;
     while (at < limit) {
       final unit = source.codeUnitAt(at);
       if (unit == 0x0A || unit == 0x0D || unit == 0x3C) return null;
       if (unit == 0x3E) {
-        return at + 1 < limit && source.codeUnitAt(at + 1) == 0x29
-            ? at + 2
-            : null;
+        final suffixStart = at + 1;
+        final end = _destinationEnd(
+          source,
+          suffixStart,
+          limit,
+          multiline: false,
+        );
+        return end < 0
+            ? null
+            : (
+                urlStart: start + 1,
+                urlEnd: at,
+                suffixStart: suffixStart,
+                end: end,
+              );
       }
       at += unit == 0x5C && at + 1 < limit ? 2 : 1;
     }
@@ -318,9 +347,11 @@ int? _markdownLinkDestinationEnd(String source, int start, int limit) {
     }
     close += 1;
   }
-  return close > start && close < limit && source[close] == ')'
-      ? close + 1
-      : null;
+  if (close == start || nesting != 0) return null;
+  final end = _destinationEnd(source, close, limit, multiline: false);
+  return end < 0
+      ? null
+      : (urlStart: start, urlEnd: close, suffixStart: close, end: end);
 }
 
 bool _linkWhitespace(int unit) =>

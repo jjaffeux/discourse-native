@@ -1232,7 +1232,7 @@ class ComposerController extends ChangeNotifier
         : old.text.length;
     final start = caret == 0 ? 0 : old.text.lastIndexOf('\n', caret - 1) + 1;
     final prefix = RegExp(
-      r'^ {0,3}#{1,6}(?:[ \t]+|$)',
+      r'^ {0,3}#{1,6}(?:[ \t]+|(?=[\r\n]|$))',
     ).firstMatch(old.text.substring(start));
     final end = start + (prefix?.end ?? 0);
     final marker = '${'#' * level} ';

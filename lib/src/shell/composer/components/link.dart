@@ -248,10 +248,11 @@ TextEditingValue? composerLinkValue({
           existingLink.source.length - 1,
         )
       : _serializedComposerLinkPart(
-          normalizedUrl,
-          destination: true,
-          preserveMarkdownEscapes: preserveSource,
-        );
+              normalizedUrl,
+              destination: true,
+              preserveMarkdownEscapes: preserveSource,
+            ) +
+            (existingLink?.destinationSuffix ?? '');
   final insertion = '[$sourceAnchor]($sourceUrl)';
   return current.copyWith(
     text: current.text.replaceRange(selection.start, selection.end, insertion),

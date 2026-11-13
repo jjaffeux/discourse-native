@@ -71,10 +71,15 @@ final class AlertLinkSettings {
           ? uri.fragment
           : uri.fragment.substring(0, separator);
       final fragmentQuery = separator < 0
-          ? <String, String>{}
-          : Uri.splitQueryString(uri.fragment.substring(separator + 1));
-      fragmentQuery['_g'] =
-          "(time:(from:'${alert.startsAt}',mode:absolute,to:'${alert.endsAt ?? _javascriptTimestamp(end)}'))";
+          ? <String, List<String>>{}
+          : {
+              ...Uri(
+                query: uri.fragment.substring(separator + 1),
+              ).queryParametersAll,
+            };
+      fragmentQuery['_g'] = [
+        "(time:(from:'${alert.startsAt}',mode:absolute,to:'${alert.endsAt ?? _javascriptTimestamp(end)}'))",
+      ];
       return uri.replace(
         fragment: '$path?${Uri(queryParameters: fragmentQuery).query}',
       );

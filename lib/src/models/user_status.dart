@@ -21,10 +21,13 @@ final class UserStatus {
         emoji.isEmpty) {
       return null;
     }
+    final rawExpiry = value['ends_at'];
+    final endsAt = jsonDate(rawExpiry);
+    if (rawExpiry != null && endsAt == null) return null;
     return UserStatus(
       description: description,
       emoji: emoji,
-      endsAt: jsonDate(value['ends_at']),
+      endsAt: endsAt,
       messageBusLastId: jsonIntOrNull(value['message_bus_last_id']),
     );
   }

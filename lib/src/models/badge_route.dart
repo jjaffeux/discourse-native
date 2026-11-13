@@ -93,6 +93,11 @@ final class BadgeRoute {
     }
   }
 
+  static String? slugFromWire(Object? value) {
+    final slug = jsonText(value);
+    return _validSegment(slug) ? slug : null;
+  }
+
   static bool _validSegment(String? value) =>
       value == null ||
       (value.isNotEmpty &&

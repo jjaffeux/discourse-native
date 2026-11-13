@@ -55,6 +55,19 @@ void main() {
     });
   });
 
+  test('Kibana retains repeated fragment parameters when adding the range', () {
+    final uri = settings.process(
+      'https://logs.example.com/app/kibana#/discover?filter=one&filter=two&_g=old',
+      alert,
+      now: now,
+    )!;
+    final query = Uri(query: uri.fragment.split('?').last).queryParametersAll;
+
+    expect(query['filter'], ['one', 'two']);
+    expect(query['_g'], hasLength(1));
+    expect(query['_g']!.single, contains('mode:absolute'));
+  });
+
   test(
     'invalid URLs are disabled and unrelated links or invalid regexes fall back',
     () {

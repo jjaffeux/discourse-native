@@ -128,6 +128,25 @@ void main() {
       expect(steps, isEmpty);
     });
 
+    testWidgets('cannot step opposite to the total direction of a run', (
+      tester,
+    ) async {
+      final steps = await _pumpRegion(tester, const SizedBox.expand());
+      final run = await _startRun(tester);
+
+      await _pan(tester, run, const [
+        Offset(60, 0),
+        Offset(-100, 180),
+        Offset(-100, 0),
+        Offset(-75, 0),
+      ]);
+      expect(steps, isEmpty);
+
+      await _pan(tester, run, const [Offset(-245, 0)]);
+      await run.panZoomEnd();
+      expect(steps, ['forward']);
+    });
+
     testWidgets('leaves the page free to scroll under the region', (
       tester,
     ) async {

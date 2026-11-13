@@ -265,6 +265,36 @@ void main() {
       }
     });
 
+    test('number averages reject nonfinite options', () {
+      for (final value in ['NaN', 'Infinity', '1e309']) {
+        final poll = Poll.fromJson(
+          pollJson(
+            type: 'number',
+            options: [
+              {'id': 'a', 'html': value, 'votes': 2},
+            ],
+          ),
+          'https://forum.example',
+        )!;
+
+        expect(calculateNumberPollAverage(poll), isNull, reason: value);
+      }
+    });
+
+    test('number averages do not overflow integer vote products', () {
+      final poll = Poll.fromJson(
+        pollJson(
+          type: 'number',
+          options: [
+            {'id': 'a', 'html': '5000000000000000000', 'votes': 2},
+          ],
+        ),
+        'https://forum.example',
+      )!;
+
+      expect(calculateNumberPollAverage(poll), 5e18);
+    });
+
     test('bounds option parsing to the server setting ceiling', () {
       final options = <Object?>[
         // Invalid slots still consume the server-sized parsing budget.

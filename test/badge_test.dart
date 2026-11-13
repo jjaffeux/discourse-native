@@ -63,6 +63,13 @@ void main() {
     },
   );
 
+  test('a malformed optional slug leaves the badge openable by ID', () {
+    for (final slug in ['community/reader', 'community\nreader', 'x' * 256]) {
+      final badge = DiscourseBadge.fromJson({...badgeWire, 'slug': slug}, site);
+      expect(badge.route.path, '/badges/1', reason: slug);
+    }
+  });
+
   test('resolves sideloaded recipients and only links visible topics', () {
     final payload = badgeGrantsWire();
     final page = BadgeGrantPage.fromJson(payload, site);

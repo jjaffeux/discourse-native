@@ -221,6 +221,21 @@ void main() {
     });
   });
 
+  test('quote markup inside a comment remains editable source', () {
+    const source =
+        '<!--\n[quote="sam"]\nExample\n[/quote]\n-->\n\n'
+        '[quote="alex"]\nReal quote\n[/quote]';
+    expect(parseComposerQuotes(source).map((quote) => quote.username), [
+      'alex',
+    ]);
+    const formatter = ComposerQuoteInputFormatter();
+    const before = TextEditingValue(text: source);
+    final after = before.copyWith(
+      text: source.replaceFirst('Example', 'Edited'),
+    );
+    expect(formatter.formatEditUpdate(before, after), after);
+  });
+
   test('input formatting keeps malformed quote bodies atomic', () {
     final body = '${'[quote=“unfinished ' * 128}\nBody';
     final source = '[quote="sam"]\n$body\n[/quote]\n\nafter';

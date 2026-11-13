@@ -17,6 +17,7 @@ class ComposerLinkBlock {
     required this.anchor,
     required this.url,
     required this.kind,
+    this.destinationSuffix = '',
   });
 
   final int start;
@@ -25,6 +26,7 @@ class ComposerLinkBlock {
   final String anchor;
   final String url;
   final ComposerLinkKind kind;
+  final String destinationSuffix;
 }
 
 final RegExp _linkifyHostBoundaryPattern = RegExp(r'[:/?#]');
@@ -66,21 +68,23 @@ List<ComposerLinkBlock> parseComposerLinks(
     }
     final bracket = candidate.labelEnd;
     final end = candidate.tokenEnd;
-    final urlStart = bracket + 2;
-    final destination = source.substring(urlStart, end - 1);
     offset = end;
     markdownRanges.add(TextRange(start: start, end: end));
     if (code.overlaps(start, end)) continue;
     if (candidate.openerStart < start) continue;
+    final destination = composerMarkdownLinkDestination(
+      source,
+      bracket + 2,
+      end,
+    )!;
     links.add(
       ComposerLinkBlock(
         start: start,
         end: end,
         source: source.substring(start, end),
         anchor: source.substring(start + 1, bracket),
-        url: destination.startsWith('<') && destination.endsWith('>')
-            ? destination.substring(1, destination.length - 1)
-            : destination,
+        url: source.substring(destination.urlStart, destination.urlEnd),
+        destinationSuffix: source.substring(destination.suffixStart, end - 1),
         kind: ComposerLinkKind.markdown,
       ),
     );

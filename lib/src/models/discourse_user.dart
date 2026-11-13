@@ -734,20 +734,12 @@ UserStatus? _storedStatus(Object? value) {
   if (value is! Map) return null;
   try {
     final json = Map<String, dynamic>.from(value);
-    final description = jsonText(json['description']);
-    final emoji = jsonText(json['emoji']);
-    if (description == null ||
-        description.isEmpty ||
-        emoji == null ||
-        emoji.isEmpty) {
-      return null;
-    }
-    return UserStatus(
-      description: description,
-      emoji: emoji,
-      endsAt: jsonDate(json['endsAt']),
-      messageBusLastId: jsonIntOrNull(json['messageBusLastId']),
-    );
+    return UserStatus.fromJson({
+      'description': json['description'],
+      'emoji': json['emoji'],
+      'ends_at': json['endsAt'],
+      'message_bus_last_id': json['messageBusLastId'],
+    });
   } catch (_) {
     return null;
   }

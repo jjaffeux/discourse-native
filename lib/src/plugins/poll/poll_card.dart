@@ -994,10 +994,11 @@ double? calculateNumberPollAverage(Poll poll) {
   var total = 0.0;
   for (final option in poll.options) {
     final value = option.numericValue;
-    if (value == null) return null;
-    total += value * option.votes!;
+    if (value == null || !value.isFinite) return null;
+    total += value.toDouble() * option.votes!;
   }
-  return total / poll.voters;
+  final average = total / poll.voters;
+  return average.isFinite ? average : null;
 }
 
 List<int> _evenRound(List<double> values) {
