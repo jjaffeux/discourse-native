@@ -221,7 +221,8 @@ abstract class ByteCache<T extends Object> {
   bool _cooledDown(String url) {
     final failedAt = _transientFailures[url];
     if (failedAt == null) return false;
-    return elapsedSince(failedAt, now: _clock()) > retryAfter;
+    final now = _cooldownTime();
+    return now == null || elapsedSince(failedAt, now: now) > retryAfter;
   }
 
   Future<T?> load(String url) => _request(url, requestPriority).result;
@@ -331,12 +332,24 @@ abstract class ByteCache<T extends Object> {
     if (entry != null) _cache[url] = entry;
   }
 
-  void _rememberTransientFailure(String url) {
+  DateTime? _cooldownTime() {
+    try {
+      return _clock();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _cacheTransientFailure(_ByteCacheTransfer<T> transfer) {
+    final failedAt = _cooldownTime();
+    if (failedAt == null || !_canPublish(transfer)) return;
+    final url = transfer.url;
     _transientFailures.remove(url);
-    _transientFailures[url] = _clock();
+    _transientFailures[url] = failedAt;
     while (_transientFailures.length > maxEntries) {
       _transientFailures.remove(_transientFailures.keys.first);
     }
+    _put(url, null, byteSize: 0);
   }
 
   Future<T?> _fetch(_ByteCacheTransfer<T> transfer) async {
@@ -388,11 +401,11 @@ abstract class ByteCache<T extends Object> {
       transfer.checkDemand();
 
       if (response.statusCode != 200) {
-        if (current() &&
-            (response.statusCode == 429 || response.statusCode >= 500)) {
-          _rememberTransientFailure(url);
+        if (response.statusCode == 429 || response.statusCode >= 500) {
+          _cacheTransientFailure(transfer);
+        } else if (current()) {
+          _put(url, null, byteSize: 0);
         }
-        if (current()) _put(url, null, byteSize: 0);
         return null;
       }
 
@@ -442,10 +455,7 @@ abstract class ByteCache<T extends Object> {
     } on MediaOriginRateLimitedException {
       // This URL never reached the network: another native-managed media
       // request put its whole origin into cooldown. Remember it as transient.
-      if (current()) {
-        _rememberTransientFailure(url);
-        _put(url, null, byteSize: 0);
-      }
+      _cacheTransientFailure(transfer);
       return null;
     } on MediaRequestOverloadException {
       // A backlog rejection never reached the network and says nothing about
@@ -458,10 +468,7 @@ abstract class ByteCache<T extends Object> {
         return null;
       }
 
-      if (current()) {
-        _rememberTransientFailure(url);
-        _put(url, null, byteSize: 0);
-      }
+      _cacheTransientFailure(transfer);
       return null;
     } finally {
       _release();

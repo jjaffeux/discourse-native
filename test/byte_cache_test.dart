@@ -17,6 +17,25 @@ import 'package:http/testing.dart';
 import 'support/manual_scheduler.dart';
 
 void main() {
+  test('a failed cooldown clock lets callers settle and retry', () async {
+    var requests = 0;
+    final cache = _TestByteCache(
+      clock: () => throw StateError('clock unavailable'),
+      client: MockClient(
+        (_) async => ++requests == 1
+            ? http.Response('', 503)
+            : http.Response.bytes([7], 200),
+      ),
+    );
+    addTearDown(cache.close);
+    const url = 'https://cdn.test/retry.png';
+
+    expect(await cache.load(url).timeout(const Duration(seconds: 1)), isNull);
+    expect(cache.isCached(url), isFalse);
+    expect(await cache.load(url), [7]);
+    expect(requests, 2);
+  });
+
   group('URL admission and redirect handling', () {
     test('rejects unsafe image URLs before reaching the transport', () async {
       final requested = <Uri>[];
