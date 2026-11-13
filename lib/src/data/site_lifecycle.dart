@@ -1,3 +1,5 @@
+import 'dart:async';
+
 typedef SiteMutation = void Function();
 
 final class SiteLifecycle {
@@ -61,6 +63,25 @@ final class SiteLease {
     void registration() => observer();
     _session._observers.add(registration);
     return () => _session._observers.remove(registration);
+  }
+
+  /// Bounds an in-flight wait by the lease lifetime and the given timeout.
+  Future<T> waitWhileCurrent<T>(
+    Future<T> operation,
+    Object retirementError, {
+    required Duration timeout,
+  }) async {
+    if (!isCurrent) {
+      operation.ignore();
+      throw retirementError;
+    }
+    final retired = Completer<Never>();
+    final detach = onRetire(() => retired.completeError(retirementError));
+    try {
+      return await Future.any<T>([retired.future, operation]).timeout(timeout);
+    } finally {
+      detach();
+    }
   }
 
   bool commit(SiteMutation mutation) {

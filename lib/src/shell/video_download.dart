@@ -129,22 +129,13 @@ final class NativeVideoDownloader implements VideoDownloader {
     );
   }
 
-  Future<T> _waitForCredential<T>(Future<T> operation, SiteLease? lease) async {
-    if (lease == null) return operation.timeout(requestTimeout);
-
-    final retired = Completer<Never>();
-    final removeRetirement = lease.onRetire(() {
-      retired.completeError(const VideoDownloadException());
-    });
-    try {
-      return await Future.any<T>([
-        retired.future,
+  Future<T> _waitForCredential<T>(Future<T> operation, SiteLease? lease) =>
+      lease?.waitWhileCurrent(
         operation,
-      ]).timeout(requestTimeout);
-    } finally {
-      removeRetirement();
-    }
-  }
+        const VideoDownloadException(),
+        timeout: requestTimeout,
+      ) ??
+      operation.timeout(requestTimeout);
 
   Future<_VideoMediaType?> _fetch(
     http.Client client, {

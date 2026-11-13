@@ -2,6 +2,22 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('an already retired lease rejects a completed operation', () async {
+    const site = 'https://meta.discourse.org';
+    final lifecycle = SiteLifecycle();
+    final lease = lifecycle.capture(site);
+    lifecycle.invalidate(site);
+    final error = StateError('retired');
+    await expectLater(
+      lease.waitWhileCurrent(
+        Future.value(42),
+        error,
+        timeout: const Duration(seconds: 1),
+      ),
+      throwsA(same(error)),
+    );
+  });
+
   test('only the current session can commit state for a site', () {
     final lifecycle = SiteLifecycle();
     final first = lifecycle.capture('https://meta.discourse.org');
