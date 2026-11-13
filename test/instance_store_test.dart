@@ -28,6 +28,25 @@ void main() {
   });
 
   group('load', () {
+    test(
+      'overlapping stores share storage but own their restored lists',
+      () async {
+        final persistence = ControlledInstancePersistence()
+          ..stored = '[{"url":"https://forum.example","title":"Forum"}]';
+        final first = InstanceStore(persistence: persistence);
+        final second = InstanceStore(persistence: persistence);
+        final [left, right] = await Future.wait([first.load(), second.load()]);
+
+        expect(left.single.url, 'https://forum.example');
+        expect(right.single.url, left.single.url);
+        left.clear();
+        expect(right, hasLength(1));
+        expect(persistence.readCount, 1);
+        await second.load();
+        expect(persistence.readCount, 2);
+      },
+    );
+
     test('answers an empty rail when nothing was stored', () async {
       expect(await store.load(), isEmpty);
     });

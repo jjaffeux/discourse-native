@@ -60,7 +60,7 @@ class InstanceStore {
 
   Future<List<DiscourseInstance>> load() async {
     await _basicAuth?.load();
-    final raw = await _snapshots.read(_persistence.read);
+    final raw = await _snapshots.readShared(_persistence.read);
     if (raw == null || raw.isEmpty) return const [];
 
     Object? decoded;
