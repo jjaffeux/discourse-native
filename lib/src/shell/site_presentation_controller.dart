@@ -551,7 +551,9 @@ final class _PresentationResource<T extends Object> {
     }
     if (refresh) entry.failed = false;
 
-    final request = RequestIntentOperation<T?>(() async {
+    final request = RequestIntentOperation<T?>();
+    entry.request = request;
+    request.start(() async {
       if (!session.isCurrent || (!refresh && (isWarm?.call() ?? false))) {
         return null;
       }
@@ -596,8 +598,9 @@ final class _PresentationResource<T extends Object> {
         entry.loading = false;
       }
     });
-    entry.request = request;
-    request.future.whenComplete(() => entry.request = null).ignore();
+    request.future.whenComplete(() {
+      if (identical(entry.request, request)) entry.request = null;
+    }).ignore();
     return request.future;
   }
 

@@ -51,13 +51,14 @@ final class RequestIntentGroup extends RequestIntent {
 }
 
 final class RequestIntentOperation<T> {
-  RequestIntentOperation(Future<T> Function() operation)
-    : intent = RequestIntentGroup(RequestIntent.current) {
-    future = intent.run(operation);
-  }
+  RequestIntentOperation() : intent = RequestIntentGroup(RequestIntent.current);
 
   final RequestIntentGroup intent;
-  late final Future<T> future;
+  final _completion = Completer<T>();
+  Future<T> get future => _completion.future;
+
+  void start(Future<T> Function() operation) =>
+      _completion.complete(intent.run(() => Future<T>.sync(operation)));
 
   Future<T> join() {
     intent.join(RequestIntent.current);

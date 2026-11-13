@@ -752,13 +752,14 @@ final class _TaxonomyDirectoryController
     final existingFeed = site.categoryFeed;
     if (force) site.categoryPageRequest = null;
     site.categorised = true;
-    late final RequestIntentOperation<void> request;
+    final request = RequestIntentOperation<void>();
     bool requestIsCurrent() =>
         !_shell.accountSessionDisposed &&
         site.lease.isCurrent &&
         identical(_sites[instance.url], site) &&
         identical(site.categoryRequest, request);
-    request = RequestIntentOperation(
+    site.categoryRequest = request;
+    request.start(
       () =>
           Future<void>.microtask(
             () => _loadCategories(
@@ -774,7 +775,6 @@ final class _TaxonomyDirectoryController
             }
           }),
     );
-    site.categoryRequest = request;
     site.categoryFeed = existingFeed.refreshing();
     _shell._notify();
     return request.future;

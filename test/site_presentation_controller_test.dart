@@ -236,6 +236,22 @@ void main() {
     );
   });
 
+  test('configuration callers join during credential lookup', () async {
+    const site = 'https://reentrant.example';
+    final credentials = _Credentials();
+    final api = _PresentationApi();
+    final controller = _controller(api, credentials: credentials);
+    Future<void>? joined;
+    credentials.onRead = () => joined = controller.ensureConfig(site);
+
+    final first = controller.ensureConfig(site);
+    await first;
+    await joined;
+    expect(joined, same(first));
+    expect(api.configCalls, 1);
+    expect(await controller.resolveConfig(site), same(api.config));
+  });
+
   test(
     'forgetting a session during credential IO prevents its dispatch',
     () async {
@@ -1464,12 +1480,16 @@ final class _Credentials implements ApiCredentialReader {
 
   final String? apiKey;
   Completer<String?>? apiKeyGate;
+  void Function()? onRead;
   final List<String> apiKeySites = [];
   int clientIdCalls = 0;
 
   @override
   Future<String?> apiKeyFor(String siteUrl) async {
     apiKeySites.add(siteUrl);
+    final callback = onRead;
+    onRead = null;
+    callback?.call();
     return apiKeyGate?.future ?? apiKey;
   }
 
