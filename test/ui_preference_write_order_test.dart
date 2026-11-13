@@ -8,6 +8,33 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'queue shares consecutive reads only for the same result type',
+    () async {
+      final queue = SerialOperationQueue();
+      final owner = Object();
+      final narrow = queue.readShared<String>(
+        owner: owner,
+        key: 'snapshot',
+        operation: () async => 'first',
+      );
+      final broad = queue.readShared<Object>(
+        owner: owner,
+        key: 'snapshot',
+        operation: () async => 42,
+      );
+      final joined = queue.readShared<Object>(
+        owner: owner,
+        key: 'snapshot',
+        operation: () async => 99,
+      );
+
+      expect(await narrow, 'first');
+      expect(await broad, 42);
+      expect(joined, same(broad));
+    },
+  );
+
+  test(
     'queue continues after failure and leaves other keys independent',
     () async {
       final queue = SerialOperationQueue();
