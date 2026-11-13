@@ -122,17 +122,19 @@ Future<http.Response> sendBoundedHttpRequest(
     http.Abortable(:final abortTrigger?) => abortTrigger,
     _ => null,
   };
-  final sentRequest = _withAbortTrigger(
-    request,
-    callerAbort == null
-        ? timeoutAbort.future
-        : Future.any<void>([callerAbort, timeoutAbort.future]),
-  );
+  final transportAbort = callerAbort == null
+      ? timeoutAbort.future
+      : Future.any<void>([callerAbort, timeoutAbort.future]);
+  // A client can fail before subscribing to the abort trigger.
+  transportAbort.ignore();
+  final sentRequest = _withAbortTrigger(request, transportAbort);
   final abortError = callerAbort?.then(
     (_) => http.RequestAbortedException(request.url),
   );
   final elapsed = Stopwatch()..start();
-  final response = client.send(sentRequest);
+  final response = Future<http.StreamedResponse>.sync(
+    () => client.send(sentRequest),
+  );
   late http.StreamedResponse streamed;
   try {
     streamed = await Future.any<http.StreamedResponse>([

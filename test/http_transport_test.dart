@@ -362,6 +362,28 @@ void main() {
       expect(cancelled, isTrue);
     });
 
+    test(
+      'a synchronous send failure still observes a late abort error',
+      () async {
+        final abort = Completer<void>();
+        final sendError = StateError('send failed');
+        final result = sendBoundedHttpRequest(
+          _Client((_) => throw sendError),
+          http.AbortableRequest(
+            'GET',
+            Uri.https('forum.example', '/data'),
+            abortTrigger: abort.future,
+          ),
+          timeout: const Duration(seconds: 1),
+          maxBodyBytes: 10,
+        );
+        await expectLater(result, throwsA(same(sendError)));
+
+        abort.completeError(StateError('abort failed'));
+        await Future<void>.delayed(Duration.zero);
+      },
+    );
+
     test('caller cancellation releases a response that arrives late', () async {
       final abort = Completer<void>();
       final headers = Completer<http.StreamedResponse>();
