@@ -237,11 +237,13 @@ Future<Uint8List?> readBoundedHttpBody(
     }
   }
 
-  abortError?.then<void>((error) {
+  void abort(Object error, [StackTrace? stackTrace]) {
     if (result.isCompleted) return;
-    result.completeError(error);
+    result.completeError(error, stackTrace);
     cancel();
-  }).ignore();
+  }
+
+  abortError?.then<void>(abort, onError: abort).ignore();
 
   subscription = stream.listen(
     (chunk) {

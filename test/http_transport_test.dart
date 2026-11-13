@@ -6,6 +6,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
+  test('a failed abort signal releases a bounded response body', () async {
+    final abort = Completer<Object>();
+    var cancellations = 0;
+    final body = StreamController<List<int>>(
+      onCancel: () {
+        cancellations++;
+      },
+    );
+    addTearDown(body.close);
+    final timers = <_ManualTimer>[];
+    final result = _withManualTimers(
+      timers,
+      () => readBoundedHttpBody(
+        body.stream,
+        maxBytes: 10,
+        timeout: const Duration(seconds: 1),
+        timeoutError: TimeoutException('deadline'),
+        abortError: abort.future,
+      ),
+    );
+    final error = StateError('abort failed');
+    final failure = expectLater(result, throwsA(same(error)));
+    abort.completeError(error);
+    await Future<void>.delayed(Duration.zero);
+    if (timers.single.isActive) timers.single.fire();
+    await failure;
+    expect(cancellations, 1);
+    expect(timers.single.isActive, isFalse);
+  });
+
   group('requireSafeHttpUrl', () {
     test('accepts HTTPS', () {
       final url = Uri.parse('https://forum.example/path');
