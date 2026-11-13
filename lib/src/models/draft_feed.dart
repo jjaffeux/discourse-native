@@ -123,7 +123,7 @@ class DraftFeed {
     final updated = _heldWindow.without(key, (draft) => draft.key);
     final decrement = contained || knownToExist;
     return DraftFeed(
-      drafts: updated.items,
+      drafts: identical(updated, window) ? drafts : updated.items,
       loading: loading,
       loadingPrevious: loadingPrevious,
       loaded: loaded,

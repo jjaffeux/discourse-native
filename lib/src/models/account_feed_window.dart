@@ -150,15 +150,15 @@ class AccountFeedWindow<T> {
 
   AccountFeedWindow<T> without(Object key, Object Function(T) identity) {
     var shifted = 0;
-    final updated = <AccountFeedPacket<T>>[];
-    for (final packet in packets) {
+    List<AccountFeedPacket<T>>? updated;
+    for (var index = 0; index < packets.length; index++) {
+      final packet = packets[index];
       final first = packet.items.indexWhere((row) => identity(row) == key);
       if (first < 0) {
-        updated.add(
-          shifted == 0 ? packet : AccountFeedPacket._shifted(packet, shifted),
-        );
+        updated?.add(AccountFeedPacket._shifted(packet, shifted));
         continue;
       }
+      updated ??= packets.take(index).toList();
       final rows = [
         ...packet.items.take(first),
         for (final row in packet.items.skip(first + 1))
@@ -174,6 +174,7 @@ class AccountFeedWindow<T> {
       );
       shifted += removed;
     }
+    if (updated == null) return this;
     return AccountFeedWindow(
       packets: List.unmodifiable(updated),
       lastPageWasPrevious: lastPageWasPrevious,

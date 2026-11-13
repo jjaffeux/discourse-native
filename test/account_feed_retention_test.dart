@@ -631,6 +631,8 @@ void main() {
       expect(feed.drafts.last.key, 'topic_329');
       final invalidated = feed.without('topic_2', knownToExist: true);
       expect(invalidated.requiresRefresh, isTrue);
+      expect(invalidated.window, same(feed.window));
+      expect(invalidated.drafts, same(feed.drafts));
     },
   );
 
