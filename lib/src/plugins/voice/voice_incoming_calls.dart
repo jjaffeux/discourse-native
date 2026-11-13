@@ -156,6 +156,7 @@ final class VoiceIncomingCalls {
   final DateTime Function() clock;
   final Timer Function(Duration, void Function()) timerFactory;
   final Map<String, _VoiceRingSubscription> _rings = {};
+  final Set<Future<void>> _ringTeardowns = {};
   final Set<String> _handledRings = {};
   _VoiceIncomingAdmission? _incomingAdmission;
   bool _closed = false;
@@ -201,7 +202,8 @@ final class VoiceIncomingCalls {
     // a later sync moves the ring to the channel the settings settle on.
     final channel = '${namespace.root}/call-ring/$userId';
     if (_rings[siteUrl]?.channel == channel) return false;
-    _rings.remove(siteUrl)?.subscription.cancel();
+    _detachRing(siteUrl);
+    if (_closed) return false;
     _rings[siteUrl] = (
       channel: channel,
       subscription: tracker.subscribe(
@@ -213,10 +215,23 @@ final class VoiceIncomingCalls {
   }
 
   void detach(String siteUrl) {
-    _rings.remove(siteUrl)?.subscription.cancel();
+    _detachRing(siteUrl);
     if (_ringingCall?.siteUrl == siteUrl) {
       _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     }
+  }
+
+  void _detachRing(String siteUrl) {
+    final ring = _rings.remove(siteUrl);
+    if (ring == null) return;
+    final completion = Completer<void>();
+    final teardown = completion.future;
+    _ringTeardowns.add(teardown);
+    completion.complete(
+      _cancelSubscription(
+        ring.subscription,
+      ).whenComplete(() => _ringTeardowns.remove(teardown)),
+    );
   }
 
   /// Takes the ringing call: the room is resolved (and held) so the caller
@@ -477,6 +492,7 @@ final class VoiceIncomingCalls {
     _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     unawaited(
       Future.wait([
+        ..._ringTeardowns,
         for (final subscription in subscriptions)
           _cancelSubscription(subscription),
       ]).then((_) => completion.complete(), onError: completion.completeError),

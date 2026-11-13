@@ -757,13 +757,19 @@ final class _AwaitableSubscriptionTracker extends RecordingPluginLiveChannels {
   final Completer<void> cancellationGate = Completer<void>();
   int cancellationsStarted = 0;
   void Function()? onCancel;
+  bool Function(String)? holdChannel;
 
   @override
   PluginLiveChannelSubscription subscribe(
     String channel,
     void Function(Object? data, int messageId) onMessage, {
     int? lastId,
-  }) => _wrap(super.subscribe(channel, onMessage, lastId: lastId));
+  }) {
+    final subscription = super.subscribe(channel, onMessage, lastId: lastId);
+    return (holdChannel?.call(channel) ?? true)
+        ? _wrap(subscription)
+        : subscription;
+  }
 
   PluginLiveChannelSubscription _wrap(
     PluginLiveChannelSubscription subscription,
@@ -2775,6 +2781,31 @@ void main() {
   });
 
   group('site invalidation', () {
+    test(
+      'shutdown waits for an incoming ring detached during tracker replacement',
+      () async {
+        final old = _AwaitableSubscriptionTracker()
+          ..holdChannel = (channel) => channel.contains('/call-ring/');
+        firstTracker = old;
+        useTransport(transport);
+        await controller.ensureLoaded(firstSite);
+        final replacement = tracker(firstSite);
+
+        controller.attachTracker(firstSite, replacement);
+        await old.firstCancellationStarted.future;
+        var closed = false;
+        final closing = controller.close().then((_) => closed = true);
+        await pumpEventQueue();
+        final closedWhileBlocked = closed;
+        old.cancellationGate.complete();
+        await closing;
+
+        expect(closedWhileBlocked, isFalse);
+        expect(old.channels, isEmpty);
+        expect(replacement.channels, isEmpty);
+      },
+    );
+
     test(
       'close waits when account removal re-enters through cancellation',
       () async {
