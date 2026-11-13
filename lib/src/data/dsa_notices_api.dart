@@ -4,9 +4,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
-import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
+import 'dsa_notice_contracts.dart';
 import 'http_url_safety.dart';
+import 'write_failure.dart';
 
 final class DsaNoticeHttpConnection implements DsaNoticeConnection {
   DsaNoticeHttpConnection(

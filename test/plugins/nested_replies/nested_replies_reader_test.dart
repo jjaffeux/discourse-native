@@ -8,6 +8,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_api.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_data.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_reader.dart';
+import 'package:discourse_native/src/plugins/nested_replies/nested_replies_reader_memory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';

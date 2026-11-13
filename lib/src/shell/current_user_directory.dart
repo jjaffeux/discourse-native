@@ -1,36 +1,44 @@
-part of 'shell_controller.dart';
+import '../data/current_user_reconciler.dart';
+import '../data/current_user_refresh.dart';
+import '../data/site_lifecycle.dart';
+import '../models/discourse_instance.dart';
+import '../models/discourse_user.dart';
+import 'user_status_overrides.dart';
 
-abstract interface class _CurrentUserRefreshHost {
-  bool _canAcceptCurrentUser(String siteUrl);
-  DiscourseInstance? _instanceAt(String siteUrl);
-  Future<DiscourseUser?> _readSessionUser(
-    String siteUrl,
-    String apiKey,
-    SiteLease lease,
-  );
-  DiscourseUser _acceptDoNotDisturbSnapshot(
-    String siteUrl,
-    DiscourseUser user, {
-    required bool isCurrent,
-  });
-  bool _publishFreshCurrentUser(
-    String siteUrl,
-    SiteLease lease,
-    DiscourseInstance previous,
-    CurrentUserReconciliation accepted,
-  );
-}
-
-final class _CurrentUserDirectory {
-  _CurrentUserDirectory({
+final class CurrentUserDirectory {
+  CurrentUserDirectory({
     required this.lifecycle,
     required this.statuses,
-    required this._host,
+    required this._canAcceptCurrentUser,
+    required this._instanceAt,
+    required this._readSessionUser,
+    required this._acceptDoNotDisturbSnapshot,
+    required this._publishFreshCurrentUser,
   });
 
   final SiteLifecycle lifecycle;
   final UserStatusOverrides statuses;
-  final _CurrentUserRefreshHost _host;
+  final bool Function(String siteUrl) _canAcceptCurrentUser;
+  final DiscourseInstance? Function(String siteUrl) _instanceAt;
+  final Future<DiscourseUser?> Function(
+    String siteUrl,
+    String apiKey,
+    SiteLease lease,
+  )
+  _readSessionUser;
+  final DiscourseUser Function(
+    String siteUrl,
+    DiscourseUser user, {
+    required bool isCurrent,
+  })
+  _acceptDoNotDisturbSnapshot;
+  final bool Function(
+    String siteUrl,
+    SiteLease lease,
+    DiscourseInstance previous,
+    CurrentUserReconciliation accepted,
+  )
+  _publishFreshCurrentUser;
   final Map<String, _CurrentUserAccount> _accounts = {};
   bool _disposed = false;
 
@@ -66,7 +74,7 @@ final class _CurrentUserDirectory {
   }
 
   DiscourseUser? freshUserFor(String siteUrl) =>
-      isFresh(siteUrl) ? _host._instanceAt(siteUrl)?.user : null;
+      isFresh(siteUrl) ? _instanceAt(siteUrl)?.user : null;
 
   void markConnectedUserFresh(String siteUrl, SiteLease lease) {
     if (_disposed || !lease.isCurrent) return;
@@ -79,22 +87,18 @@ final class _CurrentUserDirectory {
     SiteLease? lease,
     bool force = false,
   }) {
-    if (_disposed || _host._instanceAt(siteUrl) == null) return Future.value();
+    if (_disposed || _instanceAt(siteUrl) == null) return Future.value();
     final session = lease ?? lifecycle.capture(siteUrl);
     if (!session.isCurrent) return Future.value();
     final account = _accountFor(siteUrl, session);
     if (!force && account.fresh) {
-      return Future.value(_host._instanceAt(siteUrl)?.user);
+      return Future.value(_instanceAt(siteUrl)?.user);
     }
     final refresh = account.refresh ??= CurrentUserRefresh(
       lease: account.lease,
       read: () async {
         final ticket = account.reconciler.beginSnapshot();
-        final user = await _host._readSessionUser(
-          siteUrl,
-          apiKey,
-          account.lease,
-        );
+        final user = await _readSessionUser(siteUrl, apiKey, account.lease);
         return user == null
             ? null
             : acceptSnapshot(siteUrl, user, account.lease, ticket);
@@ -117,10 +121,10 @@ final class _CurrentUserDirectory {
         lease.isCurrent &&
         identical(account.lease.session, lease.session) &&
         identical(_accounts[siteUrl], account) &&
-        _host._canAcceptCurrentUser(siteUrl);
+        _canAcceptCurrentUser(siteUrl);
 
     if (!ownsAcceptance()) return null;
-    final user = _host._acceptDoNotDisturbSnapshot(
+    final user = _acceptDoNotDisturbSnapshot(
       siteUrl,
       response,
       isCurrent: account!.reconciler.doNotDisturbIsCurrent(ticket),
@@ -128,7 +132,7 @@ final class _CurrentUserDirectory {
     if (!ownsAcceptance()) return null;
     DiscourseUser? committed;
     lease.commit(() {
-      final previous = _host._instanceAt(siteUrl);
+      final previous = _instanceAt(siteUrl);
       if (!ownsAcceptance() || previous == null) return;
       final accepted = account.reconciler.reconcile(
         ticket,
@@ -141,7 +145,7 @@ final class _CurrentUserDirectory {
       account.confirmation = confirmation;
       var published = false;
       try {
-        published = _host._publishFreshCurrentUser(
+        published = _publishFreshCurrentUser(
           siteUrl,
           lease,
           previous,

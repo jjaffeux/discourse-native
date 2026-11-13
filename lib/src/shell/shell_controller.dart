@@ -26,7 +26,6 @@ import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/cooking_plugin.dart';
 import '../data/current_user_reconciler.dart';
-import '../data/current_user_refresh.dart';
 import '../data/custom_sidebar_sections.dart';
 import '../data/destination_bookmarks_store.dart';
 import '../data/discourse_api_contracts.dart';
@@ -139,6 +138,7 @@ import 'composer/plugin_composer_host.dart';
 import 'content_page_contract.dart';
 import 'cooking_context_owner.dart';
 import 'core_link_resolver.dart';
+import 'current_user_directory.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
 import 'flag_transactions.dart';
@@ -148,6 +148,7 @@ import 'forum_tab_scope.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'groups_controller.dart';
+import 'instance_rail_transactions.dart';
 import 'message_archive_transactions.dart';
 import 'mobile_navigation.dart';
 import 'notification_feed_refresh_owner.dart';
@@ -172,6 +173,7 @@ import 'topic_filter_lookups.dart';
 import 'topic_filter_scope.dart';
 import 'topic_list_cursor_coordinator.dart';
 import 'topic_list_transitions.dart';
+import 'topic_metadata_transactions.dart';
 import 'topic_navigation_attempts.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
@@ -187,8 +189,6 @@ import 'user_summary_controller.dart';
 part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
-part 'current_user_directory.dart';
-part 'instance_rail_transactions.dart';
 part 'post_commands.dart';
 part 'post_mutation_policy.dart';
 part 'selected_post_moderation.dart';
@@ -196,7 +196,6 @@ part 'shell_tab_context.dart';
 part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
 part 'topic_action_transactions.dart';
-part 'topic_metadata_transactions.dart';
 part 'workspace_controller.dart';
 
 enum MobilePane { sidebar, content }
@@ -304,11 +303,7 @@ final class TopicPostOwnerTarget {
 }
 
 class ShellController extends FrameSafeNotifier
-    implements
-        PluginNavigationHost,
-        BookmarkHost,
-        AccountSessionHost,
-        _CurrentUserRefreshHost {
+    implements PluginNavigationHost, BookmarkHost, AccountSessionHost {
   ShellController({
     required this.instanceStore,
     required ShellApiCapabilities api,
@@ -1269,7 +1264,15 @@ class ShellController extends FrameSafeNotifier
   List<DiscourseInstance> get instances => List.unmodifiable(_instances);
   bool get hasInstances => _instances.isNotEmpty;
 
-  late final _instanceRail = _InstanceRailTransactions(this);
+  late final _instanceRail = InstanceRailTransactions(
+    instances: _instances,
+    save: instanceStore.save,
+    instanceAt: _instanceAt,
+    isLoaded: () => loaded,
+    selectedSiteUrl: () => currentInstance?.url,
+    followSelectedInstance: _followSelectedInstance,
+    changed: _notify,
+  );
 
   InstanceLoadStatus _loadStatus = InstanceLoadStatus.loading;
 
@@ -3253,10 +3256,14 @@ class ShellController extends FrameSafeNotifier
     changed: _notify,
     clock: _clock,
   );
-  late final _currentUsers = _CurrentUserDirectory(
+  late final _currentUsers = CurrentUserDirectory(
     lifecycle: lifecycle,
     statuses: userStatuses,
-    host: this,
+    canAcceptCurrentUser: _canAcceptCurrentUser,
+    instanceAt: _instanceAt,
+    readSessionUser: _readSessionUser,
+    acceptDoNotDisturbSnapshot: _acceptDoNotDisturbSnapshot,
+    publishFreshCurrentUser: _publishFreshCurrentUser,
   );
 
   bool _foreground = true;
@@ -3458,11 +3465,9 @@ class ShellController extends FrameSafeNotifier
     return user?.id ?? _instanceAt(siteUrl)?.user?.id;
   }
 
-  @override
   bool _canAcceptCurrentUser(String siteUrl) =>
       !isDisposed && _forumAccess.connectingSiteUrl != siteUrl;
 
-  @override
   Future<DiscourseUser?> _readSessionUser(
     String siteUrl,
     String apiKey,
@@ -3551,7 +3556,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  @override
   bool _publishFreshCurrentUser(
     String siteUrl,
     SiteLease lease,
@@ -3683,7 +3687,6 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
-  @override
   DiscourseUser _acceptDoNotDisturbSnapshot(
     String siteUrl,
     DiscourseUser user, {
@@ -6329,10 +6332,11 @@ class ShellController extends FrameSafeNotifier
     if (nextTitle.isEmpty) return appL10n.aTopicTitleIsRequired;
     if (nextTitle == detail!.title.trim()) return null;
 
-    return _saveTopicMetadata(
+    return _topicMetadata.saveTitle(
       siteUrl: siteUrl,
       topicId: topicId,
-      command: _TopicTitleCommand(nextTitle, originalTitle ?? detail.title),
+      title: nextTitle,
+      originalTitle: originalTitle ?? detail.title,
     );
   }
 
@@ -6346,10 +6350,12 @@ class ShellController extends FrameSafeNotifier
       return appL10n.thisTopicCanNoLongerBeEdited;
     }
     if (detail!.categoryId == categoryId) return null;
-    return _saveTopicMetadata(
+    return _topicMetadata.saveCategory(
       siteUrl: siteUrl,
       topicId: topicId,
-      command: _TopicCategoryCommand(detail.title, categoryId, detail.tags),
+      title: detail.title,
+      categoryId: categoryId,
+      tags: detail.tags,
     );
   }
 
@@ -6408,12 +6414,30 @@ class ShellController extends FrameSafeNotifier
         currentTopic?.canEditTags != true) {
       return appL10n.topicTagsCanNoLongerBeEdited;
     }
-    return _saveTopicMetadata(
+    return _topicMetadata.saveTags(
       siteUrl: siteUrl,
       topicId: topicId,
-      command: _TopicTagsCommand(tags),
+      tags: tags,
     );
   }
+
+  late final _topicMetadata = TopicMetadataTransactions(
+    lifecycle: lifecycle,
+    credentialForWrite: _credentialForWrite,
+    topics: api.topicMutations,
+    composerQueries: api.topicComposerQueries,
+    maxTagSearchResults: (siteUrl) =>
+        siteConfigFor(siteUrl).maxTagSearchResults,
+    topicData: _topicData,
+    retitle: (siteUrl, topicId, fallbackTitle) => _retitle(
+      siteUrl,
+      topicId,
+      _shownTopicTitle(siteUrl, topicId) ?? fallbackTitle,
+    ),
+    updateTopicRouteMetadata: _updateTopicRouteMetadata,
+    applyTopicTags: _applyTopicTags,
+    changed: _notify,
+  );
 
   late final _PostMutationPolicy _postMutationPolicy = _PostMutationPolicy(
     store: store,
@@ -7240,7 +7264,6 @@ class ShellController extends FrameSafeNotifier
     _topicData.forSite(siteUrl).projectAcceptedMetadata(topicId, tags: tags);
   }
 
-  @override
   DiscourseInstance? _instanceAt(String url) {
     for (final instance in _instances) {
       if (instance.url == url) return instance;

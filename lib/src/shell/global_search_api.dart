@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
 
-import '../data/discourse_api_contracts.dart';
 import '../data/plugin_transport.dart';
+import '../data/site_lookup_failure.dart';
 import '../models/json.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';

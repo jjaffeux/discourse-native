@@ -80,9 +80,9 @@ Concurrent full responses retain their existing acceptance order.
 
 ## Refresh ownership
 
-The private `current_user_directory.dart` shell part owns one record per account
-lease. Each record composes `CurrentUserRefresh` and `CurrentUserReconciler` with
-a freshness marker. It stores no user. Fresh capabilities read the current
+The standalone `CurrentUserDirectory` owns one record per account lease. Each
+record composes `CurrentUserRefresh` and `CurrentUserReconciler` with a freshness
+marker. It stores no user. Fresh capabilities read the current
 `DiscourseInstance.user`, including later local and live changes. A connected
 snapshot marks its original lease fresh. Restored persisted users need a new
 confirmed read.

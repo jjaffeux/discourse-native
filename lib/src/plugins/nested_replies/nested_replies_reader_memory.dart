@@ -1,4 +1,8 @@
-part of 'nested_replies_reader.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart'
+    show elapsedSince;
+import 'package:flutter/foundation.dart';
+
+import 'nested_replies_controller.dart';
 
 /// The session owner clears reference-only reader snapshots on account retirement.
 final class NestedRepliesReaderMemory extends ChangeNotifier {
@@ -6,7 +10,8 @@ final class NestedRepliesReaderMemory extends ChangeNotifier {
     : _clock = clock ?? DateTime.now;
 
   final DateTime Function() _clock;
-  final Map<Object, _RememberedReader> _entries = {};
+  final _entries =
+      <Object, ({NestedRepliesReaderSnapshot value, DateTime savedAt})>{};
   final Map<(String, int), int> _revisions = {};
 
   int revision(String siteUrl, int topicId) =>
@@ -16,13 +21,14 @@ final class NestedRepliesReaderMemory extends ChangeNotifier {
     final key = (siteUrl, topicId);
     _revisions[key] = (_revisions[key] ?? 0) + 1;
     _entries.removeWhere(
-      (_, entry) => entry.siteUrl == siteUrl && entry.topicId == topicId,
+      (_, entry) =>
+          entry.value.siteUrl == siteUrl && entry.value.topicId == topicId,
     );
     notifyListeners();
   }
 
   void forgetSite(String siteUrl) {
-    _entries.removeWhere((_, entry) => entry.siteUrl == siteUrl);
+    _entries.removeWhere((_, entry) => entry.value.siteUrl == siteUrl);
     _revisions.removeWhere((key, _) => key.$1 == siteUrl);
     notifyListeners();
   }
@@ -33,26 +39,26 @@ final class NestedRepliesReaderMemory extends ChangeNotifier {
     notifyListeners();
   }
 
-  _RememberedReader? _take(Object key) {
-    final entry = _entries.remove(key);
-    if (entry == null ||
-        entry.revision != revision(entry.siteUrl, entry.topicId) ||
-        elapsedSince(entry.saved, now: _clock()) >
-            const Duration(minutes: 10)) {
+  NestedRepliesReaderSnapshot? restore(Object key) {
+    final saved = _entries.remove(key);
+    if (saved == null) return null;
+    final (value: snapshot, :savedAt) = saved;
+    if (snapshot.revision != revision(snapshot.siteUrl, snapshot.topicId) ||
+        elapsedSince(savedAt, now: _clock()) > const Duration(minutes: 10)) {
       return null;
     }
-    _entries[key] = entry;
-    return entry;
+    _entries[key] = saved;
+    return snapshot;
   }
 
-  void _put(Object key, _RememberedReader entry) {
-    entry.saved = _clock();
+  void remember(Object key, NestedRepliesReaderSnapshot entry) {
+    final savedAt = _clock();
     _entries.remove(key);
-    _entries[key] = entry;
+    _entries[key] = (value: entry, savedAt: savedAt);
     while (_entries.length > 15 ||
         _entries.values.fold<int>(
               0,
-              (sum, value) => sum + value.snapshot.nodeCount,
+              (sum, entry) => sum + entry.value.snapshot.nodeCount,
             ) >
             20000) {
       _entries.remove(_entries.keys.first);
@@ -60,8 +66,8 @@ final class NestedRepliesReaderMemory extends ChangeNotifier {
   }
 }
 
-final class _RememberedReader {
-  _RememberedReader({
+final class NestedRepliesReaderSnapshot {
+  const NestedRepliesReaderSnapshot({
     required this.siteUrl,
     required this.offset,
     required this.collapsed,
@@ -79,5 +85,4 @@ final class _RememberedReader {
   final Set<int> collapsed;
   final int? anchor;
   final double? anchorOffset;
-  late DateTime saved;
 }

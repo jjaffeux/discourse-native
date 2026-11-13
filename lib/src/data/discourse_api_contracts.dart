@@ -8,7 +8,6 @@ import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/forum_about.dart';
-import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/notification.dart';
@@ -20,8 +19,6 @@ import '../models/post_creation.dart';
 import '../models/post_flag.dart';
 import '../models/post_likers.dart';
 import '../models/post_revision.dart';
-import '../models/search_results.dart';
-import '../models/sidebar.dart';
 import '../models/sidebar_tag.dart';
 import '../models/site_appearance.dart';
 import '../models/site_basic_info.dart';
@@ -36,18 +33,19 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
+import 'discourse_search_contract.dart';
+import 'dsa_notice_contracts.dart';
 import 'http_basic_auth.dart';
 import 'plugin_transport.dart';
+import 'sidebar_sections_api.dart';
 import 'site_lookup_failure.dart';
 import 'site_message_bus_bootstrap.dart';
 import 'write_failure.dart';
 
+export 'discourse_search_contract.dart';
+export 'dsa_notice_contracts.dart';
 export 'site_lookup_failure.dart';
 export 'write_failure.dart';
-
-const int maximumDiscourseSearchTermLength = 2048;
-const int maximumDiscourseHashtagsPerRequest = 20;
-const List<String> defaultDiscourseHashtagOrder = ['category', 'tag'];
 
 /// The sentence a user is shown for a failed request.
 ///
@@ -168,26 +166,6 @@ final class CategoryLoadResult {
   final bool? anonymousSearchAllowed;
 }
 
-abstract interface class DsaNoticesApi {
-  DsaNoticeConnection dsaNoticeConnection({
-    required String siteUrl,
-    required String? apiKey,
-    String? clientId,
-  });
-}
-
-abstract interface class DsaNoticeConnection {
-  Future<String> requestVerification(String email);
-  Future<void> verifyEmail(String email, String token, String code);
-  Future<String> submit(Map<String, Object?> notice, {String? token});
-  void dispose();
-}
-
-final class DsaVerificationRequired extends WriteException {
-  const DsaVerificationRequired({super.errors})
-    : super(WriteFailure.validation, statusCode: 422);
-}
-
 /// Compile-time aggregate accepted only at the shell composition boundary.
 ///
 /// Consumers below that boundary receive one workflow port. Adding an
@@ -243,7 +221,7 @@ abstract interface class SiteLookupApi {
   Future<SiteBasicInfo> basicInfo(String siteUrl);
 }
 
-abstract interface class ShellSiteApi {
+abstract interface class ShellSiteApi implements SidebarSectionsApi {
   Future<ForumAbout> forumAbout({
     required String siteUrl,
     String? apiKey,
@@ -266,30 +244,6 @@ abstract interface class ShellSiteApi {
     required String siteUrl,
     required String apiKey,
     required String username,
-    String? clientId,
-  });
-
-  Future<List<SidebarSection>> customSidebarSections({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<SidebarSection> reorderSidebarLinks({
-    required String siteUrl,
-    required String apiKey,
-    required int sectionId,
-    required List<int> linksOrder,
-    String? clientId,
-  });
-
-  Future<List<SidebarSection>> moveSidebarLink({
-    required String siteUrl,
-    required String apiKey,
-    required int sourceSectionId,
-    required int targetSectionId,
-    required int linkId,
-    required int position,
     String? clientId,
   });
 
@@ -361,50 +315,6 @@ abstract interface class ShellSiteApi {
   });
 
   Future<void> revokeApiKey({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  });
-}
-
-abstract interface class ShellSearchApi {
-  Future<SearchResults> searchPosts({
-    required String siteUrl,
-    required String term,
-    String? typeFilter,
-    int? topicId,
-    bool searchForId = false,
-    String? restrictToArchetype,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<FoundUsersAndGroups> searchMentions({
-    required String siteUrl,
-    required String term,
-    int? topicId,
-    int limit = 7,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<FoundUsersAndGroups> searchUsersAndGroups({
-    required String siteUrl,
-    required String term,
-    int limit = 6,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<List<FoundHashtag>> searchHashtags({
-    required String siteUrl,
-    required String term,
-    List<String> order = defaultDiscourseHashtagOrder,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<List<String>> recentSearches({
     required String siteUrl,
     required String apiKey,
     String? clientId,

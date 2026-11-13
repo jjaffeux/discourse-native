@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
+import 'package:discourse_native/src/plugins/voice/voice_call_controller_binding.dart';
 import 'package:discourse_native/src/plugins/voice/voice_call_controller_port.dart';
 import 'package:discourse_native/src/plugins/voice/voice_call_port.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
@@ -75,7 +76,7 @@ void main() {
         heartbeatInterval: const Duration(days: 1),
       );
       final host = _RouteHost();
-      final port = VoiceCallControllerPort(
+      final port = bindVoiceCallController(
         controller: controller,
         shell: VoiceShellService(
           controller: controller,
@@ -228,7 +229,7 @@ void main() {
         preferences: FakeVoicePreferences(),
         heartbeatInterval: const Duration(days: 1),
       );
-      final port = VoiceCallControllerPort(
+      final port = bindVoiceCallController(
         controller: controller,
         shell: VoiceShellService(
           controller: controller,
@@ -362,12 +363,11 @@ void main() {
   });
 }
 
-VoiceCallControllerPort _port(_Runtime runtime) =>
-    VoiceCallControllerPort.controlled(
-      runtime: runtime,
-      readState: runtime.readState,
-      performAction: runtime.performAction,
-    );
+VoiceCallControllerPort _port(_Runtime runtime) => VoiceCallControllerPort(
+  runtime: runtime,
+  readState: runtime.readState,
+  performAction: runtime.performAction,
+);
 
 final class _Runtime extends ChangeNotifier {
   _Runtime({this.onAction});

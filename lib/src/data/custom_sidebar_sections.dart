@@ -5,8 +5,9 @@ import '../models/discourse_instance.dart';
 import '../models/sidebar.dart';
 import 'account_request_session.dart';
 import 'api_credentials.dart';
-import 'discourse_api_contracts.dart';
+import 'sidebar_sections_api.dart';
 import 'site_lifecycle.dart';
+import 'write_failure.dart';
 
 final class CustomSidebarSections {
   CustomSidebarSections({
@@ -20,7 +21,7 @@ final class CustomSidebarSections {
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
-  final ShellSiteApi _api;
+  final SidebarSectionsApi _api;
   final ApiCredentialReader _credentials;
   final SiteLifecycle _lifecycle;
   final DiscourseInstance? Function(String) _instanceFor;

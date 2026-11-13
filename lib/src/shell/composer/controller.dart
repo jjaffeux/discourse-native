@@ -36,6 +36,7 @@ import 'components/list_source.dart';
 import 'components/quote_source.dart';
 import 'components/upload.dart';
 import 'edit_history.dart';
+import 'history_host.dart';
 import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 import 'marks.dart';
@@ -166,6 +167,7 @@ class ComposerController extends ChangeNotifier
     implements
         ComposerDraftEditor,
         ComposerEditorHost,
+        ComposerHistoryHost,
         ComposerMetadataEditorHost,
         ComposerRecipientTarget {
   ComposerController(
@@ -516,6 +518,7 @@ class ComposerController extends ChangeNotifier
 
   @override
   final MarkdownEditingController text;
+  @override
   late final ComposerEditHistory history;
   final bool _ownsHistory;
 
@@ -968,6 +971,7 @@ class ComposerController extends ChangeNotifier
     _notify();
   }
 
+  @override
   final FocusNode focus = FocusNode();
   final FocusNode titleFocus = FocusNode(debugLabel: 'Composer title');
 

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
+import '../data/discourse_search_contract.dart';
 import '../data/recent_search_store.dart';
 import '../data/site_lifecycle.dart';
 import '../plugin_api/global_search_filters.dart';

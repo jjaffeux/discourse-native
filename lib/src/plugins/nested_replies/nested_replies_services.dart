@@ -9,7 +9,7 @@ import 'nested_replies_api.dart';
 import 'nested_replies_bulk.dart';
 import 'nested_replies_data.dart';
 import 'nested_replies_notifications.dart';
-import 'nested_replies_reader.dart';
+import 'nested_replies_reader_memory.dart';
 
 const nestedRepliesServiceKey = PluginServiceKey<NestedRepliesServices>(
   owner: nestedRepliesPluginId,

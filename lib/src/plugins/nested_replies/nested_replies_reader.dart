@@ -10,8 +10,8 @@ import 'package:flutter/rendering.dart';
 import 'nested_replies_api.dart';
 import 'nested_replies_controller.dart';
 import 'nested_replies_data.dart';
+import 'nested_replies_reader_memory.dart';
 
-part 'nested_replies_reader_memory.dart';
 part 'nested_replies_reader_scroll.dart';
 part 'nested_replies_reader_loader.dart';
 part 'nested_replies_reader_view.dart';
@@ -49,7 +49,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   Timer? _refresh;
   Timer? _rememberTimer;
   late Object _memoryKey;
-  _RememberedReader? _restore;
+  NestedRepliesReaderSnapshot? _restore;
   bool _restoring = true;
   bool _restoringPagingAnchor = false;
   bool _applyingAnchorCorrection = false;
@@ -107,7 +107,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
       context: context,
       collapse: query['collapse_replies'],
     );
-    _restore = widget.memory?._take(_memoryKey);
+    _restore = widget.memory?.restore(_memoryKey);
     _scroll = _NestedRepliesScrollController(
       initialScrollOffset: _restore?.offset ?? 0,
     )..addListener(_onScroll);
@@ -317,10 +317,10 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     }
   }
 
-  _RememberedReader? _captureAnchor() {
+  NestedRepliesReaderSnapshot? _captureAnchor() {
     if (!_scroll.hasClients) return null;
     final visible = _visible(readableOnly: false);
-    return _RememberedReader(
+    return NestedRepliesReaderSnapshot(
       siteUrl: reader.siteUrl,
       offset: _scroll.offset,
       collapsed: _controller.collapsedPostNumbers,
@@ -340,7 +340,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
       return;
     }
     final saved = _captureAnchor();
-    if (saved != null) widget.memory?._put(_memoryKey, saved);
+    if (saved != null) widget.memory?.remember(_memoryKey, saved);
   }
 
   void _prepareAnchorRestore() {

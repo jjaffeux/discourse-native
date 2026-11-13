@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import 'controller.dart';
+import 'history_host.dart';
 
 /// Routes EditableText's overridable actions and iOS undo to source history.
 /// EditableText's internal, time-coalesced stack is never used for commands.
@@ -12,7 +12,7 @@ class ComposerHistoryScope extends StatefulWidget {
     required this.composer,
     required this.child,
   });
-  final ComposerController composer;
+  final ComposerHistoryHost composer;
   final Widget child;
 
   @override
@@ -29,7 +29,7 @@ class _ComposerHistoryScopeState extends State<ComposerHistoryScope>
     _listen(widget.composer);
   }
 
-  void _listen(ComposerController composer) {
+  void _listen(ComposerHistoryHost composer) {
     composer.history.startSession();
     composer.focus.addListener(_scheduleSync);
     composer.history.addListener(_scheduleSync);
@@ -37,7 +37,7 @@ class _ComposerHistoryScopeState extends State<ComposerHistoryScope>
     _scheduleSync();
   }
 
-  void _unlisten(ComposerController composer) {
+  void _unlisten(ComposerHistoryHost composer) {
     composer.focus.removeListener(_scheduleSync);
     composer.history.removeListener(_scheduleSync);
     composer.removeListener(_scheduleSync);

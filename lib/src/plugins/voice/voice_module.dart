@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 import '../chat/chat_contract.dart';
 import 'voice_api.dart';
-import 'voice_call_controller_port.dart';
+import 'voice_call_controller_binding.dart';
 import 'voice_call_port.dart';
 import 'voice_chat_inbox.dart';
 import 'voice_controller.dart';
@@ -108,7 +108,7 @@ final class VoiceModule implements PluginModule {
         final detachInbox = inboxRooms.attach(
           VoiceChatInbox(controller, shell),
         );
-        final callPort = VoiceCallControllerPort(
+        final callPort = bindVoiceCallController(
           controller: controller,
           shell: shell,
           emoji: bindings.require(corePluginEmojiPort),

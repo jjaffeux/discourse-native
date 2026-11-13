@@ -1,4 +1,13 @@
-part of 'shell_controller.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
+import '../data/account_request_session.dart';
+import '../data/discourse_api_contracts.dart'
+    show TopicComposerQueriesApi, TopicMutationsApi;
+import '../data/site_lifecycle.dart';
+import '../data/write_credential.dart';
+import '../data/write_failure.dart';
+import '../models/topic.dart';
+import 'topic_data_owner.dart';
 
 sealed class _TopicMetadataCommand {
   const _TopicMetadataCommand();
@@ -32,13 +41,81 @@ final class _TopicTagsCommand extends _TopicMetadataCommand {
   final List<TopicTag> tags;
 }
 
-extension _TopicMetadataTransactions on ShellController {
+final class TopicMetadataTransactions {
+  TopicMetadataTransactions({
+    required this._lifecycle,
+    required this._credentialForWrite,
+    required this._topics,
+    required this._composerQueries,
+    required this._maxTagSearchResults,
+    required this._topicData,
+    required this._retitle,
+    required this._updateTopicRouteMetadata,
+    required this._applyTopicTags,
+    required this._changed,
+  });
+
+  final SiteLifecycle _lifecycle;
+  final Future<WriteCredential> Function(
+    String siteUrl, {
+    required SiteLease lease,
+  })
+  _credentialForWrite;
+  final TopicMutationsApi _topics;
+  final TopicComposerQueriesApi _composerQueries;
+  final int Function(String siteUrl) _maxTagSearchResults;
+  final TopicDataOwner _topicData;
+  final void Function(String siteUrl, int topicId, String fallbackTitle)
+  _retitle;
+  final void Function(
+    String siteUrl,
+    int topicId,
+    String title,
+    int? categoryId,
+  )
+  _updateTopicRouteMetadata;
+  final void Function(String siteUrl, int topicId, List<TopicTag> tags)
+  _applyTopicTags;
+  final void Function() _changed;
+
+  Future<String?> saveTitle({
+    required String siteUrl,
+    required int topicId,
+    required String title,
+    required String originalTitle,
+  }) => _saveTopicMetadata(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    command: _TopicTitleCommand(title, originalTitle),
+  );
+
+  Future<String?> saveCategory({
+    required String siteUrl,
+    required int topicId,
+    required String title,
+    required int categoryId,
+    required Iterable<TopicTag> tags,
+  }) => _saveTopicMetadata(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    command: _TopicCategoryCommand(title, categoryId, tags),
+  );
+
+  Future<String?> saveTags({
+    required String siteUrl,
+    required int topicId,
+    required Iterable<TopicTag> tags,
+  }) => _saveTopicMetadata(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    command: _TopicTagsCommand(tags),
+  );
   Future<String?> _saveTopicMetadata({
     required String siteUrl,
     required int topicId,
     required _TopicMetadataCommand command,
   }) async {
-    final lease = lifecycle.capture(siteUrl);
+    final lease = _lifecycle.capture(siteUrl);
     final credential = await _credentialForWrite(siteUrl, lease: lease);
     if (!lease.isCurrent) return command.staleMessage;
     if (credential.failure case final failure?) return failure.message;
@@ -49,7 +126,7 @@ extension _TopicMetadataTransactions on ShellController {
       switch (command) {
         case _TopicTitleCommand(:final title, :final originalTitle):
           update = await request.run(
-            () => api.topicMutations.updateTopic(
+            () => _topics.updateTopic(
               siteUrl: siteUrl,
               apiKey: credential.apiKey!,
               topicId: topicId,
@@ -70,7 +147,7 @@ extension _TopicMetadataTransactions on ShellController {
           );
           if (!lease.isCurrent) return command.staleMessage;
           final response = await request.run(
-            () => api.topicMutations.updateTopic(
+            () => _topics.updateTopic(
               siteUrl: siteUrl,
               apiKey: credential.apiKey!,
               topicId: topicId,
@@ -84,7 +161,7 @@ extension _TopicMetadataTransactions on ShellController {
           update = TopicUpdate(tags: response.tags ?? tags);
         case _TopicTagsCommand(:final tags):
           await request.run(
-            () => api.topicMutations.updateTopicTags(
+            () => _topics.updateTopicTags(
               siteUrl: siteUrl,
               apiKey: credential.apiKey!,
               topicId: topicId,
@@ -111,11 +188,7 @@ extension _TopicMetadataTransactions on ShellController {
                 title: stored,
                 localizedTitle: update.localizedTitle,
               );
-          _retitle(
-            siteUrl,
-            topicId,
-            _shownTopicTitle(siteUrl, topicId) ?? stored,
-          );
+          _retitle(siteUrl, topicId, stored);
         case _TopicCategoryCommand(:final title, :final categoryId):
           _topicData
               .forLease(siteUrl, lease)
@@ -128,7 +201,7 @@ extension _TopicMetadataTransactions on ShellController {
         case _TopicTagsCommand(:final tags):
           _applyTopicTags(siteUrl, topicId, tags);
       }
-      _notify();
+      _changed();
     });
     return null;
   }
@@ -144,7 +217,7 @@ extension _TopicMetadataTransactions on ShellController {
     for (final tag in selected) {
       try {
         final result = await credential.run(
-          () => api.topicComposerQueries.searchTopicTags(
+          () => _composerQueries.searchTopicTags(
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
             term: tag.name,
@@ -153,9 +226,9 @@ extension _TopicMetadataTransactions on ShellController {
                 .map((item) => item.id)
                 .whereType<int>()
                 .where((id) => id != tag.id),
-            limit: siteConfigFor(
+            limit: _maxTagSearchResults(
               siteUrl,
-            ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+            ).clamp(1, TopicTagSearch.maximumResults),
           ),
         );
         final match = result.allowedMatch(tag);

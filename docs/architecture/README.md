@@ -113,3 +113,6 @@ dependency reach across data, plugins, and the shell.
 
 [Round twelve](layer-dependencies-round12.md) records ten more dependency
 reductions and the import graph and behavior checks for each.
+
+[Round thirteen](layer-dependencies-round13.md) records ten dependency
+reductions across data adapters, plugins, shell transactions, and composer undo.
