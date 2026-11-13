@@ -261,12 +261,16 @@ void main() {
       ],
     );
     final estimates = <int, int>{};
+    var identityReads = 0;
     final updated = window.withPage(
       incoming: [0, 10],
       start: 10,
       end: 12,
       prepend: false,
-      identity: (id) => id,
+      identity: (id) {
+        identityReads++;
+        return id;
+      },
       merge: (_, id) => id,
       estimate: (id) {
         estimates.update(id, (count) => count + 1, ifAbsent: () => 1);
@@ -276,6 +280,7 @@ void main() {
     expect(updated.start, 10);
     expect(updated.end, 12);
     expect(updated.items, [0, 10]);
+    expect(identityReads, 12);
     expect(estimates, {0: 2, for (var id = 1; id < 10; id++) id: 1, 10: 2});
   });
 

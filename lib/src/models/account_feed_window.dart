@@ -64,9 +64,13 @@ class AccountFeedWindow<T> {
     final incomingIds = {for (final (key, _) in keyedIncoming) key};
     final heldById = <Object, T>{};
     final overlappingPackets = <int>{};
+    final packetKeys = <List<Object>>[];
     for (var index = 0; index < packets.length; index++) {
+      final keys = <Object>[];
+      packetKeys.add(keys);
       for (final row in packets[index].items) {
         final key = identity(row);
+        keys.add(key);
         if (incomingIds.contains(key)) {
           heldById[key] = row;
           overlappingPackets.add(index);
@@ -85,12 +89,14 @@ class AccountFeedWindow<T> {
         continue;
       }
       List<T>? updated;
+      final keys = packetKeys[packetIndex];
       for (var index = 0; index < packet.items.length; index++) {
         final row = packet.items[index];
-        final next = newById[identity(row)] ?? row;
+        final next = newById[keys[index]] ?? row;
         if (!identical(next, row)) {
           updated ??= List<T>.of(packet.items);
           updated[index] = next;
+          keys[index] = identity(next);
         }
       }
       retained.add(
@@ -119,25 +125,34 @@ class AccountFeedWindow<T> {
     ];
     var bytes = packetBytes.fold(0, (total, size) => total + size);
     final incomingBytes = <Object, int>{};
+    Map<Object, int>? retainedCounts;
     while (bounded.length > 1 &&
         (bounded.length > maximumPackets ||
             rows > maximumRows ||
             bytes > maximumEstimatedBytes)) {
+      if (retainedCounts == null) {
+        retainedCounts = <Object, int>{};
+        for (final keys in packetKeys) {
+          for (final key in keys) {
+            retainedCounts.update(key, (count) => count + 1, ifAbsent: () => 1);
+          }
+        }
+      }
+      final counts = retainedCounts;
       final removedIndex = prepend ? bounded.length - 1 : 0;
+      final removedKeys = packetKeys.removeAt(prepend ? removedIndex - 1 : 0);
+      for (final key in removedKeys) {
+        counts.update(key, (count) => count - 1);
+      }
       final removed = bounded.removeAt(removedIndex);
       rows -= removed.items.length;
       bytes -= packetBytes.removeAt(removedIndex);
       final activeIndex = prepend ? 0 : bounded.length - 1;
       final active = bounded[activeIndex];
-      final survivingIds = {
-        for (var index = 0; index < bounded.length; index++)
-          if (index != activeIndex)
-            for (final row in bounded[index].items) identity(row),
-      };
       final activeRows = <T>[];
       var activeBytes = 0;
       for (final entry in newById.entries) {
-        if (survivingIds.contains(entry.key)) continue;
+        if ((counts[entry.key] ?? 0) > 0) continue;
         activeRows.add(entry.value);
         activeBytes += incomingBytes.putIfAbsent(
           entry.key,
