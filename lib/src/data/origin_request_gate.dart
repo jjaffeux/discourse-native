@@ -194,8 +194,7 @@ final class OriginRequestGate {
     drain:
     while (!_closed && (aggregateLimit == null || _active < aggregateLimit)) {
       final revision = _waitingRevision;
-      final normal = <String, int>{};
-      final interactive = <String, int>{};
+      final candidates = <String, ({int? normal, int? interactive})>{};
       for (var index = 0; index < _waiting.length; index++) {
         final queued = _waiting[index];
         final state = queued.state;
@@ -220,15 +219,18 @@ final class OriginRequestGate {
                 maxConcurrentPerOrigin - interactiveSlotsPerOrigin) {
           continue;
         }
-        final priorities = priority == OriginRequestPriority.interactive
-            ? interactive
-            : normal;
-        priorities.putIfAbsent(domain, () => index);
+        final held = candidates[domain];
+        if (priority == OriginRequestPriority.interactive) {
+          if (held?.interactive == null) {
+            candidates[domain] = (normal: held?.normal, interactive: index);
+          }
+        } else if (held?.normal == null) {
+          candidates[domain] = (normal: index, interactive: held?.interactive);
+        }
       }
       var eligible = -1;
-      for (final domain in {...normal.keys, ...interactive.keys}) {
-        final background = normal[domain];
-        final foreground = interactive[domain];
+      for (final (normal: background, interactive: foreground)
+          in candidates.values) {
         final overtakes = aggregateLimit == null
             ? _waiting[background ?? foreground!].state.interactiveOvertakes
             : _interactiveOvertakes;
@@ -243,8 +245,8 @@ final class OriginRequestGate {
       final queued = _waiting.removeAt(eligible);
       _waitingRevision++;
       final domain = aggregateLimit == null ? queued.origin : '';
-      final overtook =
-          normal.containsKey(domain) && interactive[domain] == eligible;
+      final choice = candidates[domain]!;
+      final overtook = choice.normal != null && choice.interactive == eligible;
       if (aggregateLimit == null) {
         queued.state.interactiveOvertakes = overtook
             ? queued.state.interactiveOvertakes + 1
