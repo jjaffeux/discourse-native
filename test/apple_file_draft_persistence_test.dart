@@ -51,7 +51,7 @@ void main() {
       addTearDown(unsendable.close);
       legacy.readError = unsendable;
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
       final edited = '${original[key]}a';
@@ -86,7 +86,7 @@ void main() {
         });
         await file.parent.create(recursive: true);
         await file.writeAsString(seeded);
-        final storage = ApplicationSupportDraftPersistence(file: file);
+        final storage = ApplicationSupportDraftPersistence(file: () => file);
 
         await storage.write(earlier, 'earlier');
         await storage.delete(covered);
@@ -106,8 +106,8 @@ void main() {
     );
 
     test('rereads mutations made after a preceding no-op update', () async {
-      final first = ApplicationSupportDraftPersistence(file: file);
-      final second = ApplicationSupportDraftPersistence(file: file);
+      final first = ApplicationSupportDraftPersistence(file: () => file);
+      final second = ApplicationSupportDraftPersistence(file: () => file);
       await first.write(key, 'original');
       await first.write(key, 'original');
       await second.write(otherKey, 'another writer');
@@ -123,10 +123,10 @@ void main() {
     });
 
     test('retains drafts across reopened instances', () async {
-      final storage = ApplicationSupportDraftPersistence(file: file);
+      final storage = ApplicationSupportDraftPersistence(file: () => file);
       await storage.write(key, 'unfinished thought');
 
-      final reopened = ApplicationSupportDraftPersistence(file: file);
+      final reopened = ApplicationSupportDraftPersistence(file: () => file);
       expect(await reopened.read(key), (
         value: 'unfinished thought',
         allowPreferenceFallback: false,
@@ -135,7 +135,7 @@ void main() {
 
     test('writes the stable v1 schema with sorted legacy blockers', () async {
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: null,
       );
       const later = '${sitePrefix}topic_z';
@@ -157,7 +157,7 @@ void main() {
     test('writes a current draft without consulting the Keychain', () async {
       final legacy = _LegacyDraftStorage({key: 'old'});
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
 
@@ -170,7 +170,7 @@ void main() {
     test('uses a primary file hit without consulting the Keychain', () async {
       final legacy = _LegacyDraftStorage({key: 'old'});
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
       await storage.write(key, 'new');
@@ -186,7 +186,7 @@ void main() {
     test('allows preference fallback when both stores miss', () async {
       final legacy = _LegacyDraftStorage();
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
 
@@ -202,7 +202,7 @@ void main() {
       () async {
         final legacy = _LegacyDraftStorage({key: 'old'});
         final storage = ApplicationSupportDraftPersistence(
-          file: file,
+          file: () => file,
           legacyStorage: legacy,
         );
 
@@ -215,7 +215,7 @@ void main() {
 
         legacy.events.clear();
         final reopened = ApplicationSupportDraftPersistence(
-          file: file,
+          file: () => file,
           legacyStorage: legacy,
         );
         expect(await reopened.read(key), (
@@ -230,7 +230,7 @@ void main() {
       final failure = StateError('legacy ACL refused');
       final legacy = _LegacyDraftStorage({key: 'old'})..readError = failure;
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
 
@@ -252,7 +252,7 @@ void main() {
         final impossibleFile = File('${parentBlocker.path}/drafts-v1.json');
         final legacy = _LegacyDraftStorage({key: 'old'});
         final storage = ApplicationSupportDraftPersistence(
-          file: impossibleFile,
+          file: () => impossibleFile,
           legacyStorage: legacy,
         );
 
@@ -277,7 +277,7 @@ void main() {
     test('deletes an existing draft and blocks all legacy fallback', () async {
       final legacy = _LegacyDraftStorage({key: 'stale'});
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
       await storage.write(key, 'current');
@@ -301,7 +301,7 @@ void main() {
           otherKey: 'other-old',
         });
         final storage = ApplicationSupportDraftPersistence(
-          file: file,
+          file: () => file,
           legacyStorage: legacy,
         );
         await storage.write(key, 'current');
@@ -325,12 +325,12 @@ void main() {
     test('persist a site blocker across reopened instances', () async {
       final legacy = _LegacyDraftStorage({key: 'stale'});
       await ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       ).deletePrefix(sitePrefix);
 
       final reopened = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
 
@@ -344,7 +344,7 @@ void main() {
     test('records no key blocker which a site blocker covers', () async {
       final legacy = _LegacyDraftStorage({key: 'stale'});
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
       await storage.deletePrefix(sitePrefix);
@@ -380,7 +380,7 @@ void main() {
         otherKey: 'other-stale',
       });
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
 
@@ -409,7 +409,7 @@ void main() {
     test('preserves the caller locale for background codec errors', () async {
       await file.parent.create(recursive: true);
       await file.writeAsString('[]');
-      final storage = ApplicationSupportDraftPersistence(file: file);
+      final storage = ApplicationSupportDraftPersistence(file: () => file);
 
       await Intl.withLocale('fr', () async {
         final expected = appL10n.invalidDraftStorageFormat;
@@ -430,7 +430,7 @@ void main() {
     test('preserves the corrupt file when a write fails', () async {
       await file.parent.create(recursive: true);
       await file.writeAsString('not json');
-      final storage = ApplicationSupportDraftPersistence(file: file);
+      final storage = ApplicationSupportDraftPersistence(file: () => file);
 
       await expectLater(
         storage.write(key, 'new'),
@@ -445,7 +445,7 @@ void main() {
       await file.writeAsString('not json');
       SharedPreferences.setMockInitialValues({key: 'previous account text'});
       final store = DraftStore(
-        persistence: ApplicationSupportDraftPersistence(file: file),
+        persistence: ApplicationSupportDraftPersistence(file: () => file),
       );
 
       expect(await store.read('https://one.example', 'topic_42'), isNull);
@@ -467,7 +467,7 @@ void main() {
         ..readGate = gate
         ..readStarted = started;
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
 
@@ -498,7 +498,7 @@ void main() {
         ..readGate = gate
         ..readStarted = started;
       final storage = ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: legacy,
       );
 

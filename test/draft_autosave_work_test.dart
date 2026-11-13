@@ -55,7 +55,7 @@ void main() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'key',
         drafts: DraftStore(
-          persistence: ApplicationSupportDraftPersistence(file: file),
+          persistence: ApplicationSupportDraftPersistence(file: () => file),
         ),
         trackers: FakeSiteTracker.reset(),
         updateStore: FakeUpdateStore(),
@@ -106,7 +106,7 @@ void main() {
 
   test('a maximum-length post still leaves the UI isolate', () async {
     const key = 'discourse_native.draft::https://meta.discourse.org::topic_42';
-    final drafts = ApplicationSupportDraftPersistence(file: file);
+    final drafts = ApplicationSupportDraftPersistence(file: () => file);
     final post = 'x' * 32000;
 
     await work.run(() async {
@@ -126,7 +126,7 @@ void main() {
     setUp(() => preferences.setValue('String', 'flutter.$key', 'legacy draft'));
 
     test('is retired by a write', () async {
-      final persistence = ApplicationSupportDraftPersistence(file: file);
+      final persistence = ApplicationSupportDraftPersistence(file: () => file);
 
       await DraftStore(
         persistence: persistence,
@@ -139,7 +139,7 @@ void main() {
 
     test('is retired by a clear', () async {
       final store = DraftStore(
-        persistence: ApplicationSupportDraftPersistence(file: file),
+        persistence: ApplicationSupportDraftPersistence(file: () => file),
       );
 
       expect(await store.clearChecked(site, 'topic_42'), isTrue);

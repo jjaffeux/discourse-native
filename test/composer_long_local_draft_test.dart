@@ -110,7 +110,7 @@ void main() {
     () async {
       final file = await _draftFile();
       final store = DraftStore(
-        persistence: ApplicationSupportDraftPersistence(file: file),
+        persistence: ApplicationSupportDraftPersistence(file: () => file),
       );
       final encoded = ComposerDraft(
         reply: 'x' * ComposerDraft.maximumLocalEncodedCodeUnits,
@@ -160,7 +160,7 @@ _open(
   bool accountNamespace = false,
 }) async {
   final store = DraftStore(
-    persistence: ApplicationSupportDraftPersistence(file: file),
+    persistence: ApplicationSupportDraftPersistence(file: () => file),
   );
   final api = FakeDiscourseApi(
     user: _writer,

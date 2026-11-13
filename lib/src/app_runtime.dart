@@ -10,6 +10,7 @@ import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
+import 'data/platform_draft_store.dart';
 import 'data/platform_push_registration.dart';
 import 'data/platform_web_auth.dart';
 import 'data/recent_destinations_store.dart';
@@ -105,7 +106,7 @@ final class AppRuntime {
     _appSettingsStore = dependencies.appSettingsStore ?? AppSettingsStore();
     _forumSettingsStore =
         dependencies.forumSettingsStore ?? ForumSettingsStore();
-    _drafts = dependencies.drafts ?? DraftStore();
+    _drafts = dependencies.drafts ?? createPlatformDraftStore();
     _forumTabs = dependencies.forumTabs ?? ForumTabStore();
     _trackers = dependencies.trackers ?? SiteTracker.new;
     _updater = dependencies.updater ?? const UnsupportedUpdater();
@@ -262,7 +263,7 @@ final class AppRuntime {
             _dependencies.forumSettingsStore ?? ForumSettingsStore();
       }
       if (!identical(_dependencies.drafts, previous.drafts)) {
-        _drafts = _dependencies.drafts ?? DraftStore();
+        _drafts = _dependencies.drafts ?? createPlatformDraftStore();
       }
       if (!identical(_dependencies.forumTabs, previous.forumTabs)) {
         _forumTabs = _dependencies.forumTabs ?? ForumTabStore();

@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:isolate';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../foundation/private_file_document.dart';
@@ -40,8 +38,7 @@ final class DraftWriteException implements Exception {
 }
 
 final class PrivateDraftPersistence implements DraftPersistence {
-  PrivateDraftPersistence({EnumerablePrivateStorage? storage})
-    : _storage = storage ?? platformEnumerablePrivateStorage;
+  PrivateDraftPersistence({required this._storage});
 
   static const _retiredKeyPrefix = 'discourse_native.retired_draft_key::';
   static const _retiredPrefixPrefix = 'discourse_native.retired_draft_prefix::';
@@ -77,14 +74,6 @@ final class PrivateDraftPersistence implements DraftPersistence {
   }
 }
 
-DraftPersistence _platformDraftPersistence() {
-  if (Platform.isLinux) return PrivateDraftPersistence();
-  if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
-    return ApplicationSupportDraftPersistence();
-  }
-  throw UnsupportedError('Draft persistence is unavailable on this platform');
-}
-
 /// Versioned, owner-only draft storage in the application-support container.
 ///
 /// Old Keychain drafts are recovered lazily by exact key in release builds.
@@ -93,19 +82,18 @@ DraftPersistence _platformDraftPersistence() {
 /// old Keychain service.
 final class ApplicationSupportDraftPersistence implements DraftPersistence {
   ApplicationSupportDraftPersistence({
-    File? file,
-    PrivateStorage? legacyStorage,
-  }) : _providedFile = file,
-       _legacyStorage = legacyStorage ?? platformLegacyAppleStorage;
+    required PrivateFileResolver file,
+    this._legacyStorage,
+  }) : _providedFile = file;
 
   static const String directoryName = 'drafts';
   static const String fileName = 'drafts-v1.json';
 
-  final File? _providedFile;
+  final PrivateFileResolver _providedFile;
   final PrivateStorage? _legacyStorage;
   late final PrivateFileDocument<_DraftFileState> _document =
       PrivateFileDocument(
-        target: _file,
+        target: _providedFile,
         empty: _DraftFileState.new,
         decode: _decodeDraftFileState,
         encode: _encodeDraftFileState,
@@ -171,13 +159,6 @@ final class ApplicationSupportDraftPersistence implements DraftPersistence {
 
   static DraftPersistenceRead _result(_DraftProbe probe) =>
       (value: probe.value, allowPreferenceFallback: !probe.blocked);
-
-  Future<File> _file() async {
-    final provided = _providedFile;
-    if (provided != null) return provided;
-    final support = await getApplicationSupportDirectory();
-    return File('${support.path}/$directoryName/$fileName');
-  }
 }
 
 Future<_DraftFileState> _decodeDraftFileState(String contents) {
@@ -356,11 +337,8 @@ final class _DraftFileSnapshot {
   'DraftStore.clearSite retires private drafts and legacy preference fallback together.',
 )
 class DraftStore {
-  DraftStore({DraftPersistence? persistence})
-    : _persistence = persistence ?? _defaultPersistence;
+  DraftStore({required this._persistence});
 
-  static final DraftPersistence _defaultPersistence =
-      _platformDraftPersistence();
   static final SerialOperationQueue _operations = SerialOperationQueue();
 
   static const String _prefix = 'discourse_native.draft::';

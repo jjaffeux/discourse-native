@@ -402,7 +402,7 @@ void main() {
       file = File('${directory.path}/drafts.json');
       drafts = DraftStore(
         persistence: ApplicationSupportDraftPersistence(
-          file: file,
+          file: () => file,
           legacyStorage: _NoLegacyDrafts(),
         ),
       );
@@ -413,7 +413,7 @@ void main() {
 
     Future<String?> restoredWriting() => DraftStore(
       persistence: ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: _NoLegacyDrafts(),
       ),
     ).read(_siteUrl, 'topic_42');
@@ -631,7 +631,7 @@ void main() {
       final restarted = _Fixture(
         draftStore: DraftStore(
           persistence: ApplicationSupportDraftPersistence(
-            file: file,
+            file: () => file,
             legacyStorage: _NoLegacyDrafts(),
           ),
         ),

@@ -40,7 +40,7 @@ void main() {
     file = File('${directory.path}/drafts.json');
     store = DraftStore(
       persistence: ApplicationSupportDraftPersistence(
-        file: file,
+        file: () => file,
         legacyStorage: _EmptyLegacy(),
       ),
     );

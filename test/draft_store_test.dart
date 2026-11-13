@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/linux_preferences_store.dart';
+import 'package:discourse_native/src/data/platform_draft_store.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -43,8 +44,8 @@ void main() {
           PathProviderPlatform.instance = previous;
           await directory.delete(recursive: true);
         });
-        final first = DraftStore();
-        final second = DraftStore();
+        final first = createPlatformDraftStore();
+        final second = createPlatformDraftStore();
         final writing = first.write(siteUrl, draftKey, 'retired default text');
         await paths.started.future;
         final clearing = second.clearSite(siteUrl);
