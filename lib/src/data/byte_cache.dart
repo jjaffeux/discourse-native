@@ -416,17 +416,24 @@ abstract class ByteCache<T extends Object> {
         );
       }
       if (decoded != null && persistent != null && downloaded.persistable) {
-        final expiresAt = persistentByteCacheExpiry(response.headers, _clock());
-        if (expiresAt != null && current()) {
-          unawaited(
-            _persist(
-              persistent,
-              url,
-              response.bodyBytes,
-              expiresAt,
-              generation,
-            ),
+        try {
+          final expiresAt = persistentByteCacheExpiry(
+            response.headers,
+            _clock(),
           );
+          if (expiresAt != null && current()) {
+            unawaited(
+              _persist(
+                persistent,
+                url,
+                response.bodyBytes,
+                expiresAt,
+                generation,
+              ),
+            );
+          }
+        } catch (_) {
+          // Optional persistence must not invalidate decoded media.
         }
       }
       return _closed ? null : decoded;

@@ -917,6 +917,34 @@ void main() {
 
   group('persistent cache policy and lifecycle', () {
     test(
+      'an unavailable persistence clock leaves decoded media usable',
+      () async {
+        var clockReads = 0;
+        final store = _SeededByteCacheStore();
+        final cache = _TestByteCache(
+          store: store,
+          clock: () {
+            if (++clockReads == 1) throw StateError('clock unavailable');
+            return DateTime.utc(2026);
+          },
+          client: MockClient(
+            (_) async => http.Response.bytes(
+              [7],
+              200,
+              headers: {'cache-control': 'public, max-age=3600'},
+            ),
+          ),
+        );
+        addTearDown(cache.close);
+        const url = 'https://cdn.test/optional-persistence.png';
+
+        expect(await cache.load(url), [7]);
+        expect(cache.cached(url), [7]);
+        expect(store.entries, isEmpty);
+      },
+    );
+
+    test(
       'clearing during disk decode prevents stale memory publication',
       () async {
         const url = 'https://cdn.test/stale.png';
@@ -1573,6 +1601,7 @@ class _TestByteCache extends ByteCache<Uint8List> {
     super.retryAfter,
     super.coordinator,
     super.store,
+    super.clock,
   });
 
   @override
