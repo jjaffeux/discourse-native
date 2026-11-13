@@ -60,8 +60,12 @@ void main() {
       f.requests.forget(notesSite);
       expect(session.status, UserNotesReadStatus.closed);
       expect(session.notes, isEmpty);
-      pending.complete(notesPage([noteWire()]));
-      await Future.wait([a, b]);
+      try {
+        await Future.wait([a, b]).timeout(const Duration(milliseconds: 200));
+      } finally {
+        pending.complete(notesPage([noteWire()]));
+      }
+      await Future<void>.delayed(Duration.zero);
       expect(session.notes, isEmpty);
       expect(f.controller.count(notesSite, 7), isNull);
     },

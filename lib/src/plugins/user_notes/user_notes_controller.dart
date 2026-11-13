@@ -209,7 +209,7 @@ final class UserNotesSession extends FrameSafeNotifier {
   bool writing = false;
   bool uncertain = false;
   int _revision = 0;
-  Future<void>? _reading;
+  Completer<void>? _reading;
   final _abort = Completer<void>();
   Future<void> get aborted => _abort.future;
   bool get isCurrent =>
@@ -222,11 +222,22 @@ final class UserNotesSession extends FrameSafeNotifier {
 
   Future<void> refresh() {
     if (!isCurrent || writing) return Future.value();
-    if (_reading case final pending?) return pending;
+    if (_reading case final pending?) return pending.future;
     final reading = Completer<void>();
-    _reading = reading.future;
-    reading.complete(_read().whenComplete(() => _reading = null));
+    _reading = reading;
+    unawaited(_finishRead(reading));
     return reading.future;
+  }
+
+  Future<void> _finishRead(Completer<void> reading) async {
+    try {
+      await _read();
+      if (!reading.isCompleted) reading.complete();
+    } catch (error, stack) {
+      if (!reading.isCompleted) reading.completeError(error, stack);
+    } finally {
+      _reading = null;
+    }
   }
 
   Future<void> _read() async {
@@ -403,6 +414,9 @@ final class UserNotesSession extends FrameSafeNotifier {
     username = null;
     failure = null;
     serverError = null;
+    if (_reading case final reading? when !reading.isCompleted) {
+      reading.complete();
+    }
     if (!_abort.isCompleted) _abort.complete();
     if (identical(_account.sessions[userId], this)) {
       _account.sessions.remove(userId);
