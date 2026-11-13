@@ -67,7 +67,7 @@ final class OriginRequestGate {
     Future<void>? abortTrigger,
   }) {
     final pending = _AcquireAdmission();
-    _enqueue(url.origin, pending, resolvePriority ?? () => priority);
+    _enqueue(url.origin, pending, priority, resolvePriority);
     _watchAbort(pending, abortTrigger);
     return pending.result.future;
   }
@@ -87,7 +87,7 @@ final class OriginRequestGate {
     Future<void>? abortTrigger,
   }) {
     final pending = _RunAdmission<T>(operation);
-    _enqueue(url.origin, pending, resolvePriority ?? () => priority);
+    _enqueue(url.origin, pending, priority, resolvePriority);
     _watchAbort(pending, abortTrigger);
     return pending.result.future;
   }
@@ -130,7 +130,8 @@ final class OriginRequestGate {
   void _enqueue(
     String origin,
     _PendingAdmission pending,
-    OriginRequestPriority Function() resolvePriority,
+    OriginRequestPriority priority,
+    OriginRequestPriority Function()? resolvePriority,
   ) {
     if (_closed) {
       pending.reject(
@@ -166,7 +167,10 @@ final class OriginRequestGate {
       origin,
       state,
       pending,
-      Zone.current.bindCallback(resolvePriority),
+      priority,
+      resolvePriority == null
+          ? null
+          : Zone.current.bindCallback(resolvePriority),
     );
     _waitingRevision++;
     _drain();
@@ -445,14 +449,17 @@ final class _QueuedAdmission {
     this.origin,
     this.state,
     this.pending,
+    this.defaultPriority,
     this.resolvePriority,
   );
 
   final String origin;
   final _OriginState state;
   final _PendingAdmission pending;
-  final OriginRequestPriority Function() resolvePriority;
-  OriginRequestPriority get priority => resolvePriority();
+  final OriginRequestPriority defaultPriority;
+  final OriginRequestPriority Function()? resolvePriority;
+  OriginRequestPriority get priority =>
+      resolvePriority?.call() ?? defaultPriority;
 }
 
 sealed class _PendingAdmission {
