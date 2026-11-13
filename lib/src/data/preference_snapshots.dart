@@ -18,29 +18,22 @@ final class PreferenceSnapshots<K, V extends Object> {
     final request = result.future;
     _requests[key] = request;
     unawaited(
-      Future<V>.sync(read)
-          .then((value) {
-            // Forgotten while storage was being read: the caller still gets the
-            // value, but nothing later peeks it.
-            if (!identical(_requests[key], request)) return value;
-            // An interaction while storage was being read takes precedence over
-            // that older snapshot, including while its write is still pending.
-            return _values.putIfAbsent(key, () => value);
-          })
-          .then<void>(
-            (value) {
-              if (identical(_requests[key], request)) {
-                final _ = _requests.remove(key);
-              }
-              result.complete(value);
-            },
-            onError: (Object error, StackTrace stack) {
-              if (identical(_requests[key], request)) {
-                final _ = _requests.remove(key);
-              }
-              result.completeError(error, stack);
-            },
-          ),
+      Future<V>.sync(read).then<void>(
+        (value) {
+          if (identical(_requests[key], request)) {
+            final _ = _requests.remove(key);
+            // An interaction during hydration takes precedence over storage.
+            value = _values.putIfAbsent(key, () => value);
+          }
+          result.complete(value);
+        },
+        onError: (Object error, StackTrace stack) {
+          if (identical(_requests[key], request)) {
+            final _ = _requests.remove(key);
+          }
+          result.completeError(error, stack);
+        },
+      ),
     );
     return request;
   }
