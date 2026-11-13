@@ -44,10 +44,13 @@ TextEditingValue insertComposerList(
   ).firstMatch(value.text.substring(start));
   final end = item?.contentStart ?? start + (heading?.end ?? 0);
   final prefix = ordered ? '1. ' : '- ';
+  final task = item?.taskMarkerStart == null
+      ? ''
+      : value.text.substring(item!.taskMarkerStart!, item.contentStart);
   // Re-encode continuation indentation if the new marker has another width.
   final replacement = item == null
       ? prefix
-      : '$prefix${item.body.text.replaceAll('\n', '${item.newline}${' ' * prefix.length}')}';
+      : '$prefix$task${item.body.text.replaceAll('\n', '${item.newline}${' ' * prefix.length}')}';
   final bodyCaret = item?.body.localOffset(caret) ?? 0;
   final lineCount = item == null
       ? 0
@@ -59,6 +62,7 @@ TextEditingValue insertComposerList(
           ? prefix.length + (caret < end ? start : caret - (end - start))
           : start +
                 prefix.length +
+                task.length +
                 bodyCaret +
                 lineCount * (prefix.length + item.newline.length - 1),
     ),

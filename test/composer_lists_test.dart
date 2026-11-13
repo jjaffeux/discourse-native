@@ -140,6 +140,18 @@ void main() {
     },
   );
 
+  test('converting a checked task retains the checkbox and caret', () {
+    const source = '- [X] Task\r\n  continuation';
+    const before = TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: 8),
+    );
+    final after = insertComposerList(before, ordered: true);
+    expect(after.text, '1. [X] Task\r\n   continuation');
+    expect(after.selection.extentOffset, 9);
+    expect(composerListItems(after.text).single.checked, isTrue);
+  });
+
   for (final (marker, next) in [
     ('- ', '- '),
     ('1. ', '2. '),

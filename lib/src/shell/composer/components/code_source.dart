@@ -104,7 +104,9 @@ List<ComposerCodeBlock> parseComposerCodeBlocks(String source) {
         final openingLine = source.substring(start, bodyStart);
         final fenceStart = openingLine.indexOf(fence);
         final info = opening.group(2)!;
-        final leading = info.length - info.trimLeft().length;
+        final trimmedInfo = info.trimLeft();
+        final leading = info.length - trimmedInfo.length;
+        final languageLength = _infoLanguage.matchAsPrefix(trimmedInfo)!.end;
         final infoStart = fenceStart + fence.length + leading;
         var bodyEnd = offset;
         if (bodyEnd > bodyStart && source[bodyEnd - 1] == '\n') bodyEnd--;
@@ -117,7 +119,7 @@ List<ComposerCodeBlock> parseComposerCodeBlocks(String source) {
             bodyEnd: bodyEnd - start,
             fence: fence,
             infoStart: infoStart,
-            infoEnd: infoStart + info.trim().length,
+            infoEnd: infoStart + languageLength,
             closingStart: offset - start + line.indexOf(fence[0]),
             closingLength: closing.group(1)!.length,
           ),
@@ -129,6 +131,8 @@ List<ComposerCodeBlock> parseComposerCodeBlocks(String source) {
   }
   return blocks;
 }
+
+final _infoLanguage = RegExp(r'\S*');
 
 /// Hidden fences can be replaced as a whole, but not partially edited by IME.
 class ComposerCodeInputFormatter extends TextInputFormatter {

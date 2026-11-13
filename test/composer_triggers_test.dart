@@ -181,6 +181,17 @@ void main() {
       }
     });
 
+    test('autocomplete stays closed inside comments and BBCode code', () {
+      for (final annotated in [
+        '<!-- @sam| -->',
+        '<!--\n#topic|\n-->',
+        '[code]\n:smile|\n[/code]',
+      ]) {
+        expect(triggerIn(annotated), '-', reason: annotated);
+      }
+      expect(triggerIn('<!-- ` --> @sam|'), '@sam');
+    });
+
     test('a sigil written beside code still opens', () {
       expect(triggerIn('`code` @sam|'), '@sam');
       expect(triggerIn('```\ncode\n```\n@sam|'), '@sam');

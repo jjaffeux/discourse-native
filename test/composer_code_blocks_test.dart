@@ -401,6 +401,15 @@ void main() {
     );
   });
 
+  test('changing a fenced code language preserves its info attributes', () {
+    const source =
+        '  ```  ruby  linenos=true, caption=example  \r\n'
+        'puts 1\r\n  ```';
+    final block = parseComposerCodeBlocks(source).single;
+    expect(block.withLanguage('dart'), source.replaceFirst('ruby', 'dart'));
+    expect(block.language, 'ruby');
+  });
+
   test('incomplete fences stay raw and inner shorter fences stay code', () {
     expect(parseComposerCodeBlocks('```dart\ntext'), isEmpty);
     expect(parseComposerCodeBlocks('```dart\ntext\n~~~'), isEmpty);
