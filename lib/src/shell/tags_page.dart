@@ -39,14 +39,14 @@ class _TagsPageState extends State<TagsPage> {
         cached.query == query) {
       return cached.tags;
     }
-    final tags =
-        source.where((tag) => searchWordsMatch(query, [tag.name])).toList()
-          ..sort((a, b) {
-            final count = b.count.compareTo(a.count);
-            return count != 0
-                ? count
-                : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-          });
+    final matches = searchTextMatcher(query);
+    final tags = source.where((tag) => matches(tag.name)).toList()
+      ..sort((a, b) {
+        final count = b.count.compareTo(a.count);
+        return count != 0
+            ? count
+            : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
     _results = (source: source, query: query, tags: tags);
     return tags;
   }

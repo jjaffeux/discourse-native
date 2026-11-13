@@ -48,6 +48,15 @@ RegExp? searchWordPattern(String query) {
         );
 }
 
+bool Function(String) searchTextMatcher(String query) {
+  final words = searchWords(query).map((word) => word.toLowerCase()).toList();
+  if (words.isEmpty) return (_) => true;
+  return (text) {
+    final normalized = text.toLowerCase();
+    return words.every(normalized.contains);
+  };
+}
+
 ({String query, List<String> words})? _matchingQuery;
 
 bool searchWordsMatch(String query, Iterable<String> fields) {
@@ -57,8 +66,7 @@ bool searchWordsMatch(String query, Iterable<String> fields) {
     words = cached.words;
   } else {
     words = searchWords(query).map((word) => word.toLowerCase()).toList();
-    // A tag page checks the same query against each row. Retain at most one
-    // bounded query; long pasted input must not stay alive after that page.
+    // Bound the shared cache so it cannot retain large pasted queries.
     _matchingQuery = query.length <= 4096 ? (query: query, words: words) : null;
   }
   if (words.isEmpty) return true;

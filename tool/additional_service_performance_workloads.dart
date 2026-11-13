@@ -73,10 +73,12 @@ Future<Map<String, int>> measureAdditionalServicePerformance() async {
   var queryIndex = 0;
   await measure('search_tag_page_filter', 1000, () async {
     final design = (queryIndex++).isEven;
-    final query = design ? 'design keyboard' : 'native widget';
+    final matches = searchTextMatcher(
+      design ? 'design keyboard' : 'native widget',
+    );
     final selected = [
       for (final row in tagRows)
-        if (searchWordsMatch(query, [row.name])) row.id,
+        if (matches(row.name)) row.id,
     ];
     final parity = design ? 0 : 1;
     if (selected.length != 500 ||

@@ -3,6 +3,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
 
 void main() {
+  test('prepared text matching agrees with one-field search', () {
+    for (final query in [
+      'category:support @sam',
+      '"DESIGN" keyboard',
+      'foo FOO',
+      '10:30',
+      '𐐨',
+      'https://example.test/docs',
+      'a' * 5000,
+    ]) {
+      final matches = searchTextMatcher(query);
+      for (final text in [
+        '',
+        'Keyboard DESIGN Foo at 10:30 𐐀',
+        'https://example.test/docs',
+        'a' * 5000,
+      ]) {
+        expect(matches(text), searchWordsMatch(query, [text]));
+      }
+    }
+  });
+
   test(
     'regression fifth: search highlighting matches supplementary case pairs',
     () {
