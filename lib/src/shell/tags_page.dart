@@ -30,6 +30,26 @@ class TagsPage extends StatefulWidget {
 class _TagsPageState extends State<TagsPage> {
   (Object, String, Object)? _requestedIdentity;
   bool _requestScheduled = false;
+  ({List<SidebarTag> source, String query, List<SidebarTag> tags})? _results;
+
+  List<SidebarTag> _matchingTags(List<SidebarTag> source, String query) {
+    final cached = _results;
+    if (cached != null &&
+        identical(cached.source, source) &&
+        cached.query == query) {
+      return cached.tags;
+    }
+    final tags =
+        source.where((tag) => searchWordsMatch(query, [tag.name])).toList()
+          ..sort((a, b) {
+            final count = b.count.compareTo(a.count);
+            return count != 0
+                ? count
+                : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
+    _results = (source: source, query: query, tags: tags);
+    return tags;
+  }
 
   @override
   void didChangeDependencies() {
@@ -75,19 +95,7 @@ class _TagsPageState extends State<TagsPage> {
       ),
       builder: (context, data, _) {
         final (session, feed) = data;
-        final tags =
-            feed.tags
-                .where(
-                  (tag) =>
-                      searchWordsMatch(SearchWords.of(context), [tag.name]),
-                )
-                .toList()
-              ..sort((a, b) {
-                final count = b.count.compareTo(a.count);
-                return count != 0
-                    ? count
-                    : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-              });
+        final tags = _matchingTags(feed.tags, SearchWords.of(context));
         _scheduleRequest(session);
         if (feed.error != null && feed.tags.isEmpty) {
           return _TagPageState(

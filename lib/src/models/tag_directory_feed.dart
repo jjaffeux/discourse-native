@@ -21,10 +21,13 @@ class TagDirectoryFeed {
   TagDirectoryFeed refreshing() =>
       TagDirectoryFeed(tags: tags, loading: true, loaded: loaded);
 
-  TagDirectoryFeed withTags(Iterable<SidebarTag> values) => TagDirectoryFeed(
-    tags: List<SidebarTag>.unmodifiable(values),
-    loaded: true,
-  );
+  TagDirectoryFeed withTags(Iterable<SidebarTag> values) {
+    final snapshot = values is List<SidebarTag> ? values : values.toList();
+    return TagDirectoryFeed(
+      tags: listEquals(tags, snapshot) ? tags : List.unmodifiable(snapshot),
+      loaded: true,
+    );
+  }
 
   TagDirectoryFeed withError(String message) =>
       TagDirectoryFeed(tags: tags, loaded: loaded, error: message);

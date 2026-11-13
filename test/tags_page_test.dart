@@ -356,6 +356,29 @@ void main() {
     );
   });
 
+  test(
+    'tag refresh keeps the snapshot until visible tag data changes',
+    () async {
+      final tags = <SidebarTag>[_loadedTag];
+      final controller = await _loadController(
+        api: FakeDiscourseApi(feeds: const {'/latest.json': []}, tagList: tags),
+      );
+      await controller.loadTags(_siteUrl);
+      final original = controller.tagDirectoryFeedFor(_siteUrl).tags;
+      expect(original, [_loadedTag]);
+
+      tags[0] = SidebarTag.fromJson(_loadedTag.toJson())!;
+      await controller.loadTags(_siteUrl, force: true);
+      expect(controller.tagDirectoryFeedFor(_siteUrl).tags, same(original));
+
+      tags[0] = SidebarTag.fromJson({..._loadedTag.toJson(), 'count': 7})!;
+      await controller.loadTags(_siteUrl, force: true);
+      final updated = controller.tagDirectoryFeedFor(_siteUrl).tags;
+      expect(updated.single.count, 7);
+      expect(original.single.count, 3);
+    },
+  );
+
   testWidgets(
     'sidebar All tags loads the native directory and a row opens its feed',
     (tester) async {
