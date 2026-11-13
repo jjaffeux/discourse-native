@@ -1687,6 +1687,8 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     final stamp = _stamp(topicId);
     final credential = await _requests.credentials(_owner.credentials);
     if (!isCurrent || !isInterested()) return null;
+    final refreshed = _heldMegaPostNumber(topicId, postNumber);
+    if (refreshed != null) return refreshed;
     final payload = await credential.run(
       () => _owner.content.topic(
         siteUrl: siteUrl,

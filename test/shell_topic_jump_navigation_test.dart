@@ -653,7 +653,9 @@ void main() {
       credential.release.complete();
 
       expect(await moved, isTrue);
-      expect(api.postFetches, [[300]]);
+      expect(api.postFetches, [
+        [300],
+      ]);
       expect(shell.currentContent?.postNumber, 12);
     });
 
@@ -921,8 +923,15 @@ void main() {
         ],
       );
 
-      Future<({ShellController shell, _JumpApi api})> megaFixture() async {
-        final (:shell, :api, authenticator: _) = await _fixture();
+      Future<
+        ({
+          ShellController shell,
+          _JumpApi api,
+          _GatedAuthenticator authenticator,
+        })
+      >
+      megaFixture() async {
+        final (:shell, :api, :authenticator) = await _fixture();
         shell.store.put(
           _siteUrl,
           const TopicDetail(
@@ -935,11 +944,32 @@ void main() {
           ),
         );
         api.positionedPayloads[8000] = run;
-        return (shell: shell, api: api);
+        return (shell: shell, api: api, authenticator: authenticator);
       }
 
+      test(
+        'a run cached during credential lookup avoids a topic fetch',
+        () async {
+          final (:shell, :api, :authenticator) = await megaFixture();
+          final credentials = authenticator.gateNextApiKey();
+          final moved = shell.scrubCurrentTopicToIndex(
+            8000,
+            isWanted: () => true,
+          );
+          await credentials.started.future;
+          await shell.loadTopic(1, 'one', postNumber: 8000, force: true);
+          expect(api.topicPostNumbersOpened, [8000]);
+          credentials.release.complete();
+
+          expect(await moved, isTrue);
+          expect(shell.currentContent?.postNumber, 8000);
+          await pumpEventQueue();
+          expect(api.topicPostNumbersOpened, [8000]);
+        },
+      );
+
       test('the run arrives before the route moves', () async {
-        final (:shell, :api) = await megaFixture();
+        final (:shell, :api, authenticator: _) = await megaFixture();
         final load = api.gateTopic(8000);
         final route = shell.currentContent;
 
@@ -961,7 +991,7 @@ void main() {
       });
 
       test('a deleted post number settles on the post after it', () async {
-        final (:shell, :api) = await megaFixture();
+        final (:shell, :api, authenticator: _) = await megaFixture();
         api.positionedPayloads[7999] = run;
 
         expect(
@@ -976,7 +1006,7 @@ void main() {
       });
 
       test('a gap inside the held run needs no request', () async {
-        final (:shell, :api) = await megaFixture();
+        final (:shell, :api, authenticator: _) = await megaFixture();
         shell.store
           ..put(_siteUrl, _firstPost)
           ..put(_siteUrl, _secondPost)
@@ -995,7 +1025,7 @@ void main() {
       test(
         'a run the drag moved on from does not replace the held one',
         () async {
-          final (:shell, :api) = await megaFixture();
+          final (:shell, :api, authenticator: _) = await megaFixture();
           var dragging = true;
           final load = api.gateTopic(8000);
           final route = shell.currentContent;
