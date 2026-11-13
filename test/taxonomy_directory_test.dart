@@ -56,7 +56,6 @@ void main() {
     configs[_site] = const SiteConfig(taggingEnabled: false);
     await shell.sitePresentation.refreshConfig(_site);
     expect(shell.siteConfigFor(_site).taggingEnabled, isFalse);
-    await shell.loadTags(_site);
     await pumpEventQueue();
     final finishedBeforeResponse = finished;
     api.releaseOldRefreshes();

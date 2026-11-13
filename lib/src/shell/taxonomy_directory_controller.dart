@@ -604,6 +604,13 @@ final class _TaxonomyDirectoryController
     }
   }
 
+  void siteConfigLoaded(String siteUrl, SiteConfig config) {
+    final site = _sites[siteUrl];
+    if (site != null && site.lease.isCurrent && !config.taggingEnabled) {
+      _clearDisabledTagDirectory(site);
+    }
+  }
+
   Future<void> _loadTagDirectory(
     DiscourseInstance instance,
     _TaxonomySite site,

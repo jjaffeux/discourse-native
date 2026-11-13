@@ -7394,6 +7394,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
+    _taxonomy.siteConfigLoaded(siteUrl, config);
     cooking.service.invalidate();
     if (currentInstance?.url == siteUrl) {
       search.selectSite(
