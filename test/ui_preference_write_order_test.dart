@@ -7,6 +7,33 @@ import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('shared queue reads keep failures in their caller error zone', () async {
+    final queue = SerialOperationQueue();
+    final owner = Object();
+    final failure = StateError('unavailable');
+    final first = queue.readShared<int>(
+      owner: owner,
+      key: 'snapshot',
+      operation: () async => throw failure,
+    );
+    final firstError = expectLater(first, throwsA(same(failure)));
+    final observed = Completer<int>();
+    runZonedGuarded(() {
+      unawaited(
+        queue
+            .readShared<int>(
+              owner: owner,
+              key: 'snapshot',
+              operation: () async => 42,
+            )
+            .then<void>(observed.complete, onError: observed.completeError),
+      );
+    }, (error, stack) => observed.completeError(error, stack));
+
+    await firstError;
+    expect(await observed.future.timeout(const Duration(seconds: 1)), 42);
+  });
+
   test(
     'queue shares consecutive reads only for the same result type',
     () async {

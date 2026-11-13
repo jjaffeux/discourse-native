@@ -86,10 +86,10 @@ final class CoalescingSnapshotWriter<T> {
     return _enqueueRead(readSnapshot);
   }
 
-  /// Shares overlapping reads of the same result type. Callers using this
-  /// method for a lane and type must supply equivalent snapshot readers.
+  /// Shares overlapping reads of the same result type, scope, and error zone.
+  /// Callers sharing these must supply equivalent snapshot readers.
   Future<R> readShared<R>(Future<R> Function() readSnapshot, {Object? scope}) {
-    final key = (R, scope);
+    final key = (R, scope, Zone.current.errorZone);
     if (_lane.sharedReads[key] case final Future<R> active) return active;
     late final Future<R> pending;
     pending = read(readSnapshot).whenComplete(() {
@@ -151,7 +151,7 @@ final class CoalescingSnapshotWriter<T> {
 }
 
 final class _SnapshotLane {
-  final sharedReads = <(Type, Object?), Future<Object?>>{};
+  final sharedReads = <(Type, Object?, Zone), Future<Object?>>{};
   ({
     Future<void> Function() write,
     Map<Zone, Completer<void>> results,
