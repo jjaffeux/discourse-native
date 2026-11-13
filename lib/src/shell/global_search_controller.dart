@@ -1143,16 +1143,19 @@ class _PendingFilterLookups<K, V> {
   Future<V> run(K key, Future<V> Function() load) {
     final existing = _pending[key];
     if (existing != null) return existing;
-    late final Future<V> future;
-    future = Future<V>.sync(load).whenComplete(() {
-      if (identical(_pending[key], future)) {
-        final _ = _pending.remove(key);
-      }
-    });
+    final completion = Completer<V>();
+    final future = completion.future;
     _pending[key] = future;
     if (_pending.length > 32) {
       final _ = _pending.remove(_pending.keys.first);
     }
+    completion.complete(
+      Future<V>.sync(load).whenComplete(() {
+        if (identical(_pending[key], future)) {
+          final _ = _pending.remove(key);
+        }
+      }),
+    );
     return future;
   }
 

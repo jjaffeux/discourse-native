@@ -878,6 +878,22 @@ void main() {
     },
   );
 
+  test('category lookups join during credential lookup', () async {
+    final api = _EngineApi();
+    final credentials = _DeferredSearchCredentials()..keys[_site] = 'key';
+    final search = _controller(api, credentials: credentials);
+    addTearDown(search.dispose);
+    Future<GlobalSearchCategoryPage>? joined;
+    credentials.onRead = () => joined = search.lookupCategoryChoices('support');
+
+    final lookup = search.lookupCategoryChoices(' support ');
+    await lookup;
+    await joined;
+
+    expect(api.categoryLookups, [('support', 1)]);
+    expect(joined, same(lookup));
+  });
+
   testWidgets(
     'pending category consumers share one page and keep different pages distinct',
     (tester) async {
@@ -2940,9 +2956,10 @@ void main() {
 GlobalSearchController _controller(
   _EngineApi api, {
   SiteLifecycle? lifecycle,
+  FakeApiCredentialReader? credentials,
 }) => GlobalSearchController(
   api: api,
-  credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+  credentials: credentials ?? (FakeApiCredentialReader()..keys[_site] = 'key'),
   lifecycle: lifecycle ?? SiteLifecycle(),
   debounceDuration: const Duration(milliseconds: 1),
 )..configure(siteUrl: _site, capabilities: _caps);
@@ -3134,10 +3151,14 @@ class _Transport extends FakeDiscourseApi {
 
 final class _DeferredSearchCredentials extends FakeApiCredentialReader {
   bool hold = false;
+  void Function()? onRead;
   final pending = <Completer<String?>>[];
 
   @override
   Future<String?> apiKeyFor(String siteUrl) {
+    final callback = onRead;
+    onRead = null;
+    callback?.call();
     if (!hold) return super.apiKeyFor(siteUrl);
     final result = Completer<String?>();
     pending.add(result);
