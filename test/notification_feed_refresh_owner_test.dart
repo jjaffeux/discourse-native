@@ -64,7 +64,8 @@ void main() {
         await pumpEventQueue();
         final seed = [_serverType];
         h.owner.seedSiteTypes(_site, seed, h.lifecycle.capture(_site));
-        await h.owner.markAllNotificationsRead(_site);
+        await pumpEventQueue();
+        final writesBeforeFetchSettled = h.api.markedTypesRead.length;
         if (fetchFails) {
           h.api.catalogs.single.completeError(StateError('offline'));
         } else {
@@ -72,6 +73,8 @@ void main() {
         }
         seed.clear();
         await pending;
+        expect(writesBeforeFetchSettled, 1);
+        await h.owner.markAllNotificationsRead(_site);
         await h.owner.markAllNotificationsRead(_site);
         expect(h.api.markedTypesRead, const [
           [NotificationTypeName('custom_alert')],

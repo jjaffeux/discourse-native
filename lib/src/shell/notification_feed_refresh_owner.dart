@@ -119,22 +119,16 @@ final class NotificationFeedRefreshOwner {
     final cached = account.catalog;
     if (cached != null) return Future.value(cached);
     final active = account.request;
-    if (active != null) return active;
+    if (active != null) return active.future;
     final result = Completer<List<NotificationWireType>>();
-    account.request = result.future;
-    unawaited(
-      _loadTypes(
-        account,
-        result.future,
-        credential,
-      ).then(result.complete, onError: result.completeError),
-    );
+    account.request = result;
+    unawaited(_loadTypes(account, result, credential));
     return result.future;
   }
 
-  Future<List<NotificationWireType>> _loadTypes(
+  Future<void> _loadTypes(
     _NotificationFeedAccount account,
-    Future<List<NotificationWireType>> request,
+    Completer<List<NotificationWireType>> request,
     AccountRequestCredentials? credential,
   ) async {
     try {
@@ -144,6 +138,7 @@ final class NotificationFeedRefreshOwner {
             account.siteUrl,
             account.lease,
           ).keyCredentials(credentials);
+      if (request.isCompleted) return;
       if (!_owns(account)) throw const AccountRequestRetiredException();
       final types = await auth.run(
         () => siteNotificationTypes(
@@ -151,13 +146,12 @@ final class NotificationFeedRefreshOwner {
           apiKey: auth.apiKey!,
         ),
       );
+      if (request.isCompleted) return;
       final immutable = List<NotificationWireType>.unmodifiable(types);
-      if (!_owns(account)) return immutable;
-      return account.catalog ??= immutable;
-    } catch (_) {
-      final seeded = account.catalog;
-      if (_owns(account) && seeded != null) return seeded;
-      rethrow;
+      if (_owns(account)) account.catalog = immutable;
+      request.complete(immutable);
+    } catch (error, stackTrace) {
+      if (!request.isCompleted) request.completeError(error, stackTrace);
     } finally {
       if (identical(account.request, request)) account.request = null;
     }
@@ -173,7 +167,11 @@ final class NotificationFeedRefreshOwner {
     if (types.isEmpty) return;
     final account = _account(siteUrl, lease: lease);
     if (account != null && _owns(account)) {
-      account.catalog ??= List<NotificationWireType>.unmodifiable(types);
+      final catalog = account.catalog ??=
+          List<NotificationWireType>.unmodifiable(types);
+      final request = account.request;
+      account.request = null;
+      request?.complete(catalog);
     }
   }
 
@@ -220,7 +218,7 @@ final class _NotificationFeedAccount {
   final String siteUrl;
   final SiteLease lease;
   List<NotificationWireType>? catalog;
-  Future<List<NotificationWireType>>? request;
+  Completer<List<NotificationWireType>>? request;
   Timer? timer;
   void Function()? detach;
   bool _retired = false;
@@ -234,7 +232,7 @@ final class _NotificationFeedAccount {
     detach = null;
     timer?.cancel();
     timer = null;
-    request?.ignore();
+    request?.future.ignore();
     request = null;
     catalog = null;
   }
