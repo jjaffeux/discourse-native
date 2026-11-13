@@ -659,8 +659,10 @@ abstract class ByteCache<T extends Object> {
     stream,
     maxBytes: maxResponseBytes,
     timeout: remaining,
-    timeoutError: () =>
-        TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout),
+    timeoutError: TimeoutException(
+      appL10n.timedOutFetchingCachedBytes,
+      timeout,
+    ),
     abortError: transfer.abort.future.then(
       (_) => const _ByteCacheRequestCancelled(),
     ),

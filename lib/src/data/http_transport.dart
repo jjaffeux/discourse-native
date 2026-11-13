@@ -150,7 +150,7 @@ Future<http.Response> sendBoundedHttpRequest(
           streamed.stream,
           maxBytes: maxBodyBytes,
           timeout: remaining,
-          timeoutError: () => TimeoutException(
+          timeoutError: TimeoutException(
             appL10n.timedOutReadingResponseFrom(request.url.toString()),
             remaining,
           ),
@@ -219,7 +219,7 @@ Future<Uint8List?> readBoundedHttpBody(
   Stream<List<int>> stream, {
   required int maxBytes,
   required Duration timeout,
-  required TimeoutException Function() timeoutError,
+  required TimeoutException timeoutError,
   Future<Object>? abortError,
 }) {
   final chunks = BytesBuilder(copy: false);
@@ -266,7 +266,7 @@ Future<Uint8List?> readBoundedHttpBody(
 
   final deadline = Timer(timeout, () {
     if (result.isCompleted) return;
-    result.completeError(timeoutError());
+    result.completeError(timeoutError);
     cancel();
   });
   return result.future.whenComplete(deadline.cancel);
