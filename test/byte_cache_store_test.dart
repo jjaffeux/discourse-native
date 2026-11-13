@@ -37,6 +37,26 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('a write leaves a temporary file it cannot claim intact', () async {
+      final occupied = File('${directory.path}/occupied.tmp');
+      await occupied.writeAsBytes([7]);
+      final store = FileByteCacheStore(directory, clock: () => now);
+      final fileZone = Zone.current;
+      final writing = IOOverrides.runZoned(
+        () => store.write(
+          _url('new'),
+          Uint8List.fromList([8]),
+          expiresAt: expiresAt,
+        ),
+        createFile: (path) =>
+            path.endsWith('.tmp') ? occupied : fileZone.run(() => File(path)),
+      );
+
+      await expectLater(writing, throwsA(isA<FileSystemException>()));
+      expect(await occupied.readAsBytes(), [7]);
+      expect(await store.read(_url('new')), isNull);
+    });
+
     test('a write retries pruning after failed initialization', () async {
       await seed('existing', [1], now);
       var failScan = true;
@@ -736,6 +756,10 @@ final class _FailedCacheRename implements File {
 
   final File file;
   final List<String> attempts;
+
+  @override
+  Future<File> create({bool recursive = false, bool exclusive = false}) =>
+      file.create(recursive: recursive, exclusive: exclusive);
 
   @override
   Future<File> writeAsBytes(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:pointycastle/digests/sha256.dart';
@@ -29,6 +30,7 @@ final class FileByteCacheStore implements ByteCacheStore {
   static const _headerBytes = 12;
   static const _staleTemporaryAge = Duration(hours: 1);
   static const _pruneWriteInterval = 64;
+  static final _temporaryRandom = Random.secure();
   // An entry's mtime is its last-used time, and pruning only reaches an entry
   // once the limits have turned over: thousands of images, far more than a day
   // of reading. Recording use more finely buys no better eviction and costs a
@@ -168,9 +170,11 @@ final class FileByteCacheStore implements ByteCacheStore {
       return;
     }
     final target = File(_pathFor(url));
-    final temporary = File(
-      '${target.path}.$pid.${DateTime.now().microsecondsSinceEpoch}.tmp',
-    );
+    final suffix = List.generate(
+      16,
+      (_) => _temporaryRandom.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+    final temporary = File('${target.path}.$pid.$suffix.tmp');
     final encoded = Uint8List(_headerBytes + bytes.length);
     encoded.setRange(0, 4, _magic);
     ByteData.sublistView(
@@ -181,6 +185,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     encoded.setRange(_headerBytes, encoded.length, bytes);
 
     await _ensureDirectory();
+    await temporary.create(exclusive: true);
     try {
       await temporary.writeAsBytes(encoded, flush: true);
       await temporary.rename(target.path);
