@@ -600,10 +600,12 @@ final class VoiceController extends ChangeNotifier {
       _call?.status != VoiceCallStatus.leaving;
 
   void attachTracker(String siteUrl, [PluginLiveChannelHandle? tracker]) {
+    if (_disposed) return;
     final replaced =
         tracker != null && !identical(_attachedTrackers[siteUrl], tracker);
     if (replaced) {
       _cancelTrackerSubscriptions(siteUrl);
+      if (_disposed) return;
       _attachedTrackers[siteUrl] = tracker;
     }
     _roomDirectory(siteUrl).syncSubscriptions();

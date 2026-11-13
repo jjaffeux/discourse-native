@@ -485,17 +485,23 @@ final class _VoiceRoomDirectory {
   }
 
   void detachTracker() {
-    for (final subscription in _takeSubscriptions()) {
-      _cancelSubscription(subscription);
-    }
+    _cancelSubscriptions(_takeSubscriptions());
   }
 
-  void _cancelSubscription(PluginLiveChannelSubscription subscription) {
-    late final Future<void> cancellation;
-    cancellation = controller
-        ._cancelSubscription(subscription)
-        .whenComplete(() => _subscriptionTeardowns.remove(cancellation));
-    _subscriptionTeardowns.add(cancellation);
+  void _cancelSubscription(PluginLiveChannelSubscription subscription) =>
+      _cancelSubscriptions([subscription]);
+
+  void _cancelSubscriptions(List<PluginLiveChannelSubscription> subscriptions) {
+    if (subscriptions.isEmpty) return;
+    final completion = Completer<void>();
+    final teardown = completion.future;
+    _subscriptionTeardowns.add(teardown);
+    completion.complete(
+      Future.wait([
+        for (final subscription in subscriptions)
+          controller._cancelSubscription(subscription),
+      ]).whenComplete(() => _subscriptionTeardowns.remove(teardown)),
+    );
   }
 
   Future<void> close() {

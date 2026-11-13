@@ -2801,6 +2801,34 @@ void main() {
       },
     );
 
+    test(
+      'close from tracker cancellation drains all detached watches',
+      () async {
+        final old = _AwaitableSubscriptionTracker();
+        firstTracker = old;
+        useTransport(transport, userIdFor: (_) => null);
+        await controller.ensureLoaded(firstSite);
+        final replacement = tracker(firstSite);
+        var closed = false;
+        Future<void>? closing;
+        old.onCancel = () {
+          closing = controller.close().then((_) => closed = true);
+        };
+
+        controller.attachTracker(firstSite, replacement);
+        await pumpEventQueue();
+        final closedWhileBlocked = closed;
+        old.cancellationGate.complete();
+        await closing;
+
+        expect(closing, isNotNull);
+        expect(closedWhileBlocked, isFalse);
+        expect(closed, isTrue);
+        expect(old.cancellationsStarted, 2);
+        expect(replacement.channels, isEmpty);
+      },
+    );
+
     test('close drains watches detached by tracker replacement', () async {
       final awaitable = _AwaitableSubscriptionTracker();
       firstTracker = awaitable;
