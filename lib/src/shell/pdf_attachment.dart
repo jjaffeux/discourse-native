@@ -6,7 +6,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/site_lifecycle.dart';
 import '../data/site_pdf_thumbnail_repository.dart';
-import '../data/site_thumbnail_repository.dart';
+import '../data/thumbnail_request.dart';
 import '../foundation/icons/d_native_icons.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';

@@ -6,24 +6,7 @@ import 'api_credentials.dart';
 import 'http_url_safety.dart';
 import 'site_lifecycle.dart';
 import 'site_video_source.dart';
-
-typedef ThumbnailGenerator = ThumbnailRequest Function(Uri source);
-
-/// One consumer's interest in a thumbnail. Release it when the preview leaves
-/// the tree; shared work is cancelled only after the last consumer leaves.
-final class ThumbnailRequest {
-  ThumbnailRequest(this.result, this._release);
-
-  final Future<Uint8List?> result;
-  final VoidCallback _release;
-  bool _released = false;
-
-  void dispose() {
-    if (_released) return;
-    _released = true;
-    _release();
-  }
-}
+import 'thumbnail_request.dart';
 
 /// Bounded, memory-only thumbnails scoped to the connected account session.
 ///

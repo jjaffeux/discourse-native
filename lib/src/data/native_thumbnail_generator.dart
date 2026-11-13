@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import 'site_thumbnail_repository.dart';
+import 'thumbnail_request.dart';
 
 bool get nativeThumbnailsSupported =>
     !kIsWeb &&

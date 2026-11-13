@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../data/site_video_thumbnail_repository.dart';
+import '../data/thumbnail_request.dart';
 import 'image_decode.dart';
 import 'shell_scope.dart';
 
@@ -25,7 +25,7 @@ class GeneratedVideoPoster extends StatefulWidget {
 
 class _GeneratedVideoPosterState extends State<GeneratedVideoPoster> {
   Object? _identity;
-  VideoThumbnailRequest? _request;
+  ThumbnailRequest? _request;
   bool _enabled = true;
   bool _hasPoster = false;
   bool _viewportCheckScheduled = false;

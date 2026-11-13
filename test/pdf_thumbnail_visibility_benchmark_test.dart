@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_pdf_thumbnail_repository.dart';
-import 'package:discourse_native/src/data/site_thumbnail_repository.dart';
+import 'package:discourse_native/src/data/thumbnail_request.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/pdf_attachment.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

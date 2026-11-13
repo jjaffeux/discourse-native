@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/native_thumbnail_generator.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_video_thumbnail_repository.dart';
+import 'package:discourse_native/src/data/thumbnail_request.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -229,7 +230,7 @@ void main() {
     'an earlier retirement observer starts a successor thumbnail cache',
     () async {
       final harness = _Harness();
-      VideoThumbnailRequest? successor;
+      ThumbnailRequest? successor;
       harness.lifecycle.capture(_site).onRetire(() {
         successor = harness.acquire();
       });
@@ -366,7 +367,7 @@ final class _Harness {
       generator: (source) {
         final job = _Extraction(source);
         jobs.add(job);
-        return VideoThumbnailRequest(job.result.future, () {
+        return ThumbnailRequest(job.result.future, () {
           job.cancelled = true;
           if (failRelease) throw StateError('native release failed');
         });
@@ -380,13 +381,11 @@ final class _Harness {
   var now = DateTime(2026);
   late final SiteVideoThumbnailRepository repository;
 
-  VideoThumbnailRequest acquire([
-    String name = 'clip',
-    String siteUrl = _site,
-  ]) => repository.acquire(
-    siteUrl: siteUrl,
-    url: Uri.parse('$siteUrl/uploads/$name.mp4'),
-  );
+  ThumbnailRequest acquire([String name = 'clip', String siteUrl = _site]) =>
+      repository.acquire(
+        siteUrl: siteUrl,
+        url: Uri.parse('$siteUrl/uploads/$name.mp4'),
+      );
 }
 
 final class _Extraction {

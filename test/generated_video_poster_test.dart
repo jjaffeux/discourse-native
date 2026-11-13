@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_video_thumbnail_repository.dart';
+import 'package:discourse_native/src/data/thumbnail_request.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -376,10 +377,7 @@ final class _Harness {
       generator: (source) {
         final job = _Extraction(source);
         jobs.add(job);
-        return VideoThumbnailRequest(
-          job.result.future,
-          () => job.cancelled = true,
-        );
+        return ThumbnailRequest(job.result.future, () => job.cancelled = true);
       },
     );
     shell = ShellController(

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_pdf_thumbnail_repository.dart';
-import 'package:discourse_native/src/data/site_thumbnail_repository.dart';
+import 'package:discourse_native/src/data/thumbnail_request.dart';
 import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
