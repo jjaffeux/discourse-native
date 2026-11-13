@@ -116,3 +116,6 @@ reductions and the import graph and behavior checks for each.
 
 [Round thirteen](layer-dependencies-round13.md) records ten dependency
 reductions across data adapters, plugins, shell transactions, and composer undo.
+
+[Round fourteen](layer-dependencies-round14.md) records ten dependency
+reductions across HTTP adapters, plugin models, moderation, and draft previews.

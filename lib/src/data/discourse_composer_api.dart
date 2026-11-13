@@ -14,9 +14,10 @@ import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
-import 'discourse_api_contracts.dart';
+import 'discourse_search_contract.dart';
 import 'discourse_transport.dart';
 import 'json_decode.dart';
+import 'write_failure.dart';
 
 final class DiscourseComposerApi {
   const DiscourseComposerApi(this._transport, this._models);

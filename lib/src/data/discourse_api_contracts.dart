@@ -5,7 +5,6 @@ import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_model_codec.dart';
-import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/forum_about.dart';
 import '../models/found_hashtag.dart';
@@ -16,7 +15,6 @@ import '../models/pending_post.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
-import '../models/post_flag.dart';
 import '../models/post_likers.dart';
 import '../models/post_revision.dart';
 import '../models/sidebar_tag.dart';
@@ -33,6 +31,8 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
+import 'account_session_api.dart';
+import 'category_load_result.dart';
 import 'discourse_search_contract.dart';
 import 'dsa_notice_contracts.dart';
 import 'http_basic_auth.dart';
@@ -42,6 +42,7 @@ import 'site_lookup_failure.dart';
 import 'site_message_bus_bootstrap.dart';
 import 'write_failure.dart';
 
+export 'category_load_result.dart';
 export 'discourse_search_contract.dart';
 export 'dsa_notice_contracts.dart';
 export 'site_lookup_failure.dart';
@@ -76,95 +77,6 @@ String failureText(Object? error, {required String fallback}) =>
       SiteLookupException(:final message) => message,
       _ => fallback,
     };
-
-/// A category-list response plus whether its page-one site metadata also
-/// arrived. A partial list is still useful for badges/navigation, but callers
-/// should leave it retryable so lazy-loaded navigation choices can be filled
-/// in.
-final class CategoryLoadResult {
-  factory CategoryLoadResult(
-    Iterable<TopicCategory> categories, {
-    bool complete = true,
-    Iterable<int>? rootCategoryIds,
-    bool canCreateTopic = false,
-    SitePostActionCatalog? postActionCatalog,
-    TopicComposerCapabilities? composerCapabilities,
-    Iterable<NotificationWireType> notificationTypes = const [],
-    Iterable<SidebarTag>? siteTopTags,
-    Iterable<SidebarTag>? anonymousDefaultTags,
-    bool? anonymousSearchAllowed,
-  }) {
-    final immutableCategories = List<TopicCategory>.unmodifiable(categories);
-    return CategoryLoadResult._(
-      immutableCategories,
-      List<int>.unmodifiable(
-        rootCategoryIds ??
-            immutableCategories
-                .where((category) => category.parentCategoryId == null)
-                .map((category) => category.id),
-      ),
-      complete,
-      canCreateTopic,
-      postActionCatalog,
-      composerCapabilities,
-      List<NotificationWireType>.unmodifiable(notificationTypes),
-      siteTopTags == null ? null : List<SidebarTag>.unmodifiable(siteTopTags),
-      anonymousDefaultTags == null
-          ? null
-          : List<SidebarTag>.unmodifiable(anonymousDefaultTags),
-      anonymousSearchAllowed,
-    );
-  }
-
-  CategoryLoadResult._(
-    this.categories,
-    this.rootCategoryIds,
-    this.complete,
-    this.canCreateTopic,
-    this.postActionCatalog,
-    this.composerCapabilities,
-    this.notificationTypes,
-    this.siteTopTags,
-    this.anonymousDefaultTags,
-    this.anonymousSearchAllowed,
-  );
-
-  final List<TopicCategory> categories;
-
-  /// Category ids represented as roots by this page's category-list response.
-  ///
-  /// Nested categories and the page-one `site.json` supplement remain in
-  /// [categories] for identity lookup, but must not become category cards.
-  final List<int> rootCategoryIds;
-  final bool complete;
-  final bool canCreateTopic;
-
-  /// Navigation metadata carried by the page-one `/site.json` supplement.
-  ///
-  /// Null means that optional request failed or was not made (later pages),
-  /// while an empty list is the server-confirmed absence of fallback tags.
-  final List<SidebarTag>? siteTopTags;
-  final List<SidebarTag>? anonymousDefaultTags;
-
-  /// Authenticated post-action metadata from the page-one `/site.json` read.
-  /// Null means that metadata was not requested or did not arrive.
-  final SitePostActionCatalog? postActionCatalog;
-
-  /// What the signed-in user may do in the composer, from the authenticated
-  /// page-one `/site.json` read. Null means that read was not made or did not
-  /// arrive; an anonymous document would understate the account's permissions.
-  final TopicComposerCapabilities? composerCapabilities;
-
-  /// The site's notification catalog from the authenticated page-one
-  /// `/site.json` read. Empty when that read was not made, failed, or named no
-  /// types, which settles nothing about the catalog.
-  final List<NotificationWireType> notificationTypes;
-
-  /// Core's `allow_anonymous_search`, as the anonymous page-one `/site.json`
-  /// read reports it through `can_search`. Null means that read was
-  /// authenticated, failed, or was not made.
-  final bool? anonymousSearchAllowed;
-}
 
 /// Compile-time aggregate accepted only at the shell composition boundary.
 ///
@@ -221,7 +133,8 @@ abstract interface class SiteLookupApi {
   Future<SiteBasicInfo> basicInfo(String siteUrl);
 }
 
-abstract interface class ShellSiteApi implements SidebarSectionsApi {
+abstract interface class ShellSiteApi
+    implements AccountSessionApi, SidebarSectionsApi {
   Future<ForumAbout> forumAbout({
     required String siteUrl,
     String? apiKey,
@@ -229,12 +142,6 @@ abstract interface class ShellSiteApi implements SidebarSectionsApi {
   });
 
   Future<SiteMessageBusBootstrap?> messageBusBootstrap({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  });
-
-  Future<DiscourseUser> currentUser({
     required String siteUrl,
     required String apiKey,
     String? clientId,
@@ -311,12 +218,6 @@ abstract interface class ShellSiteApi implements SidebarSectionsApi {
     required String apiKey,
     required String username,
     required bool hidePresence,
-    String? clientId,
-  });
-
-  Future<void> revokeApiKey({
-    required String siteUrl,
-    required String apiKey,
     String? clientId,
   });
 }

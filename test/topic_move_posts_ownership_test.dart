@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_mutation_outcome.dart';
@@ -48,6 +49,28 @@ const _nonregularPost = Post(
 );
 
 void main() {
+  testWidgets(
+    'move search rejects a lease captured by another lifecycle',
+    (tester) async {
+      final api = _MoveApi();
+      final shell = await _openDialog(tester, api);
+      final target = TopicPostMoveTarget.capture(
+        siteUrl: _siteA,
+        topicId: 7,
+        privateMessage: false,
+        lifecycle: SiteLifecycle(),
+      );
+
+      expect(target.lease.isCurrent, isTrue);
+      expect(shell.isTopicPostMoveTargetCurrent(target), isFalse);
+      final result = await shell.searchTopicMoveDestinations(target, 'Public');
+      expect(result.destinations, isEmpty);
+      expect(result.error, _obsolete);
+      expect(api.searches, isEmpty);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
   testWidgets(
     'Native move dialog scrolls in a narrow window and holds a move',
     (tester) async {

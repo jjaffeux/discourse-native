@@ -25,7 +25,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
-import 'package:discourse_native/src/plugins/policy/policy_preferences.dart';
+import 'package:discourse_native/src/plugins/policy/policy_email_preferences.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

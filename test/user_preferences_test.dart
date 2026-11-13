@@ -3,7 +3,7 @@ import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
-import 'package:discourse_native/src/plugins/policy/policy_preferences.dart';
+import 'package:discourse_native/src/plugins/policy/policy_email_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';

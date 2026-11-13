@@ -52,7 +52,7 @@ void main() {
   });
 
   test('the contracts barrel stays within its closure budget', () {
-    expect(closure.length, 169);
+    expect(closure.length, 171);
   });
 
   test('the plugin libraries on the full SDK stay within their budget', () {

@@ -18,10 +18,11 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
-import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'json_decode.dart';
 import 'sidebar_icon_loader.dart';
+import 'site_lookup_failure.dart';
+import 'write_failure.dart';
 
 final class DiscourseAccountApi {
   DiscourseAccountApi(

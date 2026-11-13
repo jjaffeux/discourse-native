@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import '../models/discourse_instance.dart';
 import 'account_request_session.dart';
+import 'account_session_api.dart';
 import 'authenticator.dart';
-import 'discourse_api_contracts.dart';
 import 'draft_store.dart';
 import 'instance_store.dart';
 import 'site_lifecycle.dart';
+import 'site_lookup_failure.dart';
 import 'user_api_key.dart';
 
 enum AccountSessionPhase {
@@ -111,7 +112,7 @@ final class AccountSessionCoordinator {
   final InstanceStore instances;
   final DraftStore drafts;
   final SiteLifecycle lifecycle;
-  final ShellSiteApi api;
+  final AccountSessionApi api;
   final AccountSessionHost host;
 
   final Map<String, Object> _operations = {};

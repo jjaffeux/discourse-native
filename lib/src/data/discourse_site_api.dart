@@ -18,11 +18,12 @@ import '../models/site_emoji.dart';
 import '../models/tag_notification.dart';
 import '../models/topic.dart';
 import '../models/topic_reading_policy.dart';
-import 'discourse_api_contracts.dart';
+import 'category_load_result.dart';
 import 'discourse_transport.dart';
 import 'http_basic_auth.dart';
 import 'http_url_safety.dart';
 import 'json_decode.dart';
+import 'site_lookup_failure.dart';
 import 'site_message_bus_bootstrap.dart';
 
 final class DiscourseSiteApi {

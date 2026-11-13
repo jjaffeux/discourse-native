@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart' show showShellSheet;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
+import 'nested_replies_admin.dart';
 import 'nested_replies_bulk.dart';
 import 'nested_replies_data.dart';
 import 'nested_replies_reader.dart';
@@ -94,8 +96,23 @@ final class NestedRepliesPlugin
         key: const ValueKey('nested-replies-settings'),
         label: appL10n.nestedRepliesSettings,
         icon: DIcons.reply,
-        onSelected: (context) =>
-            unawaited(service.showSettings(context, siteUrl, topic.id)),
+        onSelected: (context) => unawaited(
+          service.showSettings(siteUrl, topic.id, (
+            reader,
+            settings,
+            available,
+          ) {
+            return showNestedRepliesSettings(
+              context,
+              reader: reader,
+              api: service.api,
+              categories: service.categories,
+              settings: settings,
+              requests: service.requests,
+              available: available,
+            );
+          }),
+        ),
       ),
     ];
   }
@@ -119,8 +136,16 @@ final class NestedRepliesPlugin
             size: DButtonSize.chip,
             variant: DButtonVariant.tool,
             label: Text(appL10n.nestedRepliesActivity),
-            onPressed: () =>
-                unawaited(service.showActivity(context, siteUrl, topic.id)),
+            onPressed: () => unawaited(
+              service.showActivity(siteUrl, topic.id, (reader, available) {
+                return showNestedRepliesActivity(
+                  context,
+                  reader: reader,
+                  api: service.api,
+                  available: available,
+                );
+              }),
+            ),
           ),
       ],
     );
@@ -162,14 +187,24 @@ final class NestedRepliesPlugin
           tooltip: label,
           enabled: !service.pinBusy(menu.siteUrl, topic.id),
           placement: PostActionPlacement.overflow,
-          onInvoke: () => unawaited(
-            service.togglePin(
-              menu.buildContext,
-              menu.siteUrl,
-              topic.id,
-              post.id,
-            ),
-          ),
+          onInvoke: () {
+            final context = menu.buildContext;
+            unawaited(
+              service.togglePin(
+                menu.siteUrl,
+                topic.id,
+                post.id,
+                showFailure: (message) async {
+                  if (!context.mounted) return;
+                  await showShellSheet<void>(
+                    context: context,
+                    title: appL10n.nestedRepliesSettings,
+                    builder: (_) => Text(message),
+                  );
+                },
+              ),
+            );
+          },
         ),
       ],
     );

@@ -1,4 +1,15 @@
-part of 'shell_controller.dart';
+import '../data/account_request_session.dart';
+import '../data/api_credentials.dart';
+import '../data/discourse_api_contracts.dart' show PostMutationsApi;
+import '../data/site_lifecycle.dart';
+import '../data/store.dart';
+import '../data/write_credential.dart';
+import '../data/write_failure.dart';
+import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
+import 'post_mutation_policy.dart';
+import 'post_mutation_targets.dart';
+import 'topic_data_owner.dart';
 
 typedef _SelectedPostsKey = ({String siteUrl, int topicId});
 
@@ -30,7 +41,7 @@ final class _MoveSelectedPostsToExisting extends _SelectedPostsCommand {
     this.target,
     this.destinationTopicId, {
     this.chronologicalOrder = false,
-  }) : super(target.siteUrl, target.topicId, target._lease);
+  }) : super(target.siteUrl, target.topicId, target.lease);
 
   final TopicPostMoveTarget target;
   final int destinationTopicId;
@@ -44,7 +55,7 @@ final class _MoveSelectedPostsToNew extends _SelectedPostsCommand {
     this.categoryId,
     List<int> tagIds = const [],
   }) : tagIds = List<int>.unmodifiable(tagIds),
-       super(target.siteUrl, target.topicId, target._lease);
+       super(target.siteUrl, target.topicId, target.lease);
 
   final TopicPostMoveTarget target;
   final String title;
@@ -55,7 +66,7 @@ final class _MoveSelectedPostsToNew extends _SelectedPostsCommand {
 final class _ChangeSelectedPostsOwner extends _SelectedPostsCommand {
   _ChangeSelectedPostsOwner(this.target, String username)
     : username = username.trim(),
-      super(target.siteUrl, target.topicId, target._lease);
+      super(target.siteUrl, target.topicId, target.lease);
 
   final TopicPostOwnerTarget target;
   final String username;
@@ -84,8 +95,8 @@ final class _SelectedPostsAttempt {
   }
 }
 
-final class _SelectedPostModeration {
-  _SelectedPostModeration({
+final class SelectedPostModeration {
+  SelectedPostModeration({
     required this.store,
     required this.api,
     required this.credentials,
@@ -101,7 +112,7 @@ final class _SelectedPostModeration {
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final TopicDataOwner topicData;
-  final _PostMutationPolicy policy;
+  final PostMutationPolicy policy;
   final void Function() changed;
   final List<int> Function(String siteUrl, int topicId) postOrder;
   final Map<_SelectedPostsKey, _SelectedPostsSelection> _selectedPosts = {};
@@ -274,7 +285,7 @@ final class _SelectedPostModeration {
       posts,
     );
     final outcome = settlement.outcome;
-    final current = !_disposed && target._lease.isCurrent;
+    final current = !_disposed && lifecycle.owns(target.siteUrl, target.lease);
     return PostMoveOutcome(
       current ? outcome : policy.retired(outcome),
       destinationUrl: settlement.destinationUrl,
@@ -312,7 +323,7 @@ final class _SelectedPostModeration {
       posts,
     );
     final outcome = settlement.outcome;
-    final current = !_disposed && target._lease.isCurrent;
+    final current = !_disposed && lifecycle.owns(target.siteUrl, target.lease);
     return PostMoveOutcome(
       current ? outcome : policy.retired(outcome),
       destinationUrl: settlement.destinationUrl,
@@ -350,7 +361,7 @@ final class _SelectedPostModeration {
       posts,
     );
     final outcome = settlement.outcome;
-    return (!_disposed && target._lease.isCurrent)
+    return (!_disposed && lifecycle.owns(target.siteUrl, target.lease))
         ? outcome
         : policy.retired(outcome);
   }

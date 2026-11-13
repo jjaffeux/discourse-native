@@ -154,17 +154,21 @@ import 'mobile_navigation.dart';
 import 'notification_feed_refresh_owner.dart';
 import 'notification_preference_transactions.dart';
 import 'plugin_background_retention.dart';
+import 'post_mutation_policy.dart';
+import 'post_mutation_targets.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
 import 'profile_write_transactions.dart';
 import 'recent_search_history.dart';
+import 'selected_post_moderation.dart';
 import 'shell_search_controller.dart';
 import 'site_capabilities.dart';
 import 'site_live_sessions.dart';
 import 'site_presentation_controller.dart';
 import 'site_read_policy.dart';
 import 'site_url.dart';
+import 'topic_action_transactions.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_channel_router.dart';
 import 'topic_data_owner.dart';
@@ -186,16 +190,15 @@ import 'user_menu_notifications.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
+export 'post_mutation_targets.dart';
+
 part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'post_commands.dart';
-part 'post_mutation_policy.dart';
-part 'selected_post_moderation.dart';
 part 'shell_tab_context.dart';
 part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
-part 'topic_action_transactions.dart';
 part 'workspace_controller.dart';
 
 enum MobilePane { sidebar, content }
@@ -234,72 +237,6 @@ int? _destinationNumericId(String destinationId, String prefix) {
   if (!destinationId.startsWith(prefix)) return null;
   final id = int.tryParse(destinationId.substring(prefix.length));
   return id != null && id > 0 ? id : null;
-}
-
-final class PostPermanentDeleteTarget {
-  const PostPermanentDeleteTarget._({
-    required this.siteUrl,
-    required this.topicId,
-    required this.postId,
-    required this.postNumber,
-    required this._lease,
-  });
-
-  final String siteUrl;
-  final int topicId;
-  final int postId;
-  final int postNumber;
-  final SiteLease _lease;
-
-  bool get deletesTopic => postNumber == 1;
-}
-
-final class PostNoticeTarget {
-  const PostNoticeTarget._({
-    required this.siteUrl,
-    required this.topicId,
-    required this.postId,
-    required this._lease,
-  });
-
-  final String siteUrl;
-  final int topicId;
-  final int postId;
-  final SiteLease _lease;
-}
-
-final class TopicPostMoveTarget {
-  const TopicPostMoveTarget._({
-    required this.siteUrl,
-    required this.topicId,
-    required this.privateMessage,
-    required this._lease,
-  });
-
-  final String siteUrl;
-  final int topicId;
-
-  /// Whether the source was a message when the move was offered. Its posts
-  /// move only into a message, and a source that has changed archetype since
-  /// is refused rather than moved as the other kind.
-  final bool privateMessage;
-  final SiteLease _lease;
-}
-
-final class TopicPostOwnerTarget {
-  const TopicPostOwnerTarget._({
-    required this.siteUrl,
-    required this.topicId,
-    required this.postId,
-    required this._lease,
-  });
-
-  final String siteUrl;
-  final int topicId;
-
-  // Null retains selected-post mode: read the topic's selection on submit.
-  final int? postId;
-  final SiteLease _lease;
 }
 
 class ShellController extends FrameSafeNotifier
@@ -3972,7 +3909,7 @@ class ShellController extends FrameSafeNotifier
     },
     changed: _notify,
   );
-  late final _topicActions = _TopicActionTransactions(
+  late final _topicActions = TopicActionTransactions(
     store: store,
     credentials: credentials,
     lifecycle: lifecycle,
@@ -6439,16 +6376,17 @@ class ShellController extends FrameSafeNotifier
     changed: _notify,
   );
 
-  late final _PostMutationPolicy _postMutationPolicy = _PostMutationPolicy(
+  late final PostMutationPolicy _postMutationPolicy = PostMutationPolicy(
     store: store,
+    lifecycle: lifecycle,
     instanceFor: _instanceAt,
     selectedSite: () => currentInstance?.url,
     containsPost: topicContainsPost,
     isDisposed: () => isDisposed,
   );
 
-  late final _SelectedPostModeration _selectedPostModeration =
-      _SelectedPostModeration(
+  late final SelectedPostModeration _selectedPostModeration =
+      SelectedPostModeration(
         store: store,
         api: api.postMutations,
         credentials: credentials,
@@ -6511,19 +6449,19 @@ class ShellController extends FrameSafeNotifier
   ) => _selectedPostModeration.mergeSelectedTopicPosts(siteUrl, topicId);
 
   TopicPostMoveTarget captureTopicPostMoveTarget(String siteUrl, int topicId) =>
-      TopicPostMoveTarget._(
+      TopicPostMoveTarget.capture(
         siteUrl: siteUrl,
         topicId: topicId,
         privateMessage:
             store.read<TopicDetail>(siteUrl, topicId)?.privateMessage ?? false,
-        lease: lifecycle.capture(siteUrl),
+        lifecycle: lifecycle,
       );
 
   static String get _obsoleteTopicPostMove =>
       appL10n.yourConnectionChangedReopenMovePostsAndTryAgain;
 
   bool isTopicPostMoveTargetCurrent(TopicPostMoveTarget target) =>
-      !isDisposed && target._lease.isCurrent;
+      !isDisposed && lifecycle.owns(target.siteUrl, target.lease);
 
   /// Whether a message's posts may start a new message. The server accepts it
   /// from any staff member, but web offers it to admins only.
@@ -6567,7 +6505,7 @@ class ShellController extends FrameSafeNotifier
     if (trimmed.isEmpty) {
       return (destinations: const <TopicMoveDestination>[], error: null);
     }
-    final credential = await _credentialForWrite(siteUrl, lease: target._lease);
+    final credential = await _credentialForWrite(siteUrl, lease: target.lease);
     if (_topicPostMoveRefusal(target) case final error?) {
       return (destinations: const <TopicMoveDestination>[], error: error);
     }
@@ -6666,15 +6604,15 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
     int? postId,
-  }) => TopicPostOwnerTarget._(
+  }) => TopicPostOwnerTarget.capture(
     siteUrl: siteUrl,
     topicId: topicId,
     postId: postId,
-    lease: lifecycle.capture(siteUrl),
+    lifecycle: lifecycle,
   );
 
   bool _ownsTopicPostOwnerTarget(TopicPostOwnerTarget target) =>
-      !isDisposed && target._lease.isCurrent;
+      !isDisposed && lifecycle.owns(target.siteUrl, target.lease);
 
   PostMutationOutcome? _topicPostOwnerRefusal(
     TopicPostOwnerTarget target,
@@ -6734,18 +6672,18 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _canPermanentlyDeletePost(TopicDetail topic, Post post) =>
-      _topicActions._canPermanentlyDeletePost(topic, post);
+      _topicActions.canPermanentlyDeletePost(topic, post);
 
   PostPermanentDeleteTarget capturePostPermanentDeleteTarget({
     required String siteUrl,
     required int topicId,
     required Post post,
-  }) => PostPermanentDeleteTarget._(
+  }) => PostPermanentDeleteTarget.capture(
     siteUrl: siteUrl,
     topicId: topicId,
     postId: post.id,
     postNumber: post.postNumber,
-    lease: lifecycle.capture(siteUrl),
+    lifecycle: lifecycle,
   );
 
   static String get _obsoletePermanentPostDeletion =>
@@ -6753,7 +6691,7 @@ class ShellController extends FrameSafeNotifier
 
   PostMutationOutcome? _permanentPostDeletionBlock(
     PostPermanentDeleteTarget target,
-  ) => _topicActions._permanentPostDeletionBlock(target);
+  ) => _topicActions.permanentPostDeletionBlock(target);
 
   String? _permanentPostDeletionRefusal(PostPermanentDeleteTarget target) =>
       switch (_permanentPostDeletionBlock(target)) {
@@ -6766,7 +6704,7 @@ class ShellController extends FrameSafeNotifier
     PostPermanentDeleteTarget target,
   ) async {
     if (_permanentPostDeletionRefusal(target) case final error?) return error;
-    final lease = target._lease;
+    final lease = target.lease;
     try {
       final credential = await _credentialForWrite(
         target.siteUrl,
@@ -6845,11 +6783,11 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
     required int postId,
-  }) => PostNoticeTarget._(
+  }) => PostNoticeTarget.capture(
     siteUrl: siteUrl,
     topicId: topicId,
     postId: postId,
-    lease: lifecycle.capture(siteUrl),
+    lifecycle: lifecycle,
   );
 
   Future<PostMutationOutcome> setPostNotice(

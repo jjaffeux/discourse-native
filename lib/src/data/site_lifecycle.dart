@@ -8,6 +8,9 @@ final class SiteLifecycle {
     return SiteLease._(session, () => _sessions[siteUrl]);
   }
 
+  bool owns(String siteUrl, SiteLease lease) =>
+      identical(_sessions[siteUrl], lease._session);
+
   /// Runs every retirement observer, then rethrows the first failure with its
   /// original stack. A broken observer cannot skip another owner's cleanup.
   void invalidate(String siteUrl) {

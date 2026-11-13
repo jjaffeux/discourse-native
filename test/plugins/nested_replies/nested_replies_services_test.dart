@@ -4,7 +4,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_api.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_data.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _site = 'https://forum.example';
@@ -65,10 +65,10 @@ void main() {
     final h = _Harness();
     addTearDown(h.dispose);
     h.transport.pending = Completer();
-    final first = h.service.togglePin(_UnmountedContext(), _site, 7, 103);
+    final first = h.service.togglePin(_site, 7, 103);
     await pumpEventQueue();
     expect(h.service.pinBusy(_site, 7), isTrue);
-    await h.service.togglePin(_UnmountedContext(), _site, 7, 103);
+    await h.service.togglePin(_site, 7, 103);
     expect(h.transport.writes, hasLength(1));
     h.transport.pending!.complete({
       'pinned_post_ids': [103],
@@ -85,7 +85,7 @@ void main() {
       final h = _Harness();
       addTearDown(h.dispose);
       h.transport.failure = const WriteException(WriteFailure.unreachable);
-      await h.service.togglePin(_UnmountedContext(), _site, 7, 103);
+      await h.service.togglePin(_site, 7, 103);
       expect(h.transport.writes, hasLength(1));
       h.transport.failure = null;
       h.transport.response = {
@@ -95,13 +95,13 @@ void main() {
         'has_more_roots': false,
         'pinned_post_ids': [103],
       };
-      await h.service.togglePin(_UnmountedContext(), _site, 7, 103);
+      await h.service.togglePin(_site, 7, 103);
       expect(h.transport.writes, hasLength(1));
       expect(h.transport.gets.single, contains('/n/tree/7.json'));
       expect(h.transport.gets.single, isNot(contains('track_visit')));
       expect(h.topic.plugins.get(nestedRepliesTopicKey)?.pinnedPostIds, [103]);
       h.transport.response = {'pinned_post_ids': <int>[]};
-      await h.service.togglePin(_UnmountedContext(), _site, 7, 103);
+      await h.service.togglePin(_site, 7, 103);
       expect(h.transport.writes, hasLength(2));
       expect(
         h.topic.plugins.get(nestedRepliesTopicKey)?.pinnedPostIds,
@@ -117,7 +117,7 @@ void main() {
         final h = _Harness();
         addTearDown(h.dispose);
         h.requests.pending = Completer();
-        final write = h.service.togglePin(_UnmountedContext(), _site, 7, 103);
+        final write = h.service.togglePin(_site, 7, 103);
         await pumpEventQueue();
         switch (withdrawal) {
           case 'mode':
@@ -324,13 +324,6 @@ final class _UnusedTarget implements PluginTargetHost {
 }
 
 final class _UnusedAccount implements PluginFreshAccountHost {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-final class _UnmountedContext implements BuildContext {
-  @override
-  bool get mounted => false;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

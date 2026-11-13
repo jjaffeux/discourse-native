@@ -327,7 +327,9 @@ class ComposerPanel extends StatelessWidget {
                           ),
                         )
                       : ComposerDraftPreview(
-                          composer: composer,
+                          target: composer.discardPreviewTarget,
+                          from: composer.discardPreviewFrom,
+                          restoration: composer.rollbackAnimation,
                           constrainToChild: !mobile,
                           style: theme.textTheme.bodyLarge,
                           padding: EdgeInsetsDirectional.only(
@@ -580,7 +582,11 @@ class ComposerPanel extends StatelessWidget {
                                             10,
                                           ),
                                           child: ComposerDraftPreview(
-                                            composer: composer,
+                                            target:
+                                                composer.discardPreviewTarget,
+                                            from: composer.discardPreviewFrom,
+                                            restoration:
+                                                composer.rollbackAnimation,
                                             title: true,
                                             style:
                                                 theme.textTheme.headlineSmall,

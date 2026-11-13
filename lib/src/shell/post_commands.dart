@@ -212,17 +212,17 @@ final class _PostCommandOwner {
       _ChangePostOwner(:final target) => (
         siteUrl: target.siteUrl,
         topicId: target.topicId,
-        lease: target._lease,
+        lease: target.lease,
       ),
       _PermanentlyDeleteReply(:final target) => (
         siteUrl: target.siteUrl,
         topicId: target.topicId,
-        lease: target._lease,
+        lease: target.lease,
       ),
       _SetPostNotice(:final target) => (
         siteUrl: target.siteUrl,
         topicId: target.topicId,
-        lease: target._lease,
+        lease: target.lease,
       ),
       _PostSnapshotCommand() => null,
     };
@@ -293,7 +293,7 @@ final class _PostCommandOwner {
       if (command case _RecoverPost(:final post) when post.postNumber == 1) {
         // PostDestroyer recovers the topic but only publishes its stats.
         lease.commit(() {
-          shell._topicActions._applyTopicDeletion(
+          shell._topicActions.applyTopicDeletion(
             siteUrl,
             topicId,
             false,

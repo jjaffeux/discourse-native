@@ -7,12 +7,12 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/data/discourse_plugin_transport.dart': (33, 0),
   'lib/src/data/site_message_bus_bootstrap.dart': (37, 0),
   'lib/src/data/instance_store.dart': (42, 0),
-  'lib/src/plugins/chat/chat_composer_draft_session.dart': (208, 2),
-  'lib/src/plugins/gifs/gif_picker_session_impl.dart': (174, 2),
-  'lib/src/plugins/nested_replies/nested_replies_admin_controller.dart': (172, 2),
+  'lib/src/plugins/chat/chat_composer_draft_session.dart': (210, 2),
+  'lib/src/plugins/gifs/gif_picker_session_impl.dart': (176, 2),
+  'lib/src/plugins/nested_replies/nested_replies_admin_controller.dart': (174, 2),
   'lib/src/shell/header_preferences_controller.dart': (7, 0),
-  'lib/src/shell/message_archive_transactions.dart': (120, 1),
-  'lib/src/shell/topic_navigation_attempts.dart': (114, 1),
+  'lib/src/shell/message_archive_transactions.dart': (122, 1),
+  'lib/src/shell/topic_navigation_attempts.dart': (116, 1),
   'lib/src/shell/composer/slash_query.dart': (5, 0),
 };
 

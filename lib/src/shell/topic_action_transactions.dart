@@ -1,7 +1,23 @@
-part of 'shell_controller.dart';
+import 'dart:async';
 
-final class _TopicActionTransactions {
-  _TopicActionTransactions({
+import 'package:discourse_native/l10n/strings.dart';
+
+import '../data/account_request_session.dart';
+import '../data/api_credentials.dart';
+import '../data/discourse_api_contracts.dart' show TopicMutationsApi;
+import '../data/site_lifecycle.dart';
+import '../data/store.dart';
+import '../data/write_credential.dart';
+import '../data/write_failure.dart';
+import '../models/discourse_instance.dart';
+import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
+import '../models/topic.dart';
+import 'post_mutation_targets.dart';
+import 'topic_data_owner.dart';
+
+final class TopicActionTransactions {
+  TopicActionTransactions({
     required this.store,
     required this.credentials,
     required this.lifecycle,
@@ -254,7 +270,7 @@ final class _TopicActionTransactions {
       }
       if (!lease.isCurrent || _disposed) return null;
       lease.commit(() {
-        _applyTopicDeletion(siteUrl, topicId, deleted, lease);
+        applyTopicDeletion(siteUrl, topicId, deleted, lease);
         changed();
       });
       return null;
@@ -274,7 +290,7 @@ final class _TopicActionTransactions {
   /// answers with the topic, so the held one takes what PostDestroyer is known
   /// to do to it, its list row follows the closed state, and it is read again
   /// for what that leaves to the server.
-  void _applyTopicDeletion(
+  void applyTopicDeletion(
     String siteUrl,
     int topicId,
     bool deleted,
@@ -300,17 +316,17 @@ final class _TopicActionTransactions {
     data.refreshWhenOpened(topicId);
   }
 
-  bool _canPermanentlyDeletePost(TopicDetail topic, Post post) =>
+  bool canPermanentlyDeletePost(TopicDetail topic, Post post) =>
       post.isDeleted &&
       topic.stream.contains(post.id) &&
       (post.postNumber == 1
           ? topic.deletedAt != null && topic.canPermanentlyDelete
           : post.canPermanentlyDelete);
 
-  PostMutationOutcome? _permanentPostDeletionBlock(
+  PostMutationOutcome? permanentPostDeletionBlock(
     PostPermanentDeleteTarget target,
   ) {
-    if (_disposed || !target._lease.isCurrent) {
+    if (_disposed || !lifecycle.owns(target.siteUrl, target.lease)) {
       return const PostMutationRetired();
     }
     final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
@@ -319,7 +335,7 @@ final class _TopicActionTransactions {
         topic == null ||
         post == null ||
         post.postNumber != target.postNumber ||
-        !_canPermanentlyDeletePost(topic, post)) {
+        !canPermanentlyDeletePost(topic, post)) {
       return const PostMutationNotSent(
         PostMutationProblem(
           PostMutationProblemKind.permanentDeletionUnavailable,
@@ -332,11 +348,11 @@ final class _TopicActionTransactions {
   Future<PostMutationOutcome> permanentlyDeleteTopic(
     PostPermanentDeleteTarget target,
   ) async {
-    if (_permanentPostDeletionBlock(target) case final refusal?) return refusal;
+    if (permanentPostDeletionBlock(target) case final refusal?) return refusal;
     final siteUrl = target.siteUrl;
     final topicId = target.topicId;
     final postId = target.postId;
-    final lease = target._lease;
+    final lease = target.lease;
     final data = topicData.forLease(siteUrl, lease);
     if (data == null) return const PostMutationRetired();
     final unresolved = data.moderationRecoveryFor(topicId, [
@@ -356,7 +372,7 @@ final class _TopicActionTransactions {
     );
     changed();
     try {
-      if (_permanentPostDeletionBlock(target) case final refusal?) {
+      if (permanentPostDeletionBlock(target) case final refusal?) {
         return refusal;
       }
       final credential = await readWriteCredential(
@@ -364,7 +380,7 @@ final class _TopicActionTransactions {
         credentials,
         withClientId: true,
       );
-      if (_permanentPostDeletionBlock(target) case final refusal?) {
+      if (permanentPostDeletionBlock(target) case final refusal?) {
         return refusal;
       }
       if (credential.failure case final failure?) {

@@ -1,12 +1,11 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 
-import 'nested_replies_admin.dart';
 import 'nested_replies_api.dart';
-import 'nested_replies_bulk.dart';
+import 'nested_replies_bulk_controller.dart';
 import 'nested_replies_data.dart';
 import 'nested_replies_notifications.dart';
 import 'nested_replies_reader_memory.dart';
@@ -230,9 +229,14 @@ final class NestedRepliesServices extends ChangeNotifier
   }
 
   Future<void> showSettings(
-    BuildContext context,
     String site,
     int topicId,
+    Future<void> Function(
+      PluginTopicReader reader,
+      NestedRepliesSettings settings,
+      bool Function() available,
+    )
+    show,
   ) async {
     if (_disposed || settingsFor(site).enabled != true) return;
     _watch(site);
@@ -240,14 +244,10 @@ final class NestedRepliesServices extends ChangeNotifier
     final reader = readers.forVisibleTopic(site, topicId);
     if (reader == null) return;
     try {
-      await showNestedRepliesSettings(
-        context,
-        reader: reader,
-        api: api,
-        categories: categories,
-        settings: settings,
-        requests: requests,
-        available: () => !_disposed && settingsFor(site) == settings,
+      await show(
+        reader,
+        settings,
+        () => !_disposed && settingsFor(site) == settings,
       );
       if (reader.isCurrent) memory.invalidateTopic(site, topicId);
     } finally {
@@ -256,19 +256,18 @@ final class NestedRepliesServices extends ChangeNotifier
   }
 
   Future<void> showActivity(
-    BuildContext context,
     String site,
     int topicId,
+    Future<void> Function(PluginTopicReader reader, bool Function() available)
+    show,
   ) async {
     if (_disposed || settingsFor(site).enabled == false) return;
     final reader = readers.forVisibleTopic(site, topicId);
     if (reader == null) return;
     try {
-      await showNestedRepliesActivity(
-        context,
-        reader: reader,
-        api: api,
-        available: () => !_disposed && settingsFor(site).enabled != false,
+      await show(
+        reader,
+        () => !_disposed && settingsFor(site).enabled != false,
       );
     } finally {
       reader.close();
@@ -279,11 +278,11 @@ final class NestedRepliesServices extends ChangeNotifier
       _pinOperations.containsKey((site, topicId));
 
   Future<void> togglePin(
-    BuildContext context,
     String site,
     int topicId,
-    int postId,
-  ) async {
+    int postId, {
+    Future<void> Function(String message)? showFailure,
+  }) async {
     if (_disposed || pinBusy(site, topicId)) return;
     final reader = readers.forVisibleTopic(site, topicId);
     if (reader == null) return;
@@ -349,17 +348,9 @@ final class NestedRepliesServices extends ChangeNotifier
             (error.failure == WriteFailure.unreachable && !error.notSent);
         if (uncertain) _uncertainPins.add(key);
         memory.invalidateTopic(site, topicId);
-        if (context.mounted) {
-          await showShellSheet<void>(
-            context: context,
-            title: appL10n.nestedRepliesSettings,
-            builder: (_) => Text(
-              uncertain
-                  ? appL10n.nestedRepliesMutationUncertain
-                  : error.message,
-            ),
-          );
-        }
+        await showFailure?.call(
+          uncertain ? appL10n.nestedRepliesMutationUncertain : error.message,
+        );
       }
     } finally {
       if (identical(_pinOperations[key], operation)) _pinOperations.remove(key);

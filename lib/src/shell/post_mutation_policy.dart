@@ -1,8 +1,18 @@
-part of 'shell_controller.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
-final class _PostMutationPolicy {
-  const _PostMutationPolicy({
+import '../data/site_lifecycle.dart';
+import '../data/store.dart';
+import '../data/write_failure.dart';
+import '../models/discourse_instance.dart';
+import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
+import 'post_mutation_targets.dart';
+import 'topic_data_owner.dart';
+
+final class PostMutationPolicy {
+  const PostMutationPolicy({
     required this.store,
+    required this.lifecycle,
     required this.instanceFor,
     required this.selectedSite,
     required this.containsPost,
@@ -10,6 +20,7 @@ final class _PostMutationPolicy {
   });
 
   final Store store;
+  final SiteLifecycle lifecycle;
   final DiscourseInstance? Function(String siteUrl) instanceFor;
   final String? Function() selectedSite;
   final bool Function(String siteUrl, int topicId, int postId) containsPost;
@@ -28,7 +39,7 @@ final class _PostMutationPolicy {
   }
 
   PostMutationOutcome? noticeRefusal(PostNoticeTarget target) {
-    if (isDisposed() || !target._lease.isCurrent) {
+    if (isDisposed() || !lifecycle.owns(target.siteUrl, target.lease)) {
       return const PostMutationRetired();
     }
     if (!canEditNotice(
@@ -118,7 +129,7 @@ final class _PostMutationPolicy {
     List<int>? postIds,
     bool newTopic = false,
   }) {
-    if (isDisposed() || !target._lease.isCurrent) {
+    if (isDisposed() || !lifecycle.owns(target.siteUrl, target.lease)) {
       return const PostMutationRetired();
     }
     final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
@@ -154,7 +165,7 @@ final class _PostMutationPolicy {
     List<int> postIds,
     String username,
   ) {
-    if (isDisposed() || !target._lease.isCurrent) {
+    if (isDisposed() || !lifecycle.owns(target.siteUrl, target.lease)) {
       return const PostMutationRetired();
     }
     final instance = instanceFor(target.siteUrl);

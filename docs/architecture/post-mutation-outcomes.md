@@ -22,7 +22,7 @@ and composer protocols keep their existing owners.
 Single-post moderation commands, including staff notices, share
 `_PostCommandOwner` for account admission, per-post locking, credential lookup,
 dispatch, uncertain-write recovery and projection repair. Notice commands retain
-their captured site, topic, post and lease across navigation. `_PostMutationPolicy`
+their captured site, topic, post and lease across navigation. `PostMutationPolicy`
 owns both the notice permission selector used by presentation and its repeated
 write admission checks. Shell captures targets and forwards commands.
 
