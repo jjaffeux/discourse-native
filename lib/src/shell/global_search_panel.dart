@@ -1247,6 +1247,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     }
     final all = controller.scope == GlobalSearchScope.all;
     final phone = DControlStyle.isTouch(context);
+    final phoneSheet = widget.footerControls;
     var sectionIndex = 0;
     final children = <Object>[
       if (controller.hintedFilters.isNotEmpty) ..._filterRows(context),
@@ -1255,7 +1256,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             !all || section.results.isNotEmpty || section.error != null,
       )) ...[
         if (sectionIndex++ > 0) SizedBox(height: phone ? 16 : 8),
-        _sectionHeader(context, section),
+        if (!phoneSheet ||
+            section.topicId != null ||
+            all && section.scope != GlobalSearchScope.forum)
+          _sectionHeader(context, section),
         if (section.error != null)
           Padding(
             padding: const EdgeInsets.all(12),
@@ -1564,6 +1568,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       }
     }
 
+    final phoneSheet = widget.footerControls;
     final id = 'section:${section.scope.keyName}:${section.topicId ?? ""}';
     if (_initialSectionPending &&
         _selected == null &&
@@ -1580,7 +1585,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         size: DItemSize.artwork,
         shape: DItemShape.menu,
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        selected: _selected == id,
+        selected: _selected == id && !phoneSheet,
         selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
         onPressed: section.results.isEmpty ? null : open,
@@ -1590,26 +1595,27 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               Row(
                 spacing: 10,
                 children: [
-                  SizedBox(
-                    width: 30,
-                    child: DIcon(
-                      section.topicId != null
-                          ? DIcons.comment
-                          : section.scope == GlobalSearchScope.forum
-                          ? DIcons.comments
-                          : section.scope == GlobalSearchScope.messages
-                          ? DIcons.envelope
-                          : section.scope == GlobalSearchScope.users
-                          ? DIcons.users
-                          : section.scope == GlobalSearchScope.groups
-                          ? DIcons.userGroup
-                          : section.scope == GlobalSearchScope.places
-                          ? DIcons.layerGroup
-                          : DIcons.comment,
-                      size: 16,
-                      color: DTokens.of(context).mutedForeground,
+                  if (!phoneSheet || section.topicId != null)
+                    SizedBox(
+                      width: 30,
+                      child: DIcon(
+                        section.topicId != null
+                            ? DIcons.comment
+                            : section.scope == GlobalSearchScope.forum
+                            ? DIcons.comments
+                            : section.scope == GlobalSearchScope.messages
+                            ? DIcons.envelope
+                            : section.scope == GlobalSearchScope.users
+                            ? DIcons.users
+                            : section.scope == GlobalSearchScope.groups
+                            ? DIcons.userGroup
+                            : section.scope == GlobalSearchScope.places
+                            ? DIcons.layerGroup
+                            : DIcons.comment,
+                        size: 16,
+                        color: DTokens.of(context).mutedForeground,
+                      ),
                     ),
-                  ),
                   Expanded(
                     child: Text.rich(
                       section.topicId != null

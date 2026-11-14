@@ -428,6 +428,11 @@ void main() {
         });
       }
 
+      if (width < 700) {
+        expect(find.byKey(const ValueKey('section:forum:')), findsNothing);
+      } else {
+        expect(find.byKey(const ValueKey('section:forum:')), findsOneWidget);
+      }
       await capture('');
       if (width < 700) {
         final footer = find.byKey(const ValueKey('global-search-phone-footer'));
