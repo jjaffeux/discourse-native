@@ -928,36 +928,33 @@ class _ForumSearchState extends State<ForumSearch> {
                 ),
               ),
             ),
-          DInputGroupAddon(
-            alignment: DInputGroupAddonAlignment.inlineEnd,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_query.isNotEmpty || hasConditions)
-                  DInputGroupButton.icon(
-                    key: const ValueKey('forum-search-clear'),
-                    focusNode: _clearFocus,
-                    icon: DIcon(DIcons.xmark, size: phonePage ? null : 12),
-                    size: phonePage
-                        ? DInputGroupButtonSize.regular
-                        : DInputGroupButtonSize.small,
-                    tooltip: appL10n.clearSearch,
-                    onPressed: _clear,
-                  )
-                else if (!DControlStyle.isTouch(context) &&
-                    !widget.fullScreen &&
-                    width >=
-                        280 * MediaQuery.textScalerOf(context).scale(14) / 14)
-                  DShortcutKeycaps(
-                    shortcut: DShortcut(
-                      searchShortcutForPlatform(defaultTargetPlatform),
-                    ),
-                    listenToKeyboard: false,
-                    compact: true,
-                  ),
-              ],
+          if (_query.isNotEmpty || hasConditions)
+            DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.inlineEnd,
+              child: DInputGroupButton.icon(
+                key: const ValueKey('forum-search-clear'),
+                focusNode: _clearFocus,
+                icon: DIcon(DIcons.xmark, size: phonePage ? null : 12),
+                size: phonePage
+                    ? DInputGroupButtonSize.regular
+                    : DInputGroupButtonSize.small,
+                tooltip: appL10n.clearSearch,
+                onPressed: _clear,
+              ),
+            )
+          else if (!DControlStyle.isTouch(context) &&
+              !widget.fullScreen &&
+              width >= 280 * MediaQuery.textScalerOf(context).scale(14) / 14)
+            DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.inlineEnd,
+              child: DShortcutKeycaps(
+                shortcut: DShortcut(
+                  searchShortcutForPlatform(defaultTargetPlatform),
+                ),
+                listenToKeyboard: false,
+                compact: true,
+              ),
             ),
-          ),
         ],
       ),
     );
