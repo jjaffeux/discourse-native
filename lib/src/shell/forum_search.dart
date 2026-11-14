@@ -466,6 +466,7 @@ class _ForumSearchState extends State<ForumSearch> {
         DFilterToken(
           label: key.substring(0, key.length - 1),
           value: clause.substring(key.length),
+          size: DControlSize.filter,
           editLabel: context.l10n.editCondition(clause),
           removeLabel: context.l10n.removeCondition(clause),
           editKey: ValueKey('search-edit-feed-clause:$clause'),
@@ -1837,6 +1838,7 @@ class _ForumSearchState extends State<ForumSearch> {
             ? _feedFilterChips(context)
             : const [],
         feedFilterChoices: _showsFeedFilters ? _feedChoices : const [],
+        feedFilterClauses: _showsFeedFilters ? _feedClauses : const [],
         hasFilterPicker: _usesFeedFilters,
         onFeedFilterChoice: _pickFeedFilter,
         showClearFilters:

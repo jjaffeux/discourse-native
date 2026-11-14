@@ -11404,6 +11404,12 @@ abstract class AppLocalizations {
   /// **'View all {sectionScopeLabel} results'**
   String viewAllResults(String sectionScopeLabel);
 
+  /// Empty results in the phone Search sheet, including the filters in the query.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for “{query}”'**
+  String noResultsForQuery(String query);
+
   /// Empty recent-search history in the phone Search sheet.
   ///
   /// In en, this message translates to:

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icon_data.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_artwork.dart';
+import '../foundation/control_style.dart';
 import 'd_tooltip.dart';
 
 /// A compact filter pill with independent edit and remove actions.
@@ -23,6 +25,8 @@ class DFilterToken extends StatelessWidget {
     required this.removeLabel,
     required this.onEdited,
     required this.onRemoved,
+    this.icon,
+    this.size = DControlSize.chip,
     this.editKey,
     this.removeKey,
   });
@@ -33,6 +37,8 @@ class DFilterToken extends StatelessWidget {
   final String removeLabel;
   final VoidCallback? onEdited;
   final VoidCallback? onRemoved;
+  final DIconData? icon;
+  final DControlSize size;
   final Key? editKey;
   final Key? removeKey;
 
@@ -46,8 +52,12 @@ class DFilterToken extends StatelessWidget {
     final accent = Theme.of(context).brightness == Brightness.dark
         ? Color.lerp(tokens.primary, Colors.white, .28)!
         : tokens.primary;
+    final sheetSize = size == DControlSize.filter;
+    final fontSize = sheetSize
+        ? DControlStyle.fontSize(size, context: context)
+        : DiscourseTypography.xs;
     final text = Theme.of(context).textTheme.bodySmall!.copyWith(
-      fontSize: DiscourseTypography.xs,
+      fontSize: fontSize,
       height: 1.5,
       letterSpacing: 0,
       fontWeight: FontWeight.w400,
@@ -72,11 +82,14 @@ class DFilterToken extends StatelessWidget {
     ];
     measure.text = TextSpan(style: text, children: prefix);
     measure.layout();
-    final maxLabelWidth = measure.width + 200 * scaler.scale(12) / 12;
+    final maxLabelWidth =
+        measure.width + 200 * scaler.scale(fontSize) / fontSize;
     measure.dispose();
     ButtonStyle style(EdgeInsetsGeometry padding) => ButtonStyle(
       padding: WidgetStatePropertyAll(padding),
-      minimumSize: const WidgetStatePropertyAll(Size.zero),
+      minimumSize: WidgetStatePropertyAll(
+        Size(0, sheetSize ? DControlStyle.height(size, context: context) : 0),
+      ),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.standard,
       textStyle: WidgetStatePropertyAll(text),
@@ -122,24 +135,36 @@ class DFilterToken extends StatelessWidget {
                       child: Semantics(
                         label: editLabel,
                         excludeSemantics: true,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: maxLabelWidth),
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                ...prefix,
-                                TextSpan(
-                                  text: value,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 5,
+                          children: [
+                            if (icon case final icon?)
+                              DIcon(icon, size: 11, color: accent),
+                            Flexible(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: maxLabelWidth,
                                 ),
-                              ],
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      ...prefix,
+                                      TextSpan(
+                                        text: value,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  style: text,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                            style: text,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          ],
                         ),
                       ),
                     ),
