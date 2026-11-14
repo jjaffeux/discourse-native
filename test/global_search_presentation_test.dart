@@ -943,14 +943,6 @@ void main({bool useDeviceMetrics = false}) {
             _panelText('A calmer, more useful global search'),
             findsWidgets,
           );
-          final header = tester.getRect(
-            find
-                .ancestor(
-                  of: find.byKey(ForumSearch.inputKey),
-                  matching: find.byType(DSheetHeader),
-                )
-                .first,
-          );
           await tester.tap(result);
           await tester.pumpAndSettle();
           final handle = find
@@ -967,7 +959,14 @@ void main({bool useDeviceMetrics = false}) {
 
           final preview = await pullTopic();
           final handleRect = tester.getRect(handle);
-          final raisedTopic = header.top + 130 - handleRect.top;
+          final retainedSearch = find
+              .ancestor(
+                of: find.byKey(ForumSearch.inputKey, skipOffstage: false),
+                matching: find.byType(DSheetContent, skipOffstage: false),
+              )
+              .first;
+          final retained = tester.getRect(retainedSearch);
+          final raisedTopic = retained.top + 105 - handleRect.top;
           await preview.moveBy(Offset(0, raisedTopic));
           await tester.pump();
           expect(shell.currentContent?.topicId, 1038);
@@ -975,7 +974,7 @@ void main({bool useDeviceMetrics = false}) {
           expect(find.byKey(ForumSearch.inputKey).hitTestable(), findsNothing);
           final exposedSearchHeader = Rect.fromLTWH(
             12,
-            header.top - 30,
+            tester.getRect(retainedSearch).top - 13,
             366,
             100,
           );

@@ -502,6 +502,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   @override
   void didUpdateWidget(_DSheetAdaptiveMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!oldWidget.initiallyExpanded && widget.initiallyExpanded) {
+      _interacted = true;
+      _settle(0);
+    }
     if (oldWidget.contentLoading && !widget.contentLoading) {
       _contentLayoutPending = true;
     }
@@ -989,10 +993,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     final keyboard = _exit.geometry?.keyboard ?? _keyboardInset;
 
-    final safeTop = math.max(
-      media.padding.top,
-      view.viewPadding.top / view.devicePixelRatio,
-    );
+    final safeTop = widget.retained
+        ? media.padding.top
+        : math.max(
+            media.padding.top,
+            view.viewPadding.top / view.devicePixelRatio,
+          );
     final screenFoot = math.max(
       media.viewPadding.bottom,
       view.viewPadding.bottom / view.devicePixelRatio,
@@ -1053,9 +1059,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       builder: (context, bounds) {
         _room = math.max(0, bounds.maxHeight - keyboard);
         final maximum = math.max(0.0, _room - safeTop - 8);
+        final restHeight = widget.retained
+            ? media.size.height
+            : bounds.maxHeight;
         _fixedLow = math.max(
           0,
-          bounds.maxHeight - safeTop - 8 - bounds.maxHeight * .55,
+          bounds.maxHeight - safeTop - 8 - restHeight * .55,
         );
         return AnimatedBuilder(
           animation: Listenable.merge([widget.presentation.animation, _travel]),

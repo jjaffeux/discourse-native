@@ -104,6 +104,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
     ).where((f) => f.keys.contains(key)).firstOrNull?.id;
     _setTokenDraft(key);
     filter.updateEngine(_engine(_shell!));
+    widget.onScopeChanged?.call(_tokens.join(' '));
     _focus.requestFocus();
     unawaited(filter.openSuggestions());
   }
@@ -456,25 +457,77 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                 onKeyEvent: _onKey,
                 child: KeyedSubtree(
                   key: const ValueKey('topic-filter-token-field'),
-                  child: DCommandInput<String>(
-                    density: DCommandInputDensity.menuFilter,
-                    tokens: _buildTokenChips(),
-                    autofocus: widget.focusOnOpen,
-                    key: widget.inputKey,
-                    controller: widget.onlyKey == null ? filter.text : null,
-                    onEmptyBackspace: widget.onlyKey == null
-                        ? null
-                        : _stepBackScope,
-                    focusNode: _focus,
-                    placeholder: widget.hintText,
-                    semanticLabel: context.l10n.topicFilterQuery,
-                    textInputAction: taxonomyScope
-                        ? TextInputAction.done
-                        : TextInputAction.search,
-                    onSubmitted: taxonomyScope
-                        ? (_) => widget.onDismiss?.call()
-                        : null,
-                  ),
+                  child: widget.returnToSearch == null
+                      ? DCommandInput<String>(
+                          density: DCommandInputDensity.menuFilter,
+                          tokens: _buildTokenChips(),
+                          autofocus: widget.focusOnOpen,
+                          key: widget.inputKey,
+                          controller: widget.onlyKey == null
+                              ? filter.text
+                              : null,
+                          onEmptyBackspace: widget.onlyKey == null
+                              ? null
+                              : _stepBackScope,
+                          focusNode: _focus,
+                          placeholder: widget.hintText,
+                          semanticLabel: context.l10n.topicFilterQuery,
+                          textInputAction: taxonomyScope
+                              ? TextInputAction.done
+                              : TextInputAction.search,
+                          onSubmitted: taxonomyScope
+                              ? (_) => widget.onDismiss?.call()
+                              : null,
+                        )
+                      : DMenuContentScale.unscaled(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: DInputGroup(
+                              size: DControlSize.command,
+                              variant: DInputGroupVariant.quiet,
+                              children: [
+                                DInputGroupAddon(
+                                  alignment:
+                                      DInputGroupAddonAlignment.inlineStart,
+                                  child: DInputGroupButton.icon(
+                                    key: const ValueKey(
+                                      'search-back-to-results',
+                                    ),
+                                    icon: const DIcon(
+                                      DIcons.chevronLeft,
+                                      size: 14,
+                                    ),
+                                    tooltip: filter.text.text.isEmpty
+                                        ? context.l10n.search
+                                        : context.l10n.backToFilters,
+                                    onPressed: filter.text.text.isEmpty
+                                        ? widget.returnToSearch
+                                        : _backToFilterFields,
+                                  ),
+                                ),
+                                DInputGroupInput(
+                                  key: widget.inputKey,
+                                  controller: filter.text,
+                                  focusNode: _focus,
+                                  hintText: widget.hintText,
+                                  semanticLabel: context.l10n.topicFilterQuery,
+                                  autocorrect: false,
+                                  enableSuggestions: false,
+                                  textInputAction: TextInputAction.done,
+                                  onChanged: (_) =>
+                                      filter.inputChanged(filter.text.text),
+                                  onSubmitted: (_) {
+                                    if (filter.text.text.isEmpty) {
+                                      widget.returnToSearch!();
+                                    } else {
+                                      unawaited(_acceptSelectedOrFallback());
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -530,7 +583,8 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                     ? MediaQuery.sizeOf(context).height
                     : 360,
                 children: [
-                  if (clauseKey == null &&
+                  if (widget.returnToSearch == null &&
+                      clauseKey == null &&
                       filter.text.text.isEmpty &&
                       (_tokens.isNotEmpty || widget.initialQuery.isNotEmpty))
                     DCommandItem<String>(
@@ -636,6 +690,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Flexible(
+          fit: widget.returnToSearch != null ? FlexFit.tight : FlexFit.loose,
           child:
               option?.type == 'date' ||
                   option?.type == 'number' ||
@@ -643,6 +698,25 @@ extension _TopicFilterSheet on _TopicFilterInputState {
               ? DScrollArea(child: command)
               : command,
         ),
+        if (widget.returnToSearch != null && _tokens.isNotEmpty)
+          DSheetFooter(
+            padding: EdgeInsets.zero,
+            children: [
+              const DSeparator(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: DScrollArea(
+                  axes: DScrollAxes.horizontal,
+                  showScrollbar: false,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 5,
+                    children: _buildTokenChips(),
+                  ),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }

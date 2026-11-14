@@ -50,6 +50,7 @@ class TopicFilterInput extends StatefulWidget {
     this.onScopeChanged,
     this.controller,
     this.onSuggestionsReady,
+    this.returnToSearch,
   });
 
   final String siteUrl;
@@ -74,6 +75,7 @@ class TopicFilterInput extends StatefulWidget {
   final ValueChanged<String>? onScopeChanged;
   final TopicFilterInputController? controller;
   final VoidCallback? onSuggestionsReady;
+  final VoidCallback? returnToSearch;
 
   @override
   State<TopicFilterInput> createState() => _TopicFilterInputState();
@@ -328,6 +330,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       _tokens = replaceTopicFilterScopeTokens([..._tokens, ...completed]);
     }
     _setTokenDraft(remaining);
+    widget.onScopeChanged?.call(_tokens.join(' '));
   }
 
   String _composeTokenQuery([String? draft]) {
@@ -364,6 +367,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     filter.updateEngine(_engine(_shell!));
     _setTokenDraft('');
     filter.dismiss();
+    widget.onScopeChanged?.call(_tokens.join(' '));
   }
 
   void _removeToken(int index) {
@@ -482,6 +486,13 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           up: true,
         );
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.escape when widget.returnToSearch != null:
+        if (filter.text.text.isNotEmpty) {
+          _backToFilterFields();
+        } else {
+          widget.returnToSearch!();
+        }
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.escape when filter.menuRequested:
         if (widget.controller != null) return KeyEventResult.ignored;
         final lead = widget.onlyKey == null ? '' : '${widget.onlyKey}:';
@@ -546,6 +557,16 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       default:
         return KeyEventResult.ignored;
     }
+  }
+
+  void _backToFilterFields() {
+    _activeMenuField = null;
+    _categoryParentId = widget.categoryParentId;
+    _menuDateSelected = false;
+    _setTokenDraft('');
+    filter.updateEngine(_engine(_shell!));
+    _focus.requestFocus();
+    unawaited(filter.openSuggestions());
   }
 
   bool _handleMenuEscape() {
@@ -705,6 +726,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                 if (!group.indices.contains(i)) _tokens[i],
             ],
           );
+          widget.onScopeChanged?.call(_tokens.join(' '));
         },
       ),
   ];

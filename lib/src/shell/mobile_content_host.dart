@@ -210,7 +210,20 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                       ? searchSource
                       : null,
                   child: hidden
-                      ? DPageHeaderHost.exclude(child: primary)
+                      ? DPageHeaderHost.exclude(
+                          child: searchOpen
+                              ? Padding(
+                                  padding: EdgeInsets.only(
+                                    top:
+                                        DSheetDragScope.topBarExtentOf(
+                                          context,
+                                        ) +
+                                        6,
+                                  ),
+                                  child: primary,
+                                )
+                              : primary,
+                        )
                       : primary,
                 ),
               ),

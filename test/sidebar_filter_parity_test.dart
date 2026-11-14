@@ -190,12 +190,21 @@ void expectViewportMenu(WidgetTester tester, Finder sheet) {
 }
 
 Future<void> openFilters(WidgetTester tester) async {
-  await tester.tap(
-    find.descendant(
-      of: primaryMainContent,
-      matching: find.byKey(const ValueKey('topic-list-filter')),
-    ),
-  );
+  final search = find
+      .byKey(const ValueKey('mobile-search-button'))
+      .hitTestable();
+  if (search.evaluate().isNotEmpty) {
+    await tester.tap(search);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('search-filters-button')));
+  } else {
+    await tester.tap(
+      find.descendant(
+        of: primaryMainContent,
+        matching: find.byKey(const ValueKey('topic-list-filter')),
+      ),
+    );
+  }
   await tester.pumpAndSettle();
 }
 
@@ -612,7 +621,11 @@ void main() {
               ),
             ),
           );
-          await tester.tap(trigger);
+          if (scope == 'all') {
+            await openFilters(tester);
+          } else {
+            await tester.tap(trigger);
+          }
           final sheet = find.byType(DSheetContent);
           for (var frame = 0; frame < 30; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
@@ -644,7 +657,10 @@ void main() {
             expect(tester.getRect(sheet).bottom, phone.height);
             expect(
               tester.getRect(sheet).height,
-              closeTo(phone.height * .55, 1),
+              closeTo(
+                scope == 'all' ? phone.height - 55 : phone.height * .55,
+                1,
+              ),
             );
           }
           expect(tester.takeException(), isNull);
@@ -690,20 +706,21 @@ void main() {
         await sendKeyboardFrame(tester);
         await tester.pump();
         expect(tester.getRect(sheet), opened);
+        final openBottom = tester.getRect(results.first).bottom;
         for (var step = 1; step <= 4; step++) {
           if (step > 1) {
             tester.view.viewInsets = FakeViewPadding(bottom: step * 60);
           }
           await tester.pump(const Duration(milliseconds: 50));
           final rect = tester.getRect(sheet);
-          final progress = step / 8;
+          expect(
+            tester.getRect(results.first).bottom,
+            closeTo(openBottom - (300 * step / 8 - _foot).clamp(0, 300), 2),
+          );
           expect(rect.left, 0);
           expect(rect.right, phone.width);
           expect(footRadius(tester, sheet), _screenCorner);
-          expect(
-            rect.top,
-            closeTo(opened.top + (55 - opened.top) * progress, .2),
-          );
+          expect(rect.top, closeTo(opened.top, .2));
           expect(position.pixels, 0);
         }
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
@@ -723,7 +740,7 @@ void main() {
         tester.view.viewInsets = FakeViewPadding.zero;
         await tester.pumpAndSettle();
         expectViewportMenu(tester, sheet);
-        await tester.tapAt(const Offset(8, 20));
+        await tester.tapAt(const Offset(8, 51));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
         await openFilters(tester);
@@ -733,48 +750,45 @@ void main() {
       }, variant: TargetPlatformVariant.only(platform));
     }
 
-    testWidgets('async Filters keep their default height on $platform (flat)', (
-      tester,
-    ) async {
-      final gate = Completer<void>();
-      final (shell: shell, api: _) = await fixture(
-        tester,
-        size: phone,
-        filterOptions: filterMenuOptions,
-        filterOptionsGate: gate,
-      );
-      await shell.forumSettings.setShared(const SharedAppearance());
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: primaryMainContent,
-          matching: find.byKey(const ValueKey('topic-list-filter')),
-        ),
-      );
-      final sheet = find.byType(DSheetContent);
-      for (var frame = 0; frame < 24; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        if (sheet.evaluate().isNotEmpty) {
+    testWidgets(
+      'async Filters keep their expanded height on $platform (flat)',
+      (tester) async {
+        final gate = Completer<void>();
+        final (shell: shell, api: _) = await fixture(
+          tester,
+          size: phone,
+          filterOptions: filterMenuOptions,
+          filterOptionsGate: gate,
+        );
+        await shell.forumSettings.setShared(const SharedAppearance());
+        await tester.pumpAndSettle();
+        await openFilters(tester);
+        final sheet = find.byType(DSheetContent);
+        for (var frame = 0; frame < 24; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (sheet.evaluate().isNotEmpty) {
+            expect(tester.getRect(sheet).left, 0);
+          }
+        }
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).top, closeTo(8, 1));
+        expect(tester.getRect(sheet).left, 0);
+        gate.complete();
+        for (var frame = 0; frame < 24; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(sheet, findsOneWidget);
+          expect(tester.getRect(sheet).top, closeTo(8, 1));
           expect(tester.getRect(sheet).left, 0);
         }
-      }
-      await tester.pumpAndSettle();
-      expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
-      expect(tester.getRect(sheet).left, 0);
-      gate.complete();
-      for (var frame = 0; frame < 24; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        expect(sheet, findsOneWidget);
-        expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
-        expect(tester.getRect(sheet).left, 0);
-      }
-      await tester.pumpAndSettle();
-      expect(tester.getRect(sheet).height, closeTo(phone.height * .55, 1));
-      expect(tester.takeException(), isNull);
-    }, variant: TargetPlatformVariant.only(platform));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).height, closeTo(phone.height - 8, 1));
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
 
     testWidgets(
-      'focusing Filters animates its bounds after the keyboard on $platform (flat)',
+      'focusing Filters animates its usable viewport with the keyboard on $platform (flat)',
       (tester) async {
         const channel = MethodChannel('org.discourse.native/keyboard');
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -835,7 +849,7 @@ void main() {
         await tester.pump();
         await tester.pump();
         expect(tester.getRect(sheet), opened);
-        var previous = opened;
+        var previousBottom = tester.getRect(results.first).bottom;
         for (var frame = 0; frame < 4; frame++) {
           await tester.pump(const Duration(milliseconds: 32));
           final current = tester.getRect(sheet);
@@ -843,17 +857,18 @@ void main() {
           expect(current.left, 0);
           expect(current.right, phone.width);
           expect(radius, _screenCorner);
-          expect(current.top, lessThan(previous.top));
+          expect(current.top, opened.top);
+          final bottom = tester.getRect(results.first).bottom;
+          expect(bottom, lessThan(previousBottom));
           expect(current.bottom, opened.bottom);
           expect(
             current.height,
             inInclusiveRange(opened.height, phone.height - 55),
           );
           expect(position.pixels, 0);
-          expect(current.top, greaterThan(55));
-          expect(current.bottom, greaterThan(phone.height - 300));
+          expect(bottom, greaterThan(phone.height - 300));
 
-          previous = current;
+          previousBottom = bottom;
         }
         await tester.pump(const Duration(milliseconds: 153));
         expect(tester.getRect(sheet).top, closeTo(55, 1));
@@ -888,7 +903,7 @@ void main() {
     );
 
     testWidgets(
-      'Filters reserve the expansion gesture and accept backdrop swipes on $platform (flat)',
+      'Search filters scroll at full height and accept backdrop swipes on $platform (flat)',
       (tester) async {
         tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
         tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
@@ -906,30 +921,19 @@ void main() {
           matching: find.byType(Scrollable),
         );
         final position = tester.state<ScrollableState>(results).position;
-        await tester.fling(results, const Offset(0, -180), 5000);
-        for (var frame = 0; frame < 24; frame++) {
-          await tester.pump(const Duration(milliseconds: 16));
-          expect(position.pixels, 0);
-          expect(position.isScrollingNotifier.value, isFalse);
-          final rect = tester.getRect(sheet);
-          expect(rect.left, 0);
-          expect(rect.right, 390);
-          expect(footRadius(tester, sheet), greaterThan(0));
-          expect(footRadius(tester, sheet), _screenCorner);
-        }
-        await tester.pumpAndSettle();
         expect(tester.getRect(sheet).top, closeTo(55, 1));
         expectViewportMenu(tester, sheet);
         expect(position.maxScrollExtent, greaterThan(100));
         await tester.fling(results, const Offset(0, -60), 800);
         await tester.pumpAndSettle();
         expect(position.pixels, greaterThan(0));
-        await tester.tapAt(const Offset(8, 20));
+        expect(tester.getRect(sheet).top, closeTo(55, 1));
+        await tester.tapAt(const Offset(8, 51));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
         await openFilters(tester);
         final opened = tester.getRect(sheet);
-        final above = Offset(opened.center.dx, opened.top - 60);
+        final above = Offset(opened.center.dx, opened.top - 4);
         final short = await tester.startGesture(above);
         await short.moveBy(const Offset(0, 40));
         await short.moveBy(const Offset(0, 50));
@@ -947,7 +951,7 @@ void main() {
     );
 
     testWidgets(
-      'filter sheet expands to the viewport and preserves its query on $platform (flat)',
+      'filter sheet fills the viewport and preserves its query on $platform (flat)',
       (tester) async {
         debugDisableShadows = false;
         addTearDown(() => debugDisableShadows = true);
@@ -969,42 +973,14 @@ void main() {
         await openFilters(tester);
         final sheet = find.byType(DSheetContent);
         expect(tester.getRect(sheet).width, phone.width);
-        expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
+        expect(tester.getRect(sheet).top, closeTo(55, 1));
         expect(textField(tester).focusNode!.hasFocus, isFalse);
-        await capture(tester, 'filter-$platform-flat-collapsed');
         final results = find.descendant(
           of: find.byType(DCommandList<String>),
           matching: find.byType(Scrollable),
         );
         final position = tester.state<ScrollableState>(results.first).position;
-        void expectExpansion() {
-          final rect = tester.getRect(sheet);
-          expect(rect.left, 0);
-          expect(rect.right, phone.width);
-          expect(footRadius(tester, sheet), _screenCorner);
-          expect(rect.bottom, phone.height);
-          expect(position.pixels, 0);
-        }
-
-        final drag = await tester.startGesture(
-          tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
-        );
-        await drag.moveBy(const Offset(0, -40));
-        await drag.moveBy(const Offset(0, -100));
-        await tester.pump();
-        expect(footRadius(tester, sheet), _screenCorner);
-        expectExpansion();
-        await capture(tester, 'filter-$platform-flat-pulling');
-        await drag.moveBy(const Offset(0, -100));
-        await tester.pump();
-        await drag.up();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 64));
-        expectExpansion();
-        await capture(tester, 'filter-$platform-flat-settling');
-        await tester.pumpAndSettle();
         final expandedTop = tester.getRect(sheet).top;
-        expect(expandedTop, 55);
         expectViewportMenu(tester, sheet);
         await capture(tester, 'filter-$platform-flat-expanded');
         position.jumpTo(position.maxScrollExtent);
@@ -1164,6 +1140,13 @@ Future<void> clearMenu(WidgetTester tester) async {
     await tester.tap(remove);
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
+  final back = find.byKey(const ValueKey('search-back-to-results'));
+  if (back.evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
+  } else {
+    await tester.tap(back);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+  }
   await tester.pumpAndSettle();
 }

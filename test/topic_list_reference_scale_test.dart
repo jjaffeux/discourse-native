@@ -36,7 +36,6 @@ void main() {
           await tester.pumpAndSettle();
 
           for (final key in [
-            'topic-list-filter',
             'topic-list-category-filter',
             'category-notification-level-button',
           ]) {

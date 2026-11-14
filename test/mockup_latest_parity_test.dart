@@ -222,6 +222,8 @@ void main() {
     await shell.applyTopicListFilterQuery('posts-min:17');
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicFilterQuery, 'posts-min:17');
+    expect(find.byKey(const ValueKey('topic-list-filter')), findsNothing);
+    await _capture(tester, 'feed-filters-after-feed');
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     await tester.pumpAndSettle();
     final input = find.byKey(ForumSearch.inputKey);
@@ -229,7 +231,19 @@ void main() {
     expect(input, findsOneWidget);
     expect(find.byKey(applied), findsOneWidget);
     await _capture(tester, 'search-single-field-entry');
+    await _capture(tester, 'feed-filters-after-search');
 
+    await tester.tap(find.byKey(const ValueKey('search-filters-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-filter-input')), findsOneWidget);
+    expect(input, findsNothing);
+    expect(find.text('Apply 1 filter'), findsNothing);
+    final sheet = find.byType(DSheetContent);
+    expect(tester.getRect(sheet).top, 8);
+    await _capture(tester, 'feed-filters-after-picker');
+    await tester.tap(find.byKey(const ValueKey('search-back-to-results')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(applied), findsOneWidget);
     final original = tester.widget<DInputGroupInput>(input).controller;
     await tester.tap(find.byKey(applied));
     await tester.pumpAndSettle();
