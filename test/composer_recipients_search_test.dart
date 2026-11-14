@@ -64,13 +64,6 @@ void main() {
   testWidgets('group reach counts unique people other than the sender', (
     tester,
   ) async {
-    if (const String.fromEnvironment('RECIPIENT_REACH_CAPTURE').isNotEmpty) {
-      await tester.runAsync(() async {
-        await (FontLoader(
-          'Lato',
-        )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
-      });
-    }
     final api = _RecipientApi(
       Completer<FoundUsersAndGroups>(),
       user: const DiscourseUser(id: 1, username: 'sender'),
@@ -93,7 +86,11 @@ void main() {
     final group = find.byKey(const ValueKey(('recipient-group', 'team')));
     expect(group, findsOneWidget);
     await tester.runAsync(() => _captureRecipient('group-picker'));
-    expect(find.text('team · 4 members'), findsOneWidget);
+    expect(
+      find.descendant(of: group, matching: find.text('4')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('team, 4 members'), findsOneWidget);
     await tester.tap(group);
     await tester.pumpAndSettle();
     expect(composer.target.targetRecipients, 'sam,team');
@@ -102,6 +99,28 @@ void main() {
     await tester.runAsync(() => _captureRecipient('group-reach'));
     expect(find.text('3 recipients'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a restored mobile draft shows the actual recipient reach', (
+    tester,
+  ) async {
+    final api = _RecipientApi(
+      Completer<FoundUsersAndGroups>(),
+      user: const DiscourseUser(id: 1, username: 'sender'),
+    );
+    final source = ValueNotifier(_shell(api, signedIn: true));
+    addTearDown(source.dispose);
+    await _pump(
+      tester,
+      mobile: true,
+      api: api,
+      recipients: 'sam,team',
+      shellSource: source,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('3 recipients'), findsOneWidget);
+    expect(api.terms, ['sam']);
+    await tester.runAsync(() => _captureRecipient('restored-reach'));
   });
 
   for (final mobile in [false, true]) {
@@ -480,6 +499,13 @@ Future<ComposerController> _pump(
   ValueNotifier<ComposerController>? composerSource,
   ValueNotifier<ShellController>? shellSource,
 }) async {
+  if (const String.fromEnvironment('RECIPIENT_REACH_CAPTURE').isNotEmpty) {
+    await tester.runAsync(() async {
+      await (FontLoader(
+        'Lato',
+      )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+    });
+  }
   tester.view.physicalSize = Size(mobile ? 390 : 1180, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -490,9 +516,12 @@ Future<ComposerController> _pump(
   addTearDown(shell.dispose);
   await tester.pumpWidget(
     MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light.copyWith(
         platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
-        textTheme: const String.fromEnvironment('RECIPIENT_ROW_CAPTURE').isEmpty
+        textTheme:
+            const String.fromEnvironment('RECIPIENT_ROW_CAPTURE').isEmpty &&
+                const String.fromEnvironment('RECIPIENT_REACH_CAPTURE').isEmpty
             ? AppTheme.light.textTheme
             : AppTheme.light.textTheme.apply(fontFamily: 'Lato'),
       ),
@@ -565,7 +594,7 @@ class _RecipientApi extends FakeDiscourseApi {
     terms.add(term);
     sites.add(siteUrl);
     return switch (term) {
-      'sa' => const FoundUsersAndGroups(users: [_sam]),
+      'sa' || 'sam' => const FoundUsersAndGroups(users: [_sam]),
       'alice' => pending.future,
       'team' => const FoundUsersAndGroups(groups: [FoundGroup(name: 'team')]),
       _ => const FoundUsersAndGroups(),

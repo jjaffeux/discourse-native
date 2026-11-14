@@ -155,6 +155,7 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
             _ => null,
           };
       final threadSegment = threadId == null ? '' : '/t/$threadId';
+      final conversation = ChatChannel.fromJson(channel, site);
       results.add(
         GlobalSearchResult(
           id: 'chat:$id',
@@ -179,11 +180,17 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
           username: username,
           avatarUrl: resolveAvatarUrl(jsonText(user['avatar_template']), site),
           createdAt: jsonDate(row['created_at']),
-          contextLabel:
-              ChatChannelKind.read(channel['chatable_type']) ==
-                  ChatChannelKind.directMessage
+          contextLabel: conversation.isDirectMessage
               ? appL10n.directMessage
               : '#${jsonText(channel['title']) ?? jsonText(channel['name']) ?? jsonText(channel['slug']) ?? ''}',
+          conversation: (
+            title: conversation.title.isNotEmpty
+                ? conversation.title
+                : jsonText(channel['name']) ?? jsonText(channel['slug']) ?? '',
+            color: conversation.categoryColor?.toARGB32(),
+            avatarUrl: conversation.avatarUrl,
+            direct: conversation.isDirectMessage,
+          ),
         ),
       );
     }

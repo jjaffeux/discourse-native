@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -302,7 +303,9 @@ void main() {
       tester.view.physicalSize = Size(width, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final shell = createGlobalSearchFixtureController(api: _SearchWireApi());
+      final shell = createGlobalSearchFixtureController(
+        api: _SearchWireApi(multipleTopics: true),
+      );
       addTearDown(shell.dispose);
       await shell.load();
       final boundary = GlobalKey();
@@ -437,6 +440,14 @@ void main() {
         );
         expect(tester.getSize(sheet).height, closeTo(900 * .55, 1));
         expect(find.byKey(const ValueKey('section:forum:')), findsNothing);
+        final firstTopic = find.byKey(const ValueKey('search-row:forum:99'));
+        expect(
+          find.descendant(
+            of: firstTopic,
+            matching: find.byType(TopicListSeparator),
+          ),
+          findsOneWidget,
+        );
       } else {
         expect(find.byKey(const ValueKey('section:forum:')), findsOneWidget);
       }
@@ -450,6 +461,18 @@ void main() {
           closeTo(tester.getRect(find.byType(GlobalSearchPanel)).bottom, .01),
         );
         expect(find.descendant(of: footer, matching: all), findsOneWidget);
+        final chat = find.byKey(
+          const ValueKey('global-search-scope-chat/chat'),
+        );
+        if (chat.hitTestable().evaluate().isNotEmpty) {
+          await tester.tap(chat);
+          await tester.pumpAndSettle();
+          expect(find.textContaining('Design chat'), findsWidgets);
+          await capture('-chat');
+          await tester.ensureVisible(all);
+          await tester.tap(all);
+          await tester.pumpAndSettle();
+        }
         if (scale == 1) {
           final toggle = find.ancestor(of: all, matching: find.byType(DToggle));
           expect(tester.getSize(toggle).height, closeTo(36, .1));
@@ -509,6 +532,10 @@ void main() {
 }
 
 class _SearchWireApi extends GlobalSearchFixtureApi {
+  _SearchWireApi({this.multipleTopics = false});
+
+  final bool multipleTopics;
+
   @override
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
@@ -544,6 +571,14 @@ class _SearchWireApi extends GlobalSearchFixtureApi {
           'username': 'sam',
           'blurb': 'Design a keyboard flow.',
         },
+        if (multipleTopics && !personal && !inTopic)
+          {
+            'id': 101,
+            'topic_id': 1041,
+            'post_number': 1,
+            'username': 'sam',
+            'blurb': 'A second design for the keyboard.',
+          },
       ],
       'topics': [
         {
@@ -555,6 +590,14 @@ class _SearchWireApi extends GlobalSearchFixtureApi {
           'archetype': personal ? 'private_message' : 'regular',
           'posts_count': 12,
         },
+        if (multipleTopics && !personal && !inTopic)
+          {
+            'id': 1041,
+            'title': 'Another keyboard design',
+            'slug': 'another-design',
+            'archetype': 'regular',
+            'posts_count': 3,
+          },
       ],
       if (!personal && !inTopic)
         'users': [

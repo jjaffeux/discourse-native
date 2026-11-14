@@ -413,7 +413,7 @@ void main({bool useDeviceMetrics = false}) {
           'kept',
         );
         await _openAndSearch(tester, 'design');
-        final result = _panelText(
+        final result = _panelTextContaining(
           'The search design is ready for a keyboard review.',
         );
         await tester.ensureVisible(result);
@@ -597,7 +597,7 @@ void main({bool useDeviceMetrics = false}) {
             );
             await _finishSearch(tester);
             final panel = tester.state(find.byType(GlobalSearchPanel));
-            final result = _panelText(
+            final result = _panelTextContaining(
               'The search design is ready for a keyboard review.',
             );
             await tester.ensureVisible(result);
@@ -692,7 +692,9 @@ void main({bool useDeviceMetrics = false}) {
         await _openAndSearch(tester, 'design');
         final result = useShortcut
             ? _panelText('A calmer, more useful global search').first
-            : _panelText('The search design is ready for a keyboard review.');
+            : _panelTextContaining(
+                'The search design is ready for a keyboard review.',
+              );
         if (useShortcut) {
           await tester.ensureVisible(result);
         } else {
@@ -774,7 +776,9 @@ void main({bool useDeviceMetrics = false}) {
             .require(chatControllerService)
             .forget(globalSearchFixtureSite);
         await tester.tap(
-          _panelText('The search design is ready for a keyboard review.'),
+          _panelTextContaining(
+            'The search design is ready for a keyboard review.',
+          ),
         );
         await tester.pump();
         expect(api.channelStarted.isCompleted, isTrue);
@@ -1136,7 +1140,7 @@ void main({bool useDeviceMetrics = false}) {
         shell.globalSearch.setScope(chatSearchScope);
         await _finishSearch(tester);
       }
-      final result = _panelText(label).first;
+      final result = _panelTextContaining(label).first;
       await tester.ensureVisible(result);
       await tester.pumpAndSettle();
       await tester.tap(result);
@@ -1264,7 +1268,7 @@ void main({bool useDeviceMetrics = false}) {
     await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
     await _finishSearch(tester);
     await tester.tap(
-      _panelText('The search design is ready for a keyboard review.'),
+      _panelTextContaining('The search design is ready for a keyboard review.'),
     );
     await tester.pumpAndSettle();
     expect(chat.fullPageChatActive, isTrue);
@@ -1282,7 +1286,7 @@ void main({bool useDeviceMetrics = false}) {
     shell.globalSearch.setScope(chatSearchScope);
     await _finishSearch(tester);
     await tester.tap(
-      _panelText('The search design is ready for a keyboard review.'),
+      _panelTextContaining('The search design is ready for a keyboard review.'),
     );
     await tester.pumpAndSettle();
 
@@ -2022,11 +2026,15 @@ void main({bool useDeviceMetrics = false}) {
             await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
           case 'result':
             await tester.ensureVisible(
-              _panelText('The search design is ready for a keyboard review.'),
+              _panelTextContaining(
+                'The search design is ready for a keyboard review.',
+              ),
             );
             await tester.pumpAndSettle();
             await tester.tap(
-              _panelText('The search design is ready for a keyboard review.'),
+              _panelTextContaining(
+                'The search design is ready for a keyboard review.',
+              ),
             );
         }
         await _finishSearch(tester);

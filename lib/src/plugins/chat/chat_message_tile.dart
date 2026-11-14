@@ -98,6 +98,9 @@ class ChatMessageTile extends StatelessWidget {
         ),
       );
 
+  static const rowStartInset = 12.0;
+  static const rowEndInset = 8.0;
+
   static Key threadPreviewKey(int threadId) =>
       ValueKey<String>('chat-thread-preview-$threadId');
 
@@ -1422,7 +1425,12 @@ class _Tile extends StatelessWidget {
 
     final row = Padding(
       key: ValueKey('chat-message-${message.id}'),
-      padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 8, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        ChatMessageTile.rowStartInset,
+        4,
+        ChatMessageTile.rowEndInset,
+        4,
+      ),
       // A chained row draws no header, yet each row is its own screen-reader
       // stop. Not a container: the label joins the node carrying the row's
       // actions, ahead of the body, so every row opens with who and when.
