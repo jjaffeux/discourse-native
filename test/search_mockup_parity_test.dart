@@ -393,14 +393,12 @@ void main() {
         final field = find.byType(DInputGroup);
         final cancel = find.byKey(const ValueKey('mobile-search-back'));
         final clear = find.byKey(const ValueKey('forum-search-clear'));
+        expect(cancel, findsNothing);
         expect(
-          tester.getCenter(cancel).dy,
-          closeTo(tester.getCenter(field).dy, .01),
+          tester.getRect(field).left,
+          closeTo(width - tester.getRect(field).right, .01),
         );
-        expect(
-          tester.getRect(field).right,
-          lessThan(tester.getRect(cancel).left),
-        );
+        expect(tester.getSize(field).width, greaterThan(width * .9));
         expect(clear.hitTestable(), findsOneWidget);
         if (scale == 1) {
           expect(tester.getRect(field).height, closeTo(36, .2));
@@ -469,8 +467,9 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.textContaining('Design chat'), findsWidgets);
           await capture('-chat');
-          await tester.ensureVisible(all);
-          await tester.tap(all);
+          await tester.tap(
+            find.byKey(const ValueKey('global-search-remove-scope')),
+          );
           await tester.pumpAndSettle();
         }
         if (scale == 1) {

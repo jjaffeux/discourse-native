@@ -1146,7 +1146,7 @@ Future<void> clearMenu(WidgetTester tester) async {
   } else {
     await tester.tap(back);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+    await tester.binding.handlePopRoute();
   }
   await tester.pumpAndSettle();
 }

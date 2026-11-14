@@ -12,6 +12,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart'
         PluginSessionLifecycle,
         corePluginRouteNavigationPort,
         corePluginAccountEventsPort;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/search_results.dart';
@@ -131,7 +132,7 @@ void main() {
       expect(shell.handleBack(), isTrue);
       await tester.pumpAndSettle();
       expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byType(ChatMobileSidebar), findsOneWidget);
       expect(
@@ -186,7 +187,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         switch (dismissal) {
           case 'cancel':
-            await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+            final sheet = tester.getRect(find.byType(DSheetContent));
+            await tester.tapAt(Offset(sheet.center.dx, sheet.top - 10));
           case 'system back':
             await tester.binding.handlePopRoute();
           case 'swipe':

@@ -1345,10 +1345,25 @@ class _ForumSearchState extends State<ForumSearch> {
               _setQuery(value);
             },
             onSubmitted: (_) {
-              if (widget.fullScreen && !_hasFeedDraft) {
+              if (!phonePage || _hasFeedDraft) {
+                _apply();
+                return;
+              }
+              final scope = _global.scope == GlobalSearchScope.all
+                  ? GlobalSearchScope.forum
+                  : _global.scope;
+              final section = _global.sections
+                  .where(
+                    (section) =>
+                        section.topicId == null &&
+                        section.scope == scope &&
+                        section.results.isNotEmpty,
+                  )
+                  .firstOrNull;
+              if (section == null) {
                 _focus.unfocus();
               } else {
-                _apply();
+                _openSection(section);
               }
             },
           ),
@@ -1778,25 +1793,26 @@ class _ForumSearchState extends State<ForumSearch> {
         return _buildFeedPicker(context);
       }
       final phone = DControlStyle.isTouch(context);
-      final header = Row(
-        spacing: 10,
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) =>
-                  _editor(constraints.maxWidth, expanded: true),
-            ),
-          ),
-          DButton(
-            key: const ValueKey('mobile-search-back'),
-            label: Text(appL10n.cancel),
-            foregroundColor: DTokens.of(context).primary,
-            size: phone ? DButtonSize.command : DButtonSize.filter,
-            variant: DButtonVariant.inline,
-            onPressed: _closeSearch,
-          ),
-        ],
+      final editor = LayoutBuilder(
+        builder: (context, constraints) =>
+            _editor(constraints.maxWidth, expanded: true),
       );
+      final header = phone
+          ? editor
+          : Row(
+              spacing: 10,
+              children: [
+                Expanded(child: editor),
+                DButton(
+                  key: const ValueKey('mobile-search-back'),
+                  label: Text(context.l10n.cancel),
+                  foregroundColor: DTokens.of(context).primary,
+                  size: DButtonSize.filter,
+                  variant: DButtonVariant.inline,
+                  onPressed: _closeSearch,
+                ),
+              ],
+            );
       return DReferenceTextScale(
         child: Column(
           key: ForumSearch.panelKey,
@@ -1828,7 +1844,6 @@ class _ForumSearchState extends State<ForumSearch> {
                       ]
                     : const [],
                 onFeedFilterChoice: _pickFeedFilter,
-                showFeedApply: _hasFeedDraft,
                 showClearFilters:
                     _listExpression.isNotEmpty &&
                     _global.wordsQuery.isEmpty &&
@@ -1863,7 +1878,7 @@ class _ForumSearchState extends State<ForumSearch> {
           // Search overlays the feed. Its scrolling cannot fold the feed dock.
           onNotification: (_) => true,
           child: DSheetViewport(
-            dismissOnBackdrop: picking,
+            dismissOnBackdrop: DControlStyle.isTouch(context),
             onDismiss: _surfaceOpen ? _closeSearch : null,
             content: DSheetContent(
               side: DSheetSide.bottom,

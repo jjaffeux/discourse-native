@@ -52,7 +52,7 @@ void main() {
         expect(original.globalSearch.query, 'design');
         expect(replacement.globalSearch.query, isEmpty);
         if (closing) {
-          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          await tester.binding.handlePopRoute();
           await tester.pump();
         }
         expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
