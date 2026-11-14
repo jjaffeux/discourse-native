@@ -7,7 +7,6 @@ import 'chat_bookmark.dart';
 import 'chat_bookmark_link_resolver.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
-import 'chat_typing.dart';
 import 'chat_conversation.dart';
 import 'chat_inbox_rooms.dart';
 import 'chat_message_contract.dart';
@@ -17,6 +16,7 @@ import 'chat_preview_contract.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+import 'chat_typing.dart';
 
 const chatModule = ChatModule();
 

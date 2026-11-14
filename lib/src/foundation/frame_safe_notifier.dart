@@ -81,6 +81,8 @@ final class FrameSafeValueNotifier<T> extends FrameSafeNotifier
     implements ValueListenable<T> {
   FrameSafeValueNotifier(this._value);
 
+  bool get isObserved => hasListeners;
+
   T _value;
 
   @override

@@ -172,8 +172,9 @@ class _ForumSearchState extends State<ForumSearch> {
     final tab = _document;
     final route = _filterFeed;
     final site = tab?.siteUrl;
-    if (tab == null || route == null || site == null || !_ownsInput(tab))
+    if (tab == null || route == null || site == null || !_ownsInput(tab)) {
       return;
+    }
     final visit = (tab: tab, route: route, site: site);
     _focus.unfocus();
     _filterVisit = visit;
@@ -228,8 +229,9 @@ class _ForumSearchState extends State<ForumSearch> {
               if (_filterVisit != visit ||
                   !_ownsInput(visit.tab) ||
                   visit.tab.lease?.isCurrent != true ||
-                  _filterFeed?.sameDestinationAs(visit.route) != true)
+                  _filterFeed?.sameDestinationAs(visit.route) != true) {
                 return;
+              }
               _filterVisit = null;
               _closeSearch();
               await visit.tab.applyTopicListFilterQuery(

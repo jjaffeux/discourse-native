@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/found_user.dart';
 import 'chat_api.dart';
-import 'chat_typing.dart';
 import 'chat_channel.dart';
 import 'chat_channel_list.dart';
 import 'chat_channel_list_controller.dart';
@@ -38,6 +37,7 @@ import 'chat_thread.dart';
 import 'chat_thread_list_refresh.dart';
 import 'chat_thread_metadata_owner.dart';
 import 'chat_time.dart';
+import 'chat_typing.dart';
 import 'chat_wire.dart';
 
 part 'chat_channel_directory.dart';

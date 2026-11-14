@@ -90,7 +90,7 @@ final class ChatTyping {
   bool _viewing = false;
   bool _announced = false;
   bool _wantsPresence = false;
-  bool get inUse => _viewing || users.hasListeners;
+  bool get inUse => _viewing || users.isObserved;
   int _generation = 0;
 
   void attach(PluginLiveChannelHandle tracker, PluginSiteLease lease) {
@@ -186,8 +186,9 @@ final class ChatTyping {
       for (final user in _participants.values)
         if (user.id != me) user,
     ];
-    if (!listEquals(users.value, visible))
+    if (!listEquals(users.value, visible)) {
       users.value = List.unmodifiable(visible);
+    }
   }
 
   void reportTyping(bool active) {

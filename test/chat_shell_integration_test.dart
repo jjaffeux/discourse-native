@@ -5805,7 +5805,7 @@ class _TypingFixtureApi extends FakeDiscourseApi {
       return {
         for (final channel
             in uri.queryParametersAll['channels[]'] ?? <String>[])
-          channel: {'last_message_id': 12, 'users': []},
+          channel: {'last_message_id': 12, 'users': <Object>[]},
       };
     }
     return super.pluginGetJson(
