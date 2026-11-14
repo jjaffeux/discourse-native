@@ -5140,7 +5140,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'test');
       await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
       expect(_bar, findsOneWidget);
@@ -6715,7 +6715,7 @@ void main() {
     );
     expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(_bar, findsOneWidget);
   });

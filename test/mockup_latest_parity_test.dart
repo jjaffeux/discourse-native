@@ -259,7 +259,10 @@ void main() {
     expect(original.text, 'posts-min:');
     await tester.enterText(input, 'posts-min:20 keyboard');
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
-    final apply = find.byKey(const ValueKey('search-apply-feed-filters'));
+    expect(
+      find.byKey(const ValueKey('search-apply-feed-filters')),
+      findsNothing,
+    );
     expect(
       find.byKey(const ValueKey('search-edit-feed-clause:posts-min:20')),
       findsOneWidget,
@@ -274,7 +277,6 @@ void main() {
           .topicFilterQuery,
       'posts-min:20',
     );
-    expect(apply, findsOneWidget);
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     expect(
       find.byKey(const ValueKey('global-search-result-filter-topic:8')),
@@ -285,7 +287,7 @@ void main() {
       findsNothing,
     );
     await _capture(tester, 'search-single-field-ready');
-    await tester.tap(apply);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicFilterQuery, 'posts-min:20 keyboard');
     expect(find.byKey(ForumSearch.inputKey), findsNothing);

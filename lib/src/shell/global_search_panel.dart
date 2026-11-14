@@ -72,7 +72,6 @@ class GlobalSearchPanel extends StatefulWidget {
     this.feedFilterChoices = const [],
     this.feedFilterKeys = const [],
     this.onFeedFilterChoice,
-    this.showFeedApply = false,
   });
 
   final GlobalSearchController controller;
@@ -91,7 +90,6 @@ class GlobalSearchPanel extends StatefulWidget {
   final List<Widget> feedFilterChips;
   final List<TopicFilterSuggestion> feedFilterChoices, feedFilterKeys;
   final ValueChanged<TopicFilterSuggestion>? onFeedFilterChoice;
-  final bool showFeedApply;
 
   @override
   State<GlobalSearchPanel> createState() => GlobalSearchPanelState();
@@ -1058,14 +1056,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   Widget _phoneFooter(BuildContext context) {
     final controller = widget.controller;
     final narrowed =
-        controller.conditions.isNotEmpty || widget.feedFilterChips.isNotEmpty;
+        controller.conditions.isNotEmpty ||
+        controller.hasOrderFilter ||
+        !controller.scope.isCore ||
+        widget.feedFilterChips.isNotEmpty;
     return DSheetFooter(
       key: const ValueKey('global-search-phone-footer'),
       padding: EdgeInsets.zero,
       children: [
-        const DSeparator(),
         if (!narrowed) _scopeBar(context),
-        if (narrowed || controller.hasOrderFilter || widget.showFeedApply)
+        if (narrowed)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
             child: LayoutBuilder(
@@ -1082,14 +1082,6 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       maxWidth: constraints.maxWidth,
                       onRefocus: widget.onRefocus,
                     ),
-                    if (widget.showFeedApply)
-                      DButton(
-                        key: const ValueKey('search-apply-feed-filters'),
-                        label: Text(context.l10n.apply),
-                        size: DButtonSize.filter,
-                        variant: DButtonVariant.ghost,
-                        onPressed: widget.onApply,
-                      ),
                   ],
                 ),
               ),
@@ -1193,7 +1185,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         ],
       );
     }
-    return phone
+    return phone && !widget.footerControls
         ? Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
             child: _builtScopeBar!,

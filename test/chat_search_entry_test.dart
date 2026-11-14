@@ -21,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'chat_sidebar_parity_test.dart' as sidebar_review;
 import 'support/global_search_fixtures.dart';
+import 'support/keyboard_test_harness.dart';
 import 'support/load_test_fonts.dart';
 import 'support/native_ui_evidence.dart';
 
@@ -101,25 +102,18 @@ void main() {
         );
         expect(find.byType(ForumSearch), findsOneWidget);
         expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-        expect(find.text('Cancel'), findsOneWidget);
+        expect(find.text('Cancel'), findsNothing);
         final field = find.byType(DInputGroup);
         expect(
           tester.widget<DInputGroup>(field).variant,
-          DInputGroupVariant.search,
+          DInputGroupVariant.quiet,
         );
         expect(tester.widget<DInputGroup>(field).borderless, isFalse);
         final fieldBounds = tester.getRect(field);
-        final cancelBounds = tester.getRect(
-          find.byKey(const ValueKey('mobile-search-back')),
-        );
         expect(fieldBounds.left, 12);
         expect(fieldBounds.top, greaterThanOrEqualTo(55));
-        expect(fieldBounds.center.dy, cancelBounds.center.dy);
-        expect(fieldBounds.height, scale == 1 ? 44 : greaterThanOrEqualTo(44));
-        expect(fieldBounds.width, greaterThan(0));
-        expect(fieldBounds.right, lessThanOrEqualTo(cancelBounds.left));
-        expect(cancelBounds.right, lessThanOrEqualTo(width - 8));
-        expect(find.text('Cancel').hitTestable(), findsOneWidget);
+        expect(fieldBounds.height, greaterThanOrEqualTo(36));
+        expect(fieldBounds.right, closeTo(width - fieldBounds.left, .01));
         expect(
           find.byKey(const ValueKey('global-search-footer')),
           findsNothing,
@@ -141,8 +135,13 @@ void main() {
             findsWidgets,
           );
         }
-        expect(tester.getRect(find.byKey(ForumSearch.panelKey)).top, 47);
-        expect(tester.getRect(find.byKey(ForumSearch.panelKey)).bottom, 810);
+        final sheet = tester.getRect(find.byType(DSheetContent));
+        expect(sheet.height, closeTo(844 * .55, 1));
+        expect(fieldBounds.top, greaterThan(sheet.top));
+        expect(
+          tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,
+          lessThanOrEqualTo(810),
+        );
 
         await tester.enterText(find.byKey(ForumSearch.inputKey), 'search');
         await _finishSearch(tester);
@@ -175,8 +174,13 @@ void main() {
         // Insets change while the editor and its native keyboard connection stay.
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         tester.view.padding = const FakeViewPadding(top: 47);
-        await tester.pumpAndSettle();
-        expect(tester.getRect(find.byKey(ForumSearch.panelKey)).bottom, 544);
+        await tester.pump();
+        await sendKeyboardFrame(tester);
+        await _finishSearch(tester);
+        expect(
+          tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,
+          lessThanOrEqualTo(544),
+        );
         expect(_editor(tester).focusNode.hasFocus, isTrue);
         expect(tester.takeException(), isNull);
 
@@ -195,7 +199,11 @@ void main() {
           expect(shell.globalSearch.query, 'search');
           expect(_editor(tester).focusNode.hasFocus, isTrue);
         }
-        await tester.tap(find.text('Cancel'));
+        await sendKeyboardFrame(tester, inset: 0);
+        tester.view.resetViewInsets();
+        await _finishSearch(tester);
+        final backdrop = tester.getRect(find.byType(DSheetContent));
+        await tester.tapAt(Offset(backdrop.center.dx, backdrop.top - 4));
         await tester.pumpAndSettle();
         expect(find.byKey(ForumSearch.panelKey), findsNothing);
         expect(shell.currentContent, same(routeBefore));
@@ -233,34 +241,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('narrow phone keeps Cancel and scope removal at 200% text', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 640);
-    tester.view.devicePixelRatio = 1;
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(tester.view.reset);
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    final shell = createGlobalSearchFixtureController();
-    addTearDown(shell.dispose);
-    await shell.load();
-    await _mount(tester, shell, GlobalKey());
-    shell.pluginSession
-        .require(chatShellService)
-        .openGlobalSearch(globalSearchFixtureSite);
-    await _finishSearch(tester);
-    final cancel = tester.getRect(find.text('Cancel'));
-    expect(cancel.right, lessThanOrEqualTo(320));
-    expect(
-      tester.getRect(find.byKey(ForumSearch.inputKey)).width,
-      greaterThan(0),
-    );
-    await tester.tap(find.byKey(const ValueKey('global-search-remove-scope')));
-    await _finishSearch(tester);
-    expect(shell.globalSearch.scope, GlobalSearchScope.all);
-    expect(_editor(tester).focusNode.hasFocus, isTrue);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'narrow phone keeps the editor and scope removal usable at 200% text',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final shell = createGlobalSearchFixtureController();
+      addTearDown(shell.dispose);
+      await shell.load();
+      await _mount(tester, shell, GlobalKey());
+      shell.pluginSession
+          .require(chatShellService)
+          .openGlobalSearch(globalSearchFixtureSite);
+      await _finishSearch(tester);
+      final field = tester.getRect(find.byType(DInputGroup));
+      expect(field.left, closeTo(320 - field.right, .01));
+      expect(
+        tester.getRect(find.byKey(ForumSearch.inputKey)).width,
+        greaterThan(0),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('global-search-remove-scope')),
+      );
+      await _finishSearch(tester);
+      expect(shell.globalSearch.scope, GlobalSearchScope.all);
+      expect(_editor(tester).focusNode.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final (width, scale) in [(320.0, 1.0), (390.0, 1.0), (320.0, 2.0)]) {
     testWidgets(

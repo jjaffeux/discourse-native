@@ -85,6 +85,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   final FocusNode _focus = FocusNode();
   final _combobox = DComboboxController<TopicFilterSuggestion>();
   final _sheetCommand = DCommandController<String>();
+  final _tagSearchText = TextEditingController();
   final _sheetCommandKey = GlobalKey();
 
   ShellController? _shell;
@@ -305,6 +306,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 
   void _synchronizeTokenDraft() {
     final draft = filter.text.text;
+    _syncTagSearchText(draft);
     final parsed = splitTopicFilterQuery(draft);
     final endsWithSeparator = topicFilterQueryEndsWithSeparator(draft);
     final completedCount = endsWithSeparator
@@ -346,8 +348,20 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     return [..._tokens, if (currentDraft.isNotEmpty) currentDraft].join(' ');
   }
 
+  void _syncTagSearchText(String value) {
+    if (widget.returnToSearch == null) return;
+    final prefix = RegExp(r'^-?tags?:').matchAsPrefix(value);
+    final term = prefix == null ? '' : value.substring(prefix.end);
+    if (_tagSearchText.text == term) return;
+    _tagSearchText.value = TextEditingValue(
+      text: term,
+      selection: TextSelection.collapsed(offset: term.length),
+    );
+  }
+
   void _setTokenDraft(String value) {
     _updatingTokenDraft = true;
+    _syncTagSearchText(value);
     filter.text.value = TextEditingValue(
       text: value,
       selection: TextSelection.collapsed(offset: value.length),
@@ -697,6 +711,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     _focus.dispose();
     _combobox.dispose();
     _sheetCommand.dispose();
+    _tagSearchText.dispose();
     super.dispose();
   }
 
@@ -707,28 +722,42 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     children: _buildTokenChips(),
   );
 
-  List<Widget> _buildTokenChips() => [
+  List<Widget> _buildTokenChips({bool splitTags = false}) => [
     for (final group in _displayTokens())
-      _TopicFilterTokenChip(
-        raw: group.tokens.join(' '),
-        label: group.label,
-        index: group.indices.first,
-        categories: widget.categories,
-        onEdited: () => _editDisplayToken(group),
-        onDeleted: () {
-          if (group.indices.length == 1) {
-            _removeToken(group.indices.first);
-            return;
-          }
-          _changeSheet(
-            () => _tokens = [
-              for (var i = 0; i < _tokens.length; i++)
-                if (!group.indices.contains(i)) _tokens[i],
-            ],
-          );
-          widget.onScopeChanged?.call(_tokens.join(' '));
-        },
-      ),
+      if (splitTags && RegExp(r'^-?tags?:').hasMatch(group.tokens.first))
+        for (final tag in _sheetTags)
+          DFilterToken(
+            key: ValueKey(('picked-filter-tag', tag)),
+            label: '',
+            value: tag,
+            editLabel: context.l10n.editCondition(tag),
+            removeLabel: context.l10n.removeCondition(tag),
+            onEdited: _focus.requestFocus,
+            onRemoved: () => _setSheetTags(
+              _sheetTags.where((picked) => picked != tag).toList(),
+            ),
+          )
+      else
+        _TopicFilterTokenChip(
+          raw: group.tokens.join(' '),
+          label: group.label,
+          index: group.indices.first,
+          categories: widget.categories,
+          onEdited: () => _editDisplayToken(group),
+          onDeleted: () {
+            if (group.indices.length == 1) {
+              _removeToken(group.indices.first);
+              return;
+            }
+            _changeSheet(
+              () => _tokens = [
+                for (var i = 0; i < _tokens.length; i++)
+                  if (!group.indices.contains(i)) _tokens[i],
+              ],
+            );
+            widget.onScopeChanged?.call(_tokens.join(' '));
+          },
+        ),
   ];
 
   @override

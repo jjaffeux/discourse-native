@@ -190,7 +190,7 @@ void _registerShellNavigationTests() {
 
       final focusNode = tester.widget<EditableText>(_searchEditor).focusNode;
       expect(focusNode.hasFocus, isTrue);
-      expect(find.byKey(const ValueKey('mobile-search-back')), findsOneWidget);
+      expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     });
 
     testWidgets('global search clears its query and keeps the editor focused', (

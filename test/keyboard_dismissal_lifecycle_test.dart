@@ -69,7 +69,7 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final departure in [
-      'cancel',
+      'outside tap',
       'back',
       'early back',
       'sidebar',
@@ -100,8 +100,9 @@ void main() {
           expect(tester.testTextInput.isVisible, isTrue);
         }
         switch (departure) {
-          case 'cancel':
-            await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          case 'outside tap':
+            final sheet = tester.getRect(find.byType(DSheetContent));
+            await tester.tapAt(Offset(sheet.center.dx, sheet.top - 4));
           case 'back' || 'early back':
             shell.handleBack();
           case 'sidebar':
@@ -148,7 +149,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
       await tester.pumpAndSettle();
       expect(tester.testTextInput.isVisible, isTrue);
-      await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+      await tester.binding.handlePopRoute();
       await tester.pump();
       expect(tester.testTextInput.isVisible, isFalse);
       await tester.pumpAndSettle();

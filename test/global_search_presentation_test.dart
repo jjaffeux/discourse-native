@@ -619,7 +619,7 @@ void main({bool useDeviceMetrics = false}) {
               expect(result, findsOneWidget);
               expect(_editor(tester).controller.text, 'design');
             }
-            await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+            await tester.binding.handlePopRoute();
             await tester.pumpAndSettle();
             expect(shell.currentContent?.isGlobalSearch, isNot(isTrue));
             expect(
@@ -749,7 +749,7 @@ void main({bool useDeviceMetrics = false}) {
       await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
       await tester.pumpAndSettle();
       expect(_editor(tester).controller.text, 'first words ');
-      await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       shell.applySearchToList('second words', const []);
       await tester.pumpAndSettle();
@@ -822,7 +822,7 @@ void main({bool useDeviceMetrics = false}) {
       final offset = position.pixels;
       expect(offset, greaterThan(0));
       await _openAndSearch(tester, 'design');
-      await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(shell.currentContent?.isTopicList, isTrue);
       expect(tester.state(list), same(listState));
@@ -1015,7 +1015,7 @@ void main({bool useDeviceMetrics = false}) {
           await drag.up();
           await tester.pumpAndSettle();
           expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          await tester.binding.handlePopRoute();
           await tester.pumpAndSettle();
           expect(
             find.byKey(const ValueKey('mobile-search-button')).hitTestable(),
@@ -1099,16 +1099,13 @@ void main({bool useDeviceMetrics = false}) {
         case 'apply':
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         case 'cancel':
-          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          await tester.binding.handlePopRoute();
       }
       await tester.pumpAndSettle();
       if (action == 'done') {
-        expect(shell.currentContent?.isGlobalSearch, isTrue);
-        expect(
-          _panelText('A calmer, more useful global search'),
-          findsOneWidget,
-        );
-        expect(_editor(tester).focusNode.hasFocus, isFalse);
+        expect(shell.currentContent?.topicListSearch, 'design');
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(shell.globalSearch.recentSearches, contains('design'));
       } else {
         expect(find.byKey(ForumSearch.panelKey), findsNothing);
         expect(
@@ -2023,7 +2020,7 @@ void main({bool useDeviceMetrics = false}) {
           case 'outside':
             await tester.tapAt(const Offset(1400, 850));
           case 'back':
-            await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+            await tester.binding.handlePopRoute();
           case 'result':
             await tester.ensureVisible(
               _panelTextContaining(
