@@ -1265,79 +1265,112 @@ void _registerChatShellTests() {
         );
       }
 
-      testWidgets(
-        'chat typing follows the presence cursor and local idle timer',
-        (tester) async {
-          const notifications = MethodChannel(
-            'org.discourse.native/notification_opens',
-          );
-          final messenger = tester.binding.defaultBinaryMessenger;
-          messenger.setMockMethodCallHandler(notifications, (_) async => null);
-          addTearDown(
-            () => messenger.setMockMethodCallHandler(notifications, null),
-          );
-          final api = _TypingFixtureApi(
-            channels: ChatChannels(public: [channel(9)]),
-            messages: {
-              key(9): page([msg(1)]),
-            },
-          );
-          await pumpChat(tester, size: phone, api: api);
-          await selectChatSidebar(tester);
-          final shell = ShellScope.read(
-            tester.element(find.byKey(const ValueKey('mobile-root'))),
-          );
-          await shell.forumSettings.setShared(
-            shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
-          );
-          shell.openChatChannel(9);
-          await tester.pumpAndSettle();
-          final tracker = FakeSiteTracker.built.single;
-          final bubble = find.byKey(const ValueKey('chat-typing-bubble'));
-          expect(bubble, findsNothing);
+      for (final thread in [false, true]) {
+        testWidgets(
+          'chat typing follows the presence cursor and local idle timer (thread: $thread)',
+          (tester) async {
+            const notifications = MethodChannel(
+              'org.discourse.native/notification_opens',
+            );
+            final messenger = tester.binding.defaultBinaryMessenger;
+            messenger.setMockMethodCallHandler(
+              notifications,
+              (_) async => null,
+            );
+            addTearDown(
+              () => messenger.setMockMethodCallHandler(notifications, null),
+            );
+            final api = _TypingFixtureApi(
+              channels: ChatChannels(
+                public: [channel(9, threadingEnabled: true)],
+              ),
+              threads: {
+                FakeDiscourseApi.chatThreadKey(9, 3): const ChatThread(
+                  id: 3,
+                  channelId: 9,
+                  status: 'open',
+                  replyCount: 1,
+                ),
+              },
+              messages: {
+                key(9): page([msg(1)]),
+                'thread-9-3': page([msg(1)]),
+              },
+            );
+            await pumpChat(tester, size: phone, api: api);
+            await selectChatSidebar(tester);
+            final shell = ShellScope.read(
+              tester.element(find.byKey(const ValueKey('mobile-root'))),
+            );
+            await shell.forumSettings.setShared(
+              shell.forumSettings.shared.copyWith(
+                interfaceFont: ForumFont.lato,
+              ),
+            );
+            final typingChannel = thread
+                ? '/chat-reply/9/thread/3'
+                : '/chat-reply/9';
+            if (thread) {
+              shell.openChatThread(siteUrl: site, channelId: 9, threadId: 3);
+            } else {
+              shell.openChatChannel(9);
+            }
+            await tester.pumpAndSettle();
+            final tracker = FakeSiteTracker.built.single;
+            final bubble = find.byKey(const ValueKey('chat-typing-bubble'));
+            expect(bubble, findsNothing);
 
-          tracker.deliverPluginMessage('/presence/chat-reply/9', {
-            'entering_users': [
-              {'id': 7, 'username': 'joffreyj'},
-              {'id': 3, 'username': 'hawk'},
-            ],
-          }, messageId: 13);
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 180));
-          const capture = String.fromEnvironment('CHAT_TYPING_CAPTURE');
-          if (capture.isNotEmpty) {
-            await tester.runAsync(() async {
-              final builder = SceneBuilder();
-              tester.binding.renderViews.first.debugLayer!.addToScene(builder);
-              final scene = builder.build();
-              final image = await scene.toImage(390, 844);
-              final bytes = await image.toByteData(format: ImageByteFormat.png);
-              await File(capture).writeAsBytes(bytes!.buffer.asUint8List());
-              image.dispose();
-              scene.dispose();
-            });
-          }
-          expect(find.text('hawk is typing'), findsOneWidget);
-          tracker.deliverPluginMessage('/presence/chat-reply/9', {
-            'leaving_user_ids': [3],
-          }, messageId: 14);
-          await tester.pumpAndSettle();
-          expect(bubble, findsNothing);
-          final field = find.descendant(
-            of: find.byKey(const ValueKey('chat-composer')),
-            matching: find.byType(EditableText),
-          );
-          await tester.enterText(field, 'A draft');
-          await tester.pump(const Duration(milliseconds: 500));
-          await tester.pumpAndSettle();
-          expect(api.updates.single['present_channels'], ['/chat-reply/9']);
-          await tester.pump(const Duration(seconds: 5));
-          await tester.pumpAndSettle();
-          expect(api.updates.last['leave_channels'], ['/chat-reply/9']);
-          expect(tester.takeException(), isNull);
-        },
-        variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-      );
+            tracker.deliverPluginMessage('/presence$typingChannel', {
+              'entering_users': [
+                {'id': 7, 'username': 'joffreyj'},
+                {'id': 3, 'username': 'hawk'},
+              ],
+            }, messageId: 13);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 180));
+            const capture = String.fromEnvironment('CHAT_TYPING_CAPTURE');
+            if (capture.isNotEmpty) {
+              await tester.runAsync(() async {
+                final builder = SceneBuilder();
+                tester.binding.renderViews.first.debugLayer!.addToScene(
+                  builder,
+                );
+                final scene = builder.build();
+                final image = await scene.toImage(390, 844);
+                final bytes = await image.toByteData(
+                  format: ImageByteFormat.png,
+                );
+                await File(
+                  thread
+                      ? capture.replaceFirst('.png', '-thread.png')
+                      : capture,
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+                image.dispose();
+                scene.dispose();
+              });
+            }
+            expect(find.text('hawk is typing'), findsOneWidget);
+            tracker.deliverPluginMessage('/presence$typingChannel', {
+              'leaving_user_ids': [3],
+            }, messageId: 14);
+            await tester.pumpAndSettle();
+            expect(bubble, findsNothing);
+            final field = find.descendant(
+              of: find.byKey(const ValueKey('chat-composer')),
+              matching: find.byType(EditableText),
+            );
+            await tester.enterText(field, 'A draft');
+            await tester.pump(const Duration(milliseconds: 500));
+            await tester.pumpAndSettle();
+            expect(api.updates.single['present_channels'], [typingChannel]);
+            await tester.pump(const Duration(seconds: 5));
+            await tester.pumpAndSettle();
+            expect(api.updates.last['leave_channels'], [typingChannel]);
+            expect(tester.takeException(), isNull);
+          },
+          variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+        );
+      }
 
       testWidgets('a live chat message shows a temporary arrival ring', (
         tester,
@@ -5749,11 +5782,13 @@ class _TypingFixtureApi extends FakeDiscourseApi {
   _TypingFixtureApi({
     required ChatChannels channels,
     required Map<String, ChatMessagePage> messages,
+    Map<String, ChatThread> threads = const {},
   }) : super(
          totals: chatNotificationTotals(),
          user: const DiscourseUser(id: 7, username: 'joffreyj'),
          chatChannelsBySite: {'https://meta.discourse.org': channels},
          chatMessagesByKey: messages,
+         chatThreadsByKey: threads,
        );
 
   final updates = <Map<String, Object?>>[];
