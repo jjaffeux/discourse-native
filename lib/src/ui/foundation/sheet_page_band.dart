@@ -29,7 +29,9 @@ abstract interface class DSheetPageBand {
   void scrollTo(double offset);
 
   static ValueListenable<double>? edgeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<DSheetRiseScope>()?.edge;
+      maybeOf(context) == null
+      ? null
+      : context.dependOnInheritedWidgetOfExactType<DSheetRiseScope>()?.edge;
 
   static Widget followEdge(BuildContext context, {required Widget child}) {
     final edge = edgeOf(context);

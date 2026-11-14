@@ -1092,7 +1092,7 @@ Widget _sheetPageBackdrop(
       return Offstage(
         offstage: !visible,
         child: TickerMode(
-          enabled: visible,
+          enabled: !covered,
           child: Transform.scale(
             scale: 1 - .06 * depth,
             child: ColorFiltered(
