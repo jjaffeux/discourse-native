@@ -38,6 +38,12 @@ final RegExp _whitespace = RegExp(r'\s+');
 class _PreparedSearchResult {
   _PreparedSearchResult({required this.result, required this.open});
 
+  bool get usesFeedRow =>
+      !result.id.startsWith('in-topic:') &&
+      (result.scope == GlobalSearchScope.forum ||
+          result.scope == GlobalSearchScope.messages ||
+          result.scope.layout == GlobalSearchResultLayout.message);
+
   final GlobalSearchResult result;
   final VoidCallback open;
 
@@ -1447,6 +1453,32 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           final widget = child is _PreparedSearchResult
               ? _result(child)
               : child as Widget;
+          if (phoneSheet &&
+              child is _PreparedSearchResult &&
+              child.usesFeedRow) {
+            final next = index + 2 < children.length
+                ? children[index + 2]
+                : null;
+            final hasDivider =
+                next is _PreparedSearchResult &&
+                next.result.scope == child.result.scope &&
+                next.usesFeedRow &&
+                !child.result.closed &&
+                !next.result.closed;
+            return KeyedSubtree(
+              key: ValueKey('search-row:${child.result.id}'),
+              child: DMenuContentScale.unscaled(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    widget,
+                    if (hasDivider) const TopicListSeparator(),
+                  ],
+                ),
+              ),
+            );
+          }
+
           return Padding(
             key: child is _PreparedSearchResult
                 ? ValueKey('search-row:${child.result.id}')
@@ -1589,6 +1621,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     final source = result.source;
     final label = source is SearchGroupHit ? source.name : result.title;
     final color = source is SearchCategoryHit ? Color(source.colorValue) : null;
+    final members = source is SearchGroupHit ? result.memberCount : null;
+    final accessibleLabel = members == null
+        ? label
+        : '$label, ${countLabel(members, CountNoun.member)}';
     final surface = color == null ? null : tokens.categoryControlSurface(color);
     return DButton(
       key: ValueKey('global-search-result-${result.id}'),
@@ -1601,8 +1637,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       borderColor: surface?.border ?? Colors.transparent,
       interactiveBackgroundColor:
           surface?.hover ?? tokens.quietControlSurface().hover,
-      semanticLabel: label,
-      tooltip: label,
+      semanticLabel: accessibleLabel,
+      tooltip: accessibleLabel,
       icon: result.scope == GlobalSearchScope.users
           ? DAvatar(
               dimension: 18,
@@ -1634,10 +1670,27 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             ),
       label: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 220),
-        child: _SearchHighlight(
-          siteUrl: widget.controller.siteUrl!,
-          text: label,
-          query: widget.controller.query,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: DSpacing.xs,
+          children: [
+            Flexible(
+              child: _SearchHighlight(
+                siteUrl: widget.controller.siteUrl!,
+                text: label,
+                query: widget.controller.query,
+              ),
+            ),
+            if (members != null)
+              Text(
+                '$members',
+                style: TextStyle(
+                  fontSize: DiscourseTypography.metadata,
+                  color: tokens.mutedForeground,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
         ),
       ),
       onPressed: () => widget.onOpen(result),
@@ -2154,6 +2207,107 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     // leave the message too little of the row.
     final message = result.scope.layout == GlobalSearchResultLayout.message;
     final timeAside = message && !largeText;
+    final conversation = widget.footerControls && message
+        ? result.conversation
+        : null;
+    if (conversation != null && conversation.title.isNotEmpty) {
+      final color = conversation.color == null
+          ? tokens.mutedForeground
+          : Color(conversation.color!);
+      final preview = searchSnippet(result.excerpt, controller.wordsQuery);
+      return DItem(
+        key: ValueKey('global-search-result-${result.id}'),
+        size: DItemSize.artwork,
+        shape: DItemShape.fullWidth,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        gap: 10,
+        onPressed: () {
+          widget.onSelect?.call(result.id);
+          widget.onOpen(result);
+        },
+        link: true,
+        selected:
+            _selected == result.id || widget.selectedResultId == result.id,
+        selectionStyle: DItemSelectionStyle.leadingAccent,
+        showSelectionIndicator: false,
+        children: [
+          DItemMedia(
+            variant: DItemMediaVariant.avatar,
+            child: DAvatar(
+              dimension: DAvatarSize.lg.dimension,
+              decorative: true,
+              border: false,
+              borderRadius: conversation.direct
+                  ? null
+                  : BorderRadius.circular(DRadius.bubble),
+              child: AvatarImage(
+                url: conversation.avatarUrl,
+                size: DAvatarSize.lg.dimension,
+                fallback: DAvatarFallback(
+                  backgroundColor: color.withValues(alpha: .22),
+                  foregroundColor: color,
+                  child: conversation.direct
+                      ? Text(conversation.title.characters.first)
+                      : const DIcon(DIcons.hashtag, size: 15),
+                ),
+              ),
+            ),
+          ),
+          DItemContent(
+            spacing: 3,
+            children: [
+              Row(
+                spacing: DSpacing.sm,
+                children: [
+                  Expanded(
+                    child: DItemTitle(
+                      child: _SearchHighlight(
+                        siteUrl: controller.siteUrl!,
+                        text: conversation.title,
+                        query: controller.wordsQuery,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ),
+                  if (result.createdAt case final at? when timeAside)
+                    Text(
+                      _searchDate(at),
+                      style: TextStyle(
+                        fontSize: DiscourseTypography.metadata,
+                        color: tokens.mutedForeground,
+                      ),
+                    ),
+                ],
+              ),
+              if (properties.contains(GlobalSearchDisplayProperty.excerpt) &&
+                  preview.isNotEmpty)
+                DItemDescription(
+                  maxLines: 1,
+                  child: _SearchHighlight(
+                    siteUrl: controller.siteUrl!,
+                    text: !conversation.direct && result.title.isNotEmpty
+                        ? '${result.title}: $preview'
+                        : preview,
+                    query: controller.wordsQuery,
+                    style: TextStyle(
+                      fontSize: DiscourseTypography.preview,
+                      color: tokens.mutedForeground,
+                    ),
+                  ),
+                ),
+              if (result.createdAt case final at? when !timeAside)
+                Text(
+                  _searchDate(at),
+                  style: TextStyle(
+                    fontSize: DiscourseTypography.metadata,
+                    color: tokens.mutedForeground,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
     final individualPost =
         inTopic ||
         source is SearchPostHit &&
@@ -2201,7 +2355,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           },
           outerPadding: EdgeInsets.zero,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 9,
+            horizontal: 16,
             vertical: 8,
           ),
         ),
@@ -2254,7 +2408,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       key: ValueKey('global-search-result-${result.id}'),
       size: DItemSize.artwork,
       shape: DItemShape.menu,
-      padding: EdgeInsets.symmetric(horizontal: 9, vertical: message ? 11 : 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.footerControls && message ? 15 : 9,
+        vertical: message ? 11 : 8,
+      ),
       onPressed: () {
         widget.onSelect?.call(result.id);
         widget.onOpen(result);

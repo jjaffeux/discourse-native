@@ -323,6 +323,7 @@ class GlobalSearchResult {
     this.source,
     this.topic,
     this.contextLabel,
+    this.conversation,
     this.searchLogId,
     this.privateMessage = false,
     this.closed = false,
@@ -334,6 +335,8 @@ class GlobalSearchResult {
   /// Expected destination after the link passes its owning navigation checks.
   final ContentDestination? destination;
   final String? username, avatarUrl, contextLabel;
+  final ({String title, int? color, String? avatarUrl, bool direct})?
+  conversation;
   final int? categoryId, likes, replies, memberCount, searchLogId;
   final List<String> tags;
   final DateTime? createdAt;
