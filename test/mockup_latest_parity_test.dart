@@ -199,7 +199,7 @@ void main() {
     const topics = [
       Topic(
         id: 7,
-        title: "What's everyone's sourdough hydration sweet spot?",
+        title: "What's everyone's sourdough hydration sweet spot? 🍞",
         excerpt:
             "I've been experimenting between 72% and 80% hydration. How do you find the right balance?",
         likeCount: 14,
@@ -337,6 +337,9 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     final filteredResults = tester.getRect(surface);
     expect(filteredResults.height, greaterThan(filteredEmpty.height));
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      expect(filteredResults.height, closeTo(560.84, 1));
+    }
     expect(shell.globalSearch.results, hasLength(topics.length));
     await _capture(tester, 'search-filtered-results');
     await tester.enterText(field, 'zzzzzz');
