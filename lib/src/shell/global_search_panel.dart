@@ -1432,11 +1432,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           const SizedBox(height: 2),
           _resultLine(context, section),
         ] else
-          for (final result
-              in all
-                  ? section.results.take(_sectionLimit(section))
-                  : section.results) ...[
-            const SizedBox(height: 2),
+          for (final (index, result)
+              in (all
+                      ? section.results.take(_sectionLimit(section))
+                      : section.results)
+                  .indexed) ...[
+            if (!phoneSheet ||
+                index > 0 ||
+                section.scope != GlobalSearchScope.forum ||
+                section.topicId != null)
+              const SizedBox(height: 2),
             _prepareResult(result),
           ],
       ],
@@ -1526,12 +1531,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             return KeyedSubtree(
               key: ValueKey('search-row:${child.result.id}'),
               child: DMenuContentScale.unscaled(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    widget,
-                    if (hasDivider) const TopicListSeparator(),
-                  ],
+                // The row uses the mockup's reading size in Search. Keep the
+                // user's text scale while dropping the feed's baseline uplift.
+                child: DReferenceTextScale(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      widget,
+                      if (hasDivider) const TopicListSeparator(),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -2434,7 +2443,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           outerPadding: EdgeInsets.zero,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 8,
+            vertical: 12,
           ),
         ),
       );
