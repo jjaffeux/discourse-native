@@ -68,6 +68,7 @@ final class TopicListTransition {
     required bool desktopPanelsEnabled,
     required bool mobileNavigationEnabled,
     this.presentation = TopicListPresentation.preserve,
+    this.resetScroll = false,
   }) {
     final sourceIndex = tab.contentStack.lastIndexWhere(
       (item) => !item.isTopic,
@@ -79,7 +80,7 @@ final class TopicListTransition {
         sourceIndex >= 0 &&
         tab.contentStack[sourceIndex].isTopicList;
     final root = route.isMessages ? 'messages' : 'latest';
-    replacement = tab.navigate(
+    final next = tab.navigate(
       rootDestinationId: root,
       contentStack: retainReader
           ? [
@@ -89,12 +90,16 @@ final class TopicListTransition {
             ]
           : [route],
     );
+    replacement = resetScroll && next.anchors.containsKey(route.id)
+        ? next.copyWith(anchors: {...next.anchors}..remove(route.id))
+        : next;
     mobileLocation = mobileNavigationEnabled && tab.currentContent.isTopicList
         ? ForumTabLocation(rootDestinationId: root, contentStack: [route])
         : null;
   }
 
   final ContentRoute route;
+  final bool resetScroll;
   final TopicListPresentation presentation;
   late final ForumTab replacement;
   late final ForumTabLocation? mobileLocation;
@@ -246,6 +251,7 @@ final class TopicListTransitions {
       desktopPanelsEnabled: desktopPanelsEnabled,
       mobileNavigationEnabled: mobileNavigationEnabled,
       presentation: presentation,
+      resetScroll: !route.sameDestinationAs(source),
     );
   }
 

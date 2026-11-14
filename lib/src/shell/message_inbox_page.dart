@@ -24,6 +24,7 @@ class MessageInboxPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DPageSurface.headed(
+    identity: ShellScope.tabOf(context).currentFeedId,
     titleText: context.l10n.messages,
     title: Row(
       children: [

@@ -189,4 +189,45 @@ void main() {
     expect(scroll.pixels, 0);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  testWidgets('changing a topic filter reopens a visited list at its top', (
+    tester,
+  ) async {
+    const support = TopicCategory(
+      id: 5,
+      name: 'Support',
+      slug: 'support',
+      color: '0088cc',
+    );
+    final shell = await pumpMobileShellFixture(
+      tester,
+      sidebarCategories: const [support],
+      topics: [
+        for (var id = 1; id <= 60; id++)
+          Topic(id: id, title: 'Discussion $id', slug: 'discussion-$id'),
+      ],
+    );
+    final list = find.byType(TopicListView);
+    ScrollPosition position() => tester
+        .state<ScrollableState>(
+          find.descendant(of: list, matching: find.byType(Scrollable)).first,
+        )
+        .position;
+    await tester.drag(list, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(position().pixels, greaterThan(0));
+
+    shell.selectTopicListCategory(support);
+    await tester.pumpAndSettle();
+    expect(shell.topicListContent?.categoryId, 5);
+    shell.clearTopicListFilters();
+    await tester.pumpAndSettle();
+    expect(shell.topicListContent?.id, 'latest');
+    await _capture(tester, 'list-after-filter-reset');
+    expect(position().pixels, 0);
+    expect(
+      find.byKey(const ValueKey('topic-list-feed-menu')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }

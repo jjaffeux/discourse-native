@@ -3084,6 +3084,15 @@ class ShellController extends FrameSafeNotifier
     categoryId: categoryId,
   );
 
+  final _topicListScrollResets = Expando<Map<(String, String), Object>>();
+
+  Object? topicListScrollReset(ShellTabContext tab, String destinationId) {
+    final session = tab.lease?.session;
+    final tabId = tab.activeTabId;
+    if (session == null || tabId == null) return null;
+    return _topicListScrollResets[session]?[(tabId, destinationId)];
+  }
+
   int feedScrollRow(String destinationId, {String? tabId}) {
     final instance = currentInstance;
     if (instance == null) return 0;

@@ -50,7 +50,14 @@ part 'topic_card_metadata.dart';
 part 'topic_list_prefetch.dart';
 part 'topic_row_content.dart';
 
-typedef _TopicListIdentity = (String?, String?, String?, String, Object?);
+typedef _TopicListIdentity = (
+  String?,
+  String?,
+  String?,
+  String,
+  Object?,
+  Object?,
+);
 
 typedef _TopicListExtents = ({
   TopicFeed feed,
@@ -678,6 +685,7 @@ class _TopicListViewState extends State<TopicListView> {
       tab.tabId,
       destination,
       controller.lifecycle.capture(siteUrl ?? '').session,
+      controller.topicListScrollReset(tab, destination),
     );
   }
 

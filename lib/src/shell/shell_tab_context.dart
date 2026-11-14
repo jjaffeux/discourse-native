@@ -548,6 +548,24 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
   }
 
   void _publishTopicListTransition(TopicListTransition plan) {
+    if (plan.resetScroll) {
+      final session = lease!.session;
+      final resets = shell._topicListScrollResets[session] ??= {};
+      final retained = {
+        for (final route in plan.replacement.contentStack) route.id,
+        for (final visit in [
+          ...plan.replacement.backHistory,
+          ...plan.replacement.forwardHistory,
+        ])
+          for (final route in visit.contentStack) route.id,
+      };
+      resets.removeWhere(
+        (key, _) =>
+            shell.currentWorkspace?.tabById(key.$1) == null ||
+            key.$1 == plan.replacement.id && !retained.contains(key.$2),
+      );
+      resets[(plan.replacement.id, plan.route.id)] = Object();
+    }
     if (plan.presentation == TopicListPresentation.scopeList ||
         plan.presentation == TopicListPresentation.sidebar) {
       shell._showMobileScopeList();
@@ -589,6 +607,9 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
       TopicListTransition.replace(
         tab: tab,
         route: route,
+        resetScroll: !route.sameDestinationAs(
+          topicListContent ?? currentContent,
+        ),
         keepTopicOpen: keepTopicOpen,
         desktopPanelsEnabled: shell.desktopPanelsEnabled,
         mobileNavigationEnabled: shell.mobileNavigationEnabled,
