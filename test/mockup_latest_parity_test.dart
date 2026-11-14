@@ -44,6 +44,31 @@ Future<void> _capture(WidgetTester tester, String name) async {
   });
 }
 
+Future<void> _verifySearchLabelAndCapture(
+  WidgetTester tester,
+  String state,
+  String label,
+) async {
+  if (!const bool.fromEnvironment('captureMockupParity')) return;
+  final finder = find.text(label);
+  final text = tester.renderObject<RenderBox>(finder);
+  final baseline = text.localToGlobal(
+    Offset(
+      0,
+      text.getDryBaseline(
+        BoxConstraints.tight(text.size),
+        TextBaseline.alphabetic,
+      )!,
+    ),
+  );
+  final sheet = tester.getRect(find.byType(DSheetContent));
+  // The rendered 390 × 844 mockup puts every empty label's alphabetic
+  // baseline 116.98 points below the top of the sheet.
+  expect(baseline.dy - sheet.top, closeTo(116.98, .75), reason: state);
+  expect(tester.getRect(finder).left - sheet.left, closeTo(22.06, .25));
+  await _capture(tester, 'search-label-$state');
+}
+
 void main() {
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -344,7 +369,11 @@ void main() {
     if (const bool.fromEnvironment('captureMockupParity')) {
       expect(filteredEmpty.height, closeTo(236, 2));
     }
-    await _capture(tester, 'search-filtered-empty');
+    await _verifySearchLabelAndCapture(
+      tester,
+      'filtered',
+      'No results for “tag:sourdough zzzzzz”',
+    );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -366,7 +395,11 @@ void main() {
     expect(emptyMessage, findsOneWidget);
     expect(tester.getRect(surface).top, closeTo(filteredResults.top, .01));
     expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
-    await _capture(tester, 'search-filtered-after-results');
+    await _verifySearchLabelAndCapture(
+      tester,
+      'filtered-retained',
+      'No results for “tag:sourdough zzzzzz”',
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -378,7 +411,11 @@ void main() {
     expect(scopes.hitTestable(), findsOneWidget);
     expect(tester.getRect(tagChip).left, closeTo(16, .1));
     expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
-    await _capture(tester, 'search-sort-empty');
+    await _verifySearchLabelAndCapture(
+      tester,
+      'ordered',
+      'No results for “order:latest zzzzzz”',
+    );
     await tester.tap(find.byTooltip('Remove Ordering condition'));
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     expect(tagChip, findsNothing);
@@ -600,7 +637,11 @@ void main() {
     await tester.pumpAndSettle();
     final sheet = find.byType(DSheetContent);
     final restingHeight = tester.getSize(sheet).height;
-    await _capture(tester, 'search-height-topic-start');
+    await _verifySearchLabelAndCapture(
+      tester,
+      'history',
+      'Nothing searched for lately.',
+    );
     await tester.enterText(find.byKey(ForumSearch.inputKey), term);
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
 
@@ -648,8 +689,25 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     expect(find.text('No results for “zzzzzz”'), findsOneWidget);
     expect(tester.getSize(sheet).height, closeTo(resultHeight, .01));
-    await _capture(tester, 'search-height-topic-after-results');
+    await _verifySearchLabelAndCapture(
+      tester,
+      'retained',
+      'No results for “zzzzzz”',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(ForumSearch.inputKey), 'zzzzzz');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    await _verifySearchLabelAndCapture(
+      tester,
+      'plain',
+      'No results for “zzzzzz”',
+    );
     if (const bool.fromEnvironment('captureMockupParity')) {
+      expect(tester.getSize(sheet).height, closeTo(restingHeight, 1));
       expect(restingHeight, closeTo(235.84, 1.25));
       expect(resultHeight, closeTo(289.84, 1.25));
       expect(visibleExcerpt, endsWith('turning into a…'));

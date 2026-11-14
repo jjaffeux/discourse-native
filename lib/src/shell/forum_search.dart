@@ -1747,8 +1747,12 @@ class _ForumSearchState extends State<ForumSearch> {
     super.dispose();
   }
 
+  int get _feedPickerCount => _usesFeedFilters
+      ? topicFilterMenuCount(_feedFilterExpression(words: ''))
+      : 0;
+
   Widget _feedPickerButton(BuildContext context) {
-    final count = topicFilterMenuCount(_feedFilterExpression(words: ''));
+    final count = _feedPickerCount;
     final label = context.l10n.filters;
     const key = ValueKey('search-filters-button');
     const icon = DIcon(DIcons.filter, size: 16);
@@ -1849,6 +1853,7 @@ class _ForumSearchState extends State<ForumSearch> {
         feedFilterChoices: _showsFeedFilters ? _feedChoices : const [],
         feedFilterClauses: _showsFeedFilters ? _feedClauses : const [],
         hasFilterPicker: _usesFeedFilters,
+        showsFilterCount: phone && _feedPickerCount > 0,
         onFeedFilterChoice: _pickFeedFilter,
         showClearFilters:
             _listExpression.isNotEmpty &&
