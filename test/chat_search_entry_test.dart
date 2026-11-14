@@ -136,7 +136,7 @@ void main() {
           );
         }
         final sheet = tester.getRect(find.byType(DSheetContent));
-        expect(sheet.height, closeTo(844 * .55, 1));
+        expect(sheet.height, lessThan(844 - 47));
         expect(fieldBounds.top, greaterThan(sheet.top));
         expect(
           tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,

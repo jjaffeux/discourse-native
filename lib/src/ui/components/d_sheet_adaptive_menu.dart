@@ -275,6 +275,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.retained,
     required this.sizeToContent,
     required this.keepFootInView,
+    required this.holdContentHeight,
     required this.initiallyExpanded,
     required this.contentLoading,
     this.restAt,
@@ -286,6 +287,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final bool retained;
   final bool sizeToContent;
   final bool keepFootInView;
+  final bool holdContentHeight;
   final bool initiallyExpanded;
   final bool contentLoading;
   final GlobalKey? restAt;
@@ -381,6 +383,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double _laidHeightOffset = 0;
   double _laidCap = double.infinity;
   double _room = 0;
+  double _viewportHeight = 0;
   double _keyboard = 0;
   bool _measured = false;
   bool _interacted = false;
@@ -680,9 +683,20 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final box = _surface.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
     final tall = box.size.height;
-    if (_laidHeightOffset <= 0 || tall < _laidCap - .5) _fullHeight = tall;
+    if (widget.holdContentHeight) {
+      if (!widget.contentLoading &&
+          _keyboard == 0 &&
+          _keyboardInset == 0 &&
+          _laidHeightOffset == 0) {
+        _fullHeight = math.max(_fullHeight, tall);
+      }
+    } else if (_laidHeightOffset <= 0 || tall < _laidCap - .5) {
+      _fullHeight = tall;
+    }
     final full = widget.keepFootInView ? _fullHeight : tall;
-    final half = _room * .55;
+    final half = widget.holdContentHeight
+        ? (_viewportHeight * .55).roundToDouble()
+        : _room * .55;
     var low = _fullyExpanded || _keyboard > 0
         ? 0.0
         : !widget.sizeToContent
@@ -707,7 +721,14 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     final wasLow = _low;
     _low = low;
-    if (!_measured || (!_interacted && !_peeking && (wasLow - low).abs() > 1)) {
+    final followsLow = widget.holdContentHeight
+        ? _keyboard == 0 &&
+              wasLow > 0 &&
+              (_travel.value - wasLow).abs() < 1 &&
+              !_dragging &&
+              !_travel.isAnimating
+        : !_interacted;
+    if (!_measured || (followsLow && !_peeking && (wasLow - low).abs() > 1)) {
       _measured = true;
       _travel.value = low;
       if (restBox is RenderBox) _schedulePeek();
@@ -1057,14 +1078,14 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
     return LayoutBuilder(
       builder: (context, bounds) {
-        _room = math.max(0, bounds.maxHeight - keyboard);
-        final maximum = math.max(0.0, _room - safeTop - 8);
-        final restHeight = widget.retained
+        _viewportHeight = widget.retained
             ? media.size.height
             : bounds.maxHeight;
+        _room = math.max(0, bounds.maxHeight - keyboard);
+        final maximum = math.max(0.0, _room - safeTop - 8);
         _fixedLow = math.max(
           0,
-          bounds.maxHeight - safeTop - 8 - restHeight * .55,
+          bounds.maxHeight - safeTop - 8 - _viewportHeight * .55,
         );
         return AnimatedBuilder(
           animation: Listenable.merge([widget.presentation.animation, _travel]),
@@ -1085,11 +1106,22 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                       _retainedExitHeightOffset ??
                       _heightOffset;
             _laidHeightOffset = heightOffset;
-            _laidCap =
-                (heightOffset > 0 && widget.keepFootInView
-                    ? math.max(0.0, _fullHeight - heightOffset)
-                    : maximum) +
-                keyboard;
+            final visibleHeight = heightOffset > 0 && widget.keepFootInView
+                ? math.min(maximum, math.max(0.0, _fullHeight - heightOffset))
+                : maximum;
+            final loadingHeight =
+                widget.holdContentHeight &&
+                    widget.contentLoading &&
+                    _keyboard == 0 &&
+                    _fullHeight > 0
+                ? math.min(visibleHeight, _fullHeight)
+                : visibleHeight;
+            _laidCap = loadingHeight + keyboard;
+            final heldMinimum = !widget.holdContentHeight
+                ? 0.0
+                : _keyboardSettled
+                ? _laidCap
+                : math.min(_fullHeight, _laidCap);
             return Stack(
               clipBehavior: Clip.hardEdge,
               children: [
@@ -1121,7 +1153,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                               child: ConstrainedBox(
                                 key: _surface,
                                 constraints: widget.sizeToContent
-                                    ? BoxConstraints(maxHeight: _laidCap)
+                                    ? BoxConstraints(
+                                        minHeight: heldMinimum,
+                                        maxHeight: _laidCap,
+                                      )
                                     : BoxConstraints.tightFor(
                                         height:
                                             math.max(

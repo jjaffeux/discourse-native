@@ -6697,6 +6697,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get noRecentSearches => 'Nothing searched for lately.';
+
+  @override
   String get recentSearches => 'Recent searches';
 
   @override

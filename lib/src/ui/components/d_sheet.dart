@@ -151,6 +151,7 @@ class DSheet<T> extends StatelessWidget {
       variant: content.variant,
       sizeToContent: content.sizeToContent,
       keepFootInView: content.keepFootInView,
+      holdContentHeight: content.holdContentHeight,
       initiallyExpanded: content.initiallyExpanded,
       contentLoading: content.contentLoading,
       restAt: content.restAt,
@@ -470,6 +471,7 @@ class _DSheetViewportState extends State<DSheetViewport>
           variant: content.variant,
           sizeToContent: content.sizeToContent,
           keepFootInView: content.keepFootInView,
+          holdContentHeight: content.holdContentHeight,
           initiallyExpanded: content.initiallyExpanded,
           contentLoading: content.contentLoading,
           restAt: content.restAt,
@@ -999,6 +1001,7 @@ Widget _sheetPresentation(
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
   bool keepFootInView = false,
+  bool holdContentHeight = false,
   bool initiallyExpanded = false,
   bool contentLoading = false,
   GlobalKey? restAt,
@@ -1018,6 +1021,7 @@ Widget _sheetPresentation(
       onDismissRequested: onRetainedSwipeDismissRequested,
       sizeToContent: sizeToContent,
       keepFootInView: keepFootInView,
+      holdContentHeight: holdContentHeight,
       initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
       restAt: restAt,
@@ -2387,6 +2391,7 @@ class DSheetContent extends StatelessWidget {
     this.variant = DSheetVariant.standard,
     this.sizeToContent = true,
     this.keepFootInView = false,
+    this.holdContentHeight = false,
     this.initiallyExpanded = false,
     this.contentLoading = false,
     this.restAt,
@@ -2407,6 +2412,7 @@ class DSheetContent extends StatelessWidget {
     this.extendBehindKeyboard = false,
   }) : assert(!extendBehindKeyboard || fillAvailableHeight),
        assert(!keepFootInView || (sizeToContent && restAt == null)),
+       assert(!holdContentHeight || keepFootInView),
        assert(slivers == null || scrollWholeSheet == true),
 
        assert(sidePanelMaxWidth > 0),
@@ -2428,6 +2434,10 @@ class DSheetContent extends StatelessWidget {
 
   /// Keeps a footer in view at the lower detent of a content-sized menu.
   final bool keepFootInView;
+
+  /// Holds the tallest content size reached during this adaptive menu visit.
+  /// A keyboard or a smaller viewport can still constrain it.
+  final bool holdContentHeight;
 
   /// Opens an adaptive menu fully or expands an open menu when requested.
   ///
@@ -2771,6 +2781,9 @@ class DSheetContent extends StatelessWidget {
                   context: context,
                   removeBottom: !extendBehindKeyboard,
                   child: Stack(
+                    fit: holdContentHeight
+                        ? StackFit.passthrough
+                        : StackFit.loose,
                     children: [
                       if (headerArtwork != null && restAt == null)
                         headerArtwork,
@@ -2790,6 +2803,34 @@ class DSheetContent extends StatelessWidget {
                             throughFoot: scrollsThroughFoot,
                             slivers: slivers,
                             children: parts,
+                          ),
+                        )
+                      else if (holdContentHeight)
+                        LayoutBuilder(
+                          builder: (context, constraints) => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final part in parts)
+                                if (part is Flexible)
+                                  Flexible(
+                                    flex: part.flex,
+                                    fit: part.fit,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minHeight: math.max(
+                                          0,
+                                          constraints.minHeight -
+                                              handlePadding.vertical -
+                                              handleHeight,
+                                        ),
+                                      ),
+                                      child: part.child,
+                                    ),
+                                  )
+                                else
+                                  part,
+                            ],
                           ),
                         )
                       else

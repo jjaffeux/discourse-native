@@ -362,6 +362,27 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 450));
       await tester.pumpAndSettle();
+      Future<void> capture(String suffix) async {
+        if (Platform.environment['SEARCH_CAPTURE'] != '1') return;
+        await tester.runAsync(() async {
+          final image =
+              await (boundary.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+            '/private/tmp/search-$width-$dark-$scale$suffix.png',
+          ).writeAsBytes(data!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+
+      final sheet = find.ancestor(
+        of: find.byKey(ForumSearch.panelKey),
+        matching: find.byType(DSheetContent),
+      );
+      final entryHeight = width < 700 ? tester.getSize(sheet).height : 0.0;
+      await capture('-entry');
       await tester.enterText(
         find.byKey(ForumSearch.inputKey),
         'design keyboard',
@@ -399,13 +420,9 @@ void main() {
           closeTo(width - tester.getRect(field).right, .01),
         );
         expect(tester.getSize(field).width, greaterThan(width * .9));
-        expect(clear.hitTestable(), findsOneWidget);
+        expect(clear, findsNothing);
         if (scale == 1) {
           expect(tester.getRect(field).height, closeTo(36, .2));
-          expect(
-            tester.getRect(field).height,
-            greaterThan(tester.getRect(clear).height),
-          );
           expect(
             tester
                 .widget<EditableText>(find.byType(EditableText))
@@ -416,27 +433,14 @@ void main() {
         }
       }
       expect(tester.takeException(), isNull);
-      Future<void> capture(String suffix) async {
-        if (Platform.environment['SEARCH_CAPTURE'] != '1') return;
-        await tester.runAsync(() async {
-          final image =
-              await (boundary.currentContext!.findRenderObject()
-                      as RenderRepaintBoundary)
-                  .toImage();
-          final data = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File(
-            '/private/tmp/search-$width-$dark-$scale$suffix.png',
-          ).writeAsBytes(data!.buffer.asUint8List());
-          image.dispose();
-        });
-      }
 
       if (width < 700) {
-        final sheet = find.ancestor(
-          of: find.byKey(ForumSearch.panelKey),
-          matching: find.byType(DSheetContent),
-        );
-        expect(tester.getSize(sheet).height, closeTo(900 * .55, 1));
+        final resultHeight = tester.getSize(sheet).height;
+        if (scale == 1) {
+          expect(resultHeight, greaterThan(entryHeight));
+        } else {
+          expect(resultHeight, closeTo(900 * .55, 1));
+        }
         expect(find.byKey(const ValueKey('section:forum:')), findsNothing);
         final firstTopic = find.byKey(const ValueKey('search-row:forum:99'));
         expect(
@@ -490,6 +494,23 @@ void main() {
           findsOneWidget,
         );
         await capture('-condition');
+        final queryHeight = tester.getSize(sheet).height;
+        shell.globalSearch.rememberSearch();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(shell.globalSearch.query, isEmpty);
+        expect(shell.globalSearch.conditions, isEmpty);
+        expect(
+          tester.getSize(sheet).height,
+          greaterThanOrEqualTo(queryHeight - 1),
+        );
+        await capture('-escape-cleared');
+        await tester.enterText(
+          find.byKey(ForumSearch.inputKey),
+          'design keyboard',
+        );
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.pumpAndSettle();
         tester.view.viewInsets = const FakeViewPadding(bottom: 330);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
@@ -509,15 +530,11 @@ void main() {
         await capture('-keyboard');
         tester.view.resetViewInsets();
         shell.globalSearch.rememberSearch();
-        await tester.tap(find.byKey(const ValueKey('forum-search-clear')));
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pump(const Duration(milliseconds: 450));
         await tester.pumpAndSettle();
-        final recent = find.byWidgetPredicate(
-          (widget) =>
-              widget is DItem &&
-              widget.key.toString().contains(
-                'global-search-recent-design keyboard',
-              ),
+        final recent = find.byKey(
+          const ValueKey('global-search-recent-design keyboard'),
         );
         expect(recent, findsOneWidget);
         expect(
@@ -525,6 +542,34 @@ void main() {
           findsOneWidget,
         );
         await capture('-recent');
+        await tester.tap(
+          find.byKey(const ValueKey('global-search-clear-history')),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.globalSearch.recentSearches, isEmpty);
+        expect(shell.globalSearch.query, isEmpty);
+        expect(find.text('Nothing searched for lately.'), findsOneWidget);
+        expect(
+          tester.getRect(footer).bottom,
+          closeTo(tester.getRect(find.byType(GlobalSearchPanel)).bottom, .01),
+        );
+        expect(
+          tester.getRect(footer).bottom,
+          closeTo(tester.getRect(sheet).bottom, .01),
+        );
+        await capture('-history-cleared');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+        await tester.pumpAndSettle();
+        expect(find.text('Nothing searched for lately.'), findsOneWidget);
+        final emptyHeight = tester.getSize(sheet).height;
+        expect(emptyHeight, lessThan(entryHeight));
+        if (scale == 1 && Platform.environment['SEARCH_CAPTURE'] == '1') {
+          expect(emptyHeight, closeTo(236, 2));
+        }
+        await capture('-empty-history-entry');
       }
     });
   }
