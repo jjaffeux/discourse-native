@@ -1042,7 +1042,7 @@ class _ComposerBottom extends StatelessWidget {
     final blurInset = showTaxonomy || showRecipients
         ? DSpacing.md +
               DControlStyle.scaledHeight(
-                    DControlSize.toolbar,
+                    showTaxonomy ? DControlSize.filter : DControlSize.toolbar,
                     MediaQuery.textScalerOf(context),
                     context: context,
                   ) /
@@ -1176,7 +1176,10 @@ class _TopicTaxonomy extends StatelessWidget {
                       ),
                       key: const ValueKey('composer-category-action'),
                       child: TopicCategorySelector(
-                        size: DButtonSize.toolbar,
+                        size: context.isTouch
+                            ? DButtonSize.filter
+                            : DButtonSize.toolbar,
+                        sheetOnMobile: true,
                         key: ObjectKey(composer),
                         valueKey: const ValueKey('composer-category'),
                         siteUrl: composer.target.siteUrl,
@@ -1219,7 +1222,10 @@ class _TopicTaxonomy extends StatelessWidget {
                       ),
                       key: const ValueKey('composer-subcategory-action'),
                       child: TopicCategorySelector(
-                        size: DButtonSize.toolbar,
+                        size: context.isTouch
+                            ? DButtonSize.filter
+                            : DButtonSize.toolbar,
+                        sheetOnMobile: true,
                         key: ValueKey((composer, rootCategory.id)),
                         keyPrefix: 'composer-subcategory',
                         valueKey: const ValueKey('composer-subcategory'),
@@ -1250,7 +1256,9 @@ class _TopicTaxonomy extends StatelessWidget {
                       ),
                       key: const ValueKey('composer-add-tag'),
                       child: TopicTagSelector(
-                        size: DButtonSize.toolbar,
+                        size: context.isTouch
+                            ? DButtonSize.filter
+                            : DButtonSize.toolbar,
                         key: ValueKey((composer, categoryId)),
                         valueKey: const ValueKey('composer-tags'),
                         selectedTags: composer.tags,

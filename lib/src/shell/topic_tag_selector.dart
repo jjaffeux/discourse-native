@@ -230,7 +230,10 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         : selected.firstOrNull?.name ?? widget.placeholder;
     final prefix = widget.keyPrefix;
     final newTag = _newTag;
-    final visibleResults = _visibleResults;
+    final pickerSheet = context.isTouch && !widget.includeAll;
+    final visibleResults = _visibleResults
+        .where((tag) => !pickerSheet || !_selected(tag))
+        .toList();
     DComboboxOption<TopicTag> tagOption(TopicTag tag) => DComboboxOption(
       value: tag,
       label: tag.name,
@@ -279,78 +282,94 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         maximumWidth: 210,
       ),
     );
-    final content = DComboboxContent(
-      sheetOnMobile: widget.sheetOnMobile,
-      fullScreenOnMobile: true,
-      key: ValueKey('$prefix-popover'),
-      semanticLabel: context.l10n.tags,
-      width: 280,
-      children: [
-        Padding(
-          padding: DInsets.menu,
-          child: DComboboxInput<TopicTag>(
-            size: context.isTouch ? DControlSize.filter : DControlSize.regular,
-            key: ValueKey('$prefix-query'),
-            placeholder: context.l10n.searchTags,
-            semanticLabel: context.l10n.searchTagsTopictagselector,
-            registerAsAnchor: false,
-            autofocus: context.isTouch,
-            showTrigger: false,
-          ),
+    final children = <Widget>[
+      Padding(
+        padding: DInsets.menu,
+        child: DComboboxInput<TopicTag>(
+          size: context.isTouch ? DControlSize.filter : DControlSize.regular,
+          key: ValueKey('$prefix-query'),
+          placeholder: context.l10n.searchTags,
+          semanticLabel: context.l10n.searchTagsTopictagselector,
+          registerAsAnchor: false,
+          autofocus: context.isTouch,
+          showTrigger: false,
         ),
-        DComboboxList<TopicTag>(
-          itemBuilder: (context, option) => Row(
-            children: [
-              if (identical(option.value, newTag)) ...[
-                const DIcon(DIcons.plus, size: 16),
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(option.label),
-                    if (option.value.disabledReason case final reason?)
-                      Text(
-                        reason,
-                        style: TextStyle(
-                          color: DTokens.of(context).mutedForeground,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+      ),
+      DComboboxList<TopicTag>(
+        itemBuilder: (context, option) => Row(
+          children: [
+            if (identical(option.value, newTag)) ...[
+              const DIcon(DIcons.plus, size: 16),
+              const SizedBox(width: 8),
             ],
-          ),
-        ),
-        if (_loading)
-          const DComboboxStatus(child: SizedBox.shrink())
-        else if (_result.explanation != null ||
-            _visibleResults.isEmpty && newTag == null)
-          DComboboxStatus(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                _result.explanation ??
-                    (_query.trim().isEmpty
-                        ? context.l10n.noTagsAreAvailable
-                        : context.l10n.noMatchingTags),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(option.label),
+                  if (option.value.disabledReason case final reason?)
+                    Text(
+                      reason,
+                      style: TextStyle(
+                        color: DTokens.of(context).mutedForeground,
+                      ),
+                    ),
+                ],
               ),
             ),
+          ],
+        ),
+      ),
+      if (_loading)
+        const DComboboxStatus(child: SizedBox.shrink())
+      else if (_result.explanation != null ||
+          _visibleResults.isEmpty && newTag == null)
+        DComboboxStatus(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              _result.explanation ??
+                  (_query.trim().isEmpty
+                      ? context.l10n.noTagsAreAvailable
+                      : context.l10n.noMatchingTags),
+            ),
           ),
-      ],
-    );
+        ),
+    ];
+    final content = pickerSheet
+        ? DComboboxContent.adaptiveSheet(
+            key: ValueKey('$prefix-popover'),
+            semanticLabel: context.l10n.tags,
+            width: 280,
+            children: children,
+          )
+        : DComboboxContent(
+            sheetOnMobile: widget.sheetOnMobile,
+            fullScreenOnMobile: true,
+            key: ValueKey('$prefix-popover'),
+            semanticLabel: context.l10n.tags,
+            width: 280,
+            children: children,
+          );
     if (widget.multiple) {
       return DCombobox<TopicTag>.multipleControlled(
         controller: _combobox,
         value: selected.isEmpty && widget.includeAll ? const [_all] : selected,
         closeOnSelect: !context.isTouch,
         options: options,
+        itemToStringLabel: (tag) => tag.name,
         enabled: widget.onChanged != null,
         equals: _sameTag,
         query: _query,
         filterLocally: false,
-        onQueryChanged: _queryChanged,
+        onQueryChanged: (query, reason) => _queryChanged(
+          query,
+          pickerSheet &&
+                  (reason == DComboboxChangeReason.itemPress ||
+                      reason == DComboboxChangeReason.keyboard)
+              ? DComboboxChangeReason.input
+              : reason,
+        ),
         onOpenChanged: _openChanged,
         onValuesChanged: (tags, _) {
           final clear = tags.contains(_all) && selected.isNotEmpty;

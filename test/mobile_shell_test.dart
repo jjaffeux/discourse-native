@@ -6580,6 +6580,69 @@ void main() {
     expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  _mobileTest('composer category and tag pickers use phone sheets', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      sidebarCategories: const [
+        TopicCategory(
+          id: 42,
+          name: 'Support',
+          slug: 'support',
+          color: '0088cc',
+          permission: 1,
+        ),
+      ],
+    );
+    await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+    await tester.pumpAndSettle();
+
+    await _loadChromeCaptureFonts(tester);
+    await tester.pumpAndSettle();
+    final category = find.byKey(const ValueKey('composer-category'));
+    await tester.tap(category);
+    await tester.pumpAndSettle();
+    await _captureChrome(tester, 'composer-category-picker');
+    final categorySheet = find.ancestor(
+      of: find.byKey(const ValueKey('category-selector-query')),
+      matching: find.byType(DSheetContent),
+    );
+    expect(categorySheet, findsOneWidget);
+    await tester.tap(
+      find.descendant(of: categorySheet, matching: find.text('Support')),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.visibleComposer!.categoryId, 42);
+
+    await tester.tap(find.byKey(const ValueKey('composer-tags')));
+    await tester.pumpAndSettle();
+    final option = find.byKey(
+      const ValueKey(('tag-selector-option', 'show-and-tell')),
+    );
+    await tester.tap(option);
+    await tester.pumpAndSettle();
+    expect(shell.visibleComposer!.tags.single.name, 'show-and-tell');
+    await _captureChrome(tester, 'composer-tag-picker');
+    expect(option, findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(DSheetFooter),
+        matching: find.byType(DComboboxChip<TopicTag>),
+      ),
+      findsOneWidget,
+    );
+    final footer = find.byType(DSheetFooter);
+    expect(
+      find.descendant(of: footer, matching: find.text('show-and-tell')),
+      findsOneWidget,
+    );
+    await tester.tap(find.bySemanticsLabel('Remove show-and-tell'));
+    await tester.pumpAndSettle();
+    expect(shell.visibleComposer!.tags, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('narrow large text keeps settings and keyboard search usable', (
     tester,
   ) async {
