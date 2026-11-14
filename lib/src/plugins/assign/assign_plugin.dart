@@ -504,10 +504,7 @@ final class AssignPlugin
                       ? const DIcon(DIcons.userPlus)
                       : AssignmentAssigneeAvatar(
                           assignee: direct.assignee,
-                          size: DControlStyle.iconDimension(
-                            DControlSize.regular,
-                            context: anchorContext,
-                          ),
+                          size: DAvatarSize.sm.dimension,
                         ),
                   label: Row(
                     mainAxisSize: MainAxisSize.min,

@@ -607,6 +607,11 @@ void main() {
             findsNothing,
           );
           expect(find.byType(DButton), findsOneWidget);
+          final avatar = find.descendant(
+            of: header,
+            matching: find.byType(DAvatar),
+          );
+          expect(tester.getSize(avatar), const Size.square(24));
           expect(tester.getSize(header).width, lessThanOrEqualTo(220));
           expect(tester.takeException(), isNull);
           await tester.tap(header);
