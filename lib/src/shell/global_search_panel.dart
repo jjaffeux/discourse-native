@@ -1061,13 +1061,31 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   Widget _scopeBar(BuildContext context) {
     final controller = widget.controller;
     final phone = DControlStyle.isTouch(context);
+    final scopes = widget.footerControls
+        ? [
+            GlobalSearchScope.all,
+            GlobalSearchScope.forum,
+            GlobalSearchScope.messages,
+            ...controller.scopes.where((scope) => !scope.isCore),
+            GlobalSearchScope.places,
+            GlobalSearchScope.users,
+            GlobalSearchScope.groups,
+          ].where(controller.scopes.contains).toList()
+        : controller.scopes;
+    final counts = {for (final scope in scopes) scope: _scopeCount(scope)};
+    final knownCounts =
+        widget.footerControls &&
+        controller.scope == GlobalSearchScope.all &&
+        (controller.phase == GlobalSearchPhase.results ||
+            controller.phase == GlobalSearchPhase.empty);
     final reads = <Object?>[
       controller,
       context.l10n,
       phone,
       widget.footerControls,
       controller.scope,
-      for (final scope in controller.scopes) ...[scope, _scopeCount(scope)],
+      knownCounts,
+      for (final scope in scopes) ...[scope, counts[scope]],
     ];
     if (_builtScopeBar == null || !listEquals(reads, _scopeBarReads)) {
       _scopeBarReads = reads;
@@ -1081,40 +1099,47 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         variant: phone && !widget.footerControls
             ? DToggleVariant.standard
             : DToggleVariant.outline,
-        size: phone && !widget.footerControls
+        size: widget.footerControls
+            ? DToggleSize.filter
+            : phone
             ? DToggleSize.segment
             : DToggleSize.regular,
         inset: phone && !widget.footerControls,
         spacing: 1.5,
         semanticLabel: context.l10n.globalSearch,
         items: [
-          for (final scope in controller.scopes)
+          for (final scope in scopes)
             DToggleGroupItem(
               value: scope,
               semanticLabel: scope.label,
               child: KeyedSubtree(
                 key: _scopeKeys.putIfAbsent(scope, GlobalKey.new),
-                child: Row(
-                  key: ValueKey('global-search-scope-${scope.keyName}'),
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: 6,
-                  children: [
-                    Text(scope.label),
-                    if (scope != GlobalSearchScope.all &&
-                        _scopeCount(scope) > 0)
-                      Text(
-                        _scopeCount(scope) > 99
-                            ? '99+'
-                            : '${_scopeCount(scope)}',
-                        style: TextStyle(
-                          fontSize: phone
-                              ? DiscourseTypography.metadata
-                              : DiscourseTypography.micro,
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                child: Opacity(
+                  opacity:
+                      knownCounts &&
+                          scope != controller.scope &&
+                          counts[scope] == 0
+                      ? .5
+                      : 1,
+                  child: Row(
+                    key: ValueKey('global-search-scope-${scope.keyName}'),
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 6,
+                    children: [
+                      Text(scope.label),
+                      if (scope != GlobalSearchScope.all && counts[scope]! > 0)
+                        Text(
+                          counts[scope]! > 99 ? '99+' : '${counts[scope]}',
+                          style: TextStyle(
+                            fontSize: phone
+                                ? DiscourseTypography.metadata
+                                : DiscourseTypography.micro,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

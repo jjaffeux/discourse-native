@@ -438,6 +438,10 @@ void main() {
           closeTo(tester.getRect(find.byType(GlobalSearchPanel)).bottom, .01),
         );
         expect(find.descendant(of: footer, matching: all), findsOneWidget);
+        if (scale == 1) {
+          final toggle = find.ancestor(of: all, matching: find.byType(DToggle));
+          expect(tester.getSize(toggle).height, closeTo(36, .1));
+        }
         shell.globalSearch.addCondition(
           const GlobalSearchCondition(filterId: 'author', value: ['mira']),
         );

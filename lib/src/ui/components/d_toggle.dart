@@ -29,7 +29,8 @@ enum DToggleDensity {
   /// A 14px circular disclosure with a foreground border and 10px artwork.
   disclosure,
 
-  /// 26px header-menu filter pills, with accent selection and recessed rest.
+  /// Header-menu pills with accent selection and recessed rest.
+  /// Use [DControlSize.filter] for the 36px phone pill.
   menuFilter,
   chatReaction,
 
@@ -287,6 +288,10 @@ class _DToggleState extends State<DToggle> {
     final disclosure = widget.density == DToggleDensity.disclosure;
     final postReaction = widget.density == DToggleDensity.postReaction;
     final menuFilter = widget.density == DToggleDensity.menuFilter;
+    final touchFilter =
+        menuFilter &&
+        widget.size == DToggleSize.filter &&
+        DControlStyle.usesTouchGeometry(context);
     final chatReaction = widget.density == DToggleDensity.chatReaction;
     // ChatBubble derives these roles from the palette's raw secondary, not
     // the panel fill. Reaction chips stay flat in both appearance materials.
@@ -334,7 +339,7 @@ class _DToggleState extends State<DToggle> {
         ? 14.0 + math.max(0, scaler.scale(10) - 10)
         : postReaction
         ? DPostReactionStyle.height(scaler)
-        : menuFilter
+        : menuFilter && !touchFilter
         ? 26.0 + math.max(0, scaler.scale(12.5) - 12.5) * 1.5
         : splitView
         ? 36.0 + math.max(0, scaler.scale(13) - 13)
@@ -361,7 +366,7 @@ class _DToggleState extends State<DToggle> {
         : DControlStyle.iconDimension(widget.size, context: context);
     final fontSize = postReaction
         ? DPostReactionStyle.fontSize
-        : menuFilter
+        : menuFilter && !touchFilter
         ? 12.5
         : tile
         ? 11.5
@@ -370,7 +375,7 @@ class _DToggleState extends State<DToggle> {
         : (DControlStyle.fontSize(widget.size, context: context));
     final lineHeight = postReaction
         ? DPostReactionStyle.fontSize * 1.5
-        : menuFilter
+        : menuFilter && !touchFilter
         ? 12.5 * 1.5
         : tile
         ? 17.0
@@ -605,7 +610,7 @@ class _DToggleState extends State<DToggle> {
           : postReaction
           ? const EdgeInsets.symmetric(horizontal: 10)
           : menuFilter
-          ? const EdgeInsets.symmetric(horizontal: 11)
+          ? EdgeInsets.symmetric(horizontal: touchFilter ? 10 : 11)
           : chatReaction
           ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
           : (DToggle._paddingFor(
