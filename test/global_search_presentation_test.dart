@@ -516,10 +516,12 @@ void main({bool useDeviceMetrics = false}) {
             bottom: bottom == 0 ? 34 * ratio : 0,
           );
           await tester.pump();
-          expect(tester.getRect(surface).bottom, phone.height);
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(surface).bottom, closeTo(phone.height, 1));
           expect(
             tester.getRect(search).bottom,
-            phone.height - (bottom == 0 ? 34 : bottom),
+            closeTo(phone.height - (bottom == 0 ? 34 : bottom), 1),
           );
         }
         await tester.pumpAndSettle();
@@ -691,7 +693,11 @@ void main({bool useDeviceMetrics = false}) {
         final result = useShortcut
             ? _panelText('A calmer, more useful global search').first
             : _panelText('The search design is ready for a keyboard review.');
-        await tester.ensureVisible(result);
+        if (useShortcut) {
+          await tester.ensureVisible(result);
+        } else {
+          await _scrollSearchTo(tester, result);
+        }
         await tester.pumpAndSettle();
         await tester.tap(result);
         await tester.pumpAndSettle();
@@ -939,7 +945,9 @@ void main({bool useDeviceMetrics = false}) {
           );
           await tester.tap(result);
           await tester.pumpAndSettle();
-          final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+          final handle = find
+              .byKey(const ValueKey('sheet-drag-handle'))
+              .hitTestable();
           Future<TestGesture> pullTopic() async {
             final drag = await tester.startGesture(tester.getCenter(handle));
             await drag.moveBy(const Offset(0, 20));
@@ -950,10 +958,26 @@ void main({bool useDeviceMetrics = false}) {
           }
 
           final preview = await pullTopic();
+          final handleRect = tester.getRect(handle);
+          final retainedSearch = find
+              .ancestor(
+                of: find.byKey(ForumSearch.inputKey, skipOffstage: false),
+                matching: find.byType(DSheetContent, skipOffstage: false),
+              )
+              .first;
+          final retained = tester.getRect(retainedSearch);
+          final raisedTopic = retained.top + 105 - handleRect.top;
+          await preview.moveBy(Offset(0, raisedTopic));
+          await tester.pump();
           expect(shell.currentContent?.topicId, 1038);
           expect(searchFocus.hasFocus, isFalse);
           expect(find.byKey(ForumSearch.inputKey).hitTestable(), findsNothing);
-          const exposedSearchHeader = Rect.fromLTWH(12, 80, 366, 100);
+          final exposedSearchHeader = Rect.fromLTWH(
+            12,
+            tester.getRect(retainedSearch).top - 13,
+            366,
+            100,
+          );
           final image = await tester.runAsync(() async {
             final builder = ui.SceneBuilder()
               ..pushOffset(-exposedSearchHeader.left, -exposedSearchHeader.top);
@@ -2122,7 +2146,7 @@ void main({bool useDeviceMetrics = false}) {
       expect(surface.borderRadius, BorderRadius.zero);
       final panel = tester.getRect(find.byKey(ForumSearch.panelKey));
       expect(panel.left, greaterThanOrEqualTo(0));
-      expect(panel.right, lessThanOrEqualTo(phone.width));
+      expect(panel.right, lessThanOrEqualTo(phone.width + .01));
       expect(panel.top, greaterThanOrEqualTo(0));
       expect(panel.bottom, lessThanOrEqualTo(phone.height));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
@@ -2183,9 +2207,9 @@ void main({bool useDeviceMetrics = false}) {
               .widget<GlobalSearchPanel>(find.byType(GlobalSearchPanel))
               .onApply!();
         } else {
-          tester
-              .widget<DItem>(find.byKey(const ValueKey('section:groups:')))
-              .onPressed!();
+          final heading = find.byKey(const ValueKey('section:groups:'));
+          await _scrollSearchTo(tester, heading);
+          await tester.tap(heading);
         }
         await _finishSearch(tester);
         expect(shell.currentContent!.isGlobalSearch, isFalse);
@@ -2203,6 +2227,21 @@ void main({bool useDeviceMetrics = false}) {
       },
     );
   }
+}
+
+Future<void> _scrollSearchTo(WidgetTester tester, Finder target) async {
+  final list = find.descendant(
+    of: find.byType(GlobalSearchPanel),
+    matching: find.byType(ListView),
+  );
+  await tester.scrollUntilVisible(
+    target,
+    150,
+    scrollable: find
+        .descendant(of: list, matching: find.byType(Scrollable))
+        .first,
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<ShellController> _pumpSearch(

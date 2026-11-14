@@ -20,12 +20,15 @@ import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
+import 'keyboard_navigation.dart';
 import 'open_link.dart';
 import 'search_words.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'skeleton_fill.dart';
+import 'topic_filter_controller.dart';
+import 'topic_list_view.dart';
 
 part 'global_search_category_editor.dart';
 part 'global_search_filter_picker.dart';
@@ -59,6 +62,11 @@ class GlobalSearchPanel extends StatefulWidget {
     this.showConditions = true,
     this.showClearFilters = false,
     this.footerControls = false,
+    this.feedFilterChips = const [],
+    this.feedFilterChoices = const [],
+    this.feedFilterKeys = const [],
+    this.onFeedFilterChoice,
+    this.showFeedApply = false,
   });
 
   final GlobalSearchController controller;
@@ -74,6 +82,10 @@ class GlobalSearchPanel extends StatefulWidget {
 
   /// Phone search keeps scope and condition controls at the sheet foot.
   final bool footerControls;
+  final List<Widget> feedFilterChips;
+  final List<TopicFilterSuggestion> feedFilterChoices, feedFilterKeys;
+  final ValueChanged<TopicFilterSuggestion>? onFeedFilterChoice;
+  final bool showFeedApply;
 
   @override
   State<GlobalSearchPanel> createState() => GlobalSearchPanelState();
@@ -114,6 +126,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   List<Object?>? _scopeBarReads, _skeletonReads;
   Widget? _builtScopeBar, _builtSkeleton;
   List<Object?> _rowReads = const [];
+  List<GlobalSearchResult> _laidOutResults = const [];
 
   Object? _targetFor(String? id) => widget.controller.results
       .where((result) => result.id == id)
@@ -202,7 +215,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         key == LogicalKeyboardKey.numpadEnter) {
       if (current < 0 &&
           (widget.controller.stagedFilter != null ||
-              widget.controller.hintedFilters.isNotEmpty)) {
+              widget.controller.hintedFilters.isNotEmpty ||
+              widget.feedFilterChoices.isNotEmpty)) {
         if (_actions.isNotEmpty) _actions.first.open();
         return true;
       }
@@ -949,6 +963,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       }
       _checkSelectionTarget();
       _rowReads = [
+        widget.footerControls,
         controller,
         controller.siteUrl,
         controller.query,
@@ -973,6 +988,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             !liveIds.contains(id) &&
             !id.startsWith('section:') &&
             !id.startsWith('filter:') &&
+            !id.startsWith('feed-filter:') &&
             !id.startsWith('recent:') &&
             !id.startsWith('value:') &&
             !id.startsWith('category:') &&
@@ -981,6 +997,13 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       return LayoutBuilder(
         builder: (context, constraints) {
           final body = _body(context);
+          final results = controller.results;
+          if (!listEquals(_laidOutResults, results)) {
+            _laidOutResults = results;
+            if (_selected case final id? when _targetFor(id) != null) {
+              _revealSelection(id, _navigationSignature, forward: true);
+            }
+          }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1028,24 +1051,40 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   Widget _phoneFooter(BuildContext context) {
     final controller = widget.controller;
-    final narrowed = controller.conditions.isNotEmpty;
+    final narrowed =
+        controller.conditions.isNotEmpty || widget.feedFilterChips.isNotEmpty;
     return DSheetFooter(
       key: const ValueKey('global-search-phone-footer'),
       padding: EdgeInsets.zero,
       children: [
         const DSeparator(),
         if (!narrowed) _scopeBar(context),
-        if (narrowed || controller.hasOrderFilter)
+        if (narrowed || controller.hasOrderFilter || widget.showFeedApply)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
             child: LayoutBuilder(
               builder: (context, constraints) => DScrollArea(
                 axes: DScrollAxes.horizontal,
                 showScrollbar: false,
-                child: GlobalSearchChips(
-                  controller: controller,
-                  maxWidth: constraints.maxWidth,
-                  onRefocus: widget.onRefocus,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 5,
+                  children: [
+                    ...widget.feedFilterChips,
+                    GlobalSearchChips(
+                      controller: controller,
+                      maxWidth: constraints.maxWidth,
+                      onRefocus: widget.onRefocus,
+                    ),
+                    if (widget.showFeedApply)
+                      DButton(
+                        key: const ValueKey('search-apply-feed-filters'),
+                        label: Text(context.l10n.apply),
+                        size: DButtonSize.filter,
+                        variant: DButtonVariant.ghost,
+                        onPressed: widget.onApply,
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -1204,8 +1243,56 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     );
   }
 
+  Widget _feedFilterSuggestions(BuildContext context) => DScrollBar(
+    controller: _scroll,
+    child: ListView(
+      controller: _scroll,
+      padding: const EdgeInsets.all(6),
+      children: [
+        for (final choice in widget.feedFilterChoices)
+          _feedFilterChoice(context, choice),
+      ],
+    ),
+  );
+
+  Widget _feedFilterChoice(BuildContext context, TopicFilterSuggestion choice) {
+    final id = 'feed-filter:${choice.name}';
+    void pick() => widget.onFeedFilterChoice?.call(choice);
+    return _action(
+      id,
+      pick,
+      DItem(
+        key: ValueKey(id),
+        size: DItemSize.sm,
+        shape: DItemShape.menu,
+        selected: _selected == id,
+        showSelectionIndicator: false,
+        onPressed: pick,
+        children: [
+          if (choice.term == null)
+            DItemMedia(
+              child: DIcon(
+                _filterIcon(context, choice.menuIcon ?? 'filter'),
+                size: 13,
+              ),
+            ),
+          DItemContent(
+            children: [
+              DItemTitle(child: Text(choice.displayName ?? choice.name)),
+              if (choice.description case final description?)
+                DItemDescription(child: Text(description)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _body(BuildContext context) {
     final controller = widget.controller;
+    if (widget.feedFilterChoices.isNotEmpty) {
+      return _feedFilterSuggestions(context);
+    }
     if (controller.stagedFilter case final filter?) {
       return _stageBody(context, filter);
     }
@@ -1467,7 +1554,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       SingleChildScrollView(
         key: ValueKey('global-search-line-${section.scope.keyName}'),
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(55, 2, 12, 4),
+        padding: EdgeInsets.fromLTRB(widget.footerControls ? 15 : 55, 2, 12, 4),
         child: Row(
           spacing: 8,
           children: [
@@ -1489,11 +1576,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     final position = Scrollable.of(context, axis: Axis.horizontal).position;
     final target = context.findRenderObject()!;
     final width = (target as RenderBox).size.width;
-    // CSS scroll-padding-left keeps a focused pill aligned with result text.
+    final inset = widget.footerControls ? 15 : 55;
     final available = position.viewportDimension - width;
     position.ensureVisible(
       target,
-      alignment: available > 0 ? (55 / available).clamp(0, 1) : 0,
+      alignment: available > 0 ? (inset / available).clamp(0, 1) : 0,
     );
   }
 
@@ -1815,6 +1902,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             context,
             folded: needle.isEmpty && !DControlStyle.isTouch(context),
           ),
+          for (final choice in widget.feedFilterKeys)
+            _feedFilterChoice(context, choice),
         ],
       ),
     );
@@ -1984,7 +2073,12 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         key: ValueKey('global-search-result-${result.id}'),
         size: DItemSize.artwork,
         shape: DItemShape.menu,
-        padding: const EdgeInsetsDirectional.fromSTEB(49, 6, 9, 6),
+        padding: EdgeInsetsDirectional.fromSTEB(
+          widget.footerControls ? 9 : 49,
+          6,
+          9,
+          6,
+        ),
         selected: _selected == result.id,
         selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
@@ -2066,6 +2160,53 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             controller.conditions.any(
               (condition) => condition.filterId == 'author',
             );
+    final topic =
+        result.topic ??
+        (source is SearchPostHit
+            ? Topic(
+                id: source.topicId,
+                title: result.title,
+                slug: source.topicSlug,
+                categoryId: result.categoryId,
+                tags: source.tags,
+                replyCount: result.replies ?? 0,
+                likeCount: result.likes ?? 0,
+                bumpedAt: result.createdAt,
+                closed: result.closed,
+                archived: result.archived,
+                privateMessage: result.privateMessage,
+                listReadStateKnown: false,
+              )
+            : null);
+    if (widget.footerControls && !individualPost && topic != null) {
+      return KeyboardSelection.scope(
+        key: ValueKey('global-search-result-${result.id}'),
+        selected:
+            _selected == result.id || widget.selectedResultId == result.id,
+        child: TopicListRow(
+          topic: topic,
+          siteUrl: controller.siteUrl!,
+          match: (
+            query: controller.wordsQuery,
+            title: result.title,
+            excerpt: result.excerpt,
+            href: result.path,
+            showExcerpt: properties.contains(
+              GlobalSearchDisplayProperty.excerpt,
+            ),
+          ),
+          onTap: () {
+            widget.onSelect?.call(result.id);
+            widget.onOpen(result);
+          },
+          outerPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 9,
+            vertical: 8,
+          ),
+        ),
+      );
+    }
     final metadata = <Widget>[
       if ((individualPost ||
               properties.contains(GlobalSearchDisplayProperty.author)) &&
@@ -2156,7 +2297,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       ),
                     ),
                   )
-                else
+                else if (!widget.footerControls)
                   const SizedBox(width: 30),
                 Expanded(
                   child: DItemContent(
@@ -2531,36 +2672,11 @@ class _SearchHighlight extends StatelessWidget {
   final TextStyle? style;
   @override
   Widget build(BuildContext context) {
-    final words = searchWords(query).where((word) => word.length > 1).toList();
-    if (words.isEmpty) {
-      return SiteEmojiText.plain(text, siteUrl: siteUrl, style: style);
-    }
-    final expression = RegExp(
-      words.map(RegExp.escape).join('|'),
-      caseSensitive: false,
+    return SiteEmojiText(
+      topicSearchRuns(context, text, query),
+      siteUrl: siteUrl,
+      style: style,
     );
-    final runs = <SiteEmojiTextRun>[];
-    var cursor = 0;
-    for (final match in expression.allMatches(text)) {
-      if (match.start > cursor) {
-        runs.add(SiteEmojiTextRun(text.substring(cursor, match.start)));
-      }
-      runs.add(
-        SiteEmojiTextRun(
-          match.group(0)!,
-          style: TextStyle(
-            color: DTokens.of(context).primary,
-            backgroundColor: DTokens.of(context).primary.withValues(alpha: .18),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
-      cursor = match.end;
-    }
-    if (cursor < text.length) {
-      runs.add(SiteEmojiTextRun(text.substring(cursor)));
-    }
-    return SiteEmojiText(runs, siteUrl: siteUrl, style: style);
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import '../data/plugin_transport.dart';
 import '../data/site_lookup_failure.dart';
+import '../data/topic_feeds_api.dart';
 import '../models/json.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
@@ -18,7 +19,9 @@ final class GlobalSearchCapabilitiesIncomplete implements Exception {
 }
 
 class GlobalSearchApi {
-  const GlobalSearchApi({required this.transport});
+  const GlobalSearchApi({required this.transport, this.topicFeeds});
+
+  final TopicFeedsApi? topicFeeds;
 
   GlobalSearchReadContext _context(
     String site,
@@ -184,6 +187,15 @@ class GlobalSearchApi {
     }
     if (!globalSearchOrders(r.scope, c).any((o) => o.value == r.order)) {
       throw FormatException(appL10n.thisOrderingIsUnavailable);
+    }
+    if (r.topicFilterQuery case final query?) {
+      return _searchFilteredTopics(
+        siteUrl,
+        query,
+        request: r,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
     }
     if (r.scope == GlobalSearchScope.all) {
       final sources = <Future<List<GlobalSearchSection>> Function()>[];
@@ -554,6 +566,59 @@ class GlobalSearchApi {
       groupMemberOrder: users
           ? null
           : records.isNotEmpty && records.every((r) => r['user_count'] != null),
+    );
+  }
+
+  Future<GlobalSearchPage> _searchFilteredTopics(
+    String siteUrl,
+    String query, {
+    required GlobalSearchRequest request,
+    required String? apiKey,
+    required String? clientId,
+  }) async {
+    final feeds = topicFeeds;
+    if (feeds == null) throw FormatException(appL10n.searchIsUnavailable);
+    if (query.length > 2048) {
+      throw FormatException(appL10n.searchesCanBeAtMost2048Characters);
+    }
+    final list = await feeds.topicList(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      path: _path('/filter.json', {
+        'q': query,
+        if (request.page > 0) 'page': '${request.page}',
+      }),
+    );
+    final results = [
+      for (final topic in list.topics)
+        GlobalSearchResult(
+          id: 'filter-topic:${topic.id}',
+          scope: GlobalSearchScope.forum,
+          title: topic.displayTitle,
+          path: '/t/${Uri.encodeComponent(topic.slug)}/${topic.id}',
+          excerpt: topic.excerpt ?? '',
+          categoryId: topic.categoryId,
+          tags: topic.tags.map((tag) => tag.name).toList(),
+          createdAt: topic.bumpedAt,
+          replies: topic.replyCount,
+          likes: topic.likeCount,
+          closed: topic.closed,
+          archived: topic.archived,
+          topic: topic,
+        ),
+    ];
+    final canPage = list.moreTopicsUrl != null && request.page < 9;
+    return GlobalSearchPage(
+      sections: [
+        GlobalSearchSection(
+          scope: GlobalSearchScope.forum,
+          results: List.unmodifiable(results),
+          hasMore: canPage,
+        ),
+      ],
+      hasMore: canPage,
+      consumedCount: list.topics.length,
     );
   }
 
@@ -995,4 +1060,54 @@ class GlobalSearchApi {
 
   static String _path(String path, Map<String, String> params) =>
       Uri(path: path, queryParameters: params).toString();
+}
+
+/// The forum's topic filter endpoint and search endpoint use different keys.
+String topicFeedSearchQuery({
+  required String words,
+  required String clauses,
+  required List<GlobalSearchCondition> conditions,
+  required String order,
+  required GlobalSearchCapabilities capabilities,
+}) {
+  final tokens = <String>[clauses];
+  for (final condition in conditions) {
+    final key = condition.filterId;
+    final token = globalSearchConditionToken(
+      condition,
+      capabilities: capabilities,
+      username: capabilities.username,
+    );
+    if (key == 'postCount' && condition.operator == 'eq') {
+      tokens.addAll([
+        'posts-min:${condition.text}',
+        'posts-max:${condition.text}',
+      ]);
+      continue;
+    }
+    tokens.add(switch (key) {
+      'author' => 'users:${token.substring(1)}',
+      'topicAuthor' => 'created-by:${token.substring('created:@'.length)}',
+      'authorGroup' => 'group:${condition.text}',
+      'category' when condition.operator == 'exactCategory' =>
+        '=category:${condition.value.join(',')}',
+      'postCount' =>
+        'posts-${condition.operator == 'gte' ? 'min' : 'max'}:${condition.text}',
+      'viewCount' =>
+        'views-${condition.operator == 'gte' ? 'min' : 'max'}:${condition.text}',
+      _ => token,
+    });
+  }
+  if (order != 'relevance') {
+    final feedOrder = switch (order) {
+      'latest' => 'latest-post',
+      'oldest' => 'latest-post-asc',
+      'latest_topic' => 'created',
+      'oldest_topic' => 'created-asc',
+      _ => order,
+    };
+    tokens.add('order:$feedOrder');
+  }
+  tokens.add(words);
+  return tokens.where((part) => part.isNotEmpty).join(' ');
 }

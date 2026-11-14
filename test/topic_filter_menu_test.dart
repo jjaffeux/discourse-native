@@ -213,10 +213,6 @@ void main() {
         );
         await fixture.openFilters(tester);
         await fixture.capture(tester, 'filter-content-$platform-root');
-        if (platform == TargetPlatform.iOS) {
-          await tester.tap(find.byKey(const ValueKey('sheet-drag-handle')));
-          await tester.pumpAndSettle();
-        }
         await tester.enterText(fixture.field, 'replies');
         await tester.pumpAndSettle();
         await tester.tap(find.text('Replies  How many replies a topic has'));
@@ -228,30 +224,43 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Exactly 10'));
         await tester.pumpAndSettle();
-        expect(find.text('Apply 1 filter'), findsOneWidget);
-        await tester.tap(find.text('Apply 1 filter'));
+        if (platform == TargetPlatform.iOS) {
+          expect(find.text('Apply 1 filter'), findsNothing);
+          await tester.tap(
+            find.byKey(const ValueKey('search-back-to-results')),
+          );
+        } else {
+          expect(find.text('Apply 1 filter'), findsOneWidget);
+          await tester.tap(find.text('Apply 1 filter'));
+        }
         await tester.pumpAndSettle();
         expect(
           Uri.parse(
-            data.shell.topicListContent!.feedPath!,
+            (platform == TargetPlatform.iOS
+                    ? data
+                          .shell
+                          .mobileNavigation
+                          .previousLocation!
+                          .contentStack
+                          .last
+                    : data.shell.topicListContent!)
+                .feedPath!,
           ).queryParameters['q'],
           'posts-min:11 posts-max:11',
         );
-        final filters = find.byKey(const ValueKey('topic-list-filter'));
-        expect(
-          find.descendant(of: filters, matching: find.text('Filters · 1')),
-          findsOneWidget,
-        );
         if (platform == TargetPlatform.iOS) {
-          tester.view.physicalSize = Size(320, phone.height);
+          expect(find.byKey(const ValueKey('topic-list-filter')), findsNothing);
+          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
           await tester.pumpAndSettle();
+          final count = find.byKey(
+            const ValueKey('mobile-search-filter-count'),
+          );
           expect(
-            find.descendant(of: filters, matching: find.text('1')),
+            find.descendant(of: count, matching: find.text('1')),
             findsOneWidget,
           );
-          expect(tester.widget<DButton>(filters).semanticLabel, 'Filters · 1');
-          tester.view.physicalSize = phone;
-          await tester.pumpAndSettle();
+        } else {
+          final filters = find.byKey(const ValueKey('topic-list-filter'));
           expect(
             find.descendant(of: filters, matching: find.text('Filters · 1')),
             findsOneWidget,
@@ -263,89 +272,141 @@ void main() {
     );
   }
 
-  testWidgets('Posted stages a relation before showing the inline calendar', (
-    tester,
-  ) async {
-    final data = await fixture.fixture(tester, filterOptions: vocabulary);
-    await fixture.openFilters(tester);
-    await tester.enterText(fixture.field, 'posted');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Posted  Before or after a day'));
-    await tester.pumpAndSettle();
-    expect(find.byType(DCalendar), findsNothing);
-    await tester.tap(find.text('Before'));
-    await tester.pumpAndSettle();
-    expect(find.text('No results found'), findsNothing);
-    tester.widget<DCalendar>(find.byType(DCalendar)).onSelectionChanged!(
-      DCalendarSingleSelection(DCalendarDate(2026, 10, 14)),
-      DCalendarSelectReason.press,
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    final mobile = platform == TargetPlatform.iOS;
+    testWidgets(
+      'Posted stages a relation before showing the inline calendar on $platform',
+      (tester) async {
+        final data = await fixture.fixture(
+          tester,
+          size: mobile ? phone : const Size(1440, 900),
+          filterOptions: vocabulary,
+        );
+        await fixture.openFilters(tester);
+        await tester.enterText(fixture.field, 'posted');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Posted  Before or after a day'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DCalendar), findsNothing);
+        await tester.tap(find.text('Before'));
+        await tester.pumpAndSettle();
+        expect(find.text('No results found'), findsNothing);
+        tester.widget<DCalendar>(find.byType(DCalendar)).onSelectionChanged!(
+          DCalendarSingleSelection(DCalendarDate(2026, 10, 14)),
+          DCalendarSelectReason.press,
+        );
+        await tester.pumpAndSettle();
+        if (mobile) {
+          await tester.tap(
+            find.byKey(const ValueKey('search-back-to-results')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+        } else {
+          expect(find.text('Apply 1 filter'), findsOneWidget);
+          await tester.tap(find.text('Apply 1 filter'));
+        }
+        await tester.pumpAndSettle();
+        expect(
+          Uri.parse(
+            data.shell.topicListContent!.feedPath!,
+          ).queryParameters['q'],
+          'created-before:2026-10-14',
+        );
+      },
+      variant: TargetPlatformVariant.only(platform),
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Apply 1 filter'), findsOneWidget);
-    await tester.tap(find.text('Apply 1 filter'));
-    await tester.pumpAndSettle();
-    expect(
-      Uri.parse(data.shell.topicListContent!.feedPath!).queryParameters['q'],
-      'created-before:2026-10-14',
-    );
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('tag choices stay staged while all four matching modes change', (
-    tester,
-  ) async {
-    final data = await fixture.fixture(tester, filterOptions: vocabulary);
-    await fixture.openFilters(tester);
-    await tester.enterText(fixture.field, 'tags');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Tags  Topics by their tags, or a tag group'));
-    await tester.pumpAndSettle();
-    final done = find.byKey(const ValueKey('topic-filter-done-tags'));
-    expect(
-      tester
-          .widget<DCommandList<String>>(find.byType(DCommandList<String>))
-          .children
-          .whereType<DCommandItem<String>>()
-          .firstWhere((row) => row.value == '@done-tags')
-          .enabled,
-      isFalse,
+    testWidgets(
+      'all four tag matching modes produce the expected clauses on $platform',
+      (tester) async {
+        final data = await fixture.fixture(
+          tester,
+          size: mobile ? phone : const Size(1440, 900),
+          filterOptions: vocabulary,
+        );
+        await fixture.openFilters(tester);
+        await tester.enterText(fixture.field, 'tags');
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.text('Tags  Topics by their tags, or a tag group'),
+        );
+        await tester.pumpAndSettle();
+        final done = find.byKey(const ValueKey('topic-filter-done-tags'));
+        expect(
+          tester
+              .widget<DCommandList<String>>(find.byType(DCommandList<String>))
+              .children
+              .whereType<DCommandItem<String>>()
+              .firstWhere((row) => row.value == '@done-tags')
+              .enabled,
+          isFalse,
+        );
+        for (final tag in ['Alpha', 'Beta']) {
+          await tester.tap(
+            find.descendant(
+              of: find.byType(DCommandList<String>),
+              matching: find.text(tag),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+        for (final (label, chip) in [
+          ('All', 'All Alpha, Beta'),
+          ('None', 'None Alpha, Beta'),
+          ('Any', 'Any Alpha, Beta'),
+          ('Not all', 'Not all Alpha, Beta'),
+        ]) {
+          await tester.tap(find.text(label));
+          await tester.pumpAndSettle();
+          expect(find.text('Tags: $chip'), findsOneWidget);
+          if (mobile) {
+            final previous = data.shell.mobileNavigation.previousLocation!;
+            final route = previous.contentStack.last;
+            if (label == 'All') {
+              expect(route.tagNames, ['Alpha', 'Beta']);
+            } else {
+              expect(route.topicFilterQuery, switch (label) {
+                'None' => '-tag:Alpha,Beta',
+                'Any' => 'tag:Alpha,Beta',
+                _ => '-tag:Alpha+Beta',
+              });
+            }
+          }
+        }
+        Focus.of(tester.element(find.text('Any'))).requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.text('Tags: Any Alpha, Beta'), findsOneWidget);
+        await tester.tap(find.text('Not all'));
+        await tester.pumpAndSettle();
+        if (!mobile) {
+          expect(
+            data.shell.topicListContent?.topicFilterQuery,
+            isNot(contains('Alpha')),
+          );
+        }
+        await tester.tap(done);
+        await tester.pumpAndSettle();
+        if (mobile) {
+          await tester.tap(
+            find.byKey(const ValueKey('search-back-to-results')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+        } else {
+          await tester.tap(find.text('Apply 1 filter'));
+        }
+        await tester.pumpAndSettle();
+        expect(
+          Uri.parse(
+            data.shell.topicListContent!.feedPath!,
+          ).queryParameters['q'],
+          '-tag:Alpha+Beta',
+        );
+      },
+      variant: TargetPlatformVariant.only(platform),
     );
-    for (final tag in ['Alpha', 'Beta']) {
-      await tester.tap(
-        find.descendant(
-          of: find.byType(DCommandList<String>),
-          matching: find.text(tag),
-        ),
-      );
-      await tester.pumpAndSettle();
-    }
-    for (final (label, chip) in [
-      ('All', 'All Alpha, Beta'),
-      ('None', 'None Alpha, Beta'),
-      ('Any', 'Any Alpha, Beta'),
-      ('Not all', 'Not all Alpha, Beta'),
-    ]) {
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-      expect(find.text('Tags: $chip'), findsOneWidget);
-    }
-    Focus.of(tester.element(find.text('Any'))).requestFocus();
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(find.text('Tags: Any Alpha, Beta'), findsOneWidget);
-    await tester.tap(find.text('Not all'));
-    await tester.pumpAndSettle();
-    expect(
-      data.shell.topicListContent?.topicFilterQuery,
-      isNot(contains('Alpha')),
-    );
-    await tester.tap(done);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Apply 1 filter'));
-    await tester.pumpAndSettle();
-    expect(
-      Uri.parse(data.shell.topicListContent!.feedPath!).queryParameters['q'],
-      '-tag:Alpha+Beta',
-    );
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
 }

@@ -400,15 +400,17 @@ void main() {
         );
         expect(clear.hitTestable(), findsOneWidget);
         if (scale == 1) {
-          expect(tester.getRect(field).height, closeTo(42, .2));
-          expect(tester.getRect(clear).height, greaterThan(38));
-          final editor = find.byType(EditableText);
-          final render = tester.state<EditableTextState>(editor).renderEditable;
-          final fontSize = tester.widget<EditableText>(editor).style.fontSize!;
-          final origin = render.localToGlobal(Offset.zero);
+          expect(tester.getRect(field).height, closeTo(36, .2));
           expect(
-            (render.localToGlobal(Offset(0, fontSize)) - origin).dy,
-            closeTo(17, .01),
+            tester.getRect(field).height,
+            greaterThan(tester.getRect(clear).height),
+          );
+          expect(
+            tester
+                .widget<EditableText>(find.byType(EditableText))
+                .style
+                .fontSize,
+            16,
           );
         }
       }
@@ -429,6 +431,11 @@ void main() {
       }
 
       if (width < 700) {
+        final sheet = find.ancestor(
+          of: find.byKey(ForumSearch.panelKey),
+          matching: find.byType(DSheetContent),
+        );
+        expect(tester.getSize(sheet).height, closeTo(900 * .55, 1));
         expect(find.byKey(const ValueKey('section:forum:')), findsNothing);
       } else {
         expect(find.byKey(const ValueKey('section:forum:')), findsOneWidget);

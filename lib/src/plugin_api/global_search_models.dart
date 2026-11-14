@@ -321,6 +321,7 @@ class GlobalSearchResult {
     this.replies,
     this.memberCount,
     this.source,
+    this.topic,
     this.contextLabel,
     this.searchLogId,
     this.privateMessage = false,
@@ -337,6 +338,7 @@ class GlobalSearchResult {
   final List<String> tags;
   final DateTime? createdAt;
   final SearchResult? source;
+  final Topic? topic;
   final bool privateMessage, closed, archived;
 
   Object get navigationIdentity => switch (source) {
@@ -410,6 +412,7 @@ class GlobalSearchRequest {
     this.offset = 0,
     this.contextTopicId,
     this.contextTopicTitle,
+    this.topicFilterQuery,
   });
   final GlobalSearchScope scope;
   final String query, order;
@@ -419,6 +422,7 @@ class GlobalSearchRequest {
   final int page, offset;
   final int? contextTopicId;
   final String? contextTopicTitle;
+  final String? topicFilterQuery;
 
   /// Whether [other] asks the forum exactly what this request asks. Every
   /// field takes part: one left out would keep a stale answer on screen.
@@ -434,7 +438,8 @@ class GlobalSearchRequest {
       other.page == page &&
       other.offset == offset &&
       other.contextTopicId == contextTopicId &&
-      other.contextTopicTitle == contextTopicTitle;
+      other.contextTopicTitle == contextTopicTitle &&
+      other.topicFilterQuery == topicFilterQuery;
 }
 
 enum GlobalSearchLookup { none, users, groups, contributed }

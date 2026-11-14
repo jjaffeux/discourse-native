@@ -250,7 +250,7 @@ void main() {
       button,
       find.byKey(const ValueKey('topic-list-feed-menu')),
       find.byKey(const ValueKey('topic-list-category-filter')),
-      find.byKey(const ValueKey('topic-list-filter')),
+      find.byKey(const ValueKey('mobile-search-button')),
     ];
     for (final control in controls) {
       expect(control.hitTestable(), findsOneWidget);

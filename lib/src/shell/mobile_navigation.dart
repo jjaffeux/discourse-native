@@ -184,6 +184,15 @@ final class MobileNavigation {
     _entries[_index] = (id: entryId, content: location);
   }
 
+  void updateSearchSource(ForumTabLocation source, ForumTabLocation search) {
+    assert(canGoBack && location?.contentStack.last.isGlobalSearch == true);
+    _entries = [
+      ..._entries.take(_index - 1),
+      (id: previousEntryId!, content: source),
+      (id: entryId, content: search),
+    ];
+  }
+
   static bool _sameDestination(ForumTabLocation? a, ForumTabLocation? b) {
     if (a == null || b == null) return a == b;
     if (a.rootDestinationId != b.rootDestinationId ||

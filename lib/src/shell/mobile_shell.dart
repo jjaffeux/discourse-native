@@ -347,9 +347,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ValueListenable<DPageHeader?> header,
           Widget page,
         ) => _MobileFrame(
-          headerVisible: route?.isGlobalSearch != true,
           navigationOpen: sidebarOpen,
           raised: !sidebarOpen && pageSheetOpen && route?.isTopic == true,
+          overlaysHeader: !sidebarOpen && route?.isGlobalSearch == true,
           key: const ValueKey('mobile-root'),
           // Ancestor Material ink layers also repaint on scroll. Retain the
           // fixed header independently of the moving page and dock.
@@ -1310,20 +1310,20 @@ class _MobileFrame extends StatelessWidget {
   const _MobileFrame({
     super.key,
     required this.header,
-    required this.headerVisible,
     required this.navigationOpen,
     required this.page,
     required this.raised,
+    required this.overlaysHeader,
   });
   final Widget header;
-  final bool headerVisible;
   final bool navigationOpen;
   final Widget page;
   final bool raised;
+  final bool overlaysHeader;
   @override
   Widget build(BuildContext context) {
     final reveal = DHistoryTransition.navigationProgressOf(context);
-    final hidden = !headerVisible || reveal >= 1;
+    final hidden = reveal >= 1;
     final pageSlot = LayoutId(
       key: const ValueKey(_MobileFrameSlot.page),
       id: _MobileFrameSlot.page,
@@ -1344,11 +1344,14 @@ class _MobileFrame extends StatelessWidget {
     return CustomMultiChildLayout(
       delegate: _MobileFrameLayout(
         raised,
+        overlaysHeader,
         navigationOpen,
         reveal,
         (extent) => DSheetDragScope.reportTopBar(context, extent),
       ),
-      children: raised ? [headerSlot, pageSlot] : [pageSlot, headerSlot],
+      children: raised || overlaysHeader
+          ? [headerSlot, pageSlot]
+          : [pageSlot, headerSlot],
     );
   }
 }
@@ -1356,11 +1359,13 @@ class _MobileFrame extends StatelessWidget {
 class _MobileFrameLayout extends MultiChildLayoutDelegate {
   _MobileFrameLayout(
     this.raised,
+    this.overlaysHeader,
     this.navigationOpen,
     this.navigationProgress,
     this.report,
   );
   final bool raised;
+  final bool overlaysHeader;
   final bool navigationOpen;
   final double navigationProgress;
   final ValueChanged<double> report;
@@ -1375,7 +1380,7 @@ class _MobileFrameLayout extends MultiChildLayoutDelegate {
       Offset(0, -header.height * navigationProgress),
     );
     report(header.height * (1 - navigationProgress));
-    final top = navigationOpen
+    final top = navigationOpen || overlaysHeader
         ? 0.0
         : (raised ? 8.0 : header.height) * (1 - navigationProgress);
     layoutChild(
@@ -1388,6 +1393,7 @@ class _MobileFrameLayout extends MultiChildLayoutDelegate {
   @override
   bool shouldRelayout(_MobileFrameLayout oldDelegate) =>
       raised != oldDelegate.raised ||
+      overlaysHeader != oldDelegate.overlaysHeader ||
       navigationOpen != oldDelegate.navigationOpen ||
       navigationProgress != oldDelegate.navigationProgress;
 }

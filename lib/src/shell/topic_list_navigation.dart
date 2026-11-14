@@ -14,7 +14,6 @@ import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_feed_menu.dart';
-import 'topic_list_actions.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_list_filter_bar.dart';
 
@@ -212,16 +211,6 @@ class _TopicListNavigationControls extends StatelessWidget {
         identical(ShellScope.read(context), controller) &&
         tab.isCurrent &&
         _filterOwner(controller, tab) == owner;
-    final filterMenu =
-        controller.mobileNavigationEnabled &&
-            state.siteUrl != null &&
-            state.route?.isMessages != true
-        ? TopicListFilterMenu(
-            key: ValueKey((state.siteUrl, state.route!.id)),
-            siteUrl: state.siteUrl!,
-            query: controller.topicListFilterEditorQuery(state.route!),
-          )
-        : null;
     final filters = !showsFilters
         ? null
         : TopicListFilterBar(
@@ -236,7 +225,6 @@ class _TopicListNavigationControls extends StatelessWidget {
             inline: true,
             wrap: true,
             leading: showsTabs ? navigation : null,
-            trailing: filterMenu,
             siteUrl: state.siteUrl!,
             filterQuery: controller.topicListFilterEditorQuery(state.route!),
             categories: state.categories,
@@ -310,7 +298,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                         filters
                       else ...[
                         if (showsTabs) navigation,
-                        ?filterMenu,
                       ],
                     ],
                   );

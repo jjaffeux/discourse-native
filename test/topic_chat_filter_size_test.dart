@@ -21,7 +21,6 @@ void main() {
           'topic-list-feed-menu',
           'topic-list-category-filter',
           'topic-list-tag-filter',
-          'topic-list-filter',
         ]) {
           expect(
             tester.getSize(find.byKey(ValueKey(key))).height,

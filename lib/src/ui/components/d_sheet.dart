@@ -205,6 +205,7 @@ class DSheetViewport extends StatefulWidget {
     required this.content,
 
     this.onDismiss,
+    this.dismissOnBackdrop = false,
     this.onSwipeDismissRequested,
     this.underlay,
     this.covering,
@@ -231,6 +232,9 @@ class DSheetViewport extends StatefulWidget {
   /// The host can remove the sheet or leave it mounted to return it to its
   /// open position.
   final VoidCallback? onDismiss;
+
+  /// Allows an adaptive menu to invoke [onDismiss] on an outside tap.
+  final bool dismissOnBackdrop;
 
   /// Intercepts a swipe as soon as it reaches the dismissal threshold.
   ///
@@ -451,8 +455,9 @@ class _DSheetViewportState extends State<DSheetViewport>
             content: content,
             animation: _entrance,
             barrierLabel: context.l10n.sheetBackground,
-            dismissOnBarrier: false,
-            onBarrierDismiss: () {},
+            dismissOnBarrier:
+                widget.dismissOnBackdrop && widget.onDismiss != null,
+            onBarrierDismiss: widget.onDismiss ?? () {},
           ),
           content.side,
           content.sidePanelMaxWidth,
@@ -1533,6 +1538,12 @@ class DSheetDragScope extends StatefulWidget {
       ?.owner
       ._reportTopBar(extent);
 
+  static double topBarExtentOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
+          ?.barExtent ??
+      0;
+
   static ValueListenable<double>? dismissProgressOf(BuildContext context) =>
       context
           .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
@@ -2418,7 +2429,7 @@ class DSheetContent extends StatelessWidget {
   /// Keeps a footer in view at the lower detent of a content-sized menu.
   final bool keepFootInView;
 
-  /// Starts an adaptive menu at its expanded height for this opening.
+  /// Opens an adaptive menu fully or expands an open menu when requested.
   ///
   /// Content-sized menus fit their content up to the available viewport.
   /// Fixed-size menus fill that viewport. The lower detent stays removed until
@@ -2537,20 +2548,22 @@ class DSheetContent extends StatelessWidget {
           child: Padding(
             padding: handlePadding,
             child: ExcludeSemantics(
-              child: DecoratedBox(
+              child: RepaintBoundary(
                 key: const ValueKey('sheet-drag-handle'),
-                decoration: BoxDecoration(
-                  color: overArtwork
-                      ? Colors.white.withValues(alpha: .9)
-                      : Color.lerp(
-                          tokens.background,
-                          tokens.foreground,
-                          .35,
-                        )!.withValues(alpha: .5),
-                  borderRadius: BorderRadius.circular(3),
-                  boxShadow: const [],
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: overArtwork
+                        ? Colors.white.withValues(alpha: .9)
+                        : Color.lerp(
+                            tokens.background,
+                            tokens.foreground,
+                            .35,
+                          )!.withValues(alpha: .5),
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: const [],
+                  ),
+                  child: const SizedBox(width: 36, height: handleHeight),
                 ),
-                child: const SizedBox(width: 36, height: handleHeight),
               ),
             ),
           ),

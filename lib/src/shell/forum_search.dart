@@ -20,6 +20,7 @@ import '../plugin_api/global_search_models.dart';
 import '../theme/discourse_typography.dart';
 import 'content_navigation_controls.dart';
 import 'forum_tab_scope.dart';
+import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'global_search_panel.dart';
 import 'open_link.dart';
@@ -30,6 +31,7 @@ import 'shell_search_controller.dart';
 import 'site_url.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_input.dart';
+import 'topic_filter_scope.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
 typedef _FieldLayout = ({
@@ -95,6 +97,7 @@ class _ForumSearchState extends State<ForumSearch> {
   final _popover = DPopoverController();
   MaterialPageRoute<void>? _page;
   final _pageRevision = ValueNotifier(0);
+  final _showFeedPicker = ValueNotifier(false);
   ShellController? _shell;
   String? _tabId;
   bool _scoped = false;
@@ -149,17 +152,112 @@ class _ForumSearchState extends State<ForumSearch> {
   Size? _layoutViewport;
   String? get _selectedResultId => _presentation.selectedResultId;
   final _panelKey = GlobalKey<GlobalSearchPanelState>();
-  List<TopicFilterOption>? _feedFilterOptions;
+  List<TopicFilterOption> _feedOptions = const [];
+  final _feedClauses = <String>[];
+  List<TopicFilterSuggestion> _feedChoices = const [];
+  String? _feedMenuField;
+  Timer? _feedLookup;
+  int _feedRevision = 0;
+  int _feedChoiceRevision = 0;
+  String? _feedSourceWords;
+  String? _publishedFeedExpression;
+  bool _editedFeedSource = false;
+  bool _loadingFeedDraft = false;
 
-  String _feedFilterQuery(ContentRoute route) => [
-    _shell!.topicListFilterEditorQuery(route),
-    if (!route.isSearchList) route.topicListSearch,
-  ].where((value) => value.isNotEmpty).join(' ');
-  ({ShellTabContext tab, ContentRoute route, String site})? _filterVisit;
+  ({ShellTabContext owner, String site, String words, String filters})?
+  _filterVisit;
+
+  void _openFeedPicker() {
+    final owner = _document;
+    final site = owner?.siteUrl;
+    if (!_usesFeedFilters ||
+        owner == null ||
+        site == null ||
+        !_ownsInput(owner)) {
+      return;
+    }
+    _focus.unfocus();
+    _filterVisit = (
+      owner: owner,
+      site: site,
+      words: _global.query,
+      filters: _feedFilterExpression(words: ''),
+    );
+    _showFeedPicker.value = true;
+    _pageRevision.value++;
+  }
+
+  void _closeFeedPicker() {
+    _filterVisit = null;
+    _showFeedPicker.value = false;
+    _pageRevision.value++;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _surfaceOpen) _requestEditorFocus();
+    });
+  }
+
+  void _acceptFeedPicker(
+    ({ShellTabContext owner, String site, String words, String filters}) visit,
+    String query,
+  ) {
+    if (!identical(_filterVisit, visit) ||
+        !_surfaceOpen ||
+        !_ownsInput(visit.owner)) {
+      return;
+    }
+    final clauses = splitTopicFilterQuery(query).where((token) {
+      final key = topicFilterClauseKey(token);
+      return key != null && key != token;
+    }).toList();
+    if (clauses.join(' ') == _feedFilterExpression(words: '')) return;
+    _loadingFeedDraft = true;
+    _global.setScope(GlobalSearchScope.forum);
+    _global.clearConditions();
+    if (_global.hasOrderFilter) _global.setOrder('relevance');
+    _feedClauses
+      ..clear()
+      ..addAll(clauses);
+    _global.setQuery(visit.words);
+    _global.setTopicFilterClauses(clauses.isEmpty ? null : clauses.join(' '));
+    _pageRevision.value++;
+    _loadingFeedDraft = false;
+    _syncFeedSourceFilters();
+  }
+
+  Widget _buildFeedPicker(BuildContext context) {
+    final visit = _filterVisit!;
+    final shell = _shell!;
+    final categories = shell.filterCategoriesFor(visit.site);
+    final scope = parseTopicFilterScope(
+      visit.filters.replaceAll('=category:', 'category:'),
+      categories,
+    );
+    return DReferenceTextScale(
+      child: DMenuContentScale(
+        child: TopicFilterInput(
+          siteUrl: visit.site,
+          initialQuery: visit.filters,
+          categories: categories,
+          categoryContextId: scope.categoryId,
+          options: _feedOptions,
+          tokenized: true,
+          embedded: true,
+          focusOnOpen: false,
+          hintText: context.l10n.addAFilter,
+          padding: EdgeInsets.zero,
+          returnToSearch: _closeFeedPicker,
+          onScopeChanged: (query) => _acceptFeedPicker(visit, query),
+          onSubmitted: (query) async {
+            _acceptFeedPicker(visit, query);
+            if (identical(_filterVisit, visit)) _closeFeedPicker();
+          },
+        ),
+      ),
+    );
+  }
 
   ContentRoute? get _filterFeed {
-    final routes = _document?.contentStack ?? const <ContentRoute>[];
-    final route = routes.reversed
+    final route = _document?.contentStack.reversed
         .where((route) => !route.isGlobalSearch)
         .firstOrNull;
     return route?.isTopicList == true && route?.isMessages != true
@@ -167,84 +265,225 @@ class _ForumSearchState extends State<ForumSearch> {
         : null;
   }
 
-  void _showFeedFilters() {
+  bool get _usesFeedFilters =>
+      widget.fullScreen &&
+      DControlStyle.isTouch(context) &&
+      _filterFeed != null;
+
+  bool get _showsFeedFilters =>
+      _usesFeedFilters &&
+      (_global.scope == GlobalSearchScope.all ||
+          _global.scope == GlobalSearchScope.forum);
+
+  TopicFilterOption? _feedOption(String token) {
+    if (token.contains('://')) return null;
+    final key = topicFilterClauseKey(
+      token,
+    )?.replaceFirst(RegExp(r'^[-=]+'), '').toLowerCase();
+    if (key == null) return null;
+    return _feedOptions
+        .where((option) => option.name == key || option.alias == key)
+        .firstOrNull;
+  }
+
+  void _loadFeedOptions() {
+    if (!_usesFeedFilters) return;
     final shell = _shell!;
-    final tab = _document;
-    final route = _filterFeed;
-    final site = tab?.siteUrl;
-    if (tab == null || route == null || site == null || !_ownsInput(tab)) {
-      return;
+    final owner = _document;
+    final site = owner?.siteUrl;
+    if (site == null || !_ownsInput(owner)) return;
+    final revision = ++_feedRevision;
+    final route = _filterFeed!;
+    final seed = splitTopicFilterQuery(route.topicFilterQuery);
+    _editedFeedSource = route.isAdvancedTopicFilter;
+    _feedSourceWords = [
+      for (final token in seed)
+        if (topicFilterClauseKey(token) == null) token,
+      if (!route.isSearchList && route.topicListSearch.isNotEmpty)
+        route.topicListSearch,
+    ].join(' ');
+    _feedOptions = [
+      for (final token in seed)
+        if (topicFilterClauseKey(token) case final key?)
+          TopicFilterOption(name: key.replaceFirst(RegExp(r'^[-=]+'), '')),
+    ];
+    _feedClauses.clear();
+    final retained = splitTopicFilterQuery(_global.query).toSet();
+    for (final token in seed) {
+      final key = topicFilterClauseKey(token);
+      if (key != null && key != token && !retained.contains(token)) {
+        final parsed = _presentation.closedExpression(token);
+        if (parsed.conditions.isEmpty && parsed.order == null) {
+          _feedClauses.add(token);
+        }
+      }
     }
-    final visit = (tab: tab, route: route, site: site);
-    _focus.unfocus();
-    _filterVisit = visit;
-    _feedFilterOptions = null;
-    _pageRevision.value++;
+    _loadingFeedDraft = true;
+    _setQuery(_global.query);
+    _publishedFeedExpression = _feedFilterExpression(words: _feedSourceWords!);
+    _loadingFeedDraft = false;
     unawaited(
       shell.topicFilterLookups.loadOptions(site).then((options) {
-        if (!mounted || _filterVisit != visit || !_ownsInput(tab)) return;
-        _feedFilterOptions = options;
+        if (!mounted ||
+            !_open ||
+            revision != _feedRevision ||
+            !_ownsInput(owner)) {
+          return;
+        }
+        final names = {for (final option in options) option.name};
+        _feedOptions = [
+          ...options,
+          for (final option in _feedOptions)
+            if (!names.contains(option.name)) option,
+        ];
+        _loadingFeedDraft = true;
+        _setQuery(_global.query);
+        _loadingFeedDraft = false;
         _pageRevision.value++;
       }),
     );
   }
 
-  void _hideFeedFilters() {
-    _filterVisit = null;
-    _feedFilterOptions = null;
-    _pageRevision.value++;
-    _requestEditorFocus();
+  void _suggestFeedFilters(String query) {
+    final revision = ++_feedChoiceRevision;
+    _feedLookup?.cancel();
+    _feedChoices = const [];
+    if (!_showsFeedFilters ||
+        _feedOptions.isEmpty ||
+        topicFilterQueryEndsWithSeparator(query)) {
+      return;
+    }
+    final tail = splitTopicFilterQuery(query).lastOrNull ?? '';
+    final typedKey = topicFilterClauseKey(tail);
+    final menuFields = topicFilterMenuFields(_feedOptions);
+    final field = menuFields
+        .where(
+          (field) =>
+              _feedMenuField == field.id && field.keys.contains(typedKey),
+        )
+        .firstOrNull;
+    final named = typedKey == null
+        ? menuFields
+              .where(
+                (field) =>
+                    field.label.toLowerCase().startsWith(tail.toLowerCase()),
+              )
+              .toList()
+        : const <TopicFilterMenuField>[];
+
+    if (tail.length < 2 || _global.stagedFilter != null && field == null) {
+      return;
+    }
+    if (named.isNotEmpty) {
+      _feedChoices = [
+        for (final field in named)
+          TopicFilterSuggestion(
+            name: field.draft,
+            displayName: field.label,
+            description: field.hint,
+            menuField: field.id,
+            menuIcon: field.icon,
+          ),
+      ];
+      _pageRevision.value++;
+      return;
+    }
+    final key = topicFilterClauseKey(tail);
+    final prefix = tail.toLowerCase().replaceFirst(RegExp(r'^[-=]+'), '');
+    if (key == null
+        ? !_feedOptions.any(
+            (option) =>
+                option.name.startsWith(prefix) ||
+                option.alias?.startsWith(prefix) == true,
+          )
+        : _feedOption(tail) == null) {
+      return;
+    }
+    final shell = _shell!;
+    final owner = _document;
+    final site = owner?.siteUrl;
+    if (site == null || !_ownsInput(owner)) return;
+    final engine = TopicFilterSuggestions(
+      allOptions: field != null,
+      menuField: field?.id,
+      options: _feedOptions,
+      categories: shell.filterCategoriesFor(site),
+      categoryLookup: (term) =>
+          shell.searchFilterCategories(siteUrl: site, term: term),
+      tags: (term) => shell.searchFilterTags(siteUrl: site, term: term),
+      tagGroups: (term) =>
+          shell.topicFilterLookups.searchTagGroups(siteUrl: site, term: term),
+      users: (term) =>
+          shell.topicFilterLookups.searchUsers(siteUrl: site, term: term),
+      groups: (term) =>
+          shell.topicFilterLookups.searchGroups(siteUrl: site, term: term),
+    );
+    _feedLookup = Timer(const Duration(milliseconds: 150), () async {
+      final choices = await engine.suggestions(tail);
+      if (!mounted ||
+          !_open ||
+          revision != _feedChoiceRevision ||
+          _global.query != query ||
+          !_showsFeedFilters ||
+          !_ownsInput(owner)) {
+        return;
+      }
+      _feedChoices = key != null
+          ? choices
+          : choices.where((choice) {
+              final name = choice.name.toLowerCase().replaceFirst(
+                RegExp(r'^[-=]+'),
+                '',
+              );
+              return name.startsWith(prefix) ||
+                  _feedOption(choice.name)?.alias?.startsWith(prefix) == true;
+            }).toList();
+      _pageRevision.value++;
+    });
   }
 
-  Widget _feedFilters(
-    BuildContext context,
-    ({ShellTabContext tab, ContentRoute route, String site}) visit,
-  ) {
-    final shell = _shell!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DSheetHeader(
-          children: [
-            DButton(
-              key: const ValueKey('search-back-to-results'),
-              label: Text(context.l10n.search),
-              icon: const DIcon(DIcons.arrowLeft),
-              variant: DButtonVariant.ghost,
-              onPressed: _hideFeedFilters,
-            ),
-          ],
-        ),
-        Expanded(
-          child: TopicFilterInput(
-            siteUrl: visit.site,
-            initialQuery: _feedFilterQuery(visit.route),
-            categories: shell.filterCategoriesFor(visit.site),
-            options: _feedFilterOptions ?? const [],
-            tokenized: true,
-            embedded: true,
-            hintText: context.l10n.addAFilter,
-            onDismiss: _hideFeedFilters,
-            onSubmitted: (query) async {
-              if (_filterVisit != visit ||
-                  !_ownsInput(visit.tab) ||
-                  visit.tab.lease?.isCurrent != true ||
-                  _filterFeed?.sameDestinationAs(visit.route) != true) {
-                return;
-              }
-              _filterVisit = null;
-              _closeSearch();
-              await visit.tab.applyTopicListFilterQuery(
-                splitTopicFilterQuery(query)
-                    .where((token) => topicFilterClauseKey(token) != token)
-                    .join(' '),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+  void _pickFeedFilter(TopicFilterSuggestion choice) {
+    final token = choice.name;
+    _feedMenuField = choice.menuField ?? _feedMenuField;
+    if (choice.replaceKeys.isNotEmpty) {
+      _feedClauses.removeWhere(
+        (clause) => choice.replaceKeys.contains(topicFilterClauseKey(clause)),
+      );
+    }
+    final query = _text.text;
+    final tail = splitTopicFilterQuery(query).lastOrNull;
+    final prefix = tail == null || topicFilterQueryEndsWithSeparator(query)
+        ? query
+        : query.substring(0, query.lastIndexOf(tail));
+    _setQuery('$prefix$token${token.endsWith(':') ? '' : ' '}');
+    _focus.requestFocus();
   }
+
+  List<Widget> _feedFilterChips(BuildContext context) => [
+    for (final clause in _feedClauses)
+      if (topicFilterClauseKey(clause) case final key?)
+        DFilterToken(
+          label: key.substring(0, key.length - 1),
+          value: clause.substring(key.length),
+          editLabel: context.l10n.editCondition(clause),
+          removeLabel: context.l10n.removeCondition(clause),
+          editKey: ValueKey('search-edit-feed-clause:$clause'),
+          removeKey: ValueKey('search-remove-feed-clause:$clause'),
+          onEdited: () {
+            _feedClauses.remove(clause);
+            _pageRevision.value++;
+            final words = _global.query.trimRight();
+            _setQuery([if (words.isNotEmpty) words, clause].join(' '));
+            _focus.requestFocus();
+          },
+          onRemoved: () {
+            _feedClauses.remove(clause);
+            _pageRevision.value++;
+            _setQuery(_global.query);
+            _focus.requestFocus();
+          },
+        ),
+  ];
 
   String get _listExpression {
     final shell = _shell;
@@ -260,13 +499,14 @@ class _ForumSearchState extends State<ForumSearch> {
   int get _listFilterCount {
     final route = _sourceRoute;
     if (route == null || route.isMessages || !route.isTopicList) return 0;
-    return splitTopicFilterQuery(_listExpression).where((clause) {
+    final extra = splitTopicFilterQuery(_listExpression).where((clause) {
       final key = topicFilterClauseKey(clause)?.toLowerCase();
       if (key == null || key == 'category:') return false;
       if (key != 'tags:' && key != 'tag:') return true;
       final value = clause.substring(key.length);
       return value.contains(RegExp(r'[+,]'));
-    }).length;
+    });
+    return topicFilterMenuCount(extra.join(' '));
   }
 
   GlobalSearchExpression get _closedExpression =>
@@ -307,7 +547,6 @@ class _ForumSearchState extends State<ForumSearch> {
   String get _query => (_open ? _global.query : _closedExpression.query);
 
   void _closeSearch() {
-    _filterVisit = null;
     if (widget._pageContent) {
       if (_sourceRoute?.isGlobalSearch == true) {
         _openChanged(false, DPopoverChangeReason.imperative);
@@ -471,6 +710,12 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!mounted) return;
     _syncText();
     _presentation.reconcileSelection();
+    if (_open &&
+        _showsFeedFilters &&
+        !_loadingFeedDraft &&
+        _feedSourceWords != null) {
+      _syncFeedSourceFilters();
+    }
     // Every keystroke and result delivery notifies; the panel and the chips
     // listen for themselves, so the field redraws only for its own reads.
     if (_globalReads == _builtGlobalReads) return;
@@ -505,6 +750,7 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _requestEditorFocus() {
+    if (_filterVisit != null) return;
     if (widget._pageContent && !_focus.canRequestFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _sourceRoute?.isGlobalSearch == true) {
@@ -611,12 +857,21 @@ class _ForumSearchState extends State<ForumSearch> {
     setState(() => _presentation.surfaceChanged(open, editingValue));
     if (open) {
       _global.ensureCapabilities();
+      _loadFeedOptions();
       _syncText();
       if (_presentation.restoredDraft case final draft?) {
         _text.value = draft;
       }
     }
     if (!open) {
+      _filterVisit = null;
+      _showFeedPicker.value = false;
+      _feedLookup?.cancel();
+      _feedChoiceRevision++;
+      _feedChoices = const [];
+      _feedMenuField = null;
+      _feedSourceWords = null;
+      _global.setTopicFilterClauses(null);
       _search.closePanel();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -640,15 +895,79 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!_open) _requestFocus();
     _selectResult(null);
     _global.clearAllConditions();
+    if (_feedClauses.isNotEmpty) _pageRevision.value++;
+    _feedClauses.clear();
     _setQuery('');
     _focus.requestFocus();
   }
 
   void _setQuery(String value) {
     _panelKey.currentState?.resetSelection();
-    {
-      _global.setQuery(value);
+    final composing = _text.value.composing;
+    if (_showsFeedFilters &&
+        _feedOptions.isNotEmpty &&
+        (!composing.isValid || composing.isCollapsed)) {
+      final tokens = splitTopicFilterQuery(value);
+      final completed = topicFilterQueryEndsWithSeparator(value)
+          ? tokens.length
+          : tokens.isEmpty
+          ? 0
+          : tokens.length - 1;
+      final consumed = <int>{};
+      for (var i = 0; i < completed; i++) {
+        final token = tokens[i];
+        final key = topicFilterClauseKey(token);
+        if (key == null || key == token || _feedOption(token) == null) continue;
+        final expression = _presentation.closedExpression(token);
+        if (expression.conditions.isNotEmpty || expression.order != null) {
+          continue;
+        }
+        _feedClauses.removeWhere(
+          (clause) => topicFilterClauseKey(clause) == key,
+        );
+        _feedClauses.add(token);
+        consumed.add(i);
+      }
+      if (consumed.isNotEmpty) {
+        _pageRevision.value++;
+        value = [
+          for (var i = 0; i < tokens.length; i++)
+            if (!consumed.contains(i)) tokens[i],
+        ].join(' ');
+        if (value.isNotEmpty && completed == tokens.length) value += ' ';
+      }
     }
+    _global.setQuery(value);
+    if (_usesFeedFilters) {
+      if (!_loadingFeedDraft && _showsFeedFilters && _open) {
+        _syncFeedSourceFilters();
+      }
+      _global.setTopicFilterClauses(
+        _feedClauses.isEmpty ? null : _feedClauses.join(' '),
+      );
+      final hadChoices = _feedChoices.isNotEmpty;
+      _suggestFeedFilters(_global.query);
+      _syncText();
+      if (hadChoices && _feedChoices.isEmpty) _pageRevision.value++;
+    }
+  }
+
+  String _feedFilterExpression({required String words}) => topicFeedSearchQuery(
+    words: words,
+    clauses: _feedClauses.join(' '),
+    conditions: _global.conditions,
+    order: _global.order,
+    capabilities: _global.capabilities,
+  );
+
+  void _syncFeedSourceFilters() {
+    final owner = _document;
+    final sourceWords = _feedSourceWords;
+    if (sourceWords == null || !_ownsInput(owner)) return;
+    final expression = _feedFilterExpression(words: sourceWords);
+    if (expression == _publishedFeedExpression) return;
+    _publishedFeedExpression = expression;
+    if (owner!.updateSearchSourceFilters(expression)) _editedFeedSource = true;
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
@@ -671,6 +990,15 @@ class _ForumSearchState extends State<ForumSearch> {
       return KeyEventResult.ignored;
     }
     final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.backspace &&
+        _text.text.isEmpty &&
+        _showsFeedFilters &&
+        _feedClauses.isNotEmpty) {
+      final previous = _feedClauses.removeLast();
+      _pageRevision.value++;
+      _setQuery(topicFilterClauseKey(previous)!);
+      return KeyEventResult.handled;
+    }
     if (_panelKey.currentState?.handleKey(
           key,
           reverse: keyboard.isShiftPressed,
@@ -771,6 +1099,7 @@ class _ForumSearchState extends State<ForumSearch> {
     final preserveSearch =
         widget._pageContent &&
         (result.source is SearchPostHit ||
+            result.topic != null ||
             resultRoute != null &&
                 (resultRoute.isTopic ||
                     shell.plugins.registry.usesMobilePageSheet(
@@ -796,6 +1125,16 @@ class _ForumSearchState extends State<ForumSearch> {
     }
     if (result.source case final SearchPostHit hit) {
       shell.openSearchResult(hit, words: activation.words);
+    } else if (result.topic case final topic?) {
+      shell.openTopic(topic);
+      if (ownsAccount() && shell.currentContent?.topicId == topic.id) {
+        shell.search.setPageWords(
+          site,
+          owner.tabId,
+          'topic-${topic.id}',
+          activation.words,
+        );
+      }
     } else {
       final previousRoute = owner.currentContent;
       ({ShellTabContext owner, ForumTab tab})? destination;
@@ -829,6 +1168,13 @@ class _ForumSearchState extends State<ForumSearch> {
     }
   }
 
+  bool get _hasFeedDraft =>
+      _showsFeedFilters &&
+      (_feedClauses.isNotEmpty ||
+          _editedFeedSource ||
+          _feedOption(splitTopicFilterQuery(_global.query).lastOrNull ?? '') !=
+              null);
+
   void _apply() {
     final shell = _shell!;
     final owner = _document;
@@ -842,6 +1188,16 @@ class _ForumSearchState extends State<ForumSearch> {
       sourceRoute,
       requireSourceRoute: requireSourceRoute,
     );
+    if (_showsFeedFilters) {
+      final typed = _global.query;
+      final tail = splitTopicFilterQuery(typed).lastOrNull;
+      if (tail != null &&
+          !topicFilterQueryEndsWithSeparator(typed) &&
+          _feedOption(tail) != null &&
+          topicFilterClauseKey(tail) != tail) {
+        _setQuery('$typed ');
+      }
+    }
     _global.submit();
     if (!ownsAction() || _global.phase == GlobalSearchPhase.failed) return;
     final words = _global.wordsQuery.trim();
@@ -850,18 +1206,15 @@ class _ForumSearchState extends State<ForumSearch> {
       if (_global.hasOrderFilter)
         GlobalSearchCondition(filterId: 'order', value: [_global.order]),
     ];
-    final feed = widget.fullScreen ? _filterFeed : null;
-    if (feed?.isAdvancedTopicFilter == true &&
-        words.isNotEmpty &&
-        conditions.isEmpty) {
-      final held = splitTopicFilterQuery(
-        _feedFilterQuery(feed!),
-      ).where((clause) => topicFilterClauseKey(clause) != null);
+    final feed = _showsFeedFilters ? _filterFeed : null;
+    if (feed != null && (_feedClauses.isNotEmpty || _editedFeedSource)) {
+      final query = _feedFilterExpression(words: words);
       _global.rememberSearch();
       if (!ownsAction()) return;
       _closeSearch();
       if (!ownsAction(requireSourceRoute: false)) return;
-      unawaited(owner.applyTopicListFilterQuery([...held, words].join(' ')));
+      unawaited(owner.applyTopicListFilterQuery(query));
+      _feedClauses.clear();
       _clearSubmittedSearch();
       return;
     }
@@ -954,6 +1307,7 @@ class _ForumSearchState extends State<ForumSearch> {
     final hasConditions = expanded
         ? _global.conditions.isNotEmpty ||
               _global.hasOrderFilter ||
+              _showsFeedFilters && _feedClauses.isNotEmpty ||
               !_global.scope.isCore
         : _closedConditions.isNotEmpty;
     return Focus(
@@ -968,7 +1322,7 @@ class _ForumSearchState extends State<ForumSearch> {
             ? DControlSize.filter
             : widget.size,
         variant: phonePage
-            ? DInputGroupVariant.standard
+            ? DInputGroupVariant.quiet
             : DInputGroupVariant.search,
         borderless: expanded && !widget.fullScreen,
         children: [
@@ -991,7 +1345,7 @@ class _ForumSearchState extends State<ForumSearch> {
               _setQuery(value);
             },
             onSubmitted: (_) {
-              if (widget.fullScreen) {
+              if (widget.fullScreen && !_hasFeedDraft) {
                 _focus.unfocus();
               } else {
                 _apply();
@@ -1054,6 +1408,11 @@ class _ForumSearchState extends State<ForumSearch> {
                   ),
                 ),
               ),
+            ),
+          if (phonePage && _usesFeedFilters)
+            DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.inlineEnd,
+              child: _feedPickerButton(context),
             ),
           if (_query.isNotEmpty || hasConditions)
             DInputGroupAddon(
@@ -1348,12 +1707,36 @@ class _ForumSearchState extends State<ForumSearch> {
   void dispose() {
     _detach();
     _focus.removeListener(_focusChanged);
+    _feedLookup?.cancel();
     _focus.dispose();
     _clearFocus.dispose();
     _text.dispose();
     _popover.dispose();
     _pageRevision.dispose();
+    _showFeedPicker.dispose();
     super.dispose();
+  }
+
+  Widget _feedPickerButton(BuildContext context) {
+    final count = topicFilterMenuCount(_feedFilterExpression(words: ''));
+    final label = context.l10n.filters;
+    const key = ValueKey('search-filters-button');
+    const icon = DIcon(DIcons.filter, size: 12);
+    if (count == 0) {
+      return DInputGroupButton.icon(
+        key: key,
+        icon: icon,
+        tooltip: label,
+        onPressed: _openFeedPicker,
+      );
+    }
+    return DInputGroupButton(
+      key: key,
+      icon: icon,
+      label: Text('$count'),
+      tooltip: '$label · $count',
+      onPressed: _openFeedPicker,
+    );
   }
 
   Widget _buildPageTrigger() {
@@ -1391,6 +1774,9 @@ class _ForumSearchState extends State<ForumSearch> {
     listenable: _pageRevision,
     builder: (context, _) {
       _builtGlobalReads = _globalReads;
+      if (_filterVisit != null) {
+        return _buildFeedPicker(context);
+      }
       final phone = DControlStyle.isTouch(context);
       final header = Row(
         spacing: 10,
@@ -1415,67 +1801,84 @@ class _ForumSearchState extends State<ForumSearch> {
         child: Column(
           key: ForumSearch.panelKey,
           children: [
-            if (_filterVisit case final visit?)
-              Expanded(
-                child: DMenuContentScale(child: _feedFilters(context, visit)),
-              )
-            else ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                child: phone ? DMenuContentScale(child: header) : header,
+            DSheetHeader(children: [header]),
+            Expanded(
+              child: GlobalSearchPanel(
+                key: _panelKey,
+                showConditions: false,
+                footerControls: phone,
+                feedFilterChips: _showsFeedFilters
+                    ? _feedFilterChips(context)
+                    : const [],
+                feedFilterChoices: _showsFeedFilters ? _feedChoices : const [],
+                feedFilterKeys:
+                    _showsFeedFilters && _global.query.trim().isEmpty
+                    ? [
+                        for (final field in topicFilterMenuFields(_feedOptions))
+                          if (_global.availableFilters.every(
+                            (filter) => filter.label != field.label,
+                          ))
+                            TopicFilterSuggestion(
+                              name: field.draft,
+                              displayName: field.label,
+                              description: field.hint,
+                              menuField: field.id,
+                              menuIcon: field.icon,
+                            ),
+                      ]
+                    : const [],
+                onFeedFilterChoice: _pickFeedFilter,
+                showFeedApply: _hasFeedDraft,
+                showClearFilters:
+                    _listExpression.isNotEmpty &&
+                    _global.wordsQuery.isEmpty &&
+                    _global.conditions.isEmpty &&
+                    _feedClauses.isEmpty,
+                controller: _global,
+                onApply: _apply,
+                onOpenSection: _openSection,
+                onRefocus: _focus.requestFocus,
+                selectedResultId: _selectedResultId,
+                onSelect: (id) {
+                  _selectResult(id);
+                  _pageRevision.value++;
+                },
+                onOpen: _openResult,
               ),
-              if (phone && _filterFeed != null)
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: DButton(
-                    key: const ValueKey('search-edit-feed-filters'),
-                    icon: const DIcon(DIcons.filter),
-                    label: Text(context.l10n.filterTopics),
-                    size: DButtonSize.filter,
-                    variant: DButtonVariant.ghost,
-                    onPressed: _showFeedFilters,
-                  ),
-                ),
-              Expanded(
-                child: GlobalSearchPanel(
-                  key: _panelKey,
-                  showConditions: false,
-                  footerControls: phone,
-                  showClearFilters:
-                      _listExpression.isNotEmpty &&
-                      _global.wordsQuery.isEmpty &&
-                      _global.conditions.isEmpty,
-                  controller: _global,
-                  onApply: _apply,
-                  onOpenSection: _openSection,
-                  onRefocus: _focus.requestFocus,
-                  selectedResultId: _selectedResultId,
-                  onSelect: (id) {
-                    _selectResult(id);
-                    _pageRevision.value++;
-                  },
-                  onOpen: _openResult,
-                ),
-              ),
-            ],
+            ),
           ],
         ),
       );
     },
   );
 
-  Widget _buildPageSurface(BuildContext context, Widget content) => SafeArea(
-    bottom: false,
-    child: DSheetViewport(
-      content: DSheetContent(
-        side: DSheetSide.bottom,
-        variant: DSheetVariant.page,
-        showCloseButton: false,
-        semanticLabel: context.l10n.globalSearch,
-        backgroundColor: DTokens.of(context).background,
-        children: [Expanded(child: SafeArea(top: false, child: content))],
-      ),
-    ),
+  Widget _buildPageSurface(
+    BuildContext context,
+    Widget content,
+  ) => ValueListenableBuilder<bool>(
+    valueListenable: _showFeedPicker,
+    child: content,
+    builder: (context, picking, content) =>
+        NotificationListener<ScrollNotification>(
+          // Search overlays the feed. Its scrolling cannot fold the feed dock.
+          onNotification: (_) => true,
+          child: DSheetViewport(
+            dismissOnBackdrop: picking,
+            onDismiss: _surfaceOpen ? _closeSearch : null,
+            content: DSheetContent(
+              side: DSheetSide.bottom,
+              variant: DSheetVariant.adaptiveMenu,
+              sizeToContent: false,
+              initiallyExpanded: picking,
+              showCloseButton: false,
+              semanticLabel: context.l10n.globalSearch,
+              children: [
+                const DSheetHeader(children: []),
+                Expanded(child: DMenuContentScale.unscaled(child: content!)),
+              ],
+            ),
+          ),
+        ),
   );
 
   void _openPage() {

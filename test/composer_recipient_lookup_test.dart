@@ -229,6 +229,7 @@ final class _Fixture {
         sourceIdentity: source ?? this.source,
         lease: lifecycle.capture(_site),
         isSourceCurrent: () => sourceCurrent,
+        groupRoster: (_) async => null,
         search: (term) {
           terms.add(term);
           final result = Completer<FoundUsersAndGroups>();

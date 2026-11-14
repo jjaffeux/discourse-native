@@ -93,7 +93,7 @@ void main() {
         final handle = _artwork(
           find.byKey(const ValueKey('sheet-drag-handle')),
         );
-        final page = _artwork(primaryMainContent);
+        final page = _artwork(primaryTopicList);
         final rows = _artwork(
           find.byType(DCommandList<String>),
         ).whereType<RenderParagraph>().toSet();

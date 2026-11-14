@@ -1,16 +1,9 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' as fixture;
 
 Finder _filters() => find.byKey(const ValueKey('topic-list-filter'));
-
-List<String?> _labels(WidgetTester tester) => find
-    .descendant(of: _filters(), matching: find.byType(Text))
-    .evaluate()
-    .map((element) => (element.widget as Text).data)
-    .toList();
 
 void main() {
   Future<void> pumpList(WidgetTester tester, double width, String query) async {
@@ -25,60 +18,31 @@ void main() {
     }
   }
 
-  double top(WidgetTester tester, String key) =>
-      tester.getRect(find.byKey(ValueKey(key))).top;
-
-  testWidgets('Filters keeps its count beside the other filters for room', (
-    tester,
-  ) async {
-    await pumpList(tester, 360, 'status:open');
-    expect(_labels(tester), ['1']);
-    expect(
-      find.descendant(of: _filters(), matching: find.byType(DIcon)),
-      findsOneWidget,
-    );
-    expect(
-      top(tester, 'topic-list-filter'),
-      top(tester, 'topic-list-tag-filter'),
-    );
-    expect(
-      tester.getSemantics(_filters()),
-      matchesSemantics(
-        label: 'Filters · 1',
-        isButton: true,
-        hasTapAction: true,
-        isFocusable: true,
-        hasEnabledState: true,
-        isEnabled: true,
-        hasExpandedState: true,
-        hasFocusAction: true,
-      ),
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Filters without a filter set keeps only its glyph for room', (
-    tester,
-  ) async {
-    await pumpList(tester, 360, '');
-    expect(_labels(tester), isEmpty);
-    expect(
-      find.descendant(of: _filters(), matching: find.byType(DIcon)),
-      findsOneWidget,
-    );
-    expect(
-      top(tester, 'topic-list-filter'),
-      top(tester, 'topic-list-tag-filter'),
-    );
-    expect(tester.getSemantics(_filters()).getSemanticsData().label, 'Filters');
-    expect(tester.takeException(), isNull);
-  });
+  for (final query in ['status:open', '']) {
+    testWidgets('advanced filters are available through Search for $query', (
+      tester,
+    ) async {
+      await pumpList(tester, 360, query);
+      expect(_filters(), findsNothing);
+      final search = find.byKey(const ValueKey('mobile-search-button'));
+      final badge = find.byKey(const ValueKey('mobile-search-filter-count'));
+      expect(badge, query.isEmpty ? findsNothing : findsOneWidget);
+      await tester.tap(search);
+      await tester.pumpAndSettle();
+      final filters = find.byKey(const ValueKey('search-filters-button'));
+      expect(filters.hitTestable(), findsOneWidget);
+      await tester.tap(filters);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-filter-input')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('crowded filters shorten before taking a third line', (
     tester,
   ) async {
     await pumpList(tester, 360, 'status:open');
-    expect(_labels(tester), ['1']);
+    expect(_filters(), findsNothing);
     expect(
       tester
           .getSize(find.byKey(const ValueKey('topic-list-filter-bar')))
