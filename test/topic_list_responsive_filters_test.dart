@@ -250,21 +250,10 @@ void main() {
         find.descendant(of: filters, matching: find.textContaining('1')),
         findsOneWidget,
       );
-      final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
-      expect(
-        find.descendant(of: bar, matching: find.text('Categories')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: bar, matching: find.text('Tags')),
-        findsOneWidget,
-      );
-      expect(
-        tester.getSize(
-          find.byKey(const ValueKey('topic-list-category-filter')),
-        ),
-        const Size.square(36),
-      );
+      final category = find.byKey(const ValueKey('topic-list-category-filter'));
+      final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
+      expect(tester.getSize(category), const Size.square(36));
+      expect(tester.getSize(tag), const Size.square(36));
       await _capture(tester, 'phone-scrolled');
       await tester.tap(filters);
       await tester.pumpAndSettle();
@@ -273,6 +262,21 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('category keeps its mark when the label cannot fit', (
+    tester,
+  ) async {
+    await _pump(tester, width: 320);
+    final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
+    final label = find.descendant(of: bar, matching: find.text('Categories'));
+    expect(label, findsNothing);
+    await _capture(tester, 'category-tight');
+    tester.view.physicalSize = const Size(430, 844);
+    await tester.pumpAndSettle();
+    expect(label, findsOneWidget);
+    await _capture(tester, 'category-room');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('width pressure retains feed names and ordinary phone spacing', (
     tester,

@@ -147,7 +147,9 @@ class TopicCategoryPathSelector extends StatelessWidget {
       final iconOnly =
           this.iconOnly ||
           DFitRow.compactOf(context) ||
-          short && path.isNotEmpty && level != path.length - 1;
+          short &&
+              (path.isEmpty && DControlStyle.isTouch(context) ||
+                  path.isNotEmpty && level != path.length - 1);
       final icon = category != null
           ? CategoryIcon(
               key: ValueKey(('$prefix-selected-icon', category.id)),
