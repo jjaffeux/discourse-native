@@ -471,10 +471,7 @@ final class AssignPlugin
               ? const DIcon(DIcons.userPlus)
               : AssignmentAssigneeAvatar(
                   assignee: direct.assignee,
-                  size: DControlStyle.iconDimension(
-                    DControlSize.regular,
-                    context: context,
-                  ),
+                  size: DAvatarSize.sm.dimension,
                 ),
           label: direct != null
               ? appL10n.manageAssignmentTo(

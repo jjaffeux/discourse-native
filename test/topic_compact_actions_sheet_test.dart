@@ -59,6 +59,26 @@ void topicCompactActionsSheetTests({
       await loader.load();
     }
   });
+  testWidgets(
+    'the floating topic toolbar shows a 24-point assignee avatar',
+    (tester) async {
+      await _openCompact(tester, assigned: true, canAssign: false);
+      final assignment = find.descendant(
+        of: _tools,
+        matching: find.byKey(const Key('assign-topic-header')),
+      );
+      final avatar = find.descendant(
+        of: assignment,
+        matching: find.byType(DAvatar),
+      );
+      expect(tester.getSize(avatar), const Size.square(24));
+      await tester.tap(assignment);
+      await tester.pumpAndSettle();
+      expect(find.text('Assigned to').hitTestable(), findsOneWidget);
+    },
+    variant: native ? TargetPlatformVariant.only(TargetPlatform.iOS) : _mobile,
+  );
+
   for (final (size, scale) in [
     (const Size(390, 844), 1.0),
     (const Size(320, 740), 2.0),
@@ -392,6 +412,7 @@ Future<(ShellController, FakeDiscourseApi)> _openCompact(
   Size size = phone,
   AppThemeMode mode = AppThemeMode.dark,
   bool assigned = false,
+  bool canAssign = true,
 }) async {
   const user = DiscourseUser(id: 9, username: 'moderator', staff: true);
   final api = FakeDiscourseApi(
@@ -428,7 +449,7 @@ Future<(ShellController, FakeDiscourseApi)> _openCompact(
         plugins: PluginData.none.withValue(
           assignmentsDataKey,
           Assignments(
-            canAssign: true,
+            canAssign: canAssign,
             direct: assigned
                 ? const Assignment(
                     assignee: AssignmentUser(username: 'sam', name: 'Sam'),
