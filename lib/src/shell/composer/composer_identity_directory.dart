@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import '../../data/account_request_session.dart';
 import '../../data/api_credentials.dart';
 import '../../data/discourse_search_contract.dart';
+import '../../data/groups_api.dart';
 import '../../data/shell_lookup_api.dart';
 import '../../data/site_lifecycle.dart';
 import '../../foundation/bounded_lru_cache.dart';
@@ -48,6 +49,7 @@ final class ComposerRecipientSearch {
     required this.lease,
     required this.isSourceCurrent,
     required this.search,
+    required this.groupRoster,
   });
 
   final String siteUrl;
@@ -55,6 +57,7 @@ final class ComposerRecipientSearch {
   final SiteLease lease;
   final bool Function() isSourceCurrent;
   final Future<FoundUsersAndGroups> Function(String term) search;
+  final Future<Set<String>?> Function(String group) groupRoster;
 
   bool get isCurrent => lease.isCurrent && isSourceCurrent();
 }
@@ -227,7 +230,10 @@ final class ComposerIdentityDirectory {
   ComposerPills pills(ComposerTarget target) =>
       _resolutionFor(target.siteUrl).pills(target.mentionTopicId);
 
-  ComposerRecipientSearch messageRecipientSearch(String siteUrl) {
+  ComposerRecipientSearch messageRecipientSearch(
+    String siteUrl, {
+    GroupsApi? groups,
+  }) {
     final lease = _lifecycle.capture(siteUrl);
     return ComposerRecipientSearch(
       siteUrl: siteUrl,
@@ -235,6 +241,41 @@ final class ComposerIdentityDirectory {
       sourceIdentity: this,
       lease: lease,
       isSourceCurrent: () => !_disposed,
+      groupRoster: (group) async {
+        if (groups == null || !_isConnected(siteUrl)) return null;
+        final session = AccountRequestSession(siteUrl, lease);
+        try {
+          final credential = await session.credentials(_credentials);
+          if (!lease.isCurrent) return null;
+          final usernames = <String>{};
+          var offset = 0;
+          var total = 0;
+          do {
+            final page = await credential.run(
+              () => groups.members(
+                siteUrl: siteUrl,
+                groupName: group,
+                apiKey: credential.apiKey,
+                clientId: credential.clientId,
+                offset: offset,
+                limit: GroupsApi.maximumMemberPageSize,
+              ),
+            );
+            if (!lease.isCurrent || page.offset != offset) return null;
+            total = page.total;
+            offset += page.members.length;
+            for (final member in page.members) {
+              if (member.username.isNotEmpty) {
+                usernames.add(member.username.toLowerCase());
+              }
+            }
+            if (offset < total && page.members.isEmpty) return null;
+          } while (offset < total);
+          return usernames.length == total ? Set.unmodifiable(usernames) : null;
+        } catch (_) {
+          return null;
+        }
+      },
       search: (term) async {
         try {
           final session = AccountRequestSession(siteUrl, lease);

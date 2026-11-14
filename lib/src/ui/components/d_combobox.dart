@@ -60,6 +60,8 @@ class DComboboxOption<T> {
     this.enabled = true,
     this.searchText,
     this.itemKey,
+    this.icon,
+    this.detail,
   });
 
   final T value;
@@ -67,6 +69,8 @@ class DComboboxOption<T> {
   final bool enabled;
   final String? searchText;
   final Key? itemKey;
+  final Widget? icon;
+  final String? detail;
 }
 
 @immutable
@@ -1472,7 +1476,12 @@ class _DComboboxSheetFooter<T> extends StatelessWidget {
               for (final option in options)
                 DButton(
                   key: option.itemKey,
-                  label: Text(option.label),
+                  icon: option.icon,
+                  label: Text(
+                    option.detail == null
+                        ? option.label
+                        : '${option.label} · ${option.detail}',
+                  ),
                   shape: DButtonShape.pill,
                   size: DButtonSize.filter,
                   variant: DButtonVariant.quiet,

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
@@ -57,6 +58,49 @@ void main() {
         scene.dispose();
       });
     }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('group reach counts unique people other than the sender', (
+    tester,
+  ) async {
+    if (const String.fromEnvironment('RECIPIENT_REACH_CAPTURE').isNotEmpty) {
+      await tester.runAsync(() async {
+        await (FontLoader(
+          'Lato',
+        )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+      });
+    }
+    final api = _RecipientApi(
+      Completer<FoundUsersAndGroups>(),
+      user: const DiscourseUser(id: 1, username: 'sender'),
+    );
+    final shell = _shell(api, signedIn: true);
+    final source = ValueNotifier(shell);
+    addTearDown(source.dispose);
+    final composer = await _pump(
+      tester,
+      mobile: true,
+      api: api,
+      shellSource: source,
+    );
+    await _findSam(tester, mobile: true);
+    await tester.tap(_option('sam'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_input, 'team');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    final group = find.byKey(const ValueKey(('recipient-group', 'team')));
+    expect(group, findsOneWidget);
+    await tester.runAsync(() => _captureRecipient('group-picker'));
+    expect(find.text('team · 4 members'), findsOneWidget);
+    await tester.tap(group);
+    await tester.pumpAndSettle();
+    expect(composer.target.targetRecipients, 'sam,team');
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => _captureRecipient('group-reach'));
+    expect(find.text('3 recipients'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -374,6 +418,20 @@ void main() {
   }
 }
 
+Future<void> _captureRecipient(String name) async {
+  const directory = String.fromEnvironment('RECIPIENT_REACH_CAPTURE');
+  if (directory.isEmpty) return;
+  final binding = TestWidgetsFlutterBinding.instance;
+  final builder = ui.SceneBuilder();
+  binding.renderViews.first.debugLayer!.addToScene(builder);
+  final scene = builder.build();
+  final image = await scene.toImage(390, 800);
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  await File('$directory/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
+  image.dispose();
+  scene.dispose();
+}
+
 EditableText _editable(WidgetTester tester) => tester.widget<EditableText>(
   find.descendant(of: _input, matching: find.byType(EditableText)),
 );
@@ -400,13 +458,19 @@ ComposerController _composer({
   ),
 );
 
-ShellController _shell(_RecipientApi api) => ShellController(
-  instanceStore: FakeInstanceStore(),
-  api: api,
-  authenticator: FakeAuthenticator()..keys[_site] = 'test-api-key',
-  drafts: FakeDraftStore(),
-  trackers: FakeSiteTracker.reset(),
-);
+ShellController _shell(_RecipientApi api, {bool signedIn = false}) =>
+    ShellController(
+      instanceStore: FakeInstanceStore([
+        if (signedIn)
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(id: 1, username: 'sender')),
+      ]),
+      api: api,
+      authenticator: FakeAuthenticator()..keys[_site] = 'test-api-key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
 
 Future<ComposerController> _pump(
   WidgetTester tester, {
@@ -457,11 +521,38 @@ Future<ComposerController> _pump(
 }
 
 class _RecipientApi extends FakeDiscourseApi {
-  _RecipientApi(this.pending);
+  _RecipientApi(this.pending, {super.user});
 
   final Completer<FoundUsersAndGroups> pending;
   final List<String> terms = [];
   final List<String> sites = [];
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) {
+    final uri = Uri.parse(path);
+    if (uri.path == '/groups/team/members.json') {
+      return Future.value({
+        'members': [
+          {'id': 1, 'username': 'sender'},
+          {'id': 2, 'username': 'sam'},
+          {'id': 3, 'username': 'mira'},
+          {'id': 4, 'username': 'lena'},
+        ],
+        'meta': {'total': 4, 'offset': 0, 'limit': 1000},
+      });
+    }
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 
   @override
   Future<FoundUsersAndGroups> searchUsersAndGroups({
@@ -476,6 +567,7 @@ class _RecipientApi extends FakeDiscourseApi {
     return switch (term) {
       'sa' => const FoundUsersAndGroups(users: [_sam]),
       'alice' => pending.future,
+      'team' => const FoundUsersAndGroups(groups: [FoundGroup(name: 'team')]),
       _ => const FoundUsersAndGroups(),
     };
   }

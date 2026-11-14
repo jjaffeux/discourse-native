@@ -26,8 +26,48 @@ final class ComposerRecipientLookup extends ChangeNotifier {
   int _generation = 0;
   bool _retired = false;
   bool _rejectedSelection = false;
+  bool _mobile = false;
   String _query = '';
   FoundUsersAndGroups _results = const FoundUsersAndGroups();
+  final _rosters = <String, Set<String>?>{};
+  final _loadingRosters = <String>{};
+  final _knownUsers = <String>{};
+
+  int? groupMemberCount(String name) => _rosters[name]?.length;
+
+  int? reach(String? sender) {
+    final usernames = <String>{};
+    for (final recipient in recipients) {
+      if (_knownUsers.contains(recipient)) {
+        usernames.add(recipient.toLowerCase());
+      } else if (_rosters[recipient] case final roster?) {
+        usernames.addAll(roster);
+      } else {
+        return null;
+      }
+    }
+    usernames.remove(sender?.toLowerCase());
+    return usernames.length;
+  }
+
+  void loadRecipientCounts() {
+    if (!_isCurrent) return;
+    final visibleGroups = _results.groups.map((group) => group.name);
+    for (final name in {...visibleGroups, ...recipients}) {
+      if (_knownUsers.contains(name) ||
+          _rosters.containsKey(name) ||
+          !_loadingRosters.add(name)) {
+        continue;
+      }
+      unawaited(() async {
+        final roster = await _search.groupRoster(name);
+        _loadingRosters.remove(name);
+        if (!_isCurrent) return;
+        _rosters[name] = roster;
+        notifyListeners();
+      }());
+    }
+  }
 
   String get query => _query;
   FoundUsersAndGroups get results => _results;
@@ -76,6 +116,8 @@ final class ComposerRecipientLookup extends ChangeNotifier {
       }
       if (!_isCurrent || generation != _generation) return;
       _results = results;
+      _knownUsers.addAll(results.users.map((user) => user.username));
+      if (_mobile) loadRecipientCounts();
       notifyListeners();
     });
   }
@@ -93,13 +135,18 @@ final class ComposerRecipientLookup extends ChangeNotifier {
         .toList();
     _rejectedSelection = accepted.length != values.length;
     composer.setRecipients(accepted);
+    if (_mobile) loadRecipientCounts();
   }
 
   void setOpen(bool open, {required bool mobile}) {
     if (!_isCurrent) return;
+    _mobile = mobile;
     if (mobile) {
       _cancelPending();
-      if (open) search('');
+      if (open) {
+        loadRecipientCounts();
+        search('');
+      }
     } else if (open && _results.users.isEmpty && _results.groups.isEmpty) {
       search(_query);
     }
@@ -116,6 +163,8 @@ final class ComposerRecipientLookup extends ChangeNotifier {
     _query = '';
     _results = const FoundUsersAndGroups();
     _rejectedSelection = false;
+    _rosters.clear();
+    _knownUsers.clear();
     notifyListeners();
   }
 

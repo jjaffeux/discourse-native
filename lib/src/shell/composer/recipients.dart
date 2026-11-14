@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/count_label.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../avatar_image.dart';
 import '../platform.dart';
@@ -40,6 +41,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
   void _bindLookup() {
     final search = _shell.composerIdentities.messageRecipientSearch(
       widget.composer.target.siteUrl,
+      groups: _shell.groups.api,
     );
     if (_lookup?.matches(widget.composer, search) ?? false) return;
     _lookup?.removeListener(_lookupChanged);
@@ -63,6 +65,13 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
     final lookup = _lookup!;
     final mobile = context.isTouch;
     final recipients = lookup.recipients;
+    final reach = mobile
+        ? lookup.reach(_shell.currentUserFor(lookup.siteUrl)?.username)
+        : null;
+    final recipientSummary = countLabel(
+      reach ?? recipients.length,
+      CountNoun.recipient,
+    );
     final users = {
       for (final user in lookup.results.users) user.username: user,
     };
@@ -72,6 +81,11 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
           DComboboxOption(
             value: group.name,
             label: group.name,
+            icon: mobile ? const DIcon(DIcons.userGroup) : null,
+            detail: switch (lookup.groupMemberCount(group.name)) {
+              final count? when mobile => countLabel(count, CountNoun.member),
+              _ => null,
+            },
             itemKey: ValueKey(('recipient-group', group.name)),
           ),
     ];
@@ -168,9 +182,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
                 size: DButtonSize.toolbar,
                 showChevron: true,
                 label: recipients.length > 1
-                    ? context.l10n.recipientsComposerrecipientsValue(
-                        (recipients.length).toString(),
-                      )
+                    ? recipientSummary
                     : recipients.firstOrNull ?? context.l10n.recipients,
                 icon: recipients.isEmpty ? const DIcon(DIcons.users) : null,
                 semanticLabel: recipients.isEmpty
