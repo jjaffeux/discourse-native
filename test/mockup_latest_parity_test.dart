@@ -522,6 +522,11 @@ void main() {
       ],
       pluginResponses: {
         get('/search/query.json', {'term': term}): searchResponse,
+        get('/search/query.json', {'term': 'zzzzzz'}): {},
+        get('/search/query.json', {
+          'term': 'zzzzzz',
+          'type_filter': 'private_messages',
+        }): {},
         get('/search/query.json', {
           'term': term,
           'type_filter': 'private_messages',
@@ -593,6 +598,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     await tester.pumpAndSettle();
+    final sheet = find.byType(DSheetContent);
+    final restingHeight = tester.getSize(sheet).height;
+    await _capture(tester, 'search-height-topic-start');
     await tester.enterText(find.byKey(ForumSearch.inputKey), term);
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
 
@@ -608,7 +616,15 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
-    await _capture(tester, 'search-emoji-row');
+    final resultHeight = tester.getSize(sheet).height;
+    final visibleExcerpt = tester
+        .widgetList<RichText>(
+          find.descendant(of: row, matching: find.byType(RichText)),
+        )
+        .map((richText) => richText.text.toPlainText())
+        .singleWhere((text) => text.startsWith("I've been experimenting"));
+    await _capture(tester, 'search-height-topic');
+
     expect(shell.globalSearch.results.single, same(result));
     expect(
       find.descendant(of: row, matching: find.byType(SiteEmojiImage)),
@@ -627,6 +643,16 @@ void main() {
         find.descendant(of: row, matching: find.text(text)),
         findsOneWidget,
       );
+    }
+    await tester.enterText(find.byKey(ForumSearch.inputKey), 'zzzzzz');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    expect(find.text('No results for “zzzzzz”'), findsOneWidget);
+    expect(tester.getSize(sheet).height, closeTo(resultHeight, .01));
+    await _capture(tester, 'search-height-topic-after-results');
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      expect(restingHeight, closeTo(235.84, 1.25));
+      expect(resultHeight, closeTo(289.84, 1.25));
+      expect(visibleExcerpt, endsWith('turning into a…'));
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
@@ -729,6 +755,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     await tester.pumpAndSettle();
+    final sheet = find.byType(DSheetContent);
+    final restingHeight = tester.getSize(sheet).height;
+    await _capture(tester, 'search-height-message-start');
     await tester.enterText(find.byKey(ForumSearch.inputKey), 'team hub');
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     final row = find.byKey(const ValueKey('search-row:forum:195'));
@@ -743,7 +772,15 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
-    await _capture(tester, 'search-private-row');
+    final resultHeight = tester.getSize(sheet).height;
+    final visibleExcerpt = tester
+        .widgetList<RichText>(
+          find.descendant(of: row, matching: find.byType(RichText)),
+        )
+        .map((richText) => richText.text.toPlainText())
+        .singleWhere((text) => text.startsWith("This topic is the hub"));
+    await _capture(tester, 'search-height-message');
+
     expect(shell.globalSearch.results.single, same(result));
     expect(
       tester.widgetList<DAvatar>(avatars).map((avatar) => avatar.semanticLabel),
@@ -755,6 +792,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.descendant(of: row, matching: find.text('1')), findsOneWidget);
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      expect(restingHeight, closeTo(235.84, 1.25));
+      expect(resultHeight, closeTo(314.84, 1.25));
+      expect(visibleExcerpt, endsWith('project work: it…'));
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('phone search edits the exact query of its source feed', (

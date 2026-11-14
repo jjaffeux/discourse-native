@@ -1094,12 +1094,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         !controller.scope.isCore ||
         widget.feedFilterChips.isNotEmpty;
     final showChips = narrowed || controller.hasOrderFilter;
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return DSheetFooter(
       key: const ValueKey('global-search-phone-footer'),
       padding: EdgeInsets.zero,
       children: [
         if (!showChips)
-          _scopeBar(context)
+          Padding(
+            padding: EdgeInsets.fromLTRB(4, largeText ? 0 : 13, 4, 9),
+            child: _scopeBar(context),
+          )
         else
           Padding(
             padding: const EdgeInsetsDirectional.fromSTEB(16, 23, 16, 19),
@@ -2037,7 +2041,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     String message, {
     EdgeInsets padding = const EdgeInsets.symmetric(
       horizontal: 11,
-      vertical: 20,
+      vertical: 18.5,
     ),
   }) => DEmpty(
     padding: padding,
