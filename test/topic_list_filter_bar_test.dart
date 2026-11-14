@@ -287,7 +287,7 @@ void main() {
 
     expect(find.text('Categories'), findsOneWidget);
     expect(find.text('All categories'), findsNothing);
-    expect(find.text('Tag'), findsOneWidget);
+    expect(find.text('Tags'), findsOneWidget);
     expect(find.text('All tags'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));

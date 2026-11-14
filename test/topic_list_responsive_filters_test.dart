@@ -251,15 +251,13 @@ void main() {
         findsOneWidget,
       );
       final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
-      for (final label in ['Categories', 'Tags']) {
-        expect(
-          find.descendant(of: bar, matching: find.text(label)),
-          findsNothing,
-        );
-      }
       expect(
-        tester.getSize(find.byKey(const ValueKey('topic-list-tag-filter'))),
-        const Size.square(36),
+        find.descendant(of: bar, matching: find.text('Categories')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: bar, matching: find.text('Tags')),
+        findsOneWidget,
       );
       expect(
         tester.getSize(
@@ -314,12 +312,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  // What a retracted phone header draws in, with a category path of levels to
-  // keep on the line and without one: only a path brings the row closer.
   for (final path in [false, true]) {
-    testWidgets('a retracted row stands closer only with a path ($path)', (
-      tester,
-    ) async {
+    testWidgets('scroll keeps filter geometry (path: $path)', (tester) async {
       await _pump(
         tester,
         query: path ? '=category:3 status:open' : 'status:open',
@@ -335,6 +329,12 @@ void main() {
       expect(gap(), 8);
       expect(inset(view, name), 12);
       final viewSize = tester.getSize(view);
+      final tagSize = tester.getSize(tag);
+      final filtersSize = tester.getSize(filters);
+      final categoryPath = find.byKey(
+        const ValueKey('topic-list-category-filter'),
+      );
+      final categorySize = tester.getSize(categoryPath);
 
       await tester.drag(
         find.byKey(const ValueKey('responsive-filter-topics')),
@@ -342,13 +342,19 @@ void main() {
       );
       await tester.pumpAndSettle();
       await _capture(tester, 'phone-retracted-path-$path');
-      expect(gap(), path ? 6 : 8);
+      expect(gap(), 8);
+      expect(tester.getSize(tag), tagSize);
+      expect(tester.getSize(filters), filtersSize);
+      expect(tester.getSize(categoryPath), categorySize);
       // Filters keeps its count beside its glyph, so its insets show.
       expect(
-        find.descendant(of: filters, matching: find.text(path ? '2' : '1')),
+        find.descendant(
+          of: filters,
+          matching: find.textContaining(path ? '2' : '1'),
+        ),
         findsOneWidget,
       );
-      expect(inset(filters, glyph), path ? 10 : 12);
+      expect(inset(filters, glyph), 12);
       // The view keeps its name and its insets either way.
       expect(name, findsOneWidget);
       expect(inset(view, name), 12);
@@ -399,9 +405,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a selected path retains its scope and count while compacted', (
-    tester,
-  ) async {
+  testWidgets('scroll keeps the selected path and count', (tester) async {
     final shell = await _pump(tester, query: '=category:3 status:open');
     await tester.drag(
       find.byKey(const ValueKey('responsive-filter-topics')),
@@ -411,17 +415,12 @@ void main() {
     final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
     expect(
       find.descendant(of: bar, matching: find.text('Mobile')),
-      findsNothing,
+      findsOneWidget,
     );
-    // The path, its level still to choose and all, keeps to the one line of
-    // 36-point pills with the rest.
-    expect(tester.getSize(bar).height, 36);
     expect(
       shell.topicListFilterEditorQuery(shell.topicListContent!),
       contains('=category:3'),
     );
-    final leaf = find.byKey(const ValueKey('topic-list-subcategory-filter-2'));
-    expect(tester.widget<DButton>(leaf).semanticLabel, 'Mobile');
     final filters = find.byKey(const ValueKey('topic-list-filter'));
     expect(
       find.descendant(of: filters, matching: find.text('2')),

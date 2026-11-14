@@ -42,7 +42,8 @@ class TopicTagSelector extends StatefulWidget {
   final bool multiple;
   final bool includeAll;
   final String? _placeholder;
-  String get placeholder => _placeholder ?? appL10n.tagTopictagselector;
+  String get placeholder =>
+      _placeholder ?? (includeAll ? appL10n.tags : appL10n.tagTopictagselector);
   final String? semanticLabel;
   final String keyPrefix;
   final DButtonSize size;

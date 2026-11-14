@@ -69,39 +69,9 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
   // from; its key moves to the last remaining segment of the shortened path.
   final _categoryMenuKeys = <int, GlobalKey>{};
   int? _openCategoryLevel;
-  DPageHeader? _header;
-  bool _touch = false;
-  bool _compact = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final header = DPageHeaderScope.maybeOf(context);
-    if (!identical(header, _header)) {
-      _header?.removeListener(_headerChanged);
-      _header = header;
-      _header?.addListener(_headerChanged);
-    }
-    _touch = DControlStyle.isTouch(context);
-    _compact = _touch && _header?.value == 1;
-  }
-
-  void _headerChanged() {
-    final compact = _touch && _header?.value == 1;
-    if (compact != _compact) setState(() => _compact = compact);
-  }
-
-  @override
-  void dispose() {
-    _header?.removeListener(_headerChanged);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      _buildFilters(context, compact: _compact);
-
-  Widget _buildFilters(BuildContext context, {required bool compact}) {
+  Widget build(BuildContext context) {
     final selectedTags = [
       for (final value in widget.selectedTagNames ?? [?widget.selectedTagName])
         _selectedTag(widget.knownTags, value),
@@ -139,7 +109,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     ).any((token) => token.startsWith('=category:'));
     // On a phone the unchosen Categories pill is its mark alone, so the
     // list's controls keep to one line.
-    final categoryMarkOnly = _touch && path.isEmpty;
+    final categoryMarkOnly = DControlStyle.isTouch(context) && path.isEmpty;
     final controlChildren = <Widget>[
       if (widget.filterQuery != null) ...[
         TopicCategoryPathSelector(
@@ -268,16 +238,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     // not all fit, and wrapped at full length when even that is too wide.
     final controls = widget.wrap
         ? DFitRow(
-            compact: compact,
-            // Retracted, the row stands closer only while a category path has
-            // separators to keep on its line; otherwise nothing shifts.
-            closeUp: lastLevel > 0,
-            // What a shorter step hides: the names of a path's earlier levels,
-            // and the tag and Filters labels, which the trailing Filters menu
-            // reads from the same query. The leading view switch follows the
-            // room rather than the step. A page that brings categories off
-            // the path keeps the row at its step, so its menus are not built
-            // at full length and moved back within that frame.
+            // Refit when the route changes what the controls show.
             watch: (
               widget.filterQuery,
               displayedCategoryId,
