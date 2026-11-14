@@ -864,11 +864,12 @@ class _ForumSearchState extends State<ForumSearch> {
               _setQuery(value);
             },
             onSubmitted: (_) {
-              if (widget.fullScreen) {
-                _focus.unfocus();
-              } else {
-                _apply();
+              if (phonePage &&
+                  _panelKey.currentState?.handleKey(LogicalKeyboardKey.enter) ==
+                      true) {
+                return;
               }
+              _apply();
             },
           ),
           if (width >= 140)
@@ -966,7 +967,14 @@ class _ForumSearchState extends State<ForumSearch> {
     _builtGlobalReads = _globalReads;
     if (!_search.canSearch) return const SizedBox.shrink();
     if (widget._pageContent) {
-      return _buildPageSurface(context, _buildPageContent());
+      if (DControlStyle.isTouch(context)) {
+        return DSheetViewport(onDismiss: _closeSearch, content: _searchSheet());
+      }
+      return DPageSurface(
+        border: false,
+        backgroundColor: DTokens.of(context).background,
+        child: _buildPageContent(),
+      );
     }
     if (widget.fullScreen) return _buildPageTrigger();
     final platform = Theme.of(context).platform;
@@ -1294,33 +1302,29 @@ class _ForumSearchState extends State<ForumSearch> {
       );
     },
   );
-
-  Widget _buildPageSurface(BuildContext context, Widget content) => SafeArea(
-    bottom: false,
-    child: DSheetViewport(
-      content: DSheetContent(
-        side: DSheetSide.bottom,
-        variant: DSheetVariant.page,
-        showCloseButton: false,
-        semanticLabel: context.l10n.globalSearch,
-        backgroundColor: DTokens.of(context).background,
-        children: [Expanded(child: SafeArea(top: false, child: content))],
-      ),
-    ),
+  DSheetContent _searchSheet() => DSheetContent(
+    side: DSheetSide.bottom,
+    variant: DSheetVariant.adaptiveMenu,
+    semanticLabel: appL10n.globalSearch,
+    initiallyExpanded: true,
+    sizeToContent: false,
+    showCloseButton: false,
+    scrollWholeSheet: false,
+    children: [
+      const DSheetHeader(children: []),
+      Expanded(child: DMenuContentScale.unscaled(child: _buildPageContent())),
+    ],
   );
 
   void _openPage() {
-    final content = _buildPageContent();
+    final content = _searchSheet();
     final page = MaterialPageRoute<void>(
       settings: const RouteSettings(name: '/search'),
       builder: (_) => InheritedTheme.captureAll(
         context,
         ShellScope(
           controller: _shell!,
-          // Keep the search subtree stable as the keyboard animates its insets.
-          child: Builder(
-            builder: (context) => _buildPageSurface(context, content),
-          ),
+          child: DSheetViewport(onDismiss: _closeSearch, content: content),
         ),
       ),
     );

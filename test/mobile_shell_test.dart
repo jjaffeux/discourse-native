@@ -5060,8 +5060,7 @@ void main() {
   );
 
   _mobileTest(
-    'the bar holds notifications, the drawer the profile; search is a '
-    'dedicated page',
+    'the bar holds notifications, the drawer the profile; search opens a sheet',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       expect(_bar, findsOneWidget);
@@ -5118,7 +5117,7 @@ void main() {
       expect(find.text('Remove forum'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
       await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsNothing);
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(_bar, findsNothing);
       expect(shell.currentContent?.isGlobalSearch, isTrue);
       expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
@@ -5126,6 +5125,8 @@ void main() {
           .getSize(find.byKey(ForumSearch.panelKey))
           .height;
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       expect(
         tester.getSize(find.byKey(ForumSearch.panelKey)).height,
@@ -6606,8 +6607,23 @@ void main() {
     expect(shell.mobileNavigation.tab, MobileTab.topics);
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     await tester.pumpAndSettle();
+    final sheet = find.ancestor(
+      of: find.byKey(ForumSearch.panelKey),
+      matching: find.byType(DSheetContent),
+    );
+    expect(sheet, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('global-search-filters-fold')),
+      findsNothing,
+    );
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,
+      lessThanOrEqualTo(440.01),
+    );
     expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.byKey(const ValueKey('mobile-search-back')));

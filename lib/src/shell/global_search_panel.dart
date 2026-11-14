@@ -1727,7 +1727,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             ),
           if (recents.isNotEmpty && controller.availableFilters.isNotEmpty)
             SizedBox(height: DControlStyle.isTouch(context) ? 16 : 8),
-          ..._filterRows(context, folded: needle.isEmpty),
+          ..._filterRows(
+            context,
+            folded: needle.isEmpty && !DControlStyle.isTouch(context),
+          ),
         ],
       ),
     );

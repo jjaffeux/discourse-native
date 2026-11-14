@@ -329,14 +329,18 @@ class _DSheetViewportState extends State<DSheetViewport>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _retainsSource || widget.content?.variant == DSheetVariant.page
-      ? _DSheetPageCorners(
-          child: Builder(
-            builder: _retainsSource ? _buildRetainedPage : _buildPage,
-          ),
-        )
-      : _buildPage(context);
+  Widget build(BuildContext context) {
+    final content = widget.content;
+    if (content?.variant == DSheetVariant.adaptiveMenu) {
+      return _buildAdaptiveMenu(context, content!);
+    }
+    if (!_retainsSource && content?.variant != DSheetVariant.page) {
+      return _buildPage(context);
+    }
+    return _DSheetPageCorners(
+      child: Builder(builder: _retainsSource ? _buildRetainedPage : _buildPage),
+    );
+  }
 
   Widget _buildRetainedPage(BuildContext context) {
     final content = widget.content;
@@ -421,6 +425,35 @@ class _DSheetViewportState extends State<DSheetViewport>
       ),
     );
   }
+
+  Widget _buildAdaptiveMenu(BuildContext context, DSheetContent content) =>
+      _sheetPresentation(
+        context,
+        DDialogPresentation(
+          content: content,
+          animation: _entrance,
+          barrierLabel: context.l10n.sheetBackground,
+          dismissOnBarrier: false,
+          onBarrierDismiss: () {},
+        ),
+        content.side,
+        content.sidePanelMaxWidth,
+        content.sidePanelWidth,
+        content.inset,
+        false,
+        content.fillAvailableHeight,
+        content.extendBehindKeyboard,
+        widget.onDismiss != null || widget.onSwipeDismissRequested != null,
+        variant: content.variant,
+        sizeToContent: content.sizeToContent,
+        keepFootInView: content.keepFootInView,
+        initiallyExpanded: content.initiallyExpanded,
+        contentLoading: content.contentLoading,
+        restAt: content.restAt,
+        retainKeyboardInsets: true,
+        onRetainedDismiss: widget.onDismiss,
+        onRetainedSwipeDismissRequested: widget.onSwipeDismissRequested,
+      );
 
   Widget _buildPage(BuildContext context) {
     final content = widget.content!;

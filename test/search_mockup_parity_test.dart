@@ -376,7 +376,7 @@ void main() {
       );
       expect(
         tester.getRect(find.byKey(ForumSearch.panelKey)).right,
-        lessThanOrEqualTo(width),
+        lessThanOrEqualTo(width + .01),
       );
       expect(
         find.byKey(const ValueKey('global-search-filter-trigger')),
@@ -431,10 +431,12 @@ void main() {
       await capture('');
       if (width < 700) {
         tester.view.viewInsets = const FakeViewPadding(bottom: 330);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
         await tester.pumpAndSettle();
         expect(
           tester.getRect(find.byType(GlobalSearchPanel)).bottom,
-          lessThanOrEqualTo(570),
+          lessThanOrEqualTo(570.01),
         );
         expect(
           tester
