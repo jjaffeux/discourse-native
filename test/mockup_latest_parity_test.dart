@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -15,9 +16,12 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 import 'support/topic_post_list.dart';
 
 const _barTitle = ValueKey('mobile-page-title');
@@ -446,6 +450,169 @@ void main() {
       find.descendant(of: row, matching: find.byType(DAvatar)),
       findsOneWidget,
     );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('phone Search shows topic posters and topic activity', (
+    tester,
+  ) async {
+    if (!const bool.fromEnvironment('captureMockupParity')) {
+      await tester.runAsync(
+        () => (FontLoader(
+          'Lato',
+        )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load(),
+      );
+    }
+    const title = "What's everyone's sourdough hydration sweet spot? 🍞";
+    const excerpt =
+        "I've been experimenting between 72% and 82% and keep landing back at 76%. "
+        "Crumb is open enough without turning into a pancake. "
+        "Curious if anyone's gone higher with good results on a home oven.";
+    const posters = ['crumbcoat', 'verdant_vera', 'mossy_mo', 'flourpower'];
+    final now = DateTime.now();
+    final topic = {
+      'id': 71,
+      'title': title,
+      'slug': 'sourdough-hydration',
+      'pinned': true,
+      'category_id': 6,
+      'tags': ['sourdough'],
+      'posts_count': 35,
+      'unread_posts': 4,
+      'highest_post_number': 35,
+      'last_read_post_number': 31,
+      'bumped_at': now.subtract(const Duration(minutes: 22)).toIso8601String(),
+    };
+    const term = 'hydration sweet spot';
+    final searchResponse = {
+      'topics': [topic],
+      'posts': [
+        {
+          'id': 171,
+          'topic_id': 71,
+          'post_number': 1,
+          'username': posters.first,
+          'avatar_template': '/avatar/${posters.first}.png',
+          'like_count': 2,
+          'blurb': excerpt,
+          'created_at': now.subtract(const Duration(days: 5)).toIso8601String(),
+        },
+      ],
+      'grouped_search_result': {'more_full_page_results': false},
+    };
+    String get(String path, Map<String, String> query) =>
+        'GET ${Uri(path: path, queryParameters: query)}';
+    final metadata = Completer<void>();
+    final metadataPath = Uri(
+      path: '/filter.json',
+      queryParameters: {'q': 'topic:71'},
+    ).toString();
+    final shell = await pumpMobileShellFixture(
+      tester,
+      onApi: (api) => api.pluginReadGates[metadataPath] = metadata,
+      sidebarCategories: const [
+        TopicCategory(id: 6, name: 'baking', slug: 'baking', color: 'f2a800'),
+      ],
+      pluginResponses: {
+        get('/search/query.json', {'term': term}): searchResponse,
+        get('/search/query.json', {
+          'term': term,
+          'type_filter': 'private_messages',
+        }): {},
+        'GET $metadataPath': {
+          'users': [
+            for (final (index, username) in posters.indexed)
+              {
+                'id': index + 1,
+                'username': username,
+                'avatar_template': '/avatar/$username.png',
+              },
+          ],
+          'topic_list': {
+            'topics': [
+              {
+                ...topic,
+                'like_count': 14,
+                'posters': [
+                  for (final (index, _) in posters.indexed)
+                    {
+                      'user_id': index + 1,
+                      'extras': index == posters.length - 1 ? 'latest' : null,
+                    },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    );
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      final avatars = {
+        for (final username in posters)
+          if (File(
+            '/private/tmp/native-search-row-avatar-$username.png',
+          ).existsSync())
+            '/avatar/$username.png': File(
+              '/private/tmp/native-search-row-avatar-$username.png',
+            ).readAsBytesSync(),
+      };
+      installTestMediaPipeline(
+        client: MockClient((request) async {
+          final bytes = avatars[request.url.path];
+          return bytes == null
+              ? http.Response('', 404)
+              : http.Response.bytes(
+                  bytes,
+                  200,
+                  headers: {'content-type': 'image/png'},
+                );
+        }),
+      );
+    }
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+    );
+    await shell.forumSettings.setThemes(
+      shell.currentInstance!.url,
+      ForumThemePreferences.preset('dracula'),
+    );
+    await shell.forumSettings.setThemeMode(
+      shell.currentInstance!.url,
+      AppThemeMode.dark,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(ForumSearch.inputKey), term);
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+
+    final row = find.byKey(const ValueKey('search-row:forum:171'));
+    expect(row, findsOneWidget);
+    final result = shell.globalSearch.results.single;
+    expect(find.descendant(of: row, matching: find.text('2')), findsOneWidget);
+    metadata.complete();
+    await tester.pumpAndSettle();
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+    }
+    await _capture(tester, 'search-topic-metadata');
+    expect(shell.globalSearch.results.single, same(result));
+    final faces = tester.widgetList<DAvatar>(
+      find.descendant(of: row, matching: find.byType(DAvatar)),
+    );
+    expect(faces.map((avatar) => avatar.semanticLabel), posters);
+    expect(
+      faces.where((avatar) => avatar.ring).single.semanticLabel,
+      posters.last,
+    );
+    for (final text in ['baking', '#sourdough', '34', '14', '22m', '4']) {
+      expect(
+        find.descendant(of: row, matching: find.text(text)),
+        findsOneWidget,
+      );
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('phone search edits the exact query of its source feed', (

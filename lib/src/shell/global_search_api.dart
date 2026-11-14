@@ -622,6 +622,40 @@ class GlobalSearchApi {
     );
   }
 
+  /// The search endpoint sends matching posts, not the topic's poster summary.
+  /// The list endpoint limits each response to 30 topics.
+  Future<List<Topic>> topicRows({
+    required String siteUrl,
+    required String? apiKey,
+    required String? clientId,
+    required Set<int> topicIds,
+    required Future<void> abortTrigger,
+  }) async {
+    const pageSize = 30;
+    final pages = await Future.wait([
+      for (var offset = 0; offset < topicIds.length; offset += pageSize)
+        () async {
+          final ids = topicIds.skip(offset).take(pageSize).toSet();
+          try {
+            final body = await _get(
+              siteUrl,
+              _path('/filter.json', {'q': 'topic:${ids.join(',')}'}),
+              apiKey,
+              clientId,
+              abortTrigger: abortTrigger,
+            );
+            return TopicList.fromJson(body, siteUrl).topics.where(
+              (topic) => ids.contains(topic.id) && !topic.privateMessage,
+            );
+          } on Exception {
+            // Results remain usable on sites without this filter or when it fails.
+            return const <Topic>[];
+          }
+        }(),
+    ]);
+    return [for (final page in pages) ...page];
+  }
+
   GlobalSearchPage _core(
     Map<String, dynamic> body,
     String site, {

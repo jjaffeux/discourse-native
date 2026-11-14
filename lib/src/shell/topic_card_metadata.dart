@@ -6,16 +6,21 @@ const _topicTagGap = 5.0;
 // A row asks for this style about a dozen times as it mounts; deriving it
 // looked the theme up three times and allocated a new style each time.
 final _topicMetadataStyles = Expando<TextStyle>('topic metadata style');
+final _searchMetadataStyles = Expando<TextStyle>('search row metadata style');
 
-TextStyle _topicMetadataStyle(BuildContext context) {
+TextStyle _topicMetadataStyle(BuildContext context, _TopicRowBody row) {
   final theme = Theme.of(context);
-  return _topicMetadataStyles[theme] ??= () {
+  final search = row.match != null;
+  final styles = search ? _searchMetadataStyles : _topicMetadataStyles;
+  return styles[theme] ??= () {
     final tokens = theme.extension<DTokens>() ?? DTokens.fromTheme(theme);
     return theme.textTheme.labelSmall!.copyWith(
       fontSize: DiscourseTypography.xs,
       height: 1.5,
       fontWeight: FontWeight.w400,
-      color: Color.lerp(tokens.background, tokens.foreground, .4),
+      color: search
+          ? tokens.mutedForeground
+          : Color.lerp(tokens.background, tokens.foreground, .4),
       fontFeatures: const [FontFeature.tabularFigures()],
     );
   }();
@@ -121,7 +126,7 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
       _lease = lease;
       _removeRetirementListener = lease?.onRetire(_measurements.clear);
     }
-    var style = _topicMetadataStyle(context);
+    var style = _topicMetadataStyle(context, row);
     if (MediaQuery.boldTextOf(context)) {
       style = style.merge(const TextStyle(fontWeight: FontWeight.bold));
     }
@@ -241,15 +246,14 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
         allowSort: allowSort,
         column: 'activity',
         label: age,
-        child: Text(age, style: _topicMetadataStyle(context)),
+        child: Text(age, style: _topicMetadataStyle(context, row)),
       ),
     );
-    final taxonomy = row.match != null && topic.privateMessage
-        ? Text(
-            context.l10n.privateConversation,
-            style: _topicMetadataStyle(context),
-          )
-        : _TopicCardTaxonomy(row: row, allowSort: allowSort, measure: measure);
+    final taxonomy = _TopicCardTaxonomy(
+      row: row,
+      allowSort: allowSort,
+      measure: measure,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final room =
@@ -311,7 +315,10 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
                 ),
               ),
               Flexible(
-                child: Text(forum.title, style: _topicMetadataStyle(context)),
+                child: Text(
+                  forum.title,
+                  style: _topicMetadataStyle(context, row),
+                ),
               ),
             ],
           );
@@ -437,7 +444,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
           Flexible(
             child: Text(
               context.l10n.privateConversation,
-              style: _topicMetadataStyle(context),
+              style: _topicMetadataStyle(context, row),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -453,11 +460,11 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
             variant: DButtonVariant.inline,
             size: DButtonSize.small,
             density: DButtonDensity.inlineMetadata,
-            foregroundColor: _topicMetadataStyle(context).color,
+            foregroundColor: _topicMetadataStyle(context, row).color,
             semanticLabel: context.l10n.moreTopiclistview(layout.remainingTags),
             label: Text(
               '+${layout.remainingTags}',
-              style: _topicMetadataStyle(context),
+              style: _topicMetadataStyle(context, row),
             ),
             onPressed: () => setState(() => _allTags = true),
           ),
@@ -502,7 +509,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
     List<TopicCategory> path,
     TopicCardTaxonomyLayout layout,
   ) {
-    final dim = _topicMetadataStyle(context).color;
+    final dim = _topicMetadataStyle(context, row).color;
     Widget separator() => Transform.flip(
       flipX: Directionality.of(context) == TextDirection.rtl,
       child: SizedBox(
@@ -519,7 +526,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
       spacing: _topicTagGap,
       children: [
         if (layout.abridged) ...[
-          Text('…', style: _topicMetadataStyle(context)),
+          Text('…', style: _topicMetadataStyle(context, row)),
           separator(),
         ],
         for (var i = 0; i < path.length; i++) ...[
@@ -578,9 +585,9 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
                   label,
                   maxLines: 1,
                   softWrap: false,
-                  style: _topicMetadataStyle(context).copyWith(
+                  style: _topicMetadataStyle(context, row).copyWith(
                     color: parent
-                        ? _topicMetadataStyle(context).color
+                        ? _topicMetadataStyle(context, row).color
                         : DefaultTextStyle.of(context).style.color,
                   ),
                 ),
@@ -609,12 +616,12 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
           variant: DButtonVariant.inline,
           size: DButtonSize.small,
           density: DButtonDensity.inlineMetadata,
-          foregroundColor: _topicMetadataStyle(context).color,
+          foregroundColor: _topicMetadataStyle(context, row).color,
           semanticLabel: context.l10n.tag(tag.name),
           isLink: true,
           label: Text(
             label ?? '#${tag.name}',
-            style: _topicMetadataStyle(context),
+            style: _topicMetadataStyle(context, row),
             maxLines: 1,
           ),
           onPressed: () => shell?.openTopicTag(
@@ -639,15 +646,17 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
         DIcon(
           count.$2,
           size: 10.5,
-          color: Color.lerp(
-            DTokens.of(context).background,
-            DTokens.of(context).foreground,
-            .32,
-          ),
+          color: row.match != null
+              ? _topicMetadataStyle(context, row).color
+              : Color.lerp(
+                  DTokens.of(context).background,
+                  DTokens.of(context).foreground,
+                  .32,
+                ),
         ),
         Text(
           shortNumber(count.$1, wholeThousands: true),
-          style: _topicMetadataStyle(context),
+          style: _topicMetadataStyle(context, row),
         ),
       ],
     );

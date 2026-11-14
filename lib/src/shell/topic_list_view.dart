@@ -1697,7 +1697,14 @@ class TopicListRow extends StatelessWidget {
     return ListenableBuilder(
       listenable: Listenable.merge([currentRef, ?nextRef]),
       builder: (context, _) {
-        final current = currentRef.value ?? topic;
+        final stored = currentRef.value;
+        final current = stored == null
+            ? topic
+            : match != null &&
+                  stored.posters.isEmpty &&
+                  topic.posters.isNotEmpty
+            ? stored.copyWith(posters: topic.posters)
+            : stored;
         final next = nextRef?.value ?? nextTopic;
         return ShellSelector<_TopicCategoryPresentation>(
           select: (controller) => _topicCategoryPresentation(

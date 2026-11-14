@@ -7,6 +7,8 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/bounded_lru_cache.dart';
+import '../models/search_results.dart';
+import '../models/topic.dart';
 import '../plugin_api/global_search_filters.dart';
 import '../plugin_api/global_search_models.dart';
 import 'global_search_api.dart';
@@ -360,6 +362,13 @@ class GlobalSearchController extends ChangeNotifier {
 
   List<GlobalSearchResult> get results =>
       List.unmodifiable([for (final section in sections) ...section.results]);
+
+  Topic? topicRowFor(GlobalSearchResult result) =>
+      result.topic ??
+      switch (result.source) {
+        SearchPostHit hit => _execution.topicRow(hit.topicId),
+        _ => null,
+      };
 
   bool ownsResult(GlobalSearchResult result) =>
       !_disposed &&
