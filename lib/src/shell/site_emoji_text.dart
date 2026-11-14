@@ -27,6 +27,7 @@ class SiteEmojiText extends StatelessWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.resolveUnicode = false,
     this.leading = const [],
     this.trailing = const [],
   });
@@ -39,6 +40,7 @@ class SiteEmojiText extends StatelessWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.resolveUnicode = false,
     this.leading = const [],
     this.trailing = const [],
   }) : runs = [SiteEmojiTextRun(text)];
@@ -49,6 +51,7 @@ class SiteEmojiText extends StatelessWidget {
   final TextOverflow? overflow;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final bool resolveUnicode;
 
   /// Inline markers participate in text flow so later lines use the full width.
   final List<Widget> leading;
@@ -71,13 +74,17 @@ class SiteEmojiText extends StatelessWidget {
       }
       offset += run.text.length;
     }
-    final matches = shortcodeMatches(text)
-        .where(
-          (match) => !literalRanges.any(
+    final matches =
+        [
+          for (final match in shortcodeMatches(text))
+            (start: match.start, end: match.end, name: match.group(1)!),
+          if (resolveUnicode) ...siteUnicodeEmojiMatches(text),
+        ]..removeWhere(
+          (match) => literalRanges.any(
             (range) => range.start < match.end && range.end > match.start,
           ),
-        )
-        .toList(growable: false);
+        );
+    if (resolveUnicode) matches.sort((a, b) => a.start.compareTo(b.start));
     if (matches.isEmpty) return _resolved(context, text, const []);
 
     final controller = SitePresentationScope.maybeOf(context);
@@ -91,9 +98,8 @@ class SiteEmojiText extends StatelessWidget {
         unawaited(controller.ensureEmojiSearchAliases(siteUrl));
         return _resolved(context, text, [
           for (final match in matches)
-            if (controller.emojiNameFor(siteUrl, match.group(1)!)
-                case final name?)
-              (match: match, name: name),
+            if (controller.emojiNameFor(siteUrl, match.name) case final name?)
+              (start: match.start, end: match.end, name: name),
         ]);
       },
     );
@@ -102,7 +108,7 @@ class SiteEmojiText extends StatelessWidget {
   Widget _resolved(
     BuildContext context,
     String text,
-    List<({RegExpMatch match, String name})> emoji,
+    List<({int start, int end, String name})> emoji,
   ) {
     final query = SearchWords.of(context);
     final runs = query.isEmpty
@@ -143,8 +149,7 @@ class SiteEmojiText extends StatelessWidget {
     ];
     final cursor = _StyledRunCursor(runs);
 
-    for (final resolved in emoji) {
-      final match = resolved.match;
+    for (final match in emoji) {
       cursor.appendText(spans, match.start);
       final emojiStyle = effectiveStyle.merge(cursor.style);
       spans.add(
@@ -152,9 +157,9 @@ class SiteEmojiText extends StatelessWidget {
           alignment: PlaceholderAlignment.middle,
           child: SiteEmojiImage(
             siteUrl: siteUrl,
-            name: resolved.name,
+            name: match.name,
             size: (emojiStyle.fontSize ?? DiscourseTypography.sm) * emojiScale,
-            alt: match.group(0)!,
+            alt: text.substring(match.start, match.end),
             style: emojiStyle,
           ),
         ),

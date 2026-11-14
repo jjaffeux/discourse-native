@@ -2970,6 +2970,7 @@ class _SearchHighlight extends StatelessWidget {
   Widget build(BuildContext context) {
     return SiteEmojiText(
       topicSearchRuns(context, text, query),
+      resolveUnicode: true,
       siteUrl: siteUrl,
       style: style,
     );

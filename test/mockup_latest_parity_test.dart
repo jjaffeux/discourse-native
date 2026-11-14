@@ -9,9 +9,11 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -509,6 +511,12 @@ void main() {
     final shell = await pumpMobileShellFixture(
       tester,
       onApi: (api) => api.pluginReadGates[metadataPath] = metadata,
+      emojis: const [
+        SiteEmoji(
+          name: 'bread',
+          url: 'https://meta.discourse.org/images/emoji/twitter/bread.png',
+        ),
+      ],
       sidebarCategories: const [
         TopicCategory(id: 6, name: 'baking', slug: 'baking', color: 'f2a800'),
       ],
@@ -546,7 +554,10 @@ void main() {
       },
     );
     if (const bool.fromEnvironment('captureMockupParity')) {
-      final avatars = {
+      final bread = File('/private/tmp/native-search-row-emoji-bread.png');
+      final images = {
+        if (bread.existsSync())
+          '/images/emoji/twitter/bread.png': bread.readAsBytesSync(),
         for (final username in posters)
           if (File(
             '/private/tmp/native-search-row-avatar-$username.png',
@@ -557,7 +568,7 @@ void main() {
       };
       installTestMediaPipeline(
         client: MockClient((request) async {
-          final bytes = avatars[request.url.path];
+          final bytes = images[request.url.path];
           return bytes == null
               ? http.Response('', 404)
               : http.Response.bytes(
@@ -597,8 +608,12 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
-    await _capture(tester, 'search-topic-metadata');
+    await _capture(tester, 'search-emoji-row');
     expect(shell.globalSearch.results.single, same(result));
+    expect(
+      find.descendant(of: row, matching: find.byType(SiteEmojiImage)),
+      findsOneWidget,
+    );
     final faces = tester.widgetList<DAvatar>(
       find.descendant(of: row, matching: find.byType(DAvatar)),
     );
@@ -613,6 +628,133 @@ void main() {
         findsOneWidget,
       );
     }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('phone Search enriches an uncached private conversation', (
+    tester,
+  ) async {
+    const topic = {
+      'id': 172,
+      'slug': 'bread-team-hub',
+      'title': 'Bread team hub',
+      'archetype': 'private_message',
+      'posts_count': 4,
+      'highest_post_number': 4,
+      'last_read_post_number': 4,
+    };
+    const people = [
+      {
+        'id': 19,
+        'username': 'priya_raman',
+        'avatar_template': '/avatar/priya_raman.png',
+      },
+      {
+        'id': 20,
+        'username': 'bartholomew_beans',
+        'avatar_template': '/avatar/bartholomew_beans.png',
+      },
+    ];
+    final metadata = Completer<void>();
+    final shell = await pumpMobileShellFixture(
+      tester,
+      onApi: (api) => api.pluginReadGates['/t/172.json'] = metadata,
+      pluginResponses: {
+        'GET /search/query.json?term=team+hub': {},
+        'GET /search/query.json?term=team+hub&type_filter=private_messages': {
+          'topics': [topic],
+          'posts': [
+            {
+              'topic_id': 172,
+              'post_number': 1,
+              ...people.first,
+              'id': 195,
+              'like_count': 0,
+              'blurb':
+                  "This topic is the hub for the bread team's scope, goals and shared focus areas. "
+                  "It is separate from individual project work: it captures what we are doing together.",
+            },
+          ],
+        },
+        'GET /t/172.json': {
+          ...topic,
+          'like_count': 1,
+          'last_posted_at': DateTime.now()
+              .subtract(const Duration(days: 32))
+              .toIso8601String(),
+          'details': {
+            'created_by': people.first,
+            'last_poster': people.last,
+            'participants': people.reversed.toList(),
+          },
+        },
+      },
+    );
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      final images = {
+        for (final (fileName, username) in [
+          ('Priya Raman', 'priya_raman'),
+          ('bartholomew_beans', 'bartholomew_beans'),
+        ])
+          if (File(
+            '/private/tmp/native-search-pm-avatar-$fileName.png',
+          ).existsSync())
+            '/avatar/$username.png': File(
+              '/private/tmp/native-search-pm-avatar-$fileName.png',
+            ).readAsBytesSync(),
+      };
+      installTestMediaPipeline(
+        client: MockClient((request) async {
+          final bytes = images[request.url.path];
+          return bytes == null
+              ? http.Response('', 404)
+              : http.Response.bytes(
+                  bytes,
+                  200,
+                  headers: {'content-type': 'image/png'},
+                );
+        }),
+      );
+    }
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+    );
+    await shell.forumSettings.setThemes(
+      shell.currentInstance!.url,
+      ForumThemePreferences.preset('dracula'),
+    );
+    await shell.forumSettings.setThemeMode(
+      shell.currentInstance!.url,
+      AppThemeMode.dark,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(ForumSearch.inputKey), 'team hub');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    final row = find.byKey(const ValueKey('search-row:forum:195'));
+    final avatars = find.descendant(of: row, matching: find.byType(DAvatar));
+    expect(avatars, findsOneWidget);
+    final result = shell.globalSearch.results.single;
+    metadata.complete();
+    await tester.pumpAndSettle();
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+    }
+    await _capture(tester, 'search-private-row');
+    expect(shell.globalSearch.results.single, same(result));
+    expect(
+      tester.widgetList<DAvatar>(avatars).map((avatar) => avatar.semanticLabel),
+      ['priya_raman', 'bartholomew_beans'],
+    );
+    expect(tester.widgetList<DAvatar>(avatars).last.ring, isTrue);
+    expect(
+      find.descendant(of: row, matching: find.text('Private conversation')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: row, matching: find.text('1')), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('phone search edits the exact query of its source feed', (

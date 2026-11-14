@@ -23,6 +23,7 @@ class TopicTitle extends StatelessWidget {
     this.trailing = const [],
     this.keepTrailingWithLastWord = false,
     this.styleRuns,
+    this.resolveUnicode = false,
   });
 
   final String title;
@@ -33,6 +34,7 @@ class TopicTitle extends StatelessWidget {
   final List<Widget> leading;
   final List<Widget> trailing;
   final bool keepTrailingWithLastWord;
+  final bool resolveUnicode;
   final List<SiteEmojiTextRun> Function(String text)? styleRuns;
 
   List<SiteEmojiTextRun> _runs(String text) =>
@@ -49,6 +51,7 @@ class TopicTitle extends StatelessWidget {
       final tail = words.skip(words.length - keep).join(' ');
       return SiteEmojiText(
         _runs(head.isEmpty ? '' : '$head '),
+        resolveUnicode: resolveUnicode,
         siteUrl: siteUrl,
         maxLines: maxLines,
         overflow: overflow,
@@ -64,6 +67,7 @@ class TopicTitle extends StatelessWidget {
                 Flexible(
                   child: SiteEmojiText(
                     _runs(tail),
+                    resolveUnicode: resolveUnicode,
                     siteUrl: siteUrl,
                     style: style,
                   ),
@@ -77,6 +81,7 @@ class TopicTitle extends StatelessWidget {
     }
     return SiteEmojiText(
       _runs(title),
+      resolveUnicode: resolveUnicode,
       siteUrl: siteUrl,
       maxLines: maxLines,
       overflow: overflow,
