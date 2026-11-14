@@ -199,7 +199,6 @@ void main() {
     );
     await shell.applyTopicListFilterQuery('posts-min:17');
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-list-filter')), findsNothing);
     expect(shell.currentContent?.topicFilterQuery, 'posts-min:17');
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     await tester.pumpAndSettle();

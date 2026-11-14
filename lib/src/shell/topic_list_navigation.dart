@@ -212,11 +212,9 @@ class _TopicListNavigationControls extends StatelessWidget {
         identical(ShellScope.read(context), controller) &&
         tab.isCurrent &&
         _filterOwner(controller, tab) == owner;
-    final fallbackFilter =
+    final filterMenu =
         controller.mobileNavigationEnabled &&
-            !controller.search.canSearch &&
             state.siteUrl != null &&
-            state.route?.isTopicList == true &&
             state.route?.isMessages != true
         ? TopicListFilterMenu(
             key: ValueKey((state.siteUrl, state.route!.id)),
@@ -238,7 +236,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             inline: true,
             wrap: true,
             leading: showsTabs ? navigation : null,
-            trailing: fallbackFilter,
+            trailing: filterMenu,
             siteUrl: state.siteUrl!,
             filterQuery: controller.topicListFilterEditorQuery(state.route!),
             categories: state.categories,
@@ -312,7 +310,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                         filters
                       else ...[
                         if (showsTabs) navigation,
-                        ?fallbackFilter,
+                        ?filterMenu,
                       ],
                     ],
                   );
