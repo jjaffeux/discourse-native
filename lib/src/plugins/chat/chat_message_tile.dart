@@ -35,6 +35,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.chained,
     this.previousMessageId,
     this.endsGroup = true,
+    this.arrivalAge,
     this.contextThreadId,
     this.onOpenThread,
     this.onJumpToMessage,
@@ -61,6 +62,7 @@ class ChatMessageTile extends StatelessWidget {
   /// Whether this is the last visible message in a consecutive-sender run.
   /// Adds breathing room after the final bubble; avatars mark the first row.
   final bool endsGroup;
+  final Duration? arrivalAge;
 
   final ValueChanged<ChatThreadPreview>? onOpenThread;
 
@@ -155,6 +157,7 @@ class ChatMessageTile extends StatelessWidget {
       siteUrl: siteUrl,
       message: message,
       chained: chained,
+      arrivalAge: arrivalAge,
       onOpenThread: onOpenThread,
       onJumpToMessage: onJumpToMessage,
       showThreadSummary:
@@ -1162,6 +1165,7 @@ class _Tile extends StatelessWidget {
     required this.siteUrl,
     required this.message,
     required this.chained,
+    required this.arrivalAge,
     required this.onOpenThread,
     required this.onJumpToMessage,
     required this.showThreadSummary,
@@ -1176,6 +1180,7 @@ class _Tile extends StatelessWidget {
   final String siteUrl;
   final ChatMessage message;
   final bool chained;
+  final Duration? arrivalAge;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
@@ -1529,6 +1534,7 @@ class _Tile extends StatelessWidget {
                         width: double.infinity,
                         child: DBubbleContent(
                           key: ValueKey('chat-message-bubble-${message.id}'),
+                          arrivalAge: arrivalAge,
                           trailingAction:
                               more == null && react == null && reply == null
                               ? null

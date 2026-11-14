@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' show ImageByteFormat, PointerDeviceKind;
+import 'dart:ui' show ImageByteFormat, PointerDeviceKind, SceneBuilder;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -1264,6 +1264,91 @@ void _registerChatShellTests() {
           }),
         );
       }
+
+      testWidgets('a live chat message shows a temporary arrival ring', (
+        tester,
+      ) async {
+        const notifications = MethodChannel(
+          'org.discourse.native/notification_opens',
+        );
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(notifications, (_) async => null);
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(notifications, null),
+        );
+        await pumpChat(
+          tester,
+          size: phone,
+          public: [channel(9)],
+          messages: {
+            key(9): page([msg(1)]),
+          },
+        );
+        await selectChatSidebar(tester);
+        final shell = ShellScope.read(
+          tester.element(find.byKey(const ValueKey('mobile-root'))),
+        );
+        shell.openChatChannel(9);
+        await tester.pumpAndSettle();
+        const ringKey = ValueKey('chat-arrival-ring');
+        expect(find.byKey(ringKey), findsNothing);
+        FakeSiteTracker.built.single.deliverPluginMessage('/chat/9', {
+          'type': 'sent',
+          'chat_message': {
+            'id': 2,
+            'chat_channel_id': 9,
+            'created_at': '2026-05-05T10:01:00.000Z',
+            'message': 'A new live message',
+            'cooked': '<p>A new live message</p>',
+            'user': {'id': 3, 'username': 'hawk'},
+          },
+        });
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 150));
+        const captureDirectory = String.fromEnvironment(
+          'CHAT_ARRIVAL_CAPTURE_DIR',
+        );
+        if (captureDirectory.isNotEmpty) {
+          await tester.runAsync(() async {
+            final builder = SceneBuilder();
+            tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+            final scene = builder.build();
+            final image = await scene.toImage(
+              tester.view.physicalSize.width.toInt(),
+              tester.view.physicalSize.height.toInt(),
+            );
+            final bytes = await image.toByteData(format: ImageByteFormat.png);
+            await File(
+              '$captureDirectory/chat-live-arrival.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+            scene.dispose();
+          });
+        }
+        final bubble = find.byKey(const ValueKey('chat-message-bubble-2'));
+        final ring = find.descendant(of: bubble, matching: find.byKey(ringKey));
+        expect(ring, findsOneWidget);
+        BorderSide edge() {
+          final decoration =
+              tester
+                      .widget<DecoratedBox>(
+                        find
+                            .descendant(
+                              of: ring,
+                              matching: find.byType(DecoratedBox),
+                            )
+                            .first,
+                      )
+                      .decoration
+                  as BoxDecoration;
+          return (decoration.border! as Border).top;
+        }
+
+        expect(edge().color.a, 1);
+        await tester.pump(const Duration(seconds: 2));
+        expect(edge().color.a, 0);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
       testWidgets(
         'a topic sheet swiped away over a mobile channel leaves its composer and dock in place',

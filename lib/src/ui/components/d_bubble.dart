@@ -174,6 +174,7 @@ class DBubbleContent extends StatefulWidget {
     super.key,
     required this.child,
     this.compact = false,
+    this.arrivalAge,
 
     this.trailingAction,
     this.quote,
@@ -198,6 +199,9 @@ class DBubbleContent extends StatefulWidget {
   /// Uses 4px vertical padding instead of 8px for compact conversations.
   /// Horizontal padding remains 12px; ghost bubbles remain unpadded.
   final bool compact;
+
+  /// Elapsed time since a live arrival. Highlights the bubble for two seconds.
+  final Duration? arrivalAge;
 
   final DBubbleContentAction? action;
   final VoidCallback? onPressed;
@@ -336,7 +340,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
       );
     }
 
-    return AnimatedContainer(
+    final surface = AnimatedContainer(
       duration: DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       // Corner controls may own popovers whose accessibility subtree must
@@ -359,6 +363,40 @@ class _DBubbleContentState extends State<DBubbleContent> {
           child: _contents(context, status),
         ),
       ),
+    );
+    final age = widget.arrivalAge;
+    const total = Duration(seconds: 2);
+    if (age == null ||
+        age >= total ||
+        MediaQuery.disableAnimationsOf(context)) {
+      return surface;
+    }
+    final progress = (age.inMicroseconds / total.inMicroseconds).clamp(
+      0.0,
+      1.0,
+    );
+    final color = DTokens.of(context).primary;
+    return TweenAnimationBuilder<double>(
+      key: const ValueKey('chat-arrival-ring'),
+      tween: Tween(begin: progress, end: 1.0),
+      duration: total - age,
+      child: surface,
+      builder: (context, value, child) {
+        final alpha =
+            1 - Curves.easeOut.transform(((value - .4) / .6).clamp(0.0, 1.0));
+        return DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: color.withValues(alpha: alpha),
+              width: 2,
+              strokeAlign: BorderSide.strokeAlignOutside,
+            ),
+          ),
+          child: child,
+        );
+      },
     );
   }
 

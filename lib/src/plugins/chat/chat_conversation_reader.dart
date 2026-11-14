@@ -18,6 +18,13 @@ final class ChatConversationReader {
   ];
   ValueListenable<ChatStreamState> get changes => _owner.listenable;
 
+  Duration? arrivalAge(int messageId) {
+    final arrivedAt = _owner._recentArrivals[messageId];
+    if (arrivedAt == null) return null;
+    final age = _controller._clock().difference(arrivedAt);
+    return age < const Duration(seconds: 2) ? age : null;
+  }
+
   Object beginViewing() =>
       isCurrent ? _controller._beginViewing(_owner) : Object();
   void endViewing(Object token) => _controller._endViewing(_owner, token);

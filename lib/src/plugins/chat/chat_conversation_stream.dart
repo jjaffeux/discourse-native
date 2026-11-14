@@ -50,6 +50,7 @@ final class _ChatConversationStream {
   Object? _openIntent;
   DateTime? _attemptedAt;
   final Set<int> _pendingLiveMessageIds = {};
+  final _recentArrivals = <int, DateTime>{};
   Timer? _noticeTimer;
   ChatReadReceiptOwner? _readReceipts;
   bool _retired = false;
@@ -96,6 +97,7 @@ final class _ChatConversationStream {
 
   void publish(ChatStreamState stream, {_ChatWindowGrowth? growth}) {
     if (!isCurrent) return;
+    if (growth == _ChatWindowGrowth.replacement) _recentArrivals.clear();
     final previous = _window;
     final retained = growth == null
         ? stream
@@ -246,6 +248,14 @@ final class _ChatConversationStream {
         window.copyWith(pendingNewMessages: pending.length, clearError: true),
       );
       return;
+    }
+    if (isViewing &&
+        message.author.id != _controller.currentUserFor(siteUrl)?.id) {
+      final now = _controller._clock();
+      _recentArrivals.removeWhere(
+        (_, at) => now.difference(at) >= const Duration(seconds: 2),
+      );
+      _recentArrivals[message.id] = now;
     }
     _admit(window, message);
   }

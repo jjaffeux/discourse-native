@@ -1940,6 +1940,7 @@ class _StreamState extends State<ChatMessageStream>
       _ => true,
     };
     final selected = widget.selectedMessageIds.contains(id);
+    final arrival = widget.reader?.arrivalAge(id);
     return _HeldChatMessageTile(
       inputs: (
         message: chat.messageRef(widget.siteUrl, id).value,
@@ -1949,6 +1950,7 @@ class _StreamState extends State<ChatMessageStream>
         selecting: widget.selectingMessages,
         selected: selected,
         ambient: ambient,
+        arriving: arrival != null,
       ),
       tile: ChatMessageTile(
         siteUrl: widget.siteUrl,
@@ -1956,6 +1958,7 @@ class _StreamState extends State<ChatMessageStream>
         chained: chained,
         previousMessageId: previousMessageId,
         endsGroup: endsGroup,
+        arrivalAge: arrival,
         contextThreadId: widget.target.threadId,
         onOpenThread: widget.onOpenThread,
         onJumpToMessage: widget.onJumpToMessage,
@@ -3015,6 +3018,7 @@ typedef _ChatRowInputs = ({
   bool selecting,
   bool selected,
   _ChatRowAmbient ambient,
+  bool arriving,
 });
 
 /// Keeps one [ChatMessageTile] while the row's [inputs] are unchanged, so a
