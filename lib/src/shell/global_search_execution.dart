@@ -203,31 +203,56 @@ final class _GlobalSearchExecution {
           )) {
         return;
       }
-      final ids = {
-        for (final section in page.sections)
-          if (section.scope == GlobalSearchScope.forum &&
-              section.topicId == null)
-            for (final row in section.results)
-              if (row.source case final SearchPostHit hit
-                  when row.topic == null && !hit.privateMessage)
-                hit.topicId,
-      }..removeAll(run.requestedTopicIds);
-      if (ids.isEmpty) return;
-      run.requestedTopicIds.addAll(ids);
-      final topics = await auth.run(
-        () => api.topicRows(
-          siteUrl: run.site,
-          apiKey: key,
-          clientId: key == null ? null : auth.clientId,
-          topicIds: ids,
-          abortTrigger: attempt.abort.future,
-        ),
+      final publicIds = <int>{};
+      final privateIds = <int>{};
+      for (final section in page.sections) {
+        if (section.topicId != null) continue;
+        for (final row in section.results) {
+          if (row.source case final SearchPostHit hit
+              when row.topic == null &&
+                  run.requestedTopicIds.add(hit.topicId)) {
+            if (hit.privateMessage) {
+              if (key != null) privateIds.add(hit.topicId);
+            } else {
+              publicIds.add(hit.topicId);
+            }
+          }
+        }
+      }
+      if (publicIds.isEmpty && privateIds.isEmpty) return;
+      Future<void> publish(Future<List<Topic>> pending) async {
+        final topics = await pending;
+        if (!_accepts(attempt) || topics.isEmpty) return;
+        run.topicRows.addEntries(
+          topics.map((topic) => MapEntry(topic.id, topic)),
+        );
+        notify();
+      }
+
+      await auth.run(
+        () => Future.wait([
+          if (publicIds.isNotEmpty)
+            publish(
+              api.topicRows(
+                siteUrl: run.site,
+                apiKey: key,
+                clientId: key == null ? null : auth.clientId,
+                topicIds: publicIds,
+                abortTrigger: attempt.abort.future,
+              ),
+            ),
+          if (key != null && privateIds.isNotEmpty)
+            publish(
+              api.privateMessageRows(
+                siteUrl: run.site,
+                apiKey: key,
+                clientId: auth.clientId,
+                topicIds: privateIds,
+                abortTrigger: attempt.abort.future,
+              ),
+            ),
+        ]),
       );
-      if (!_accepts(attempt) || topics.isEmpty) return;
-      run.topicRows.addEntries(
-        topics.map((topic) => MapEntry(topic.id, topic)),
-      );
-      notify();
     } catch (exception) {
       if (!_accepts(attempt)) return;
       error = GlobalSearchApi.failureMessage(exception);

@@ -47,6 +47,51 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  test(
+    'private poster lookup accepts only the requested private topics',
+    () async {
+      const topic = {
+        'id': 11,
+        'archetype': 'private_message',
+        'title': 'Team notes',
+        'details': {
+          'created_by': {'id': 7, 'username': 'creator'},
+          'last_poster': {'id': 9, 'username': 'latest'},
+          'participants': [
+            {'id': 8, 'username': 'contributor'},
+            {'id': 9, 'username': 'latest'},
+          ],
+        },
+      };
+      final transport = _Transport()
+        ..responses = {
+          '/t/11.json': topic,
+          '/t/12.json': topic,
+          '/t/13.json': {...topic, 'id': 13, 'archetype': 'regular'},
+        };
+      final topics = await GlobalSearchApi(transport: transport)
+          .privateMessageRows(
+            siteUrl: _site,
+            apiKey: 'key',
+            clientId: 'client',
+            topicIds: {11, 12, 13},
+            abortTrigger: Completer<void>().future,
+          );
+      expect(topics.map((topic) => topic.id), [11]);
+      expect(topics.single.posters.map((poster) => poster.username), [
+        'creator',
+        'contributor',
+        'latest',
+      ]);
+      expect(topics.single.posters.last.latest, isTrue);
+      expect(transport.paths.map((uri) => uri.toString()), [
+        '/t/11.json',
+        '/t/12.json',
+        '/t/13.json',
+      ]);
+    },
+  );
+
   for (final replaceAccount in [false, true]) {
     testWidgets(
       'selection analytics retain the admitted account $replaceAccount',
