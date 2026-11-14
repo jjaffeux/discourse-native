@@ -49,10 +49,10 @@ class DFilterToken extends StatelessWidget {
   Widget _build(BuildContext context) {
     final tokens = DTokens.of(context);
     final scaler = MediaQuery.textScalerOf(context);
-    final accent = Theme.of(context).brightness == Brightness.dark
+    final sheetSize = size == DControlSize.filter;
+    final accent = !sheetSize && Theme.of(context).brightness == Brightness.dark
         ? Color.lerp(tokens.primary, Colors.white, .28)!
         : tokens.primary;
-    final sheetSize = size == DControlSize.filter;
     final fontSize = sheetSize
         ? DControlStyle.fontSize(size, context: context)
         : DiscourseTypography.xs;
@@ -115,7 +115,7 @@ class DFilterToken extends StatelessWidget {
         SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
       },
       child: Material(
-        color: tokens.primary.withValues(alpha: .12),
+        color: tokens.selectionTint,
         shape: const StadiumBorder(),
         child: IntrinsicHeight(
           child: Row(

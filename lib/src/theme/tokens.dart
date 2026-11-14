@@ -12,6 +12,7 @@ class DTokens extends ThemeExtension<DTokens> {
   static final _controlThemes = Expando<DControlTheme>();
   static final _buttonThemes = Expando<DControlTheme>();
   static final _readTitleColors = Expando<Color>();
+  static final _menuGrabMarkColors = Expando<Color>();
   static final _referenceSurfaces = Expando<ReferenceSurfaces>();
 
   const DTokens({
@@ -157,10 +158,21 @@ class DTokens extends ThemeExtension<DTokens> {
 
   Color get mutedForeground => colors.onSurfaceVariant;
 
-  /// What is not text, outlines, off states and grab bars, at the 3:1 the
-  /// WCAG asks of marks: the mockup's `--mark-subtle`, two fifths of the way
-  /// from the background to the text.
+  /// Palette ink for outlines, off states, and grab bars.
   Color get subtleMark => Color.lerp(background, foreground, .40)!;
+
+  /// The mockup's contrast-adjusted `--mark-subtle` for adaptive menu handles.
+  Color get menuGrabMark => _menuGrabMarkColors[this] ??= mixInto(
+    background,
+    foreground,
+    shareFor(
+      foreground,
+      background,
+      _reference.grounds,
+      markContrast + contrastMargin,
+      .40,
+    ),
+  );
 
   Color get primary => colors.primary;
   Color get primaryForeground => colors.onPrimary;

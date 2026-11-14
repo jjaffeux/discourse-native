@@ -6,6 +6,9 @@ import 'dart:ui';
 const textContrast = 4.5;
 const bodyContrast = 7.0;
 
+/// Minimum contrast for a mark such as an outline or an off state.
+const markContrast = 3.0;
+
 /// Aimed a little past each need, so rounding a derived colour to whole
 /// 8-bit steps cannot take it back under.
 const contrastMargin = .05;

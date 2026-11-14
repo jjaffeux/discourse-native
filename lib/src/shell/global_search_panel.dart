@@ -1102,7 +1102,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           _scopeBar(context)
         else
           Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 25),
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 23, 16, 19),
             child: LayoutBuilder(
               builder: (context, constraints) => DScrollArea(
                 axes: DScrollAxes.horizontal,
@@ -1384,7 +1384,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             query.isEmpty
                 ? context.l10n.noResultsFound
                 : context.l10n.noResultsForQuery(query),
-            verticalPadding: 15,
+            padding: const EdgeInsets.fromLTRB(11, 12, 11, 21),
           ),
         );
       }
@@ -2033,21 +2033,23 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     );
   }
 
-  Widget _phoneEmptyMessage(String message, {double verticalPadding = 20}) =>
-      DEmpty(
-        padding: EdgeInsets.symmetric(
-          horizontal: 11,
-          vertical: verticalPadding,
+  Widget _phoneEmptyMessage(
+    String message, {
+    EdgeInsets padding = const EdgeInsets.symmetric(
+      horizontal: 11,
+      vertical: 20,
+    ),
+  }) => DEmpty(
+    padding: padding,
+    children: [
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: DEmptyDescription.child(
+          child: Text(message, textAlign: TextAlign.start),
         ),
-        children: [
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: DEmptyDescription.child(
-              child: Text(message, textAlign: TextAlign.start),
-            ),
-          ),
-        ],
-      );
+      ),
+    ],
+  );
 
   Widget _status(
     String title,
@@ -2413,6 +2415,18 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 replyCount: result.replies ?? 0,
                 likeCount: result.likes ?? 0,
                 bumpedAt: result.createdAt,
+                posters: [
+                  if (source.username.isNotEmpty)
+                    TopicPoster(
+                      userId: -1,
+                      username: source.username,
+                      avatarUrl: source.avatarUrl,
+                      single: true,
+                    ),
+                ],
+                pinned: source.pinned && !source.unpinned,
+                bookmarked: source.bookmarked,
+                visible: !source.invisible,
                 closed: result.closed,
                 archived: result.archived,
                 privateMessage: result.privateMessage,
