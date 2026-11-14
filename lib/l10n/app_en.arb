@@ -8660,6 +8660,10 @@
       }
     }
   },
+  "noRecentSearches": "Nothing searched for lately.",
+  "@noRecentSearches": {
+    "description": "Empty recent-search history in the phone Search sheet."
+  },
   "recentSearches": "Recent searches",
   "@recentSearches": {
     "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact."

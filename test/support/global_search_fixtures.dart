@@ -216,6 +216,26 @@ class GlobalSearchFixtureApi extends FakeDiscourseApi
   }) async => const ['design', 'keyboard shortcuts', 'search category:support'];
 
   @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    if (path == '/u/recent-searches.json' && method == 'DELETE') return {};
+    return super.pluginWriteJson(
+      siteUrl: siteUrl,
+      path: path,
+      method: method,
+      apiKey: apiKey,
+      body: body,
+      clientId: clientId,
+    );
+  }
+
+  @override
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,

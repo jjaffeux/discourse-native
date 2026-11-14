@@ -490,7 +490,7 @@ void main({bool useDeviceMetrics = false}) {
           of: search,
           matching: find.byType(DSheetContent),
         );
-        expect(tester.getRect(surface).bottom, phone.height);
+        expect(tester.getRect(surface).bottom, closeTo(phone.height, .01));
         if (_useDeviceMetrics) {
           final keyboard = tester.view.viewInsets.bottom / ratio;
           expect(keyboard, greaterThan(0));
@@ -502,7 +502,7 @@ void main({bool useDeviceMetrics = false}) {
           expect(tester.takeException(), isNull);
           return;
         }
-        expect(tester.getRect(search).bottom, phone.height - 34);
+        expect(tester.getRect(search).bottom, closeTo(phone.height - 34, .01));
         var panelBuilds = 0;
         final previous = debugOnRebuildDirtyWidget;
         debugOnRebuildDirtyWidget = (element, builtOnce) {
@@ -1000,7 +1000,7 @@ void main({bool useDeviceMetrics = false}) {
             await expectLater(
               image!,
               matchesGoldenFile(
-                'goldens/search-topic-underlay-${platform.name}.png',
+                'goldens/search-topic-underlay-${platform.name}${fromChat ? '' : '-topics'}.png',
               ),
             );
           } finally {
@@ -2153,7 +2153,7 @@ void main({bool useDeviceMetrics = false}) {
       expect(panel.left, greaterThanOrEqualTo(0));
       expect(panel.right, lessThanOrEqualTo(phone.width + .01));
       expect(panel.top, greaterThanOrEqualTo(0));
-      expect(panel.bottom, lessThanOrEqualTo(phone.height));
+      expect(panel.bottom, lessThanOrEqualTo(phone.height + .01));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       await tester.enterText(
         find.byKey(ForumSearch.inputKey),

@@ -11404,6 +11404,12 @@ abstract class AppLocalizations {
   /// **'View all {sectionScopeLabel} results'**
   String viewAllResults(String sectionScopeLabel);
 
+  /// Empty recent-search history in the phone Search sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing searched for lately.'**
+  String get noRecentSearches;
+
   /// English UI message used by shell/global_search_panel.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

@@ -68,9 +68,10 @@ class GlobalSearchPanel extends StatefulWidget {
     this.showConditions = true,
     this.showClearFilters = false,
     this.footerControls = false,
+    this.phoneHeader,
     this.feedFilterChips = const [],
     this.feedFilterChoices = const [],
-    this.feedFilterKeys = const [],
+    this.hasFilterPicker = false,
     this.onFeedFilterChoice,
   });
 
@@ -87,8 +88,10 @@ class GlobalSearchPanel extends StatefulWidget {
 
   /// Phone search keeps scope and condition controls at the sheet foot.
   final bool footerControls;
+  final Widget? phoneHeader;
   final List<Widget> feedFilterChips;
-  final List<TopicFilterSuggestion> feedFilterChoices, feedFilterKeys;
+  final List<TopicFilterSuggestion> feedFilterChoices;
+  final bool hasFilterPicker;
   final ValueChanged<TopicFilterSuggestion>? onFeedFilterChoice;
 
   @override
@@ -743,6 +746,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     return DScrollBar(
       controller: _scroll,
       child: ListView(
+        shrinkWrap: widget.footerControls,
         controller: _scroll,
         padding: const EdgeInsets.all(8),
         children: [
@@ -1008,44 +1012,60 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               _revealSelection(id, _navigationSignature, forward: true);
             }
           }
+          if (widget.footerControls) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ?widget.phoneHeader,
+                      Flexible(child: DMenuContentScale(child: body)),
+                    ],
+                  ),
+                ),
+                _phoneFooter(context),
+              ],
+            );
+          }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!widget.footerControls)
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: constraints.maxHeight * .55,
-                  ),
-                  child: DScrollArea(
-                    thumbVisibility: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _scopeBar(context),
-                        if (widget.showConditions)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                            child: Row(
-                              spacing: 4,
-                              children: [
-                                _GlobalSearchFilterPicker(
-                                  controller: controller,
-                                ),
-                                _GlobalSearchDisplay(controller: controller),
-                              ],
-                            ),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * .55,
+                ),
+                child: DScrollArea(
+                  thumbVisibility: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _scopeBar(context),
+                      if (widget.showConditions)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          child: Row(
+                            spacing: 4,
+                            children: [
+                              _GlobalSearchFilterPicker(controller: controller),
+                              _GlobalSearchDisplay(controller: controller),
+                            ],
                           ),
-                        if (widget.showConditions &&
-                            controller.conditions.isNotEmpty)
-                          _conditions(context),
-                      ],
-                    ),
+                        ),
+                      if (widget.showConditions &&
+                          controller.conditions.isNotEmpty)
+                        _conditions(context),
+                    ],
                   ),
                 ),
-              if (!widget.footerControls) const DSeparator(),
+              ),
+              const DSeparator(),
               Expanded(child: phone ? DMenuContentScale(child: body) : body),
-              if (widget.footerControls) _phoneFooter(context),
             ],
           );
         },
@@ -1244,6 +1264,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   Widget _feedFilterSuggestions(BuildContext context) => DScrollBar(
     controller: _scroll,
     child: ListView(
+      shrinkWrap: widget.footerControls,
       controller: _scroll,
       padding: const EdgeInsets.all(6),
       children: [
@@ -1387,7 +1408,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             style: TextStyle(color: DTokens.of(context).destructive),
           ),
         ),
-      if (controller.wordsQuery.trim().isEmpty &&
+      if (!widget.hasFilterPicker &&
+          controller.wordsQuery.trim().isEmpty &&
           controller.hintedFilters.isEmpty)
         ..._filterRows(context),
       if (controller.hasMore || controller.loadingMore)
@@ -1436,6 +1458,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     final content = DScrollBar(
       controller: _scroll,
       child: ListView.builder(
+        shrinkWrap: widget.footerControls,
         controller: _scroll,
         padding: const EdgeInsets.symmetric(vertical: 6),
         itemCount: children.length,
@@ -1828,6 +1851,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     return DScrollBar(
       controller: _scroll,
       child: ListView(
+        shrinkWrap: widget.footerControls,
         controller: _scroll,
         padding: const EdgeInsets.all(6),
         children: [
@@ -1941,14 +1965,25 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ),
               ),
             ),
-          if (recents.isNotEmpty && controller.availableFilters.isNotEmpty)
-            SizedBox(height: DControlStyle.isTouch(context) ? 16 : 8),
-          ..._filterRows(
-            context,
-            folded: needle.isEmpty && !DControlStyle.isTouch(context),
-          ),
-          for (final choice in widget.feedFilterKeys)
-            _feedFilterChoice(context, choice),
+          if (!widget.hasFilterPicker || needle.isNotEmpty) ...[
+            if (recents.isNotEmpty && controller.availableFilters.isNotEmpty)
+              SizedBox(height: phone ? 16 : 8),
+            ..._filterRows(context, folded: needle.isEmpty && !phone),
+          ],
+          if (widget.hasFilterPicker &&
+              needle.isEmpty &&
+              recents.isEmpty &&
+              controller.error == null &&
+              !widget.showClearFilters)
+            DEmpty(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 20),
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DEmptyDescription(context.l10n.noRecentSearches),
+                ),
+              ],
+            ),
         ],
       ),
     );

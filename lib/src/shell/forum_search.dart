@@ -98,6 +98,7 @@ class _ForumSearchState extends State<ForumSearch> {
   MaterialPageRoute<void>? _page;
   final _pageRevision = ValueNotifier(0);
   final _showFeedPicker = ValueNotifier(false);
+  final _loadingSearch = ValueNotifier(false);
   ShellController? _shell;
   String? _tabId;
   bool _scoped = false;
@@ -708,6 +709,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _globalChanged() {
     if (!mounted) return;
+    _loadingSearch.value = _global.phase == GlobalSearchPhase.loading;
     _syncText();
     _presentation.reconcileSelection();
     if (_open &&
@@ -990,6 +992,19 @@ class _ForumSearchState extends State<ForumSearch> {
       return KeyEventResult.ignored;
     }
     final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape &&
+        widget.fullScreen &&
+        DControlStyle.isTouch(context)) {
+      if (_query.isNotEmpty ||
+          _global.conditions.isNotEmpty ||
+          _global.hasOrderFilter ||
+          _feedClauses.isNotEmpty) {
+        _clear();
+      } else {
+        _closeSearch();
+      }
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.backspace &&
         _text.text.isEmpty &&
         _showsFeedFilters &&
@@ -1429,16 +1444,14 @@ class _ForumSearchState extends State<ForumSearch> {
               alignment: DInputGroupAddonAlignment.inlineEnd,
               child: _feedPickerButton(context),
             ),
-          if (_query.isNotEmpty || hasConditions)
+          if (!phonePage && (_query.isNotEmpty || hasConditions))
             DInputGroupAddon(
               alignment: DInputGroupAddonAlignment.inlineEnd,
               child: DInputGroupButton.icon(
                 key: const ValueKey('forum-search-clear'),
                 focusNode: _clearFocus,
-                icon: DIcon(DIcons.xmark, size: phonePage ? null : 12),
-                size: phonePage
-                    ? DInputGroupButtonSize.regular
-                    : DInputGroupButtonSize.small,
+                icon: const DIcon(DIcons.xmark, size: 12),
+                size: DInputGroupButtonSize.small,
                 tooltip: appL10n.clearSearch,
                 onPressed: _clear,
               ),
@@ -1729,6 +1742,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _popover.dispose();
     _pageRevision.dispose();
     _showFeedPicker.dispose();
+    _loadingSearch.dispose();
     super.dispose();
   }
 
@@ -1813,55 +1827,45 @@ class _ForumSearchState extends State<ForumSearch> {
                 ),
               ],
             );
+      final sheetHeader = DSheetHeader(children: [header]);
+      final panel = GlobalSearchPanel(
+        key: _panelKey,
+        phoneHeader: phone ? sheetHeader : null,
+        showConditions: false,
+        footerControls: phone,
+        feedFilterChips: _showsFeedFilters
+            ? _feedFilterChips(context)
+            : const [],
+        feedFilterChoices: _showsFeedFilters ? _feedChoices : const [],
+        hasFilterPicker: _usesFeedFilters,
+        onFeedFilterChoice: _pickFeedFilter,
+        showClearFilters:
+            _listExpression.isNotEmpty &&
+            _global.wordsQuery.isEmpty &&
+            _global.conditions.isEmpty &&
+            _feedClauses.isEmpty,
+        controller: _global,
+        onApply: _apply,
+        onOpenSection: _openSection,
+        onRefocus: _focus.requestFocus,
+        selectedResultId: _selectedResultId,
+        onSelect: (id) {
+          _selectResult(id);
+          _pageRevision.value++;
+        },
+        onOpen: _openResult,
+      );
       return DReferenceTextScale(
-        child: Column(
+        child: KeyedSubtree(
           key: ForumSearch.panelKey,
-          children: [
-            DSheetHeader(children: [header]),
-            Expanded(
-              child: GlobalSearchPanel(
-                key: _panelKey,
-                showConditions: false,
-                footerControls: phone,
-                feedFilterChips: _showsFeedFilters
-                    ? _feedFilterChips(context)
-                    : const [],
-                feedFilterChoices: _showsFeedFilters ? _feedChoices : const [],
-                feedFilterKeys:
-                    _showsFeedFilters && _global.query.trim().isEmpty
-                    ? [
-                        for (final field in topicFilterMenuFields(_feedOptions))
-                          if (_global.availableFilters.every(
-                            (filter) => filter.label != field.label,
-                          ))
-                            TopicFilterSuggestion(
-                              name: field.draft,
-                              displayName: field.label,
-                              description: field.hint,
-                              menuField: field.id,
-                              menuIcon: field.icon,
-                            ),
-                      ]
-                    : const [],
-                onFeedFilterChoice: _pickFeedFilter,
-                showClearFilters:
-                    _listExpression.isNotEmpty &&
-                    _global.wordsQuery.isEmpty &&
-                    _global.conditions.isEmpty &&
-                    _feedClauses.isEmpty,
-                controller: _global,
-                onApply: _apply,
-                onOpenSection: _openSection,
-                onRefocus: _focus.requestFocus,
-                selectedResultId: _selectedResultId,
-                onSelect: (id) {
-                  _selectResult(id);
-                  _pageRevision.value++;
-                },
-                onOpen: _openResult,
-              ),
-            ),
-          ],
+          child: phone
+              ? panel
+              : Column(
+                  children: [
+                    sheetHeader,
+                    Expanded(child: panel),
+                  ],
+                ),
         ),
       );
     },
@@ -1870,30 +1874,39 @@ class _ForumSearchState extends State<ForumSearch> {
   Widget _buildPageSurface(
     BuildContext context,
     Widget content,
-  ) => ValueListenableBuilder<bool>(
-    valueListenable: _showFeedPicker,
+  ) => ListenableBuilder(
+    listenable: Listenable.merge([_showFeedPicker, _loadingSearch]),
     child: content,
-    builder: (context, picking, content) =>
-        NotificationListener<ScrollNotification>(
-          // Search overlays the feed. Its scrolling cannot fold the feed dock.
-          onNotification: (_) => true,
-          child: DSheetViewport(
-            dismissOnBackdrop: DControlStyle.isTouch(context),
-            onDismiss: _surfaceOpen ? _closeSearch : null,
-            content: DSheetContent(
-              side: DSheetSide.bottom,
-              variant: DSheetVariant.adaptiveMenu,
-              sizeToContent: false,
-              initiallyExpanded: picking,
-              showCloseButton: false,
-              semanticLabel: context.l10n.globalSearch,
-              children: [
-                const DSheetHeader(children: []),
-                Expanded(child: DMenuContentScale.unscaled(child: content!)),
-              ],
-            ),
+    builder: (context, content) {
+      final picking = _showFeedPicker.value;
+      final phone = DControlStyle.isTouch(context);
+      return NotificationListener<ScrollNotification>(
+        // Search overlays the feed. Its scrolling cannot fold the feed dock.
+        onNotification: (_) => true,
+        child: DSheetViewport(
+          dismissOnBackdrop: phone,
+          onDismiss: _surfaceOpen ? _closeSearch : null,
+          content: DSheetContent(
+            side: DSheetSide.bottom,
+            variant: DSheetVariant.adaptiveMenu,
+            sizeToContent: phone,
+            keepFootInView: phone,
+            holdContentHeight: phone,
+            contentLoading: !picking && _loadingSearch.value,
+            initiallyExpanded: picking,
+            showCloseButton: false,
+            semanticLabel: context.l10n.globalSearch,
+            children: [
+              const DSheetHeader(children: []),
+              Flexible(
+                fit: picking || !phone ? FlexFit.tight : FlexFit.loose,
+                child: DMenuContentScale.unscaled(child: content!),
+              ),
+            ],
           ),
         ),
+      );
+    },
   );
 
   void _openPage() {
