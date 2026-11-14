@@ -245,7 +245,7 @@ void main() {
         ShellScope(
           controller: shell,
           child: MaterialApp(
-            theme: AppTheme.light,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
             home: const Scaffold(
               body: SizedBox(
                 width: 600,

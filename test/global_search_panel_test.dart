@@ -109,15 +109,16 @@ void main() {
           expect(mark, phone ? findsNothing : findsOneWidget);
           if (phone) {
             final line = _key('global-search-line-${scope.keyName}');
+            expect(tester.getRect(result(scope, 0)).height, closeTo(39.2, .1));
             expect(
               tester.getTopLeft(result(scope, 0)).dx -
                   tester.getTopLeft(find.byType(GlobalSearchPanel)).dx,
-              55,
+              closeTo(55 * DMenuContentScale.factor, .01),
             );
             expect(
               tester.getTopLeft(result(scope, 1)).dx -
                   tester.getTopRight(result(scope, 0)).dx,
-              closeTo(8, .01),
+              closeTo(8 * DMenuContentScale.factor, .01),
             );
             final firstX = tester.getTopLeft(result(scope, 0)).dx;
             await tester.tap(result(scope, 0));
@@ -132,7 +133,7 @@ void main() {
         expect(
           tester.getRect(header(GlobalSearchScope.users)).top -
               forumLast.bottom,
-          phone ? 16 : 8,
+          closeTo(phone ? 16 * DMenuContentScale.factor : 8, .01),
         );
         final title = tester.widget<Text>(
           find.descendant(
@@ -171,7 +172,7 @@ void main() {
           }
           expect(
             tester.getTopLeft(result(GlobalSearchScope.users, 1)).dx,
-            closeTo(55, .01),
+            closeTo(55 * DMenuContentScale.factor, .01),
           );
         }
         await tester.tap(header(GlobalSearchScope.users));
@@ -589,6 +590,12 @@ void main() {
           expect(find.byType(DSelect<GlobalSearchScope>), findsNothing);
           expect(_key('global-search-filter-trigger'), findsNothing);
           expect(_key('global-search-display-trigger'), findsNothing);
+          if (textScale == 1) {
+            expect(
+              tester.getRect(_scopeToggle(GlobalSearchScope.all)).height,
+              32,
+            );
+          }
           for (final scope in [
             chatSearchScope,
             GlobalSearchScope.forum,

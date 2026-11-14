@@ -225,15 +225,21 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       }
       final target = _resultKeys[id]?.currentContext;
       if (target != null) {
+        final row = target.findRenderObject()! as RenderBox;
+        final position = _scroll.position;
+        if (row.size.height > position.viewportDimension) {
+          unawaited(position.ensureVisible(row, alignment: .5));
+          return;
+        }
         unawaited(
-          _scroll.position.ensureVisible(
-            target.findRenderObject()!,
+          position.ensureVisible(
+            row,
             alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
           ),
         );
         unawaited(
-          _scroll.position.ensureVisible(
-            target.findRenderObject()!,
+          position.ensureVisible(
+            row,
             alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
           ),
         );
@@ -906,6 +912,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     listenable: widget.controller,
     builder: (context, _) {
       final controller = widget.controller;
+      final phone = DControlStyle.isTouch(context);
       if (_revealedScope != controller.scope) {
         _revealedScope = controller.scope;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -966,42 +973,45 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             id != 'clear-filters',
       );
       return LayoutBuilder(
-        builder: (context, constraints) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: constraints.maxHeight * .55,
-              ),
-              child: DScrollArea(
-                thumbVisibility: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _scopeBar(context),
-                    if (widget.showConditions)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                        child: Row(
-                          spacing: 4,
-                          children: [
-                            _GlobalSearchFilterPicker(controller: controller),
-                            _GlobalSearchDisplay(controller: controller),
-                          ],
+        builder: (context, constraints) {
+          final body = _body(context);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * .55,
+                ),
+                child: DScrollArea(
+                  thumbVisibility: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _scopeBar(context),
+                      if (widget.showConditions)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          child: Row(
+                            spacing: 4,
+                            children: [
+                              _GlobalSearchFilterPicker(controller: controller),
+                              _GlobalSearchDisplay(controller: controller),
+                            ],
+                          ),
                         ),
-                      ),
-                    if (widget.showConditions &&
-                        controller.conditions.isNotEmpty)
-                      _conditions(context),
-                  ],
+                      if (widget.showConditions &&
+                          controller.conditions.isNotEmpty)
+                        _conditions(context),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const DSeparator(),
-            Expanded(child: _body(context)),
-          ],
-        ),
+              const DSeparator(),
+              Expanded(child: phone ? DMenuContentScale(child: body) : body),
+            ],
+          );
+        },
       );
     },
   );
@@ -1014,9 +1024,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   /// selection changes; every keystroke and result delivery notifies.
   Widget _scopeBar(BuildContext context) {
     final controller = widget.controller;
+    final phone = DControlStyle.isTouch(context);
     final reads = <Object?>[
       controller,
       context.l10n,
+      phone,
       controller.scope,
       for (final scope in controller.scopes) ...[scope, _scopeCount(scope)],
     ];
@@ -1026,8 +1038,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         values: [controller.scope],
         onChanged: (values) => controller.setScope(values.single),
         allowEmptySelection: false,
-        density: DToggleDensity.menuFilter,
-        variant: DToggleVariant.outline,
+        density: phone ? DToggleDensity.standard : DToggleDensity.menuFilter,
+        variant: phone ? DToggleVariant.standard : DToggleVariant.outline,
+        size: phone ? DToggleSize.segment : DToggleSize.regular,
+        inset: phone,
         spacing: 1.5,
         semanticLabel: context.l10n.globalSearch,
         items: [
@@ -1049,10 +1063,12 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                         _scopeCount(scope) > 99
                             ? '99+'
                             : '${_scopeCount(scope)}',
-                        style: const TextStyle(
-                          fontSize: DiscourseTypography.micro,
+                        style: TextStyle(
+                          fontSize: phone
+                              ? DiscourseTypography.metadata
+                              : DiscourseTypography.micro,
                           fontWeight: FontWeight.w700,
-                          fontFeatures: [FontFeature.tabularFigures()],
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                   ],
@@ -1062,7 +1078,12 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         ],
       );
     }
-    return _builtScopeBar!;
+    return phone
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            child: _builtScopeBar!,
+          )
+        : _builtScopeBar!;
   }
 
   Widget _conditions(BuildContext context) {
@@ -2226,7 +2247,9 @@ class GlobalSearchChips extends StatelessWidget {
             icon: const DIcon(DIcons.xmark),
             iconPosition: DButtonIconPosition.end,
             tooltip: context.l10n.removeCondition(controller.scope.label),
-            size: DButtonSize.chip,
+            size: DControlStyle.isTouch(context)
+                ? DButtonSize.filter
+                : DButtonSize.chip,
             variant: DButtonVariant.secondary,
             onPressed: () {
               controller.setContext(null);
@@ -2300,6 +2323,9 @@ class SearchFilterChip extends StatelessWidget {
   final bool expanded, hasPopup;
   @override
   Widget build(BuildContext context) {
+    final size = DControlStyle.usesTouchGeometry(context)
+        ? DButtonSize.filter
+        : DButtonSize.chip;
     final filter = globalSearchFilter(
       condition.filterId,
       controller.capabilities,
@@ -2340,7 +2366,7 @@ class SearchFilterChip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 shape: DButtonShape.pill,
-                size: DButtonSize.chip,
+                size: size,
                 variant: DButtonVariant.secondary,
                 onPressed: onEdit,
                 focusNode: focusNode,
@@ -2352,7 +2378,7 @@ class SearchFilterChip extends StatelessWidget {
               DButton.iconOnly(
                 icon: const DIcon(DIcons.xmark),
                 tooltip: context.l10n.removeCondition(filter.label),
-                size: DButtonSize.chip,
+                size: size,
                 variant: DButtonVariant.secondary,
                 onPressed: onRemove,
               ),
