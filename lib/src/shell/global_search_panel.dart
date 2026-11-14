@@ -73,6 +73,7 @@ class GlobalSearchPanel extends StatefulWidget {
     this.feedFilterClauses = const [],
     this.feedFilterChoices = const [],
     this.hasFilterPicker = false,
+    this.showsFilterCount = false,
     this.onFeedFilterChoice,
   });
 
@@ -94,6 +95,7 @@ class GlobalSearchPanel extends StatefulWidget {
   final List<String> feedFilterClauses;
   final List<TopicFilterSuggestion> feedFilterChoices;
   final bool hasFilterPicker;
+  final bool showsFilterCount;
   final ValueChanged<TopicFilterSuggestion>? onFeedFilterChoice;
 
   @override
@@ -1388,7 +1390,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             query.isEmpty
                 ? context.l10n.noResultsFound
                 : context.l10n.noResultsForQuery(query),
-            padding: const EdgeInsets.fromLTRB(11, 12, 11, 21),
+            // The inline count makes the field taller. Redistribute the
+            // label's padding to keep its baseline at the same sheet offset.
+            padding: widget.showsFilterCount
+                ? const EdgeInsets.fromLTRB(11, 15, 11, 21)
+                : const EdgeInsets.fromLTRB(11, 18, 11, 18),
           ),
         );
       }
@@ -2039,17 +2045,21 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   Widget _phoneEmptyMessage(
     String message, {
-    EdgeInsets padding = const EdgeInsets.symmetric(
-      horizontal: 11,
-      vertical: 18.5,
-    ),
+    EdgeInsets padding = const EdgeInsets.fromLTRB(11, 18, 11, 22),
   }) => DEmpty(
     padding: padding,
     children: [
       Align(
         alignment: AlignmentDirectional.centerStart,
         child: DEmptyDescription.child(
-          child: Text(message, textAlign: TextAlign.start),
+          child: Text(
+            message,
+            textAlign: TextAlign.start,
+            style: const TextStyle(
+              fontSize: DiscourseTypography.control,
+              height: DiscourseTypography.lineHeightSmall,
+            ),
+          ),
         ),
       ),
     ],
