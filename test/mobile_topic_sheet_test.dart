@@ -1292,7 +1292,19 @@ void main() {
       await pumpMobileShellFixture(
         tester,
         topics: const [Topic(id: 7, title: title, slug: 'container-scaling')],
-        topic: topicPayload(id: 7, title: title),
+        topic: topicPayload(
+          id: 7,
+          title: title,
+          posts: [
+            for (var id = 1; id <= 30; id++)
+              Post(
+                id: id,
+                postNumber: id,
+                username: 'reader',
+                cooked: '<p>Scrollable post $id</p>',
+              ),
+          ],
+        ),
       );
       Rect painted(Finder finder) {
         final box = tester.renderObject<RenderBox>(finder);
@@ -1311,10 +1323,17 @@ void main() {
       final original = [painted(heading), painted(text)];
       await tester.tap(card);
       await tester.pumpAndSettle();
+      await tester.dragFrom(
+        topicReadingViewportRect(tester).center,
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      expect(topicPostList(tester).controller!.offset, greaterThan(300));
       final pull = await tester.startGesture(tester.getCenter(_handle));
       await pull.moveBy(const Offset(0, 20));
       await pull.moveBy(const Offset(0, 160));
       await tester.pump();
+      await _capture(tester, 'scrolled-reader-list-controls');
       final viewport = tester.widget<DSheetViewport>(
         find.byType(DSheetViewport),
       );
