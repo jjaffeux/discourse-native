@@ -3,6 +3,11 @@ import 'd_icon_data.dart';
 // Font Awesome Free artwork from the native mockup. Icons: CC BY 4.0.
 // https://fontawesome.com/license/free
 abstract final class DNativeIcons {
+  static const DIconData envelopeCirclePlus = DIconData(
+    'envelope-circle-plus',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" fill="currentColor"><path fill-rule="evenodd" d="M64 112c0-26.5 21.5-48 48-48l416 0c26.5 0 48 21.5 48 48l0 81.4c-24.4-11.2-51.4-17.4-80-17.4-87.7 0-161.7 58.8-184.7 139.2-7.1-1.3-14.1-4.2-20.1-8.8l-208-156C71.1 141.3 64 127.1 64 112zM304 368c0 28.6 6.2 55.6 17.4 80L128 448c-35.3 0-64-28.7-64-64l0-188 198.4 148.8c12.6 9.4 26.9 15.4 41.7 17.9 0 1.8-.1 3.5-.1 5.3zm48 0a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zM478 302L478 350 430 350 430 386 478 386 478 434 514 434 514 386 562 386 562 350 514 350 514 302z"/></svg>',
+  );
+
   static const DIconData boxArchive = DIconData(
     'box-archive',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M0 64C0 46.3 14.3 32 32 32l448 0c17.7 0 32 14.3 32 32l0 32c0 17.7-14.3 32-32 32L32 128C14.3 128 0 113.7 0 96L0 64zM32 176l448 0 0 240c0 35.3-28.7 64-64 64L96 480c-35.3 0-64-28.7-64-64l0-240zm152 64c-13.3 0-24 10.7-24 24s10.7 24 24 24l144 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-144 0z"/></svg>',

@@ -3246,6 +3246,15 @@ void main() {
     await _tapDockTab(tester, 'messages');
     final message = find.byKey(const ValueKey('new-message-button'));
     expect(message, findsOneWidget);
+    expect(
+      tester
+          .widget<DIcon>(
+            find.descendant(of: message, matching: find.byType(DIcon)),
+          )
+          .icon
+          .name,
+      'envelope-circle-plus',
+    );
     await tester.tap(message);
     await tester.pumpAndSettle();
     expect(shell.visibleComposer, isNotNull);

@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import 'shell_scope.dart';
 
 class MessageCreateButton extends StatelessWidget {
@@ -42,7 +42,7 @@ class MessageCreateButton extends StatelessWidget {
       if (dockAction) {
         return DMobileDockAction(
           buttonKey: const ValueKey('new-message-button'),
-          icon: const DIcon(DIcons.penToSquare),
+          icon: const DIcon(DNativeIcons.envelopeCirclePlus),
           label: context.l10n.newMessage,
           onPressed: () => _compose(context),
         );
@@ -51,7 +51,7 @@ class MessageCreateButton extends StatelessWidget {
       if (header && !showLabel) {
         return DButton(
           key: const ValueKey('new-message-button'),
-          label: const DIcon(DIcons.penToSquare, size: 14),
+          label: const DIcon(DNativeIcons.envelopeCirclePlus, size: 14),
           tooltip: context.l10n.newMessage,
           semanticLabel: context.l10n.newMessage,
           variant: DButtonVariant.primary,
@@ -69,7 +69,7 @@ class MessageCreateButton extends StatelessWidget {
               key: const ValueKey('new-message-button'),
               label: Text(context.l10n.newMessage, softWrap: true, maxLines: 2),
               shape: pill ? DButtonShape.pill : DButtonShape.rounded,
-              icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
+              icon: const DIcon(DNativeIcons.envelopeCirclePlus),
               tooltip: context.l10n.newMessage,
               variant: DButtonVariant.primary,
               size: DButtonSize.action,
@@ -79,7 +79,7 @@ class MessageCreateButton extends StatelessWidget {
           : DButton.iconOnly(
               shape: pill ? DButtonShape.pill : DButtonShape.rounded,
               key: const ValueKey('new-message-button'),
-              icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
+              icon: const DIcon(DNativeIcons.envelopeCirclePlus),
               tooltip: context.l10n.newMessage,
               variant: DButtonVariant.primary,
               size: DButtonSize.action,
