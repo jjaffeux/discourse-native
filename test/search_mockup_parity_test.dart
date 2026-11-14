@@ -473,6 +473,24 @@ void main() {
         );
         expect(tester.takeException(), isNull);
         await capture('-keyboard');
+        tester.view.resetViewInsets();
+        shell.globalSearch.rememberSearch();
+        await tester.tap(find.byKey(const ValueKey('forum-search-clear')));
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.pumpAndSettle();
+        final recent = find.byWidgetPredicate(
+          (widget) =>
+              widget is DItem &&
+              widget.key.toString().contains(
+                'global-search-recent-design keyboard',
+              ),
+        );
+        expect(recent, findsOneWidget);
+        expect(
+          find.descendant(of: recent, matching: find.byType(DItemMedia)),
+          findsOneWidget,
+        );
+        await capture('-recent');
       }
     });
   }

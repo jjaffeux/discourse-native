@@ -324,6 +324,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     Widget? trailing,
   }) {
     final muted = DTokens.of(context).mutedForeground;
+    final phone = DControlStyle.isTouch(context);
     return ConstrainedBox(
       key: key,
       constraints: const BoxConstraints(minHeight: 32),
@@ -332,7 +333,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         child: Row(
           spacing: 10,
           children: [
-            SizedBox(width: 30, child: DIcon(icon, size: 16, color: muted)),
+            if (!phone)
+              SizedBox(width: 30, child: DIcon(icon, size: 16, color: muted)),
             Expanded(
               // Large text moves the trailing action under the label rather
               // than squeezing either.
@@ -1674,6 +1676,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   Widget _history(BuildContext context) {
     final controller = widget.controller;
+    final phone = DControlStyle.isTouch(context);
     // The word still being typed narrows past searches; while there is one,
     // the filters it could start stand open.
     final needle = controller.query.endsWith(' ')
@@ -1722,8 +1725,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   ? null
                   : DButton(
                       key: const ValueKey('global-search-clear-history'),
+                      tooltip: context.l10n.clearHistory,
                       label: Text(
-                        context.l10n.clearHistory,
+                        phone ? context.l10n.clear : context.l10n.clearHistory,
                         softWrap: true,
                         maxLines: 2,
                       ),
@@ -1741,11 +1745,15 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   widget.onRefocus?.call();
                 },
                 DItem(
+                  key: ValueKey('global-search-recent-$query'),
                   size: DItemSize.xs,
                   shape: DItemShape.menu,
-                  // Under the heading's own mark: the words start where its
-                  // label does.
-                  padding: const EdgeInsetsDirectional.fromSTEB(49, 4, 6, 4),
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    phone ? 9 : 49,
+                    4,
+                    6,
+                    4,
+                  ),
                   selected: _selected == 'recent:$query',
                   selectionStyle: DItemSelectionStyle.strongNeutral,
                   showSelectionIndicator: false,
@@ -1754,6 +1762,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     widget.onRefocus?.call();
                   },
                   children: [
+                    if (phone)
+                      const DItemMedia(child: DIcon(DIcons.farClock, size: 12)),
                     DItemContent(
                       children: [
                         DefaultTextStyle.merge(
