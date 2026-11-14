@@ -95,19 +95,24 @@ final class DiscourseModelCodec {
 
   Topic topicSummary(Map<String, dynamic> json, String siteUrl) {
     final details = jsonObject(json['details']);
+    final creator = jsonObject(details['created_by']);
     final lastPoster = jsonObject(details['last_poster']);
+    final creatorId = jsonIntOrNull(creator['id']);
+    final lastId = jsonIntOrNull(lastPoster['id']);
+    final separateLastPoster = lastId != null && lastId != creatorId;
+    final limit = Topic.maximumPosterAvatars - (separateLastPoster ? 1 : 0);
+    final seen = <int>{if (separateLastPoster) lastId};
     final users = <Map<String, dynamic>>[];
-    final seen = <int>{};
     for (final user in [
-      jsonObject(details['created_by']),
-      lastPoster,
+      creator,
       ...jsonObjects(details['participants']).take(Topic.maximumPosterAvatars),
     ]) {
       final id = jsonIntOrNull(user['id']);
       if (id == null || !seen.add(id)) continue;
       users.add(user);
-      if (users.length == Topic.maximumPosterAvatars) break;
+      if (users.length == limit) break;
     }
+    if (separateLastPoster) users.add(lastPoster);
     final avatars = <int, String?>{};
     final avatarsByUsername = <String, String?>{};
     final usernames = <int, String>{};
@@ -152,7 +157,9 @@ final class DiscourseModelCodec {
               for (final user in users)
                 {
                   'user': user,
-                  'extras': user['id'] == lastPoster['id'] ? 'latest' : '',
+                  'extras': jsonIntOrNull(user['id']) == lastId
+                      ? (separateLastPoster ? 'latest' : 'latest single')
+                      : '',
                 },
             ],
       },

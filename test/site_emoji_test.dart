@@ -2,6 +2,26 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'Unicode emoji keep their grapheme offsets and code remains literal',
+    () {
+      const text = 'Bread🍞 `🍞` 👍🏽 ❤️ 👩🏽‍💻';
+      final matches = siteUnicodeEmojiMatches(text).toList();
+      expect(matches.map((match) => match.name), [
+        'bread',
+        '+1:t4',
+        'heart',
+        'woman_technologist:t4',
+      ]);
+      expect(matches.map((match) => text.substring(match.start, match.end)), [
+        '🍞',
+        '👍🏽',
+        '❤️',
+        '👩🏽‍💻',
+      ]);
+    },
+  );
+
   test('plain shortcodes exclude code and Unicode word-adjacent tokens', () {
     const source =
         ':cat: :dog:t3: :unknown: word:cat: 9:dog: é:cat: '

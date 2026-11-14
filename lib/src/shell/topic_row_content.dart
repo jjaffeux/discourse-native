@@ -29,6 +29,7 @@ class _TopicListTitle extends StatelessWidget {
       maxLines: null,
       child: TopicTitle(
         match?.title ?? topic.displayTitle,
+        resolveUnicode: match != null,
         styleRuns: match == null
             ? null
             : (text) => topicSearchRuns(context, text, match.query),

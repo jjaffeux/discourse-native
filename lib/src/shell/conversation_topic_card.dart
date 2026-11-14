@@ -246,6 +246,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                         constraints: const BoxConstraints(maxWidth: 760),
                         child: SiteEmojiText(
                           topicSearchRuns(context, excerpt, match?.query ?? ''),
+                          resolveUnicode: match != null,
                           siteUrl: row.siteUrl,
                           maxLines: largeText ? null : 2,
                           overflow: largeText

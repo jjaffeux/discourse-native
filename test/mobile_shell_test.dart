@@ -20,6 +20,7 @@ import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
@@ -280,6 +281,7 @@ Future<ShellController> pumpMobileShellFixture(
   Map<String, Map<String, dynamic>> pluginResponses = const {},
   FakeForumTabStore? forumTabs,
   List<TopicFilterOption> filterOptions = const [],
+  List<SiteEmoji> emojis = const [],
   Key? key,
   void Function(FakeDiscourseApi api)? onApi,
 }) async {
@@ -326,6 +328,7 @@ Future<ShellController> pumpMobileShellFixture(
     },
     totals: chatNotificationTotals(available: true),
     siteConfigs: {_site: config},
+    emojisBySite: {_site: emojis},
     pluginResponses: {
       'GET /badges.json?only_listable=true': badgeCatalogWire,
       if (board != null) ...{

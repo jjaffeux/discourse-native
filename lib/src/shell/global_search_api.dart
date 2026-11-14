@@ -5,7 +5,9 @@ import 'package:discourse_native/l10n/strings.dart';
 import '../data/plugin_transport.dart';
 import '../data/site_lookup_failure.dart';
 import '../data/topic_feeds_api.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/json.dart';
+import '../models/plugin_data.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
 import '../plugin_api/global_search.dart';
@@ -654,6 +656,53 @@ class GlobalSearchApi {
         }(),
     ]);
     return [for (final page in pages) ...page];
+  }
+
+  /// Message lists are scoped to individual inbox folders. Reading the matched
+  /// topic by ID also works for archived and group messages, without a visit.
+  Future<List<Topic>> privateMessageRows({
+    required String siteUrl,
+    required String apiKey,
+    required String? clientId,
+    required Set<int> topicIds,
+    required Future<void> abortTrigger,
+  }) async {
+    const codec = DiscourseModelCodec(extensions: EmptyPluginDataDecoder());
+    Future<Topic?> read(int id) async {
+      try {
+        final body = await _get(
+          siteUrl,
+          '/t/$id.json',
+          apiKey,
+          clientId,
+          abortTrigger: abortTrigger,
+        );
+        if (jsonIntOrNull(body['id']) != id ||
+            body['archetype'] != 'private_message') {
+          return null;
+        }
+        final topic = codec.topicSummary(body, siteUrl);
+        return topic.posters.isEmpty ? null : topic;
+      } on Exception {
+        return null;
+      }
+    }
+
+    var aborted = false;
+    unawaited(abortTrigger.then((_) => aborted = true));
+    final topics = <Topic>[];
+    const concurrentReads = 4;
+    for (
+      var offset = 0;
+      offset < topicIds.length && !aborted;
+      offset += concurrentReads
+    ) {
+      final rows = await Future.wait(
+        topicIds.skip(offset).take(concurrentReads).map(read),
+      );
+      topics.addAll(rows.whereType<Topic>());
+    }
+    return topics;
   }
 
   GlobalSearchPage _core(

@@ -82,7 +82,8 @@ void main() {
       expect(topic.lastPosterAvatarUrl, 'https://forum.example/latest/90.png');
       expect(topic.posterAvatars, hasLength(5));
       expect(topic.posterAvatars.first, 'https://forum.example/creator/90.png');
-      expect(topic.posters.singleWhere((poster) => poster.latest).userId, 9);
+      expect(topic.posters.map((poster) => poster.userId), [7, 1, 2, 3, 9]);
+      expect(topic.posters.last.latest, isTrue);
       expect(topic.muted, isTrue);
       expect(
         topic.plugins.get(assignmentsDataKey)?.direct?.assignee,

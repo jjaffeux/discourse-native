@@ -1,4 +1,6 @@
+import 'package:discourse_cooking/emoji_unicode.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show StringCharacters;
 
 const siteEmojiNameCharacterClass =
     r'[\p{Alphabetic}\p{Mark}\p{Decimal_Number}_+\-]';
@@ -69,6 +71,31 @@ Iterable<RegExpMatch> siteEmojiShortcodeMatches(String text) sync* {
     }
     if (hasCode && code!.current.start < match.end) continue;
     yield match;
+  }
+}
+
+Iterable<({int start, int end, String name})> siteUnicodeEmojiMatches(
+  String text,
+) sync* {
+  if (!text.codeUnits.any((unit) => unit > 0x7f)) return;
+  final code = _emojiLiteralCodeRanges(text).iterator;
+  var inCode = code.moveNext();
+  var end = 0;
+  for (final glyph in text.characters) {
+    final start = end;
+    end += glyph.length;
+    final name =
+        discourseEmojiUnicode[glyph] ??
+        (glyph.endsWith('\uFE0F')
+            ? discourseEmojiUnicode[glyph.substring(0, glyph.length - 1)]
+            : null);
+    if (name == null) continue;
+    while (inCode && code.current.end <= start) {
+      inCode = code.moveNext();
+    }
+    if (!inCode || code.current.start >= end) {
+      yield (start: start, end: end, name: name);
+    }
   }
 }
 
