@@ -6643,6 +6643,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('the search button counts additional topic filters', (
+    tester,
+  ) async {
+    await _loadChromeCaptureFonts(tester);
+    final shell = await pumpMobileShellFixture(tester);
+    final badge = find.byKey(const ValueKey('mobile-search-filter-count'));
+    expect(badge, findsNothing);
+    await shell.applyTopicListFilterQuery('tag:show-and-tell');
+    await tester.pumpAndSettle();
+    expect(badge, findsNothing);
+    await shell.applyTopicListFilterQuery('tag:show-and-tell status:open');
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: badge, matching: find.text('1')),
+      findsOneWidget,
+    );
+    await _captureChrome(tester, 'search-filter-count');
+    await shell.applyTopicListFilterQuery('');
+    await tester.pumpAndSettle();
+    expect(badge, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('narrow large text keeps settings and keyboard search usable', (
     tester,
   ) async {

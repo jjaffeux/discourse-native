@@ -27,6 +27,7 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
 import 'site_url.dart';
+import 'topic_filter_controller.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
 typedef _FieldLayout = ({
@@ -156,6 +157,18 @@ class _ForumSearchState extends State<ForumSearch> {
       route,
       shell.search.wordsFor(_search.siteUrl ?? '', tab?.tabId, route.id),
     );
+  }
+
+  int get _listFilterCount {
+    final route = _sourceRoute;
+    if (route == null || route.isMessages || !route.isTopicList) return 0;
+    return splitTopicFilterQuery(_listExpression).where((clause) {
+      final key = topicFilterClauseKey(clause)?.toLowerCase();
+      if (key == null || key == 'category:') return false;
+      if (key != 'tags:' && key != 'tag:') return true;
+      final value = clause.substring(key.length);
+      return value.contains(RegExp(r'[+,]'));
+    }).length;
   }
 
   GlobalSearchExpression get _closedExpression =>
@@ -1229,13 +1242,36 @@ class _ForumSearchState extends State<ForumSearch> {
     super.dispose();
   }
 
-  Widget _buildPageTrigger() => DButton.iconOnly(
-    key: const ValueKey('mobile-search-button'),
-    icon: const DIcon(DIcons.magnifyingGlass, size: 20),
-    tooltip: appL10n.search,
-    variant: DButtonVariant.ghost,
-    onPressed: _requestFocus,
-  );
+  Widget _buildPageTrigger() {
+    final count = _listFilterCount;
+    final button = DButton.iconOnly(
+      key: const ValueKey('mobile-search-button'),
+      icon: const DIcon(DIcons.magnifyingGlass, size: 20),
+      tooltip: appL10n.search,
+      semanticLabel: count == 0
+          ? appL10n.search
+          : '${appL10n.search}, ${appL10n.filters}: $count',
+      variant: DButtonVariant.ghost,
+      onPressed: _requestFocus,
+    );
+    if (count == 0) return button;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        button,
+        PositionedDirectional(
+          top: 0,
+          end: -2,
+          child: ExcludeSemantics(
+            child: DBadge.overlay(
+              key: const ValueKey('mobile-search-filter-count'),
+              child: Text(count > 99 ? '99+' : '$count'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildPageContent() => ListenableBuilder(
     listenable: _pageRevision,
