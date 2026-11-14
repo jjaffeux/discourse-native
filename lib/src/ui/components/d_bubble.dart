@@ -66,7 +66,7 @@ class _DBubbleTypingDotsState extends State<DBubbleTypingDots>
             spacing: 4,
             children: [
               for (var index = 0; index < 3; index++)
-                _dot(color, reduced ? 0 : (_motion.value - index / 8) % 1),
+                _dot(color, reduced ? null : (_motion.value - index / 8) % 1),
             ],
           ),
         ),
@@ -74,16 +74,18 @@ class _DBubbleTypingDotsState extends State<DBubbleTypingDots>
     );
   }
 
-  Widget _dot(Color color, double phase) {
-    final rise = Curves.easeInOut.transform(
-      (1 - (phase - .3).abs() / .3).clamp(0.0, 1.0),
-    );
+  Widget _dot(Color color, double? phase) {
+    final rise = phase == null
+        ? 0.0
+        : Curves.easeInOut.transform(
+            (1 - (phase - .3).abs() / .3).clamp(0.0, 1.0),
+          );
     return Transform.translate(
       offset: Offset(0, -4 * rise),
       child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: color.withValues(alpha: .5 + .5 * rise),
+          color: color.withValues(alpha: phase == null ? 1 : .5 + .5 * rise),
         ),
         child: const SizedBox.square(dimension: 6),
       ),
@@ -254,10 +256,24 @@ class DBubbleContent extends StatefulWidget {
     this.onPressed,
 
     this.semanticLabel,
-  }) : assert(action != null || onPressed == null),
+  }) : _typing = false,
+       assert(action != null || onPressed == null),
 
        assert(action == null || (trailingAction == null && quote == null));
 
+  /// The chat typing bubble uses a 38-point pill around its animated dots.
+  const DBubbleContent.typing({super.key})
+    : child = const DBubbleTypingDots(),
+      compact = false,
+      arrivalAge = null,
+      trailingAction = null,
+      quote = null,
+      action = null,
+      onPressed = null,
+      semanticLabel = null,
+      _typing = true;
+
+  final bool _typing;
   final Widget child;
 
   /// An independently interactive control at the top trailing corner. Reserve
@@ -374,7 +390,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final conversation = scope.quote || scope.variant == DBubbleVariant.neutral;
     final radius = ((ghost || scope.quote
         ? BorderRadius.zero
-        : BorderRadius.circular(DRadius.bubble)));
+        : BorderRadius.circular(widget._typing ? 19 : DRadius.bubble)));
     const Widget? status = null;
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: style.foreground,
@@ -420,6 +436,8 @@ class _DBubbleContentState extends State<DBubbleContent> {
       clipBehavior: widget.trailingAction == null ? Clip.antiAlias : Clip.none,
       padding: ghost || scope.quote
           ? EdgeInsets.zero
+          : widget._typing
+          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
           : widget.compact
           ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
           : DInsets.bubble,

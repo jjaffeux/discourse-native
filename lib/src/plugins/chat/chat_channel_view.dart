@@ -2548,7 +2548,12 @@ class _ChatTypingBubble extends StatelessWidget {
       key: const ValueKey('chat-typing-bubble'),
       liveRegion: true,
       child: Padding(
-        padding: const EdgeInsets.only(top: 14),
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          ChatMessageTile.rowStartInset,
+          14,
+          ChatMessageTile.rowEndInset,
+          0,
+        ),
         child: DMessage(
           spacing: 9,
           children: [
@@ -2586,7 +2591,7 @@ class _ChatTypingBubble extends StatelessWidget {
                 ),
                 const DBubble(
                   variant: DBubbleVariant.neutral,
-                  children: [DBubbleContent(child: DBubbleTypingDots())],
+                  children: [DBubbleContent.typing()],
                 ),
               ],
             ),

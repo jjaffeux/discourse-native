@@ -1350,6 +1350,24 @@ void _registerChatShellTests() {
               });
             }
             expect(find.text('hawk is typing'), findsOneWidget);
+            final message = find.byKey(const ValueKey('chat-message-1'));
+            final typingAvatar = find.descendant(
+              of: bubble,
+              matching: find.byType(DMessageAvatar),
+            );
+            final messageAvatar = find.descendant(
+              of: message,
+              matching: find.byType(DMessageAvatar),
+            );
+            expect(
+              tester.getRect(typingAvatar).left,
+              tester.getRect(messageAvatar).left,
+            );
+            final dots = find.descendant(
+              of: bubble,
+              matching: find.byType(DBubbleContent),
+            );
+            expect(tester.getSize(dots), const Size(56, 38));
             tracker.deliverPluginMessage('/presence$typingChannel', {
               'leaving_user_ids': [3],
             }, messageId: 14);
