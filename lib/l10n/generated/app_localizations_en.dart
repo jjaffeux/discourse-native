@@ -6635,6 +6635,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clearAllSearchConditions => 'Clear all search conditions';
 
   @override
+  String chatOnePersonTyping(String name) {
+    return '$name is typing';
+  }
+
+  @override
+  String chatTwoPeopleTyping(String first, String second) {
+    return '$first and $second are typing';
+  }
+
+  @override
+  String chatThreePeopleTyping(String first, String second, String third) {
+    return '$first, $second and $third are typing';
+  }
+
+  @override
+  String chatMorePeopleTyping(
+    String first,
+    String second,
+    String third,
+    int others,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      others,
+      locale: localeName,
+      other: '$others others',
+      one: '1 other',
+    );
+    return '$first, $second, $third and $_temp0 are typing';
+  }
+
+  @override
   String get keepTyping => 'Keep typing';
 
   @override

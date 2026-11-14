@@ -12,6 +12,10 @@ sealed class ChatStreamTarget {
   bool get isThread => threadId != null;
 
   String get storageKey;
+
+  String get typingChannel =>
+      '/chat-reply/$channelId'
+      '${threadId == null ? '' : '/thread/$threadId'}';
 }
 
 @immutable

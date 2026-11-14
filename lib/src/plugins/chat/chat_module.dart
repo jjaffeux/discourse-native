@@ -7,6 +7,7 @@ import 'chat_bookmark.dart';
 import 'chat_bookmark_link_resolver.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
+import 'chat_typing.dart';
 import 'chat_conversation.dart';
 import 'chat_inbox_rooms.dart';
 import 'chat_message_contract.dart';
@@ -49,6 +50,7 @@ final class ChatModule implements PluginModule {
     liveChannelScopes: {
       const PluginLiveChannelScope.prefix('/chat'),
       const PluginLiveChannelScope.prefix('/presence/chat'),
+      const PluginLiveChannelScope.prefix('/presence/chat-reply'),
     },
   );
 
@@ -61,6 +63,9 @@ final class ChatModule implements PluginModule {
     registrar.addLiveChannelScope(const PluginLiveChannelScope.prefix('/chat'));
     registrar.addLiveChannelScope(
       const PluginLiveChannelScope.prefix('/presence/chat'),
+    );
+    registrar.addLiveChannelScope(
+      const PluginLiveChannelScope.prefix('/presence/chat-reply'),
     );
     registrar.addSession(
       (bindings, dependencies) {
@@ -86,6 +91,7 @@ final class ChatModule implements PluginModule {
         final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
           api: chatApi,
+          typingApi: ChatTypingApi(transport),
           decodeMessage: messages.decode,
           messageContributions: messages.contributions,
           userOptionsHost: bindings.require(corePluginUserOptionsPort),

@@ -19,6 +19,78 @@ enum DBubbleVariant {
   ghost,
 }
 
+/// The animated contents of a typing bubble. The surrounding message supplies
+/// its accessible status label.
+class DBubbleTypingDots extends StatefulWidget {
+  const DBubbleTypingDots({super.key});
+
+  @override
+  State<DBubbleTypingDots> createState() => _DBubbleTypingDotsState();
+}
+
+class _DBubbleTypingDotsState extends State<DBubbleTypingDots>
+    with SingleTickerProviderStateMixin {
+  late final _motion = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _motion.stop();
+      _motion.value = 0;
+    } else if (!_motion.isAnimating) {
+      _motion.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _motion.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = DTokens.of(context).mutedForeground;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: 20,
+        child: AnimatedBuilder(
+          animation: _motion,
+          builder: (context, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 4,
+            children: [
+              for (var index = 0; index < 3; index++)
+                _dot(color, reduced ? 0 : (_motion.value - index / 8) % 1),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dot(Color color, double phase) {
+    final rise = Curves.easeInOut.transform(
+      (1 - (phase - .3).abs() / .3).clamp(0.0, 1.0),
+    );
+    return Transform.translate(
+      offset: Offset(0, -4 * rise),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: .5 + .5 * rise),
+        ),
+        child: const SizedBox.square(dimension: 6),
+      ),
+    );
+  }
+}
+
 enum DBubbleAlign { start, end }
 
 enum DBubbleReactionSide { top, bottom }

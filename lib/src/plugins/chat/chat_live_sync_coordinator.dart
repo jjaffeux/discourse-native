@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../models/found_user.dart';
 import 'chat_channel.dart';
 import 'chat_deletion_event.dart';
 import 'chat_message.dart';
@@ -12,6 +13,7 @@ import 'chat_message_summary.dart';
 import 'chat_plugin_data.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
+import 'chat_typing.dart';
 
 /// The canonical-state seam used by [ChatLiveSyncCoordinator].
 ///
@@ -189,14 +191,18 @@ final class ChatLiveSyncHost {
 final class ChatLiveSyncCoordinator {
   ChatLiveSyncCoordinator({
     required PluginRequestHost requests,
+    ChatTypingApi? typingApi,
     required ChatLiveSyncHost host,
     ChatMessageDecoder decodeMessage = ChatMessage.fromJson,
   }) : _requests = requests,
+       _typingApi = typingApi,
        _host = host,
        _decodeMessage = decodeMessage;
 
   final PluginRequestHost _requests;
   final ChatLiveSyncHost _host;
+  final ChatTypingApi? _typingApi;
+  final _typing = <(String, ChatStreamTarget), ChatTyping>{};
   final ChatMessageDecoder _decodeMessage;
   final Map<String, _ChatLiveSite> _sites = {};
   final Map<String, FrameSafeValueNotifier<Set<int>>> _presenceRefs = {};
@@ -235,6 +241,11 @@ final class ChatLiveSyncCoordinator {
       site.tracker = channels;
     }
 
+    for (final entry in _typing.entries.toList()) {
+      if (entry.key.$1 == siteUrl) {
+        entry.value.attach(channels, site.lease);
+      }
+    }
     _host.attachReconciliationTracker(siteUrl, channels);
     _syncPresence(site);
     _syncPersistentSubscriptions(site);
@@ -425,6 +436,11 @@ final class ChatLiveSyncCoordinator {
     site.rootMessageCursors.remove(channelId);
     site.awaitingFirstMessage.remove(channelId);
     site.activeChannelViews.remove(channelId);
+    for (final key in _typing.keys.toList()) {
+      if (key.$1 == siteUrl && key.$2.channelId == channelId) {
+        _typing.remove(key)?.dispose();
+      }
+    }
     site.rootViewTokens.remove(channelId);
     site.cancelActivity(channelId);
     site.rootSubscriptions.remove(channelId)?.cancel();
@@ -459,6 +475,7 @@ final class ChatLiveSyncCoordinator {
     final site = _siteFor(siteUrl);
     (site.activeChannelViews[channelId] ??= {}).add(token);
     _retainRoot(site, channelId, token);
+    _typingFor(siteUrl, ChatChannelTarget(channelId)).setViewing(true);
     return token;
   }
 
@@ -469,6 +486,7 @@ final class ChatLiveSyncCoordinator {
     tokens?.remove(token);
     if (tokens != null && tokens.isEmpty) {
       site.activeChannelViews.remove(channelId);
+      _stopTyping(siteUrl, ChatChannelTarget(channelId));
     }
     _releaseRoot(site, channelId, token);
   }
@@ -493,6 +511,7 @@ final class ChatLiveSyncCoordinator {
     _retainRoot(site, target.channelId, token);
     (site.threadViewTokens[target] ??= {}).add(token);
     _ensureThreadSubscription(site, target);
+    _typingFor(siteUrl, target).setViewing(true);
     return token;
   }
 
@@ -504,6 +523,7 @@ final class ChatLiveSyncCoordinator {
     tokens?.remove(token);
     if (tokens != null && tokens.isEmpty) {
       site.threadViewTokens.remove(target);
+      _stopTyping(siteUrl, target);
       site.threadSubscriptions.remove(target)?.cancel();
     }
   }
@@ -521,6 +541,40 @@ final class ChatLiveSyncCoordinator {
   void ensureThreadSubscription(String siteUrl, ChatThreadTarget target) {
     final site = _sites[siteUrl];
     if (site != null) _ensureThreadSubscription(site, target);
+  }
+
+  ChatTyping _typingFor(String siteUrl, ChatStreamTarget target) =>
+      _typing.putIfAbsent((siteUrl, target), () {
+        final owner = ChatTyping(
+          siteUrl: siteUrl,
+          channel: target.typingChannel,
+          api: _typingApi,
+          requests: _requests,
+          currentUserId: () => _host.currentUserFor(siteUrl)?.id,
+        );
+        final site = _sites[siteUrl];
+        if (site?.tracker case final tracker?) {
+          owner.attach(tracker, site!.lease);
+        }
+        return owner;
+      });
+
+  ValueListenable<List<FoundUser>> typingUsers(
+    String siteUrl,
+    ChatStreamTarget target,
+  ) => _typingFor(siteUrl, target).users;
+
+  void reportTyping(String siteUrl, ChatStreamTarget target, bool active) =>
+      _typing[(siteUrl, target)]?.reportTyping(active);
+
+  void _stopTyping(String siteUrl, ChatStreamTarget target) {
+    _typing[(siteUrl, target)]?.setViewing(false);
+    releaseTyping(siteUrl, target);
+  }
+
+  void releaseTyping(String siteUrl, ChatStreamTarget target) {
+    final key = (siteUrl, target);
+    if (_typing[key]?.inUse == false) _typing.remove(key)?.dispose();
   }
 
   bool isOnline(String siteUrl, int userId) =>
@@ -1678,6 +1732,9 @@ final class ChatLiveSyncCoordinator {
   }
 
   void forget(String siteUrl) {
+    for (final key in _typing.keys.toList()) {
+      if (key.$1 == siteUrl) _typing.remove(key)?.dispose();
+    }
     final site = _sites.remove(siteUrl);
     site?.cancelAll();
     _host.forgetReconciliation(siteUrl);
@@ -1693,6 +1750,10 @@ final class ChatLiveSyncCoordinator {
     for (final site in sites) {
       site.cancelAll();
     }
+    for (final owner in _typing.values) {
+      owner.dispose();
+    }
+    _typing.clear();
     _host.disposeReconciliation();
     for (final ref in _presenceRefs.values) {
       ref.dispose();

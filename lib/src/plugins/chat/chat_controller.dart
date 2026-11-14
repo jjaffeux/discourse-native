@@ -7,7 +7,9 @@ import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../models/found_user.dart';
 import 'chat_api.dart';
+import 'chat_typing.dart';
 import 'chat_channel.dart';
 import 'chat_channel_list.dart';
 import 'chat_channel_list_controller.dart';
@@ -421,6 +423,7 @@ extension ChatAccountAccessOf on DiscourseUser {
 class ChatController extends FrameSafeNotifier {
   ChatController({
     required this.api,
+    ChatTypingApi? typingApi,
     required PluginRequestHost requests,
     required Store store,
     PluginUserOptionsHost? userOptionsHost,
@@ -505,6 +508,7 @@ class ChatController extends FrameSafeNotifier {
         );
     _liveSync = ChatLiveSyncCoordinator(
       requests: requests,
+      typingApi: typingApi,
       decodeMessage: decodeMessage,
       host: ChatLiveSyncHost(
         isDisposed: () => isDisposed,
@@ -2286,6 +2290,21 @@ class ChatController extends FrameSafeNotifier {
     _enforceSiteRetention(siteUrl, keep: key);
     return _conversations[key]!.listenable;
   }
+
+  ValueListenable<List<FoundUser>> typingUsers(
+    String siteUrl,
+    ChatStreamTarget target,
+  ) => _liveSync.typingUsers(siteUrl, target);
+
+  void releaseTyping(String siteUrl, ChatStreamTarget target) =>
+      _liveSync.releaseTyping(siteUrl, target);
+
+  void reportTyping(String siteUrl, ChatStreamTarget target, bool active) =>
+      _liveSync.reportTyping(
+        siteUrl,
+        target,
+        active && currentUserFor(siteUrl)?.hidePresence != true,
+      );
 
   bool isOnline(String siteUrl, int userId) =>
       _liveSync.isOnline(siteUrl, userId);

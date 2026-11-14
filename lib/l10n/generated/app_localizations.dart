@@ -11325,6 +11325,35 @@ abstract class AppLocalizations {
   /// **'Clear all search conditions'**
   String get clearAllSearchConditions;
 
+  /// One person typing in chat.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is typing'**
+  String chatOnePersonTyping(String name);
+
+  /// Two people typing in chat.
+  ///
+  /// In en, this message translates to:
+  /// **'{first} and {second} are typing'**
+  String chatTwoPeopleTyping(String first, String second);
+
+  /// Three people typing in chat.
+  ///
+  /// In en, this message translates to:
+  /// **'{first}, {second} and {third} are typing'**
+  String chatThreePeopleTyping(String first, String second, String third);
+
+  /// Four or more people typing in chat.
+  ///
+  /// In en, this message translates to:
+  /// **'{first}, {second}, {third} and {others, plural, =1{1 other} other{{others} others}} are typing'**
+  String chatMorePeopleTyping(
+    String first,
+    String second,
+    String third,
+    int others,
+  );
+
   /// English UI message used by shell/global_search_panel.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

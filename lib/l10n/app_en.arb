@@ -8612,6 +8612,14 @@
   "@clearAllSearchConditions": {
     "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact."
   },
+  "chatOnePersonTyping": "{name} is typing",
+  "@chatOnePersonTyping": {"description": "One person typing in chat.", "placeholders": {"name": {"type": "String"}}},
+  "chatTwoPeopleTyping": "{first} and {second} are typing",
+  "@chatTwoPeopleTyping": {"description": "Two people typing in chat.", "placeholders": {"first": {"type": "String"}, "second": {"type": "String"}}},
+  "chatThreePeopleTyping": "{first}, {second} and {third} are typing",
+  "@chatThreePeopleTyping": {"description": "Three people typing in chat.", "placeholders": {"first": {"type": "String"}, "second": {"type": "String"}, "third": {"type": "String"}}},
+  "chatMorePeopleTyping": "{first}, {second}, {third} and {others, plural, =1{1 other} other{{others} others}} are typing",
+  "@chatMorePeopleTyping": {"description": "Four or more people typing in chat.", "placeholders": {"first": {"type": "String"}, "second": {"type": "String"}, "third": {"type": "String"}, "others": {"type": "int"}}},
   "keepTyping": "Keep typing",
   "@keepTyping": {
     "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact."

@@ -1265,6 +1265,80 @@ void _registerChatShellTests() {
         );
       }
 
+      testWidgets(
+        'chat typing follows the presence cursor and local idle timer',
+        (tester) async {
+          const notifications = MethodChannel(
+            'org.discourse.native/notification_opens',
+          );
+          final messenger = tester.binding.defaultBinaryMessenger;
+          messenger.setMockMethodCallHandler(notifications, (_) async => null);
+          addTearDown(
+            () => messenger.setMockMethodCallHandler(notifications, null),
+          );
+          final api = _TypingFixtureApi(
+            channels: ChatChannels(public: [channel(9)]),
+            messages: {
+              key(9): page([msg(1)]),
+            },
+          );
+          await pumpChat(tester, size: phone, api: api);
+          await selectChatSidebar(tester);
+          final shell = ShellScope.read(
+            tester.element(find.byKey(const ValueKey('mobile-root'))),
+          );
+          await shell.forumSettings.setShared(
+            shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+          );
+          shell.openChatChannel(9);
+          await tester.pumpAndSettle();
+          final tracker = FakeSiteTracker.built.single;
+          final bubble = find.byKey(const ValueKey('chat-typing-bubble'));
+          expect(bubble, findsNothing);
+
+          tracker.deliverPluginMessage('/presence/chat-reply/9', {
+            'entering_users': [
+              {'id': 7, 'username': 'joffreyj'},
+              {'id': 3, 'username': 'hawk'},
+            ],
+          }, messageId: 13);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 180));
+          const capture = String.fromEnvironment('CHAT_TYPING_CAPTURE');
+          if (capture.isNotEmpty) {
+            await tester.runAsync(() async {
+              final builder = SceneBuilder();
+              tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+              final scene = builder.build();
+              final image = await scene.toImage(390, 844);
+              final bytes = await image.toByteData(format: ImageByteFormat.png);
+              await File(capture).writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+              scene.dispose();
+            });
+          }
+          expect(find.text('hawk is typing'), findsOneWidget);
+          tracker.deliverPluginMessage('/presence/chat-reply/9', {
+            'leaving_user_ids': [3],
+          }, messageId: 14);
+          await tester.pumpAndSettle();
+          expect(bubble, findsNothing);
+          final field = find.descendant(
+            of: find.byKey(const ValueKey('chat-composer')),
+            matching: find.byType(EditableText),
+          );
+          await tester.enterText(field, 'A draft');
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pumpAndSettle();
+          expect(api.updates.single['present_channels'], ['/chat-reply/9']);
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pumpAndSettle();
+          expect(api.updates.last['leave_channels'], ['/chat-reply/9']);
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      );
+
       testWidgets('a live chat message shows a temporary arrival ring', (
         tester,
       ) async {
@@ -5669,4 +5743,64 @@ final class _ReportedTotalsApi extends FakeDiscourseApi {
     required String apiKey,
     String? clientId,
   }) async => reported;
+}
+
+class _TypingFixtureApi extends FakeDiscourseApi {
+  _TypingFixtureApi({
+    required ChatChannels channels,
+    required Map<String, ChatMessagePage> messages,
+  }) : super(
+         totals: chatNotificationTotals(),
+         user: const DiscourseUser(id: 7, username: 'joffreyj'),
+         chatChannelsBySite: {'https://meta.discourse.org': channels},
+         chatMessagesByKey: messages,
+       );
+
+  final updates = <Map<String, Object?>>[];
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final uri = Uri.parse(path);
+    if (uri.path == '/presence/get') {
+      return {
+        for (final channel
+            in uri.queryParametersAll['channels[]'] ?? <String>[])
+          channel: {'last_message_id': 12, 'users': []},
+      };
+    }
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    if (path == '/presence/update') {
+      updates.add(body);
+      return {};
+    }
+    return super.pluginWriteJson(
+      siteUrl: siteUrl,
+      path: path,
+      method: method,
+      apiKey: apiKey,
+      body: body,
+      clientId: clientId,
+    );
+  }
 }

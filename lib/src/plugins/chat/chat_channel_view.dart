@@ -12,6 +12,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../models/found_user.dart';
+import '../../shell/avatar_image.dart';
 import 'chat_channel.dart';
 import 'chat_channel_header.dart';
 import 'chat_composer.dart';
@@ -957,6 +959,7 @@ class _StreamState extends State<ChatMessageStream>
       _expandedDeletedMessageIds.clear();
       _clearHighlight(notify: false);
       _watchChannel();
+      _watchTyping();
     }
 
     if (changedStream ||
@@ -1106,6 +1109,7 @@ class _StreamState extends State<ChatMessageStream>
     _headerGeometry?.removeListener(_scheduleLook);
     _shell?.removeListener(_readDwell.sync);
     _channel?.removeListener(_channelChanged);
+    _detachTyping();
     _readDwell.cancel();
     _highlightTimer?.cancel();
     _list.dispose();
@@ -1326,8 +1330,41 @@ class _StreamState extends State<ChatMessageStream>
     );
   }
 
+  ValueListenable<List<FoundUser>>? _typing;
+  ({ChatController chat, String siteUrl, ChatStreamTarget target})?
+  _typingSource;
+  List<FoundUser> get _typingUsers => _typing?.value ?? const [];
+  bool get _showTyping => widget.stream.atPresent && _typingUsers.isNotEmpty;
+
+  void _watchTyping() {
+    final chat = _chat;
+    if (chat == null) return;
+    final next = chat.typingUsers(widget.siteUrl, widget.target);
+    if (identical(next, _typing)) return;
+    _detachTyping();
+    _typing = next..addListener(_typingChanged);
+    _typingSource = (
+      chat: chat,
+      siteUrl: widget.siteUrl,
+      target: widget.target,
+    );
+  }
+
+  void _detachTyping() {
+    _typing?.removeListener(_typingChanged);
+    _typing = null;
+    if (_typingSource case final source?) {
+      source.chat.releaseTyping(source.siteUrl, source.target);
+    }
+    _typingSource = null;
+  }
+
+  void _typingChanged() => setState(() {});
+
   int get _leadingRows =>
-      widget.stream.loadingNewer && !widget.stream.revalidating ? 1 : 0;
+      _showTyping || widget.stream.loadingNewer && !widget.stream.revalidating
+      ? 1
+      : 0;
 
   /// Centralizes reversal: `_leadingRows` is newest and indices count backward.
   ChatStreamItem? _itemAt(int row) {
@@ -1363,7 +1400,7 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   String _rowId(int row, {required int lastRow}) {
-    if (row < _leadingRows) return 'loading-newer';
+    if (row < _leadingRows) return _showTyping ? 'typing' : 'loading-newer';
     if (row > lastRow) return 'loading-older';
     return switch (_itemAt(row)) {
       ChatStreamMessage(:final id) => 'message-$id',
@@ -1634,6 +1671,7 @@ class _StreamState extends State<ChatMessageStream>
     }
     _chat = PluginUiScope.require(context, chatControllerService);
     _watchChannel();
+    _watchTyping();
     final shell = PluginUiScope.require(context, chatShellService);
     if (!identical(_shell, shell)) {
       _shell?.removeListener(_readDwell.sync);
@@ -1651,6 +1689,7 @@ class _StreamState extends State<ChatMessageStream>
     final stream = widget.stream;
     final chat = PluginUiScope.require(context, chatControllerService);
     _startHighlightIfReady();
+    _watchTyping();
 
     final leading = _leadingRows;
     final lastRow = leading + items.length - 1;
@@ -1764,7 +1803,9 @@ class _StreamState extends State<ChatMessageStream>
                   return ChatScrollLayoutObserver(
                     index: row,
                     onLayout: _noteDayRowLayout,
-                    child: const _LoadingNewerRow(),
+                    child: _showTyping
+                        ? _ChatTypingBubble(users: _typingUsers)
+                        : const _LoadingNewerRow(),
                   );
                 }
                 if (row > lastRow) return const _LoadingOlderRow();
@@ -2477,6 +2518,82 @@ class _JumpToPresent extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ChatTypingBubble extends StatelessWidget {
+  const _ChatTypingBubble({required this.users});
+
+  final List<FoundUser> users;
+
+  @override
+  Widget build(BuildContext context) {
+    final names = users.map((user) => user.name ?? user.username).toList();
+    final l10n = context.l10n;
+    final label = switch (names) {
+      [final name] => l10n.chatOnePersonTyping(name),
+      [final first, final second] => l10n.chatTwoPeopleTyping(first, second),
+      [final first, final second, final third] => l10n.chatThreePeopleTyping(
+        first,
+        second,
+        third,
+      ),
+      [final first, final second, final third, ...final rest] =>
+        l10n.chatMorePeopleTyping(first, second, third, rest.length),
+      _ => '',
+    };
+    final single = users.length == 1 ? users.single : null;
+    const avatarSize = 28.0;
+    return Semantics(
+      key: const ValueKey('chat-typing-bubble'),
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: DMessage(
+          spacing: 9,
+          children: [
+            DMessageAvatar(
+              minimumExtent: avatarSize,
+              child: DAvatar(
+                decorative: true,
+                dimension: avatarSize,
+                child: single == null
+                    ? const DAvatarFallback(
+                        child: DIcon(DIcons.userGroup, size: 12),
+                      )
+                    : AvatarImage(
+                        url: single.avatarUrl,
+                        size: avatarSize,
+                        fallback: DAvatarFallback(
+                          child: Text(
+                            single.username.characters.firstOrNull
+                                    ?.toUpperCase() ??
+                                '?',
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+            DMessageContent(
+              spacing: 4,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: DTokens.of(context).mutedForeground,
+                  ),
+                ),
+                const DBubble(
+                  variant: DBubbleVariant.neutral,
+                  children: [DBubbleContent(child: DBubbleTypingDots())],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -3997,6 +3997,7 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     final uri = Uri.parse(path);
+    if (uri.path == '/presence/get') return {};
     if (uri.path == '/gifs/categories.json') {
       final categories = await gifCategories(
         siteUrl: siteUrl,
@@ -4082,6 +4083,7 @@ class FakeDiscourseApi
     required Map<String, Object?> body,
     String? clientId,
   }) async {
+    if (path == '/presence/update') return {};
     if (path == '/polls/vote.json') {
       final postId = body['post_id']! as int;
       final pollName = body['poll_name']! as String;

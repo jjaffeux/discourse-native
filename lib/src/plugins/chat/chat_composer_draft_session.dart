@@ -26,6 +26,8 @@ final class ChatComposerDraftSession<Editor extends ComposerDraftEditor> {
     _applyRetainedDraft();
     _retainDraft();
     if (editingMessage != null) _replaceWithMessage(editingMessage);
+    _lastTypedText = composer.text.text;
+    composer.text.addListener(_reportTyping);
   }
 
   final ChatController chat;
@@ -117,6 +119,16 @@ final class ChatComposerDraftSession<Editor extends ComposerDraftEditor> {
     }
   }
 
+  late String _lastTypedText;
+
+  void _reportTyping() {
+    final text = composer.text.text;
+    if (text == _lastTypedText) return;
+    _lastTypedText = text;
+    if (_applyingRetainedDraft || _editingMessage != null) return;
+    chat.reportTyping(siteUrl, target, text.trim().isNotEmpty);
+  }
+
   void _retainDraft() {
     if (_disposed || _applyingRetainedDraft) return;
     if (_editingMessage != null) {
@@ -179,6 +191,7 @@ final class ChatComposerDraftSession<Editor extends ComposerDraftEditor> {
     _deferred = null;
     _editingMessage = message;
     if (message != null) {
+      chat.reportTyping(siteUrl, target, false);
       _replaceWithMessage(message);
     } else {
       _replaceDocument(_retainedDraft.value);
@@ -254,6 +267,8 @@ final class ChatComposerDraftSession<Editor extends ComposerDraftEditor> {
     chat.removeListener(_accountChanged);
     composer.removeListener(_retainDraft);
     composer.text.removeListener(_retainDraft);
+    composer.text.removeListener(_reportTyping);
+    chat.reportTyping(siteUrl, target, false);
     _retainedDraft.removeListener(_applyRetainedDraft);
     _deferred = null;
     composer.dispose();
