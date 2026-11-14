@@ -38,7 +38,7 @@ enum DSheetVariant {
   standard,
   menu,
 
-  /// A bottom reading page filling [DSheetViewport], with an overlaid handle.
+  /// A bottom page filling [DSheetViewport], with a handle when swipe-dismissible.
   page,
 
   /// A full-width mobile menu with a lower opening height, pull-to-expand,
@@ -501,7 +501,7 @@ class _DSheetPageCard extends StatefulWidget {
   });
 
   final Color color;
-  final Widget handle;
+  final Widget? handle;
   final List<Widget> children;
 
   @override
@@ -601,21 +601,22 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
                 children: widget.children,
               ),
             ),
-            ValueListenableBuilder<double>(
-              valueListenable:
-                  rise?.edge ?? const AlwaysStoppedAnimation<double>(0),
-              builder: (context, edge, child) => Positioned(
-                top: edge,
-                left: 0,
-                right: 0,
-                child: Visibility(
-                  visible: !_coversGrabber,
-                  maintainState: true,
-                  child: child!,
+            if (widget.handle case final handle?)
+              ValueListenableBuilder<double>(
+                valueListenable:
+                    rise?.edge ?? const AlwaysStoppedAnimation<double>(0),
+                builder: (context, edge, child) => Positioned(
+                  top: edge,
+                  left: 0,
+                  right: 0,
+                  child: Visibility(
+                    visible: !_coversGrabber,
+                    maintainState: true,
+                    child: child!,
+                  ),
                 ),
+                child: handle,
               ),
-              child: widget.handle,
-            ),
           ],
         ),
       ),
@@ -2563,7 +2564,11 @@ class DSheetContent extends StatelessWidget {
         label: semanticLabel,
         child: _DSheetPageCard(
           color: moving ? color.withValues(alpha: 1) : color,
-          handle: handle,
+          handle:
+              context.dependOnInheritedWidgetOfExactType<_DSheetSwipeScope>() ==
+                  null
+              ? null
+              : handle,
           children: children,
         ),
       );

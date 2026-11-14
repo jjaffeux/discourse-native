@@ -313,6 +313,17 @@ void main() {
             findsOneWidget,
           );
           expect(find.byType(DashboardPage), findsNothing);
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: 300 * tester.view.devicePixelRatio,
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).bottom, phone.height);
+          expect(
+            tester.getRect(find.byType(ReportPage)).bottom,
+            phone.height - 300,
+          );
+          tester.view.resetViewInsets();
+          await tester.pumpAndSettle();
         } else {
           expect(sheet, findsNothing);
         }

@@ -14,6 +14,7 @@ import '../data/sidebar_width_store.dart';
 
 import '../foundation/icons/d_icons.dart';
 import '../models/bookmark.dart';
+import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import 'account_menu_scope.dart';
@@ -529,8 +530,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 }
 
-/// On phones, leaves the composer sheet's keyboard to the sheet, which covers
-/// a full-height shell.
+/// Keeps the phone shell full-height for sheets that handle their own keyboard.
 class _ShellScaffold extends StatefulWidget {
   const _ShellScaffold({required this.mobile, required this.body});
 
@@ -562,7 +562,9 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
           widget.mobile &&
           !state.sidebarOpen &&
           route != null &&
-          (route.isTopic ||
+          (route.isGlobalSearch ||
+              route.isTopic ||
+              route.isPage(CorePage.dashboard) ||
               PluginScope.of(
                 context,
               ).registry.usesMobilePageSheet(context, route));
@@ -889,8 +891,15 @@ class _MobileShellState extends State<_MobileShell> {
       peek: _dockPeek,
       child: ForumWindowBackground(
         mobile: true,
-        child: SafeArea(
-          bottom: defaultTargetPlatform == TargetPlatform.android,
+        child: ShellSelector<bool>(
+          select: (shell) =>
+              shell.currentContent?.isGlobalSearch == true &&
+              !shell.mobileNavigation.sidebarOpen,
+          builder: (context, searchOpen, child) => SafeArea(
+            bottom:
+                defaultTargetPlatform == TargetPlatform.android && !searchOpen,
+            child: child!,
+          ),
           child:
               ShellSelector<
                 ({InstanceLoadStatus loadStatus, bool hasInstances})

@@ -475,11 +475,34 @@ void main({bool useDeviceMetrics = false}) {
   }
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     _testPresentation(
-      'mobile $platform keyboard insets spare search rebuilding',
+      'mobile $platform search surface covers the keyboard without rebuilding results',
       (tester) async {
         debugDefaultTargetPlatformOverride = platform;
         await _pumpSearch(tester, size: phone);
+        final ratio = tester.view.devicePixelRatio;
+        if (!_useDeviceMetrics) {
+          tester.view.viewPadding = FakeViewPadding(bottom: 34 * ratio);
+          tester.view.padding = tester.view.viewPadding;
+        }
         await _openAndSearch(tester, 'design');
+        final search = find.byKey(ForumSearch.panelKey);
+        final surface = find.ancestor(
+          of: search,
+          matching: find.byType(DSheetContent),
+        );
+        expect(tester.getRect(surface).bottom, phone.height);
+        if (_useDeviceMetrics) {
+          final keyboard = tester.view.viewInsets.bottom / ratio;
+          expect(keyboard, greaterThan(0));
+          expect(
+            tester.getRect(search).bottom,
+            closeTo(phone.height - keyboard, 1),
+          );
+          expect(_editor(tester).focusNode.hasFocus, isTrue);
+          expect(tester.takeException(), isNull);
+          return;
+        }
+        expect(tester.getRect(search).bottom, phone.height - 34);
         var panelBuilds = 0;
         final previous = debugOnRebuildDirtyWidget;
         debugOnRebuildDirtyWidget = (element, builtOnce) {
@@ -487,18 +510,20 @@ void main({bool useDeviceMetrics = false}) {
           if (element.widget is GlobalSearchPanel) panelBuilds++;
         };
         addTearDown(() => debugOnRebuildDirtyWidget = previous);
-        for (final bottom in [100.0, 200.0, 300.0]) {
-          tester.view.viewInsets = FakeViewPadding(
-            bottom: bottom * tester.view.devicePixelRatio,
+        for (final bottom in [100.0, 200.0, 300.0, 150.0, 0.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: bottom * ratio);
+          tester.view.padding = FakeViewPadding(
+            bottom: bottom == 0 ? 34 * ratio : 0,
           );
           await tester.pump();
+          expect(tester.getRect(surface).bottom, phone.height);
+          expect(
+            tester.getRect(search).bottom,
+            phone.height - (bottom == 0 ? 34 : bottom),
+          );
         }
         await tester.pumpAndSettle();
         expect(panelBuilds, 0);
-        expect(
-          tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,
-          lessThanOrEqualTo(phone.height - 300),
-        );
         expect(_editor(tester).focusNode.hasFocus, isTrue);
         await tester.enterText(find.byKey(ForumSearch.inputKey), 'keyboard');
         await _finishSearch(tester);

@@ -2141,6 +2141,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: DSheetViewport(
+            onDismiss: () {},
             content: DSheetContent(
               side: DSheetSide.bottom,
               variant: DSheetVariant.page,

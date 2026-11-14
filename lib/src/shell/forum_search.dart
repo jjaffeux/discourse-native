@@ -969,18 +969,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _builtGlobalReads = _globalReads;
     if (!_search.canSearch) return const SizedBox.shrink();
     if (widget._pageContent) {
-      return DPageSurface(
-        border: false,
-        backgroundColor: DTokens.of(context).background,
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: _buildPageContent(),
-          ),
-        ),
-      );
+      return _buildPageSurface(context, _buildPageContent());
     }
     if (widget.fullScreen) return _buildPageTrigger();
     final platform = Theme.of(context).platform;
@@ -1308,6 +1297,21 @@ class _ForumSearchState extends State<ForumSearch> {
       );
     },
   );
+
+  Widget _buildPageSurface(BuildContext context, Widget content) => SafeArea(
+    bottom: false,
+    child: DSheetViewport(
+      content: DSheetContent(
+        side: DSheetSide.bottom,
+        variant: DSheetVariant.page,
+        showCloseButton: false,
+        semanticLabel: context.l10n.globalSearch,
+        backgroundColor: DTokens.of(context).background,
+        children: [Expanded(child: SafeArea(top: false, child: content))],
+      ),
+    ),
+  );
+
   void _openPage() {
     final content = _buildPageContent();
     final page = MaterialPageRoute<void>(
@@ -1317,21 +1321,8 @@ class _ForumSearchState extends State<ForumSearch> {
         ShellScope(
           controller: _shell!,
           // Keep the search subtree stable as the keyboard animates its insets.
-          // Its LayoutBuilder still responds to the changing available height.
           child: Builder(
-            builder: (context) => Material(
-              color: DTokens.of(context).background,
-              child: SafeArea(
-                child: Builder(
-                  builder: (context) => Padding(
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.viewInsetsOf(context).bottom,
-                    ),
-                    child: content,
-                  ),
-                ),
-              ),
-            ),
+            builder: (context) => _buildPageSurface(context, content),
           ),
         ),
       ),
