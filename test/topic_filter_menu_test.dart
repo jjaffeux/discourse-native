@@ -250,7 +250,7 @@ void main() {
         );
         if (platform == TargetPlatform.iOS) {
           expect(find.byKey(const ValueKey('topic-list-filter')), findsNothing);
-          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          await tester.binding.handlePopRoute();
           await tester.pumpAndSettle();
           final count = find.byKey(
             const ValueKey('mobile-search-filter-count'),
@@ -301,7 +301,7 @@ void main() {
             find.byKey(const ValueKey('search-back-to-results')),
           );
           await tester.pumpAndSettle();
-          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          await tester.binding.handlePopRoute();
         } else {
           expect(find.text('Apply 1 filter'), findsOneWidget);
           await tester.tap(find.text('Apply 1 filter'));
@@ -332,16 +332,22 @@ void main() {
           find.text('Tags  Topics by their tags, or a tag group'),
         );
         await tester.pumpAndSettle();
+        await fixture.capture(tester, 'tags-empty-$platform');
         final done = find.byKey(const ValueKey('topic-filter-done-tags'));
-        expect(
-          tester
-              .widget<DCommandList<String>>(find.byType(DCommandList<String>))
-              .children
-              .whereType<DCommandItem<String>>()
-              .firstWhere((row) => row.value == '@done-tags')
-              .enabled,
-          isFalse,
-        );
+        if (mobile) {
+          expect(done, findsNothing);
+          expect(find.byType(DToggleGroup<String>), findsNothing);
+        } else {
+          expect(
+            tester
+                .widget<DCommandList<String>>(find.byType(DCommandList<String>))
+                .children
+                .whereType<DCommandItem<String>>()
+                .firstWhere((row) => row.value == '@done-tags')
+                .enabled,
+            isFalse,
+          );
+        }
         for (final tag in ['Alpha', 'Beta']) {
           await tester.tap(
             find.descendant(
@@ -351,15 +357,49 @@ void main() {
           );
           await tester.pumpAndSettle();
         }
+        await fixture.capture(tester, 'tags-picked-$platform');
+        if (mobile) {
+          for (final tag in ['Alpha', 'Beta']) {
+            expect(
+              find.byKey(ValueKey(('picked-filter-tag', tag))),
+              findsOneWidget,
+            );
+            expect(
+              find.descendant(
+                of: find.byType(DCommandList<String>),
+                matching: find.text(tag),
+              ),
+              findsNothing,
+            );
+          }
+        }
+        if (mobile) {
+          final removeBeta = find.byTooltip('Remove Beta condition');
+          await tester.ensureVisible(removeBeta);
+          await tester.tap(removeBeta);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey(('picked-filter-tag', 'Beta'))),
+            findsNothing,
+          );
+          final betaResult = find.descendant(
+            of: find.byType(DCommandList<String>),
+            matching: find.text('Beta'),
+          );
+          expect(betaResult, findsOneWidget);
+          await tester.tap(betaResult);
+          await tester.pumpAndSettle();
+        }
         for (final (label, chip) in [
           ('All', 'All Alpha, Beta'),
           ('None', 'None Alpha, Beta'),
           ('Any', 'Any Alpha, Beta'),
           ('Not all', 'Not all Alpha, Beta'),
         ]) {
+          await tester.ensureVisible(find.text(label));
           await tester.tap(find.text(label));
           await tester.pumpAndSettle();
-          expect(find.text('Tags: $chip'), findsOneWidget);
+          if (!mobile) expect(find.text('Tags: $chip'), findsOneWidget);
           if (mobile) {
             final previous = data.shell.mobileNavigation.previousLocation!;
             final route = previous.contentStack.last;
@@ -378,7 +418,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
-        expect(find.text('Tags: Any Alpha, Beta'), findsOneWidget);
+        if (!mobile) expect(find.text('Tags: Any Alpha, Beta'), findsOneWidget);
+        await tester.ensureVisible(find.text('Not all'));
         await tester.tap(find.text('Not all'));
         await tester.pumpAndSettle();
         if (!mobile) {
@@ -387,15 +428,19 @@ void main() {
             isNot(contains('Alpha')),
           );
         }
-        await tester.tap(done);
-        await tester.pumpAndSettle();
         if (mobile) {
           await tester.tap(
             find.byKey(const ValueKey('search-back-to-results')),
           );
           await tester.pumpAndSettle();
-          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          await tester.tap(
+            find.byKey(const ValueKey('search-back-to-results')),
+          );
+          await tester.pumpAndSettle();
+          await tester.binding.handlePopRoute();
         } else {
+          await tester.tap(done);
+          await tester.pumpAndSettle();
           await tester.tap(find.text('Apply 1 filter'));
         }
         await tester.pumpAndSettle();

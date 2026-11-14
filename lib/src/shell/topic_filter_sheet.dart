@@ -171,7 +171,9 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                 _unquoteTopicFilterValue(item.term!) == tag,
           )
           .firstOrNull;
-      if (selected != null) _sheetCommand.highlight(_commandValue(selected));
+      if (selected != null && widget.returnToSearch == null) {
+        _sheetCommand.highlight(_commandValue(selected));
+      }
     });
   }
 
@@ -228,12 +230,21 @@ extension _TopicFilterSheet on _TopicFilterInputState {
 
   Widget _buildSheet(BuildContext context) {
     final taxonomyScope = const {'tag', 'category'}.contains(widget.onlyKey);
+    final searchPicker = widget.returnToSearch != null;
+    final tagsInFooter = searchPicker && _isTagStage;
+    final selectedTags = tagsInFooter ? _sheetTags : const <String>[];
     final clauseKey = topicFilterClauseKey(filter.text.text);
     final option = widget.options
         .where((option) => option.name == clauseKey)
         .firstOrNull;
     final groups = <String, List<TopicFilterSuggestion>>{};
     for (final suggestion in filter.suggestions) {
+      if (tagsInFooter &&
+          suggestion.term != null &&
+          RegExp(r'^tags?:').hasMatch(suggestion.name) &&
+          selectedTags.contains(_unquoteTopicFilterValue(suggestion.term!))) {
+        continue;
+      }
       (groups[suggestion.menuGroup ??
                   (clauseKey == null ? _sheetGroup(suggestion) : '')] ??=
               [])
@@ -244,7 +255,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         if (_isTagStage &&
             RegExp(r'^tags?:').hasMatch(suggestion.name) &&
             suggestion.term != null)
-          _sheetTags.isEmpty
+          tagsInFooter || _sheetTags.isEmpty
               ? const DIcon(DIcons.hashtag, size: 14)
               : IgnorePointer(
                   child: ExcludeSemantics(
@@ -375,46 +386,34 @@ extension _TopicFilterSheet on _TopicFilterInputState {
           ),
       ],
     );
-    final tagModes = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DToggleGroup<String>(
-          wrap: true,
-          spacing: 4,
-          values: [_tagMode],
-          allowEmptySelection: false,
-          density: DToggleDensity.menuFilter,
-          semanticLabel: context.l10n.matchTopicsThat,
-          items: [
-            for (final (value, label) in [
-              ('any', context.l10n.filterAny),
-              ('all', context.l10n.filterAll),
-              ('none', context.l10n.none),
-              ('notAll', context.l10n.filterNotAll),
-            ])
-              DToggleGroupItem(value: value, child: Text(label)),
-          ],
-          onChanged: _sheetTags.isEmpty
-              ? null
-              : (values) {
-                  _tagMode = values.single;
-                  _setSheetTags(_sheetTags);
-                },
-        ),
-        const SizedBox(height: 5),
-        Text(
-          switch (_tagMode) {
-            'all' => context.l10n.filterAllHint,
-            'none' => context.l10n.filterNoneHint,
-            'notAll' => context.l10n.filterNotAllHint,
-            _ => context.l10n.filterAnyHint,
-          },
-          style: TextStyle(
-            fontSize: DiscourseTypography.metadata,
-            color: DTokens.of(context).mutedForeground,
+    final tagModes = DToggleGroup<String>(
+      wrap: !tagsInFooter,
+      scrollable: !tagsInFooter,
+      spacing: 4,
+      size: tagsInFooter ? DToggleSize.filter : DToggleSize.regular,
+      values: [_tagMode],
+      allowEmptySelection: false,
+      density: DToggleDensity.menuFilter,
+      semanticLabel: context.l10n.matchTopicsThat,
+      items: [
+        for (final (value, label, hint) in [
+          ('any', context.l10n.filterAny, context.l10n.filterAnyHint),
+          ('all', context.l10n.filterAll, context.l10n.filterAllHint),
+          ('none', context.l10n.none, context.l10n.filterNoneHint),
+          ('notAll', context.l10n.filterNotAll, context.l10n.filterNotAllHint),
+        ])
+          DToggleGroupItem(
+            value: value,
+            tooltip: tagsInFooter ? hint : null,
+            child: Text(label),
           ),
-        ),
       ],
+      onChanged: _sheetTags.isEmpty
+          ? null
+          : (values) {
+              _tagMode = values.single;
+              _setSheetTags(_sheetTags);
+            },
     );
     final command = DCommand<String>(
       key: _sheetCommandKey,
@@ -450,7 +449,9 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         children: [
           RepaintBoundary(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(2, 2, 2, 8),
+              padding: searchPicker
+                  ? const EdgeInsets.only(bottom: 6)
+                  : const EdgeInsets.fromLTRB(2, 2, 2, 8),
               child: Focus(
                 canRequestFocus: false,
                 skipTraversal: true,
@@ -507,17 +508,28 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                                 ),
                                 DInputGroupInput(
                                   key: widget.inputKey,
-                                  controller: filter.text,
+                                  controller: tagsInFooter
+                                      ? _tagSearchText
+                                      : filter.text,
                                   focusNode: _focus,
-                                  hintText: widget.hintText,
+                                  hintText: tagsInFooter
+                                      ? context.l10n.searchTags
+                                      : widget.hintText,
                                   semanticLabel: context.l10n.topicFilterQuery,
                                   autocorrect: false,
                                   enableSuggestions: false,
                                   textInputAction: TextInputAction.done,
-                                  onChanged: (_) =>
-                                      filter.inputChanged(filter.text.text),
+                                  onChanged: (text) {
+                                    if (tagsInFooter) {
+                                      _setTokenDraft('tag:$text');
+                                    }
+                                    filter.inputChanged(filter.text.text);
+                                  },
                                   onSubmitted: (_) {
-                                    if (filter.text.text.isEmpty) {
+                                    if (tagsInFooter &&
+                                        _tagSearchText.text.isEmpty) {
+                                      _backToFilterFields();
+                                    } else if (filter.text.text.isEmpty) {
                                       widget.returnToSearch!();
                                     } else {
                                       unawaited(_acceptSelectedOrFallback());
@@ -532,7 +544,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
               ),
             ),
           ),
-          const DSeparator(),
+          if (!searchPicker) const DSeparator(),
           if (option?.type == 'date' &&
               (_activeMenuField == null || _menuDateSelected))
             DCalendar(
@@ -600,7 +612,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                               ),
                       ),
                     ),
-                  if (_isTagStage) ...[
+                  if (_isTagStage && !tagsInFooter) ...[
                     DCommandItem<String>(
                       key: const ValueKey('topic-filter-done-tags'),
                       value: '@done-tags',
@@ -631,20 +643,40 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                       ),
                     ),
                   ],
-                  if (_isTagStage && _sheetTags.isNotEmpty)
+                  if (_isTagStage && !tagsInFooter && _sheetTags.isNotEmpty)
                     DCommandGroup<String>(
                       heading: Text(context.l10n.searchFilterMatch),
                       items: [
                         DCommandItem<String>(
                           value: '@tag-mode',
                           enabled: _sheetTags.isNotEmpty,
-                          child: tagModes,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 5,
+                            children: [
+                              tagModes,
+                              Text(
+                                switch (_tagMode) {
+                                  'all' => context.l10n.filterAllHint,
+                                  'none' => context.l10n.filterNoneHint,
+                                  'notAll' => context.l10n.filterNotAllHint,
+                                  _ => context.l10n.filterAnyHint,
+                                },
+                                style: TextStyle(
+                                  fontSize: DiscourseTypography.metadata,
+                                  color: DTokens.of(context).mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   for (final group in groups.entries)
                     DCommandGroup<String>(
-                      heading: group.key.isEmpty ? null : Text(group.key),
+                      heading: group.key.isEmpty || tagsInFooter
+                          ? null
+                          : Text(group.key),
                       items: [
                         for (final suggestion in group.value)
                           DCommandItem<String>(
@@ -698,11 +730,10 @@ extension _TopicFilterSheet on _TopicFilterInputState {
               ? DScrollArea(child: command)
               : command,
         ),
-        if (widget.returnToSearch != null && _tokens.isNotEmpty)
+        if (searchPicker && _tokens.isNotEmpty)
           DSheetFooter(
             padding: EdgeInsets.zero,
             children: [
-              const DSeparator(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
                 child: DScrollArea(
@@ -711,7 +742,10 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     spacing: 5,
-                    children: _buildTokenChips(),
+                    children: [
+                      ..._buildTokenChips(splitTags: tagsInFooter),
+                      if (selectedTags.isNotEmpty) tagModes,
+                    ],
                   ),
                 ),
               ),
