@@ -46,8 +46,14 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
     if (_lookup?.matches(widget.composer, search) ?? false) return;
     _lookup?.removeListener(_lookupChanged);
     _lookup?.dispose();
-    _lookup = ComposerRecipientLookup(composer: widget.composer, search: search)
-      ..addListener(_lookupChanged);
+    final lookup = ComposerRecipientLookup(
+      composer: widget.composer,
+      search: search,
+    )..addListener(_lookupChanged);
+    _lookup = lookup;
+    if (context.isTouch && lookup.recipients.length > 1) {
+      lookup.loadRecipientCounts();
+    }
   }
 
   void _lookupChanged() => setState(() {});
@@ -82,8 +88,10 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
             value: group.name,
             label: group.name,
             icon: mobile ? const DIcon(DIcons.userGroup) : null,
-            detail: switch (lookup.groupMemberCount(group.name)) {
-              final count? when mobile => countLabel(count, CountNoun.member),
+            count: mobile ? lookup.groupMemberCount(group.name) : null,
+            semanticLabel: switch (lookup.groupMemberCount(group.name)) {
+              final count? when mobile =>
+                '${group.name}, ${countLabel(count, CountNoun.member)}',
               _ => null,
             },
             itemKey: ValueKey(('recipient-group', group.name)),

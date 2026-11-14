@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsValidationResult;
+import 'dart:ui' show FontFeature, SemanticsValidationResult;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -61,7 +61,8 @@ class DComboboxOption<T> {
     this.searchText,
     this.itemKey,
     this.icon,
-    this.detail,
+    this.count,
+    this.semanticLabel,
   });
 
   final T value;
@@ -70,7 +71,8 @@ class DComboboxOption<T> {
   final String? searchText;
   final Key? itemKey;
   final Widget? icon;
-  final String? detail;
+  final int? count;
+  final String? semanticLabel;
 }
 
 @immutable
@@ -1477,10 +1479,24 @@ class _DComboboxSheetFooter<T> extends StatelessWidget {
                 DButton(
                   key: option.itemKey,
                   icon: option.icon,
-                  label: Text(
-                    option.detail == null
-                        ? option.label
-                        : '${option.label} · ${option.detail}',
+                  semanticLabel: option.semanticLabel,
+                  tooltip: option.semanticLabel,
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: DSpacing.sm,
+                    children: [
+                      Text(option.label),
+                      if (option.count case final count?)
+                        Text(
+                          '$count',
+                          style: TextStyle(
+                            color: DTokens.of(context).mutedForeground,
+                            fontSize: DiscourseTypography.metadata,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                    ],
                   ),
                   shape: DButtonShape.pill,
                   size: DButtonSize.filter,

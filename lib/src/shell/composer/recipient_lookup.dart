@@ -52,21 +52,35 @@ final class ComposerRecipientLookup extends ChangeNotifier {
 
   void loadRecipientCounts() {
     if (!_isCurrent) return;
-    final visibleGroups = _results.groups.map((group) => group.name);
+    final visibleGroups = _results.groups.map((group) => group.name).toSet();
     for (final name in {...visibleGroups, ...recipients}) {
       if (_knownUsers.contains(name) ||
           _rosters.containsKey(name) ||
           !_loadingRosters.add(name)) {
         continue;
       }
-      unawaited(() async {
-        final roster = await _search.groupRoster(name);
-        _loadingRosters.remove(name);
-        if (!_isCurrent) return;
-        _rosters[name] = roster;
-        notifyListeners();
-      }());
+      unawaited(_loadRoster(name, knownGroup: visibleGroups.contains(name)));
     }
+  }
+
+  Future<void> _loadRoster(String name, {required bool knownGroup}) async {
+    final roster = await _search.groupRoster(name);
+    if (!_isCurrent) return;
+    if (roster == null && !knownGroup && recipients.contains(name)) {
+      // Drafts store comma-separated names. An exact user match can resolve
+      // a restored entry when there is no group roster for that name.
+      final found = await _search.search(name);
+      if (!_isCurrent) return;
+      if (!found.groups.any((group) => group.name == name) &&
+          found.users.any(
+            (user) => user.username.toLowerCase() == name.toLowerCase(),
+          )) {
+        _knownUsers.add(name);
+      }
+    }
+    _loadingRosters.remove(name);
+    _rosters[name] = roster;
+    notifyListeners();
   }
 
   String get query => _query;
