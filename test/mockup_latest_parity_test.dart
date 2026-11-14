@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -191,6 +192,179 @@ void main() {
     expect(scroll.pixels, 0);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  testWidgets('phone Search keeps the filtered empty footer in view', (
+    tester,
+  ) async {
+    const tag = TopicTag(id: 1, name: 'sourdough');
+    const topics = [
+      Topic(
+        id: 7,
+        title: "What's everyone's sourdough hydration sweet spot?",
+        excerpt:
+            "I've been experimenting between 72% and 80% hydration. How do you find the right balance?",
+        likeCount: 14,
+        pinned: true,
+        slug: 'sourdough-hydration',
+        tags: [tag],
+        postsCount: 35,
+      ),
+      Topic(
+        id: 8,
+        title:
+            'Leeds starter swap and bake-off at The Crown, Saturday 24 October',
+        slug: 'starter-swap',
+        excerpt:
+            'Meet us at the Crown on Saturday to swap starters, bake bread, and compare notes.',
+        postsCount: 20,
+        likeCount: 8,
+        tags: [tag],
+      ),
+      Topic(
+        id: 9,
+        title:
+            "Is it rude to bring your own sourdough to someone else's dinner?",
+        slug: 'sourdough-dinner',
+        excerpt:
+            "A friend served a supermarket bloomer. I'd brought a loaf as a gift. How would you handle it?",
+        postsCount: 27,
+        likeCount: 10,
+        tags: [tag],
+      ),
+    ];
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topics: topics,
+      pluginResponses: {
+        for (final (query, hasResults) in [
+          ('zzzzzz tags:sourdough', false),
+          ('tags:sourdough', true),
+          ('zzzzzz order:latest', false),
+          ('zzzzzz', false),
+        ])
+          'GET ${Uri(path: '/search.json', queryParameters: {'q': query, 'page': '1'})}':
+              {
+                'topics': [
+                  if (hasResults)
+                    for (final topic in topics)
+                      {
+                        'id': topic.id,
+                        'title': topic.title,
+                        'slug': topic.slug,
+                        'posts_count': topic.postsCount,
+                        'like_count': topic.likeCount,
+                        'pinned': topic.pinned,
+                      },
+                ],
+                'posts': [
+                  if (hasResults)
+                    for (final topic in topics)
+                      {
+                        'id': topic.id,
+                        'topic_id': topic.id,
+                        'post_number': 1,
+                        'blurb': topic.excerpt,
+                      },
+                ],
+                'grouped_search_result': {'more_full_page_results': false},
+              },
+        for (final params in [
+          {'term': 'zzzzzz'},
+          {'term': 'zzzzzz', 'type_filter': 'private_messages'},
+        ])
+          'GET ${Uri(path: '/search/query.json', queryParameters: params)}': {},
+      },
+      filterOptions: const [TopicFilterOption(name: 'tag:', type: 'tag')],
+      onApi: (api) {
+        api.feeds['/tag/sourdough/l/latest.json'] = topics;
+        api.feeds['/latest.json?tags%5B%5D=sourdough'] = topics;
+        api.feeds['/filter.json'] = const [];
+        api.feeds['/filter.json?q=order%3Alatest-post'] = topics;
+        for (final key in ['tag', 'tags']) {
+          for (final (words, rows) in [('', topics), (' zzzzzz', <Topic>[])]) {
+            final path = Uri(
+              path: '/filter.json',
+              queryParameters: {'q': '$key:sourdough$words'},
+            );
+            api.feeds[path.toString()] = rows;
+          }
+        }
+      },
+    );
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+    );
+    await shell.forumSettings.setThemeMode(
+      shell.currentInstance!.url,
+      AppThemeMode.dark,
+    );
+    await tester.pumpAndSettle();
+    final search = find.byKey(const ValueKey('mobile-search-button'));
+    final field = find.byKey(ForumSearch.inputKey);
+    final surface = find.byType(DSheetContent);
+    final footer = find.byKey(const ValueKey('global-search-phone-footer'));
+
+    await tester.tap(search);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'tag:sourdough zzzzzz');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    final filteredEmpty = tester.getRect(surface);
+    final emptyMessage = find.text('No results for “tag:sourdough zzzzzz”');
+    final tagChip = find.descendant(
+      of: footer,
+      matching: find.byType(DFilterToken),
+    );
+    final scopes = find.byKey(const ValueKey('global-search-scope-all'));
+    expect(emptyMessage, findsOneWidget);
+    expect(find.text('Clear conditions'), findsNothing);
+    expect(scopes, findsNothing);
+    expect(tagChip, findsOneWidget);
+    expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
+    expect(
+      filteredEmpty.height,
+      lessThan(tester.view.physicalSize.height * .4),
+    );
+    if (const bool.fromEnvironment('captureMockupParity')) {
+      expect(filteredEmpty.height, closeTo(236, 2));
+    }
+    await _capture(tester, 'search-filtered-empty');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(search);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'tag:sourdough ');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    final filteredResults = tester.getRect(surface);
+    expect(filteredResults.height, greaterThan(filteredEmpty.height));
+    expect(shell.globalSearch.results, hasLength(topics.length));
+    await _capture(tester, 'search-filtered-results');
+    await tester.enterText(field, 'zzzzzz');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    expect(emptyMessage, findsOneWidget);
+    expect(tester.getRect(surface).top, closeTo(filteredResults.top, .01));
+    expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
+    await _capture(tester, 'search-filtered-after-results');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(search);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'order:latest zzzzzz');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    expect(find.text('No results for “order:latest zzzzzz”'), findsOneWidget);
+    expect(scopes.hitTestable(), findsOneWidget);
+    expect(tester.getRect(tagChip).left, closeTo(16, .1));
+    expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
+    await _capture(tester, 'search-sort-empty');
+    await tester.tap(find.byTooltip('Remove Ordering condition'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    expect(tagChip, findsNothing);
+    expect(find.text('No results for “zzzzzz”'), findsOneWidget);
+    expect(scopes.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('phone search edits the exact query of its source feed', (
     tester,
   ) async {

@@ -6697,6 +6697,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String noResultsForQuery(String query) {
+    return 'No results for “$query”';
+  }
+
+  @override
   String get noRecentSearches => 'Nothing searched for lately.';
 
   @override

@@ -8660,6 +8660,13 @@
       }
     }
   },
+  "noResultsForQuery": "No results for “{query}”",
+  "@noResultsForQuery": {
+    "description": "Empty results in the phone Search sheet, including the filters in the query.",
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
   "noRecentSearches": "Nothing searched for lately.",
   "@noRecentSearches": {
     "description": "Empty recent-search history in the phone Search sheet."

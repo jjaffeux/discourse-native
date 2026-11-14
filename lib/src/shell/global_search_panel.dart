@@ -70,6 +70,7 @@ class GlobalSearchPanel extends StatefulWidget {
     this.footerControls = false,
     this.phoneHeader,
     this.feedFilterChips = const [],
+    this.feedFilterClauses = const [],
     this.feedFilterChoices = const [],
     this.hasFilterPicker = false,
     this.onFeedFilterChoice,
@@ -90,6 +91,7 @@ class GlobalSearchPanel extends StatefulWidget {
   final bool footerControls;
   final Widget? phoneHeader;
   final List<Widget> feedFilterChips;
+  final List<String> feedFilterClauses;
   final List<TopicFilterSuggestion> feedFilterChoices;
   final bool hasFilterPicker;
   final ValueChanged<TopicFilterSuggestion>? onFeedFilterChoice;
@@ -942,6 +944,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       final controller = widget.controller;
       final phone = DControlStyle.isTouch(context);
       if (_revealedScope != controller.scope) {
+        final previousScope = _revealedScope;
         _revealedScope = controller.scope;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -951,7 +954,18 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               : Scrollable.maybeOf(target, axis: Axis.horizontal);
           final renderObject = target?.findRenderObject();
           if (scroll == null || renderObject == null) return;
-          scroll.position.ensureVisible(renderObject, alignment: .5);
+          if (widget.footerControls && widget.controller.hasOrderFilter) {
+            if (previousScope == GlobalSearchScope.all &&
+                widget.controller.scope == GlobalSearchScope.forum) {
+              return;
+            }
+            scroll.position.ensureVisible(
+              renderObject,
+              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+            );
+          } else {
+            scroll.position.ensureVisible(renderObject, alignment: .5);
+          }
         });
       }
       final signature = (
@@ -1077,31 +1091,34 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     final controller = widget.controller;
     final narrowed =
         controller.conditions.isNotEmpty ||
-        controller.hasOrderFilter ||
         !controller.scope.isCore ||
         widget.feedFilterChips.isNotEmpty;
+    final showChips = narrowed || controller.hasOrderFilter;
     return DSheetFooter(
       key: const ValueKey('global-search-phone-footer'),
       padding: EdgeInsets.zero,
       children: [
-        if (!narrowed) _scopeBar(context),
-        if (narrowed)
+        if (!showChips)
+          _scopeBar(context)
+        else
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 25),
             child: LayoutBuilder(
               builder: (context, constraints) => DScrollArea(
                 axes: DScrollAxes.horizontal,
                 showScrollbar: false,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  spacing: 5,
+                  spacing: 6,
                   children: [
                     ...widget.feedFilterChips,
                     GlobalSearchChips(
                       controller: controller,
                       maxWidth: constraints.maxWidth,
+                      inSheetFooter: true,
                       onRefocus: widget.onRefocus,
                     ),
+                    if (!narrowed) _scopeBar(context, scrollable: false),
                   ],
                 ),
               ),
@@ -1117,7 +1134,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   /// The scope bar is drawn again only when a scope, its count or the
   /// selection changes; every keystroke and result delivery notifies.
-  Widget _scopeBar(BuildContext context) {
+  Widget _scopeBar(BuildContext context, {bool scrollable = true}) {
     final controller = widget.controller;
     final phone = DControlStyle.isTouch(context);
     final scopes = widget.footerControls
@@ -1142,6 +1159,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       context.l10n,
       phone,
       widget.footerControls,
+      scrollable,
       controller.scope,
       knownCounts,
       for (final scope in scopes) ...[scope, counts[scope]],
@@ -1164,6 +1182,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             ? DToggleSize.segment
             : DToggleSize.regular,
         inset: phone && !widget.footerControls,
+        scrollable: scrollable,
         spacing: 1.5,
         semanticLabel: context.l10n.globalSearch,
         items: [
@@ -1345,6 +1364,30 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     }
     if (phase == GlobalSearchPhase.empty && !controller.hasMore) {
+      if (widget.footerControls) {
+        final query = [
+          ...widget.feedFilterClauses,
+          for (final condition in controller.conditions)
+            globalSearchConditionToken(
+              condition,
+              capabilities: controller.capabilities,
+            ).replaceFirstMapped(
+              RegExp(r'^(-?)tags:'),
+              (match) => '${match[1]}tag:',
+            ),
+          if (controller.hasOrderFilter) 'order:${controller.order}',
+          controller.query.trim(),
+        ].where((part) => part.isNotEmpty).join(' ');
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(6),
+          child: _phoneEmptyMessage(
+            query.isEmpty
+                ? context.l10n.noResultsFound
+                : context.l10n.noResultsForQuery(query),
+            verticalPadding: 15,
+          ),
+        );
+      }
       return _status(
         context.l10n.noResultsFound,
         context.l10n.tryDifferentWordsOrRemoveACondition,
@@ -1975,19 +2018,27 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               recents.isEmpty &&
               controller.error == null &&
               !widget.showClearFilters)
-            DEmpty(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 20),
-              children: [
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: DEmptyDescription(context.l10n.noRecentSearches),
-                ),
-              ],
-            ),
+            _phoneEmptyMessage(context.l10n.noRecentSearches),
         ],
       ),
     );
   }
+
+  Widget _phoneEmptyMessage(String message, {double verticalPadding = 20}) =>
+      DEmpty(
+        padding: EdgeInsets.symmetric(
+          horizontal: 11,
+          vertical: verticalPadding,
+        ),
+        children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DEmptyDescription.child(
+              child: Text(message, textAlign: TextAlign.start),
+            ),
+          ),
+        ],
+      );
 
   Widget _status(
     String title,
@@ -2636,11 +2687,13 @@ class GlobalSearchChips extends StatelessWidget {
     super.key,
     required this.controller,
     required this.maxWidth,
+    this.inSheetFooter = false,
     this.onRefocus,
   });
   final GlobalSearchController controller;
   final double maxWidth;
   final VoidCallback? onRefocus;
+  final bool inSheetFooter;
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
@@ -2676,6 +2729,7 @@ class GlobalSearchChips extends StatelessWidget {
           controller: controller,
           condition: controller.conditions[index],
           maxWidth: maxWidth,
+          inSheetFooter: inSheetFooter,
           onEdit: () {
             final condition = controller.conditions[index];
             final filter = globalSearchFilter(
@@ -2698,6 +2752,7 @@ class GlobalSearchChips extends StatelessWidget {
             value: [controller.order],
           ),
           maxWidth: maxWidth,
+          inSheetFooter: inSheetFooter,
           onEdit: () {
             controller.beginFilter(
               globalSearchOrderFilter(controller.capabilities),
@@ -2725,6 +2780,7 @@ class SearchFilterChip extends StatelessWidget {
     this.focusNode,
     this.expanded = false,
     this.hasPopup = false,
+    this.inSheetFooter = false,
   });
   final GlobalSearchController controller;
   final GlobalSearchCondition condition;
@@ -2732,7 +2788,7 @@ class SearchFilterChip extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback? onRemove;
   final FocusNode? focusNode;
-  final bool expanded, hasPopup;
+  final bool expanded, hasPopup, inSheetFooter;
   @override
   Widget build(BuildContext context) {
     final size = DControlStyle.usesTouchGeometry(context)
@@ -2748,7 +2804,14 @@ class SearchFilterChip extends StatelessWidget {
             .firstOrNull
             ?.label ??
         condition.operator;
-    final prefix = filter.operators.length > 1 ? '$operator ' : '';
+    final singleTag =
+        inSheetFooter &&
+        filter.id == 'tags' &&
+        condition.operator == 'any' &&
+        condition.value.length == 1;
+    final prefix = filter.operators.length > 1 && !singleTag
+        ? '$operator '
+        : '';
     final value =
         prefix +
         condition.value
@@ -2756,6 +2819,26 @@ class SearchFilterChip extends StatelessWidget {
               (value) => _searchChoiceLabel(context, controller, filter, value),
             )
             .join(', ');
+    if (inSheetFooter) {
+      final label = switch (filter.id) {
+        'tags' when singleTag => '',
+        'order' => context.l10n.sort,
+        _ => filter.label,
+      };
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: DFilterToken(
+          label: label,
+          value: value,
+          icon: singleTag ? DIcons.tag : null,
+          size: DControlSize.filter,
+          editLabel: context.l10n.editCondition(filter.label),
+          removeLabel: context.l10n.removeCondition(filter.label),
+          onEdited: onEdit,
+          onRemoved: onRemove,
+        ),
+      );
+    }
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: IntrinsicWidth(
