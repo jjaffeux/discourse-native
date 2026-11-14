@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -75,6 +76,57 @@ Future<void> _openList(
 const _tagBell = ValueKey('tag-notification-level-button');
 
 void main() {
+  for (final tag in [false, true]) {
+    testWidgets(
+      'phone ${tag ? 'tag' : 'category'} notifications open in a sheet',
+      (tester) async {
+        const opens = MethodChannel('org.discourse.native/notification_opens');
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(opens, (_) async => null);
+        addTearDown(() => messenger.setMockMethodCallHandler(opens, null));
+        final api = FakeDiscourseApi(
+          user: _user,
+          feeds: const {
+            '/latest.json': [],
+            '/c/support/5.json': [],
+            '/tag/ux/41.json': [],
+          },
+          categoryList: const [_category],
+        )..tagNotificationLevels['41'] = TagNotificationLevel.tracking;
+        await _openList(tester, api, tag ? '/tag/ux/41' : '/c/support/5');
+        tester.view.physicalSize = phone;
+        await tester.pumpAndSettle();
+        final bell = find.byKey(
+          tag ? _tagBell : const ValueKey('category-notification-level-button'),
+        );
+        await tester.tap(bell);
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        final watching = find.descendant(
+          of: sheet,
+          matching: find.text('Watching'),
+        );
+        expect(watching.hitTestable(), findsOneWidget);
+        await tester.tap(watching);
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(
+          find.byTooltip(
+            tag
+                ? 'Tag notifications: Watching'
+                : 'Category notifications: Watching',
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
   group('tag lists', () {
     FakeDiscourseApi api() => FakeDiscourseApi(
       user: _user,

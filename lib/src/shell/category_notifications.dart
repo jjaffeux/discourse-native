@@ -79,6 +79,8 @@ class CategoryNotificationLevelButton extends StatelessWidget {
             return DNotificationLevelMenu<CategoryNotificationLevel>(
               key: ValueKey((controller, siteUrl, categoryId, lease.session)),
               semanticLabel: context.l10n.categoryNotifications,
+              sheetOnMobile: true,
+              mobileSheetVariant: DSheetVariant.adaptiveMenu,
               buttonKey: const ValueKey('category-notification-level-button'),
               size: size,
               variant: quiet ? DButtonVariant.quiet : DButtonVariant.outline,
@@ -184,6 +186,8 @@ class _TagNotificationMenuState extends State<_TagNotificationMenu> {
         if (preference == null) return const SizedBox.shrink();
         return DNotificationLevelMenu<TagNotificationLevel>(
           semanticLabel: context.l10n.tagNotifications,
+          sheetOnMobile: true,
+          mobileSheetVariant: DSheetVariant.adaptiveMenu,
           buttonKey: const ValueKey('tag-notification-level-button'),
           size: widget.size,
           variant: widget.quiet ? DButtonVariant.quiet : DButtonVariant.outline,
