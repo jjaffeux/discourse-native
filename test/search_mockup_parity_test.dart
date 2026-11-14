@@ -387,10 +387,30 @@ void main() {
         findsNothing,
       );
       if (width < 700) {
+        final field = find.byType(DInputGroup);
+        final cancel = find.byKey(const ValueKey('mobile-search-back'));
+        final clear = find.byKey(const ValueKey('forum-search-clear'));
         expect(
-          find.byKey(const ValueKey('mobile-search-back')),
-          findsOneWidget,
+          tester.getCenter(cancel).dy,
+          closeTo(tester.getCenter(field).dy, .01),
         );
+        expect(
+          tester.getRect(field).right,
+          lessThan(tester.getRect(cancel).left),
+        );
+        expect(clear.hitTestable(), findsOneWidget);
+        if (scale == 1) {
+          expect(tester.getRect(field).height, closeTo(42, .2));
+          expect(tester.getRect(clear).height, greaterThan(38));
+          final editor = find.byType(EditableText);
+          final render = tester.state<EditableTextState>(editor).renderEditable;
+          final fontSize = tester.widget<EditableText>(editor).style.fontSize!;
+          final origin = render.localToGlobal(Offset.zero);
+          expect(
+            (render.localToGlobal(Offset(0, fontSize)) - origin).dy,
+            closeTo(17, .01),
+          );
+        }
       }
       expect(tester.takeException(), isNull);
       Future<void> capture(String suffix) async {

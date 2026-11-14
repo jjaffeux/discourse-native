@@ -214,11 +214,11 @@ void main() {
   });
 
   for (final (platform, field) in [
-    (TargetPlatform.iOS, 44.0),
-    (TargetPlatform.android, 44.0),
+    (TargetPlatform.iOS, 32 * DMenuContentScale.factor),
+    (TargetPlatform.android, 32 * DMenuContentScale.factor),
     (TargetPlatform.macOS, 30.0),
   ]) {
-    testWidgets('the search screen field is $field tall on $platform', (
+    testWidgets('the search screen field uses the expected size on $platform', (
       tester,
     ) async {
       final shell = createGlobalSearchFixtureController(
@@ -243,10 +243,10 @@ void main() {
           matching: find.byType(DInputGroup),
         ),
       );
-      expect(editor.height, field);
+      expect(editor.height, closeTo(field, .01));
       expect(
         tester.getRect(find.byType(GlobalSearchPanel)).top - head.top,
-        8 + field + 8,
+        closeTo(8 + field + 8, .01),
         reason: 'what it finds starts 8 under the field',
       );
     });

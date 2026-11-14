@@ -823,6 +823,7 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   Widget _editor(double width, {required bool expanded}) {
+    final phonePage = widget.fullScreen && DControlStyle.isTouch(context);
     final hasConditions = expanded
         ? _global.conditions.isNotEmpty ||
               _global.hasOrderFilter ||
@@ -834,8 +835,14 @@ class _ForumSearchState extends State<ForumSearch> {
       skipTraversal: true,
       onKeyEvent: _handleKey,
       child: DInputGroup(
-        size: widget.fullScreen ? DControlSize.filter : widget.size,
-        variant: DInputGroupVariant.search,
+        size: phonePage
+            ? DControlSize.command
+            : widget.fullScreen
+            ? DControlSize.filter
+            : widget.size,
+        variant: phonePage
+            ? DInputGroupVariant.standard
+            : DInputGroupVariant.search,
         borderless: expanded && !widget.fullScreen,
         children: [
           DInputGroupInput(
@@ -930,7 +937,10 @@ class _ForumSearchState extends State<ForumSearch> {
                   DInputGroupButton.icon(
                     key: const ValueKey('forum-search-clear'),
                     focusNode: _clearFocus,
-                    icon: const DIcon(DIcons.xmark, size: 12),
+                    icon: DIcon(DIcons.xmark, size: phonePage ? null : 12),
+                    size: phonePage
+                        ? DInputGroupButtonSize.regular
+                        : DInputGroupButtonSize.small,
                     tooltip: appL10n.clearSearch,
                     onPressed: _clear,
                   )
@@ -1245,35 +1255,33 @@ class _ForumSearchState extends State<ForumSearch> {
     listenable: _pageRevision,
     builder: (context, _) {
       _builtGlobalReads = _globalReads;
+      final phone = DControlStyle.isTouch(context);
+      final header = Row(
+        spacing: 10,
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) =>
+                  _editor(constraints.maxWidth, expanded: true),
+            ),
+          ),
+          DButton(
+            key: const ValueKey('mobile-search-back'),
+            label: Text(appL10n.cancel),
+            foregroundColor: DTokens.of(context).primary,
+            size: phone ? DButtonSize.command : DButtonSize.filter,
+            variant: DButtonVariant.inline,
+            onPressed: _closeSearch,
+          ),
+        ],
+      );
       return DReferenceTextScale(
         child: Column(
           key: ForumSearch.panelKey,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: DTouchFields(
-                child: Row(
-                  spacing: 10,
-                  children: [
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) =>
-                            _editor(constraints.maxWidth, expanded: true),
-                      ),
-                    ),
-                    DButton(
-                      key: const ValueKey('mobile-search-back'),
-                      label: Text(
-                        appL10n.cancel,
-                        style: TextStyle(color: DTokens.of(context).primary),
-                      ),
-                      size: DButtonSize.filter,
-                      variant: DButtonVariant.inline,
-                      onPressed: _closeSearch,
-                    ),
-                  ],
-                ),
-              ),
+              child: phone ? DMenuContentScale(child: header) : header,
             ),
             Expanded(
               child: GlobalSearchPanel(
