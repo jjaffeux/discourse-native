@@ -238,6 +238,19 @@ class DScrollChromeController extends ChangeNotifier
   }
 
   bool _revealHeld = false;
+  final _composerHolds = <Object>{};
+
+  bool holdsComposer(Object owner) => _composerHolds.contains(owner);
+
+  void holdComposerUntilScroll(Object owner) => _composerHolds.add(owner);
+
+  void releaseComposer(Object owner) => _composerHolds.remove(owner);
+
+  void _releaseComposers() {
+    if (_composerHolds.isEmpty) return;
+    _composerHolds.clear();
+    _changed();
+  }
 
   /// The reduction is space released from the viewport's surrounding layout;
   /// floating headers report zero because their viewport does not change size.
@@ -299,6 +312,7 @@ class DScrollChromeController extends ChangeNotifier
     }
     _headers.clear();
     _footerHiders.clear();
+    _composerHolds.clear();
     super.dispose();
   }
 }
@@ -386,6 +400,7 @@ class _DScrollChromeState extends State<DScrollChrome>
       _activeSource = null;
       _shownFooterHeight = 0;
       _animation.reset(hidden: folded);
+      _controller._releaseComposers();
     }
   }
 
@@ -662,6 +677,9 @@ class _DScrollChromeState extends State<DScrollChrome>
     if (notification is! ScrollUpdateNotification) return false;
     if (_revealOnlyAtEnd(notification.context)) {
       final delta = notification.scrollDelta ?? 0;
+      if (intent.userScrolling && delta != 0 && !metrics.outOfRange) {
+        _controller._releaseComposers();
+      }
       final awayFromEnd = metrics.axisDirection == AxisDirection.up
           ? delta > 0 && intent.direction == ScrollDirection.reverse
           : delta < 0 && intent.direction == ScrollDirection.forward;

@@ -55,7 +55,7 @@ final composerDockExamples = ComponentExamples(
   description:
       'A retained composer above the open dock and beside its folded destination.',
   notes:
-      'DComposerDock shares the navigation motion and safe area. Chat transcripts use DScrollChromePagination(revealOnlyAtEnd: true) to keep both folded until the final visual bottom, including when scrolling reverses. Use DInputGroupVariant.composer with compact and action for the reference 79px expanded and 48px folded layout. App zoom and accessibility scaling remain active. The primary action stays reachable while block tools fold away. Focus expands the composer and slides navigation away. Blurring restores the current scroll state. Reduced motion changes layout immediately.',
+      'DComposerDock shares the navigation motion and safe area. Chat transcripts use DScrollChromePagination(revealOnlyAtEnd: true) to keep both folded until the final visual bottom, including when scrolling reverses. Use DInputGroupVariant.composer with compact and action for the reference 79px expanded and 48px folded layout. App zoom and accessibility scaling remain active. The primary action stays reachable while block tools fold away. Focus expands the composer and slides navigation away. After blur the composer stays expanded until the transcript scrolls. Reduced motion changes layout immediately.',
   examples: [
     StyleguideExample(
       title: 'Chat composer',

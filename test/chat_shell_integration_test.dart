@@ -1236,10 +1236,19 @@ void _registerChatShellTests() {
             await capture('focused');
             composerFocus.unfocus();
             await tester.pumpAndSettle();
+            await capture('blurred');
             expect(
               find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
               findsOneWidget,
             );
+            expect(tester.widget<DInputGroup>(composer).compact, isFalse);
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: tester.getCenter(viewport),
+                scrollDelta: const Offset(0, -100),
+              ),
+            );
+            await tester.pumpAndSettle();
             expect(tester.widget<DInputGroup>(composer).compact, isTrue);
             await tester.tap(send);
             await tester.pumpAndSettle();

@@ -47,6 +47,10 @@ class _DComposerDockState extends State<DComposerDock> {
   }
 
   void _focusChanged() {
+    final chrome = _chrome;
+    if (!_focus.hasFocus && (chrome?.hiddenFraction ?? 0) >= .5) {
+      chrome!.holdComposerUntilScroll(this);
+    }
     _syncFooterVisibility();
     setState(() => _compact = _shouldCompact);
   }
@@ -72,9 +76,13 @@ class _DComposerDockState extends State<DComposerDock> {
   bool get _keyboardUp => _keyboardInset > 0 && !_keyboardLeaving;
 
   bool get _shouldCompact =>
-      !_focus.hasFocus && !_keyboardUp && (_chrome?.hiddenFraction ?? 0) >= .5;
+      !_focus.hasFocus &&
+      !_keyboardUp &&
+      (_chrome?.hiddenFraction ?? 0) >= .5 &&
+      _chrome?.holdsComposer(this) != true;
 
   void _changed() {
+    if ((_chrome?.hiddenFraction ?? 0) < .5) _chrome?.releaseComposer(this);
     final compact = _shouldCompact;
     if (_compact != compact) setState(() => _compact = compact);
   }
@@ -86,6 +94,7 @@ class _DComposerDockState extends State<DComposerDock> {
     if (!identical(chrome, _chrome)) {
       _chrome?.setFooterHidden(this, hidden: false);
       _chrome?.removeListener(_changed);
+      _chrome?.releaseComposer(this);
       _chrome = chrome?..addListener(_changed);
     }
     _trackKeyboard();
@@ -97,6 +106,7 @@ class _DComposerDockState extends State<DComposerDock> {
   void dispose() {
     _chrome?.setFooterHidden(this, hidden: false);
     _chrome?.removeListener(_changed);
+    _chrome?.releaseComposer(this);
     _focus.dispose();
     super.dispose();
   }
