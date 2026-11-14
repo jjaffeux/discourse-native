@@ -322,9 +322,9 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-recipients')));
         await tester.pumpAndSettle();
         for (final name in ['alex', 'team', 'alice']) {
-          expect(_option(name), findsOneWidget);
+          expect(find.bySemanticsLabel('Remove $name'), findsOneWidget);
         }
-        await tester.tap(_option('team'));
+        await tester.tap(find.bySemanticsLabel('Remove team'));
         await tester.pumpAndSettle();
         expect(composer.target.targetRecipients, 'alex,alice');
       } else {

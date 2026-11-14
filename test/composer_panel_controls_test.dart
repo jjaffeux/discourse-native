@@ -21,6 +21,7 @@ import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
 import 'package:discourse_native/src/shell/composer/components/link_pill.dart';
 import 'package:discourse_native/src/shell/composer/components/list.dart';
+import 'package:discourse_native/src/shell/composer/components/list_policy.dart';
 import 'package:discourse_native/src/shell/composer/components/table.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
@@ -2305,8 +2306,11 @@ void main() {
     testWidgets(
       'mobile recipient sheet searches, selects multiple users and groups, and removes selections',
       (tester) async {
+        tester.view.physicalSize = const Size(390, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
         final composer = ComposerController(
-          _privateMessageTarget.withRecipients(''),
+          _privateMessageTarget.withRecipients('alex,sam'),
         );
         composer.title.text = 'A private message';
         composer.text.text = 'Hello everyone in the group';
@@ -2332,51 +2336,51 @@ void main() {
 
         final trigger = find.byKey(const ValueKey('composer-recipients'));
         final input = find.byKey(const ValueKey('composer-recipients-input'));
-        Finder option(String name) => find.byWidgetPredicate(
-          (widget) =>
-              widget is DComboboxItem<String> && widget.option.value == name,
-        );
         expect(find.text('To'), findsNothing);
-        expect(find.text('Recipients'), findsOneWidget);
+        expect(find.text('2 recipients'), findsOneWidget);
         expect(input, findsNothing);
-        expect(composer.canSubmit, isFalse);
+        expect(composer.canSubmit, isTrue);
         await tester.tap(trigger);
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsOneWidget);
         expect(
-          tester
-              .widget<DSheetContent>(find.byType(DSheetContent))
-              .fillAvailableHeight,
-          isTrue,
+          tester.getTopLeft(find.byType(DSheetContent)).dy,
+          closeTo(360, 1),
         );
-
-        for (final name in ['alex', 'sam', 'team']) {
-          await tester.enterText(input, name);
-          await tester.pumpAndSettle();
-          expect(
-            api.userSearchesRequested,
-            contains((term: name, topicId: null)),
-          );
-          await tester.tap(option(name));
-          await tester.pumpAndSettle();
-          expect(find.byType(DSheetContent), findsOneWidget);
-          expect(
-            tester
-                .widget<EditableText>(
-                  find.descendant(
-                    of: input,
-                    matching: find.byType(EditableText),
-                  ),
-                )
-                .focusNode
-                .hasFocus,
-            isTrue,
-          );
-        }
+        expect(
+          tester.getBottomLeft(find.byType(DSheetFooter)).dy,
+          closeTo(800, .01),
+        );
+        await tester.enterText(input, 'team');
+        await tester.pumpAndSettle();
+        expect(
+          api.userSearchesRequested,
+          contains((term: 'team', topicId: null)),
+        );
+        final footer = find.byType(DSheetFooter);
+        final group = find.byKey(const ValueKey(('recipient-group', 'team')));
+        expect(find.descendant(of: footer, matching: group), findsOneWidget);
+        expect(
+          find.descendant(of: footer, matching: find.text('alex')),
+          findsOneWidget,
+        );
+        expect(find.text('Users'), findsNothing);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+        await tester.pumpAndSettle();
+        expect(tester.getBottomLeft(footer).dy, closeTo(540, .01));
+        await tester.tap(group);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        final editable = tester.widget<EditableText>(
+          find.descendant(of: input, matching: find.byType(EditableText)),
+        );
+        expect(editable.focusNode.hasFocus, isTrue);
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
         expect(composer.target.targetRecipients, 'alex,sam,team');
         expect(composer.draft.recipients, 'alex,sam,team');
         expect(composer.canSubmit, isTrue);
-        await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
+        await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsNothing);
         expect(find.text('3 recipients'), findsOneWidget);
@@ -2386,8 +2390,10 @@ void main() {
         // The empty search returns no results; saved selections must still
         // be available to deselect when reopening the sheet.
         for (final name in ['alex', 'sam', 'team']) {
-          expect(option(name), findsOneWidget);
-          await tester.tap(option(name));
+          final remove = find.bySemanticsLabel('Remove $name');
+          expect(remove, findsOneWidget);
+          await tester.ensureVisible(remove);
+          await tester.tap(remove);
           await tester.pumpAndSettle();
         }
         expect(composer.target.targetRecipients, '');
@@ -2413,6 +2419,9 @@ class _RecipientSearchApi extends FakeDiscourseApi {
         userSearches: {
           'alex': [const FoundUser(username: 'alex')],
           'sam': [const FoundUser(username: 'sam')],
+          'team': [
+            for (var i = 1; i <= 24; i++) FoundUser(username: 'team_member_$i'),
+          ],
         },
       );
 
@@ -2432,8 +2441,12 @@ class _RecipientSearchApi extends FakeDiscourseApi {
       clientId: clientId,
     );
     return FoundUsersAndGroups(
-      users: found.users,
-      groups: term == 'team' ? const [FoundGroup(name: 'team')] : const [],
+      users: term.isEmpty
+          ? [for (var i = 1; i <= 24; i++) FoundUser(username: 'member_$i')]
+          : found.users,
+      groups: term.isEmpty || term == 'team'
+          ? const [FoundGroup(name: 'team')]
+          : const [],
     );
   }
 }

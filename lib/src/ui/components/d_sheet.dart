@@ -150,6 +150,7 @@ class DSheet<T> extends StatelessWidget {
       true,
       variant: content.variant,
       sizeToContent: content.sizeToContent,
+      keepFootInView: content.keepFootInView,
       initiallyExpanded: content.initiallyExpanded,
       contentLoading: content.contentLoading,
       restAt: content.restAt,
@@ -463,6 +464,7 @@ class _DSheetViewportState extends State<DSheetViewport>
           widget.onDismiss != null || widget.onSwipeDismissRequested != null,
           variant: content.variant,
           sizeToContent: content.sizeToContent,
+          keepFootInView: content.keepFootInView,
           initiallyExpanded: content.initiallyExpanded,
           contentLoading: content.contentLoading,
           restAt: content.restAt,
@@ -2373,6 +2375,7 @@ class DSheetContent extends StatelessWidget {
     this.side = DSheetSide.right,
     this.variant = DSheetVariant.standard,
     this.sizeToContent = true,
+    this.keepFootInView = false,
     this.initiallyExpanded = false,
     this.contentLoading = false,
     this.restAt,
@@ -2392,6 +2395,7 @@ class DSheetContent extends StatelessWidget {
     this.fillAvailableHeight = false,
     this.extendBehindKeyboard = false,
   }) : assert(!extendBehindKeyboard || fillAvailableHeight),
+       assert(!keepFootInView || (sizeToContent && restAt == null)),
        assert(slivers == null || scrollWholeSheet == true),
 
        assert(sidePanelMaxWidth > 0),
@@ -2410,6 +2414,9 @@ class DSheetContent extends StatelessWidget {
   /// across loading and result changes. Pulling upward expands it; a visible
   /// keyboard uses the available viewport. Other sheet variants are unchanged.
   final bool sizeToContent;
+
+  /// Keeps a footer in view at the lower detent of a content-sized menu.
+  final bool keepFootInView;
 
   /// Starts an adaptive menu at its expanded height for this opening.
   ///

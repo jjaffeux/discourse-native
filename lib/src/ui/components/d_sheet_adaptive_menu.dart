@@ -1102,17 +1102,29 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                     ),
                     child: Offstage(
                       offstage: !_measured,
-                      child: ConstrainedBox(
-                        key: _surface,
-                        constraints: widget.sizeToContent
-                            ? BoxConstraints(maxHeight: _laidCap)
-                            : BoxConstraints.tightFor(
-                                height:
-                                    math.max(0, maximum - heightOffset) +
-                                    keyboard,
+                      child:
+                          NotificationListener<SizeChangedLayoutNotification>(
+                            onNotification: (_) {
+                              _scheduleMeasure();
+                              return false;
+                            },
+                            child: SizeChangedLayoutNotifier(
+                              child: ConstrainedBox(
+                                key: _surface,
+                                constraints: widget.sizeToContent
+                                    ? BoxConstraints(maxHeight: _laidCap)
+                                    : BoxConstraints.tightFor(
+                                        height:
+                                            math.max(
+                                              0,
+                                              maximum - heightOffset,
+                                            ) +
+                                            keyboard,
+                                      ),
+                                child: child,
                               ),
-                        child: child,
-                      ),
+                            ),
+                          ),
                     ),
                   ),
                 ),

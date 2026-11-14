@@ -17,6 +17,8 @@ import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_input_group.dart';
 import 'd_popover.dart';
+import 'd_scroll_area.dart';
+import 'd_sheet.dart';
 import 'd_separator.dart';
 
 enum DComboboxChangeReason {
@@ -69,9 +71,15 @@ class DComboboxOption<T> {
 
 @immutable
 class DComboboxOptionGroup<T> {
-  const DComboboxOptionGroup({required this.label, required this.options});
+  const DComboboxOptionGroup({this.label, required this.options})
+    : inSheetFooter = false;
 
-  final String label;
+  const DComboboxOptionGroup.sheetFooter({required this.options})
+    : label = null,
+      inSheetFooter = true;
+
+  final String? label;
+  final bool inSheetFooter;
   final List<DComboboxOption<T>> options;
 }
 
@@ -773,6 +781,23 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     focusNode.requestFocus();
   }
 
+  bool get _usesSheetFooter =>
+      combobox.content._adaptiveSheet && DControlStyle.isTouch(context);
+
+  bool _submitSheetSearch() {
+    if (!_usesSheetFooter || !mutable || !isOpen) return false;
+    if (query.trim().isEmpty) {
+      _requestOpen(false, DComboboxChangeReason.keyboard);
+      return true;
+    }
+    final option = filteredOptions
+        .where((option) => option.enabled)
+        .firstOrNull;
+    if (option == null) return false;
+    _select(option, DComboboxChangeReason.keyboard);
+    return true;
+  }
+
   bool _submitHighlighted() {
     final highlighted = highlightedValue;
     if (!mutable || !isOpen || highlighted == null) return false;
@@ -802,7 +827,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
-        return _submitHighlighted()
+        return (_submitHighlighted() || _submitSheetSearch())
             ? KeyEventResult.handled
             : KeyEventResult.ignored;
       case LogicalKeyboardKey.escape when isOpen && !combobox.content.isInline:
@@ -921,6 +946,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       child: DPopover(
         sheetOnMobile: combobox.content.sheetOnMobile,
         fullScreenOnMobile: combobox.content.fullScreenOnMobile,
+        mobileSheetVariant: combobox.content._adaptiveSheet
+            ? DSheetVariant.adaptiveMenu
+            : DSheetVariant.standard,
+        mobileSheetKeepFootInView: combobox.content._adaptiveSheet,
         initialFocusNode: focusNode,
         controller: _popoverController,
         open: isOpen,
@@ -948,7 +977,18 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
           // blurs the input and selection's focus restoration reopens the menu.
           child: _DComboboxScope<T>(
             state: this,
-            child: TextFieldTapRegion(child: combobox.content),
+            child: TextFieldTapRegion(
+              child: _usesSheetFooter
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Flexible(child: combobox.content),
+                        _DComboboxSheetFooter<T>(),
+                      ],
+                    )
+                  : combobox.content,
+            ),
           ),
         ),
         child: KeyedSubtree(key: _anchorKey, child: combobox.anchor),
@@ -1286,7 +1326,7 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
           if (onSubmitted != null) {
             onSubmitted!(value);
           } else {
-            root._submitHighlighted();
+            if (!root._submitHighlighted()) root._submitSheetSearch();
           }
         },
         onTap: () => root._requestOpen(true, DComboboxChangeReason.input),
@@ -1341,7 +1381,22 @@ class DComboboxContent extends StatelessWidget {
     this.maxHeight = 288,
     this.sheetOnMobile = false,
     this.fullScreenOnMobile = false,
-  }) : isInline = false;
+  }) : isInline = false,
+       _adaptiveSheet = false;
+
+  /// Presents a content-sized mobile sheet with selected values and footer
+  /// option groups in a single scrolling row at its visible bottom.
+  const DComboboxContent.adaptiveSheet({
+    super.key,
+    required this.children,
+    this.semanticLabel,
+    this.width,
+  }) : isInline = false,
+       _adaptiveSheet = true,
+       side = DPopoverSide.bottom,
+       maxHeight = 288,
+       sheetOnMobile = true,
+       fullScreenOnMobile = false;
 
   /// Embeds search results beside the input in an existing surface.
   ///
@@ -1357,12 +1412,14 @@ class DComboboxContent extends StatelessWidget {
        side = DPopoverSide.bottom,
        width = null,
        sheetOnMobile = false,
-       fullScreenOnMobile = false;
+       fullScreenOnMobile = false,
+       _adaptiveSheet = false;
 
   final List<Widget> children;
   final String? semanticLabel;
   final DPopoverSide side;
   final bool isInline;
+  final bool _adaptiveSheet;
 
   final double? width;
   final double maxHeight;
@@ -1378,6 +1435,60 @@ class DComboboxContent extends StatelessWidget {
     borderRadius: BorderRadius.circular(DRadius.popover),
     child: Column(mainAxisSize: MainAxisSize.min, children: children),
   );
+}
+
+class _DComboboxSheetFooter<T> extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final root = _DComboboxScope.of<T>(context);
+    final available = root.filteredOptions;
+    final options = [
+      for (final group in root.combobox.groups)
+        if (group.inSheetFooter)
+          for (final option in group.options)
+            if (available.contains(option)) option,
+    ];
+    if (root.selectedValues.isEmpty && options.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return DSheetFooter(
+      padding: const EdgeInsets.symmetric(
+        horizontal: DSpacing.lg,
+        vertical: DSpacing.sm,
+      ),
+      children: [
+        DScrollArea(
+          axes: DScrollAxes.horizontal,
+          showScrollbar: false,
+          child: Row(
+            spacing: DSpacing.controlGap,
+            children: [
+              for (final value in root.selectedValues)
+                DComboboxChip<T>(
+                  key: ValueKey(value),
+                  value: value,
+                  child: Text(root.labelFor(value)),
+                ),
+              for (final option in options)
+                DButton(
+                  key: option.itemKey,
+                  label: Text(option.label),
+                  shape: DButtonShape.pill,
+                  size: DButtonSize.filter,
+                  variant: DButtonVariant.quiet,
+                  onPressed: root.mutable && option.enabled
+                      ? () => root._select(
+                          option,
+                          DComboboxChangeReason.itemPress,
+                        )
+                      : null,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class DComboboxList<T> extends StatefulWidget {
@@ -1444,6 +1555,9 @@ class _DComboboxListState<T> extends State<DComboboxList<T>> {
     } else {
       final allowed = filtered.map((option) => option.value).toList();
       for (final group in root.combobox.groups) {
+        if (root._usesSheetFooter && group.inSheetFooter) {
+          continue;
+        }
         final options = group.options
             .where((option) => root._contains(allowed, option.value))
             .toList();

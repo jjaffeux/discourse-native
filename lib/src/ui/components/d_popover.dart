@@ -286,6 +286,7 @@ class DPopover extends StatefulWidget {
     this.mobileSheetShowTitle = true,
     this.mobileSheetShowCloseButton = true,
     this.mobileSheetSizeToContent = true,
+    this.mobileSheetKeepFootInView = false,
     this.mobileSheetInitiallyExpanded = false,
     this.mobileSheetContentLoading = false,
     this.fullScreenOnMobile = false,
@@ -329,6 +330,9 @@ class DPopover extends StatefulWidget {
   /// False reserves a stable 55% opening viewport for asynchronous content.
   /// Desktop popovers retain their normal content sizing.
   final bool mobileSheetSizeToContent;
+
+  /// Keeps the footer visible at a content-sized adaptive sheet's lower detent.
+  final bool mobileSheetKeepFootInView;
 
   /// Starts an adaptive mobile sheet expanded, without its lower detent.
   /// Desktop popovers retain their normal content sizing.
@@ -972,6 +976,7 @@ class _DPopoverState extends State<DPopover>
                 : widget.mobileSheetVariant,
             showCloseButton: !adaptiveMenu && widget.mobileSheetShowCloseButton,
             sizeToContent: widget.mobileSheetSizeToContent,
+            keepFootInView: adaptiveMenu && widget.mobileSheetKeepFootInView,
             initiallyExpanded: widget.mobileSheetInitiallyExpanded,
             contentLoading: widget.mobileSheetContentLoading,
             semanticLabel: widget.content.semanticLabel,

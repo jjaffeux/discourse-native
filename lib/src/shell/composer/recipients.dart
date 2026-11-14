@@ -62,24 +62,27 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
     final lookup = _lookup!;
     final mobile = context.isTouch;
     final recipients = lookup.recipients;
-    final query = lookup.query.trim().toLowerCase();
+    final groups = [
+      for (final group in lookup.results.groups)
+        if (!mobile || !recipients.contains(group.name))
+          DComboboxOption(
+            value: group.name,
+            label: group.name,
+            itemKey: ValueKey(('recipient-group', group.name)),
+          ),
+    ];
+    final results = [
+      DComboboxEmpty<String>(child: Text(context.l10n.noUsersOrGroupsFound)),
+      const DComboboxList<String>(),
+    ];
     final picker = DCombobox<String>.multipleControlled(
       key: const ValueKey('composer-private-message-recipients'),
       value: recipients,
       enabled: widget.composer.isEditing,
       options: const [],
       groups: [
-        if (mobile)
-          DComboboxOptionGroup(
-            label: context.l10n.selectedComposerrecipients,
-            options: [
-              for (final name in recipients)
-                if (name.toLowerCase().contains(query))
-                  DComboboxOption(value: name, label: name),
-            ],
-          ),
         DComboboxOptionGroup(
-          label: context.l10n.users,
+          label: mobile ? null : context.l10n.users,
           options: [
             for (final user in lookup.results.users)
               if (!mobile || !recipients.contains(user.username))
@@ -91,14 +94,10 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
                 ),
           ],
         ),
-        DComboboxOptionGroup(
-          label: context.l10n.groups,
-          options: [
-            for (final group in lookup.results.groups)
-              if (!mobile || !recipients.contains(group.name))
-                DComboboxOption(value: group.name, label: group.name),
-          ],
-        ),
+        if (mobile)
+          DComboboxOptionGroup.sheetFooter(options: groups)
+        else
+          DComboboxOptionGroup(label: context.l10n.groups, options: groups),
       ],
       query: lookup.query,
       filterLocally: false,
@@ -142,29 +141,21 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
                 autofocus: true,
               ),
             ),
-      content: DComboboxContent(
-        semanticLabel: context.l10n.recipients,
-        sheetOnMobile: true,
-        fullScreenOnMobile: mobile,
-        children: [
-          if (mobile)
-            Padding(
-              padding: const EdgeInsets.all(4),
-              child: DComboboxInput<String>(
-                key: const ValueKey('composer-recipients-input'),
-                placeholder: context.l10n.searchUsersOrGroups,
-                semanticLabel: context.l10n.searchRecipients,
-                registerAsAnchor: false,
-                autofocus: true,
-                showTrigger: false,
-              ),
+      content: mobile
+          ? DComboboxContent.adaptiveSheet(
+              semanticLabel: context.l10n.recipients,
+              children: [
+                const Padding(
+                  padding: DInsets.menu,
+                  child: _RecipientSearchField(),
+                ),
+                ...results,
+              ],
+            )
+          : DComboboxContent(
+              semanticLabel: context.l10n.recipients,
+              children: results,
             ),
-          DComboboxEmpty<String>(
-            child: Text(context.l10n.noUsersOrGroupsFound),
-          ),
-          const DComboboxList<String>(),
-        ],
-      ),
     );
     return KeyedSubtree(
       key: ObjectKey(lookup),
@@ -188,4 +179,30 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
       ),
     );
   }
+}
+
+class _RecipientSearchField extends StatelessWidget {
+  const _RecipientSearchField();
+
+  @override
+  Widget build(BuildContext context) => DPopoverClose(
+    builder: (context, close) => DComboboxInput<String>(
+      key: const ValueKey('composer-recipients-input'),
+      placeholder: context.l10n.searchUsersOrGroups,
+      semanticLabel: context.l10n.searchRecipients,
+      registerAsAnchor: false,
+      autofocus: true,
+      showTrigger: false,
+      addons: [
+        DInputGroupAddon(
+          alignment: DInputGroupAddonAlignment.inlineEnd,
+          child: DInputGroupButton.icon(
+            tooltip: context.l10n.close,
+            icon: const DIcon(DIcons.xmark),
+            onPressed: close,
+          ),
+        ),
+      ],
+    ),
+  );
 }
