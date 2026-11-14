@@ -126,7 +126,13 @@ final class SearchPresentation {
 
   static String listExpression(ContentRoute? route, String words) {
     if (route == null || route.isTopic) return '';
-    if (route.isAdvancedTopicFilter) return route.topicFilterQuery;
+    if (route.isAdvancedTopicFilter) {
+      return [
+        if (route.categoryId case final id?) 'category:$id',
+        if (route.tagNames.isNotEmpty) 'tags:${route.tagNames.join('+')}',
+        route.topicFilterQuery,
+      ].where((token) => token.isNotEmpty).join(' ');
+    }
     if (route.isSearchList) {
       return Uri.parse(route.feedPath!).queryParameters['q'] ?? '';
     }

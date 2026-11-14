@@ -196,7 +196,7 @@ class _MobileContentHostState extends State<_MobileContentHost> {
       fit: StackFit.expand,
       children: [
         Offstage(
-          offstage: hidden,
+          offstage: covered,
           child: ExcludeFocus(
             excluding: hidden,
             child: ExcludeSemantics(

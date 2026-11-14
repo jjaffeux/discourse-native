@@ -244,11 +244,12 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
         child: Text(age, style: _topicMetadataStyle(context)),
       ),
     );
-    final taxonomy = _TopicCardTaxonomy(
-      row: row,
-      allowSort: allowSort,
-      measure: measure,
-    );
+    final taxonomy = row.match != null && topic.privateMessage
+        ? Text(
+            context.l10n.privateConversation,
+            style: _topicMetadataStyle(context),
+          )
+        : _TopicCardTaxonomy(row: row, allowSort: allowSort, measure: measure);
     return LayoutBuilder(
       builder: (context, constraints) {
         final room =

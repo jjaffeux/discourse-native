@@ -1015,6 +1015,7 @@ class ShellController extends FrameSafeNotifier
 
   late final GlobalSearchApi _globalSearchApi = GlobalSearchApi(
     transport: api.pluginTransport,
+    topicFeeds: api.topicFeeds,
   );
   late final RecentSearchHistory _searchHistory = RecentSearchHistory(
     api: _globalSearchApi,

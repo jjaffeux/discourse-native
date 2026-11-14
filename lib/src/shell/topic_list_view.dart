@@ -30,6 +30,7 @@ import 'list_boundary_shortcuts.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'relative_time.dart';
+import 'search_words.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
@@ -1585,6 +1586,14 @@ class TopicListSeparator extends StatelessWidget {
   }
 }
 
+typedef TopicRowMatch = ({
+  String query,
+  String title,
+  String excerpt,
+  String href,
+  bool showExcerpt,
+});
+
 class TopicListRow extends StatelessWidget {
   const TopicListRow({
     super.key,
@@ -1604,6 +1613,7 @@ class TopicListRow extends StatelessWidget {
     this.itemVariant = DItemVariant.outline,
     this.contentPadding,
     this.outerPadding,
+    this.match,
   }) : assert(forum == null || siteUrl == null);
 
   static const double minimumHeight = 67;
@@ -1630,6 +1640,7 @@ class TopicListRow extends StatelessWidget {
   final DItemVariant itemVariant;
   final EdgeInsetsGeometry? contentPadding;
   final EdgeInsetsGeometry? outerPadding;
+  final TopicRowMatch? match;
 
   @override
   Widget build(BuildContext context) => _build(context);
@@ -1676,6 +1687,7 @@ class TopicListRow extends StatelessWidget {
         ascending: ascending,
         contentPadding: contentPadding,
         outerPadding: outerPadding,
+        match: match,
       );
     }
     final currentRef = controller.topicRef(siteUrl, topic.id);
@@ -1713,6 +1725,7 @@ class TopicListRow extends StatelessWidget {
             ascending: ascending,
             contentPadding: contentPadding,
             outerPadding: outerPadding,
+            match: match,
           ),
         );
       },
@@ -1846,6 +1859,7 @@ class _TopicRowBody extends StatelessWidget {
     this.closedRuleBelow = false,
     this.contentPadding,
     this.outerPadding,
+    this.match,
     this.showViews = false,
     this.onSort,
     this.order,
@@ -1872,6 +1886,7 @@ class _TopicRowBody extends StatelessWidget {
   final bool closedRuleBelow;
   final EdgeInsetsGeometry? contentPadding;
   final EdgeInsetsGeometry? outerPadding;
+  final TopicRowMatch? match;
 
   @override
   Widget build(BuildContext context) => _buildBody(context);

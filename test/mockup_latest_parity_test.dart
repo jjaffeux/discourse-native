@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
@@ -193,7 +194,28 @@ void main() {
   testWidgets('phone search edits the exact query of its source feed', (
     tester,
   ) async {
-    final shell = await pumpMobileShellFixture(tester);
+    final shell = await pumpMobileShellFixture(
+      tester,
+      onApi: (api) {
+        api.feeds['/filter.json'] = const [];
+        for (final (query, id, title) in [
+          ('posts-min:17', 7, 'Seventeen posts about the keyboard'),
+          ('posts-min:20', 8, 'Twenty posts or more'),
+          ('posts-min:20 keyboard', 8, 'Twenty posts about the keyboard'),
+          ('keyboard', 9, 'One post about the keyboard'),
+        ]) {
+          final path = Uri(path: '/filter.json', queryParameters: {'q': query});
+          api.feeds[path.toString()] = [
+            Topic(id: id, title: title, slug: 'keyboard'),
+          ];
+        }
+      },
+      filterOptions: const [
+        TopicFilterOption(name: 'posts-min:', type: 'number'),
+        TopicFilterOption(name: 'status:'),
+        TopicFilterOption(name: 'status:closed'),
+      ],
+    );
     await shell.forumSettings.setShared(
       shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
     );
@@ -202,17 +224,67 @@ void main() {
     expect(shell.currentContent?.topicFilterQuery, 'posts-min:17');
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     await tester.pumpAndSettle();
-    expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-    await _capture(tester, 'search-feed-filters-entry');
-    await tester.tap(find.byKey(const ValueKey('search-edit-feed-filters')));
+    final input = find.byKey(ForumSearch.inputKey);
+    const applied = ValueKey('search-edit-feed-clause:posts-min:17');
+    expect(input, findsOneWidget);
+    expect(find.byKey(applied), findsOneWidget);
+    await _capture(tester, 'search-single-field-entry');
+
+    final original = tester.widget<DInputGroupInput>(input).controller;
+    await tester.tap(find.byKey(applied));
     await tester.pumpAndSettle();
-    final apply = find.byKey(const ValueKey('topic-filter-apply'));
+    expect(tester.widget<DInputGroupInput>(input).controller, same(original));
+    expect(original!.text, 'posts-min:17');
+    await tester.enterText(input, 'posts-m');
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+    final suggestion = find.byKey(const ValueKey('feed-filter:posts-min:'));
+    expect(suggestion, findsOneWidget);
+    await _capture(tester, 'search-single-field-editor');
+    await tester.tap(suggestion);
+    await tester.pumpAndSettle();
+    expect(original.text, 'posts-min:');
+    await tester.enterText(input, 'posts-min:20 keyboard');
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+    final apply = find.byKey(const ValueKey('search-apply-feed-filters'));
+    expect(
+      find.byKey(const ValueKey('search-edit-feed-clause:posts-min:20')),
+      findsOneWidget,
+    );
+    expect(original.text, 'keyboard');
+    expect(
+      shell
+          .mobileNavigation
+          .previousLocation
+          ?.contentStack
+          .last
+          .topicFilterQuery,
+      'posts-min:20',
+    );
     expect(apply, findsOneWidget);
-    await _capture(tester, 'search-feed-filters-editor');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    expect(
+      find.byKey(const ValueKey('global-search-result-filter-topic:8')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('global-search-result-filter-topic:7')),
+      findsNothing,
+    );
+    await _capture(tester, 'search-single-field-ready');
     await tester.tap(apply);
     await tester.pumpAndSettle();
-    expect(shell.currentContent?.topicFilterQuery, 'posts-min:17');
+    expect(shell.currentContent?.topicFilterQuery, 'posts-min:20 keyboard');
     expect(find.byKey(ForumSearch.inputKey), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('search-remove-feed-clause:posts-min:20')),
+    );
+    await tester.pumpAndSettle();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicFilterQuery, 'keyboard');
     expect(tester.takeException(), isNull);
   });
 

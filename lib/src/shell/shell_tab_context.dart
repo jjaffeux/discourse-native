@@ -515,8 +515,17 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
     final instance = _instance;
     final tab = activeTab;
     if (instance == null || tab == null) return null;
-    final source = topicListContent;
     final categories = shell.filterCategoriesFor(instance.url);
+    return _topicListTransitionsFor(tab, topicListContent, categories);
+  }
+
+  TopicListTransitions _topicListTransitionsFor(
+    ForumTab tab,
+    ContentRoute? source,
+    List<TopicCategory> categories,
+  ) {
+    final instance = _instance!;
+
     return TopicListTransitions(
       tab: tab,
       source: source,
@@ -619,6 +628,44 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
 
   Future<void> applyTopicListFilterQuery(String query) =>
       _transitionTopicList(ApplyTopicListFilterQuery(query));
+
+  bool updateSearchSourceFilters(String query) {
+    final navigation = shell.mobileNavigation;
+    final search = currentContent;
+    final tab = activeTab;
+    final previous = navigation.previousLocation;
+    final source = previous?.contentStack.lastOrNull;
+    if (!shell.mobileNavigationEnabled ||
+        shell.activeTabId != tabId ||
+        tab == null ||
+        search?.isGlobalSearch != true ||
+        source?.isTopicList != true ||
+        source!.isMessages) {
+      return false;
+    }
+    final sourceTab = tab.copyWith(
+      rootDestinationId: previous!.rootDestinationId,
+      contentStack: previous.contentStack,
+    );
+    final plan = _topicListTransitionsFor(
+      sourceTab,
+      source,
+      shell.filterCategoriesFor(siteUrl!),
+    ).plan(ApplyTopicListFilterQuery(query));
+    if (plan == null || plan.route.sameDestinationAs(source)) return false;
+    final sourceLocation = plan.replacement.location;
+    final searchTab = plan.replacement.copyWith(
+      contentStack: [...sourceLocation.contentStack, search!],
+      backHistory: tab.backHistory,
+      forwardHistory: const [],
+    );
+    shell._workspace.replaceTab(siteUrl!, searchTab, persist: false);
+    navigation.updateSearchSource(sourceLocation, searchTab.location);
+    shell._persistMobileNavigation();
+    shell._notify();
+    unawaited(loadFeed(plan.route.id));
+    return true;
+  }
 
   Future<void> submitTopicFilter(String query) =>
       _transitionTopicList(SubmitTopicListFilter(query));

@@ -143,6 +143,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
     );
     final selected = row.selected || KeyboardSelection.isSelectedOf(context);
     final tokens = DTokens.of(context);
+    final match = row.match;
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return Padding(
       padding:
@@ -153,7 +154,8 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
         bookmarkUrl: resolveSiteRootPath(row.siteUrl, '/t/${topic.id}'),
         url: resolveSiteRootPath(
           row.siteUrl,
-          '/t/${topic.slug}/${topic.id}/${_topicRowOpeningPost(shell, row.siteUrl, topic) ?? 1}',
+          match?.href ??
+              '/t/${topic.slug}/${topic.id}/${_topicRowOpeningPost(shell, row.siteUrl, topic) ?? 1}',
         ),
         title: topic.displayTitle,
         siteUrl: row.siteUrl,
@@ -232,14 +234,18 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                     ],
                   ),
                   const SizedBox(height: 5),
-                  if (topic.excerpt case final excerpt?
-                      when excerpt.isNotEmpty) ...[
+                  if ((match == null
+                          ? topic.excerpt
+                          : match.showExcerpt
+                          ? searchSnippet(match.excerpt, match.query)
+                          : null)
+                      case final excerpt? when excerpt.isNotEmpty) ...[
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 760),
-                        child: SiteEmojiText.plain(
-                          excerpt,
+                        child: SiteEmojiText(
+                          topicSearchRuns(context, excerpt, match?.query ?? ''),
                           siteUrl: row.siteUrl,
                           maxLines: largeText ? null : 2,
                           overflow: largeText

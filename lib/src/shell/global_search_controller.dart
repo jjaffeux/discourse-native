@@ -61,6 +61,7 @@ class GlobalSearchController extends ChangeNotifier {
   GlobalSearchScope _scope = GlobalSearchScope.all;
   GlobalSearchContext? _context, _pendingContext;
   String _query = '';
+  String? _topicFilterClauses;
   AppLocalizations? _filterL10n;
   List<GlobalSearchFilter> _coreFilters = const [];
   _SearchQueryTail? _queryTail;
@@ -397,6 +398,7 @@ class GlobalSearchController extends ChangeNotifier {
     });
     if (changedSite) {
       _query = '';
+      _topicFilterClauses = null;
       _contextTopicId = null;
       _contextTopicTitle = null;
       _preferredScope = null;
@@ -508,6 +510,12 @@ class GlobalSearchController extends ChangeNotifier {
     if (!scopes.contains(scope)) {
       _scope = GlobalSearchScope.all;
     }
+  }
+
+  void setTopicFilterClauses(String? value) {
+    if (_disposed || _topicFilterClauses == value) return;
+    _topicFilterClauses = value;
+    _schedule();
   }
 
   void setQuery(String value) {
@@ -1040,9 +1048,14 @@ class GlobalSearchController extends ChangeNotifier {
     } on FormatException {
       parsed = GlobalSearchExpression(wordsQuery, const [], null);
     }
-    final effectiveScope =
-        scope == GlobalSearchScope.all &&
-            (parsed.conditions.isNotEmpty || parsed.order != null)
+    final feedClauses =
+        scope == GlobalSearchScope.all || scope == GlobalSearchScope.forum
+        ? _topicFilterClauses
+        : null;
+    final effectiveScope = feedClauses != null
+        ? GlobalSearchScope.forum
+        : scope == GlobalSearchScope.all &&
+              (parsed.conditions.isNotEmpty || parsed.order != null)
         ? GlobalSearchScope.forum
         : scope;
     final merged = conditions.toList();
@@ -1061,15 +1074,28 @@ class GlobalSearchController extends ChangeNotifier {
       offset: offset,
       contextTopicId: _contextTopicId,
       contextTopicTitle: _contextTopicTitle,
+      topicFilterQuery: feedClauses == null
+          ? null
+          : topicFeedSearchQuery(
+              words: parsed.query.trim(),
+              clauses: feedClauses,
+              conditions: merged,
+              order: parsed.order ?? order,
+              capabilities: capabilities,
+            ),
     );
   }
 
   bool get _hasInput =>
+      _topicFilterClauses != null &&
+          (scope == GlobalSearchScope.all ||
+              scope == GlobalSearchScope.forum) ||
       wordsQuery.trim().isNotEmpty ||
       conditions.isNotEmpty ||
       scope == GlobalSearchScope.forum && order != 'relevance';
   bool get _tooShort {
-    if (query.trim().isEmpty ||
+    if (_topicFilterClauses != null ||
+        query.trim().isEmpty ||
         query.trim().length >= capabilities.minimumLength ||
         conditions.isNotEmpty ||
         ![GlobalSearchScope.all, GlobalSearchScope.forum].contains(scope)) {

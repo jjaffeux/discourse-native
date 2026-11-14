@@ -347,7 +347,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ValueListenable<DPageHeader?> header,
           Widget page,
         ) => _MobileFrame(
-          headerVisible: route?.isGlobalSearch != true,
           navigationOpen: sidebarOpen,
           raised: !sidebarOpen && pageSheetOpen && route?.isTopic == true,
           key: const ValueKey('mobile-root'),
@@ -1310,20 +1309,18 @@ class _MobileFrame extends StatelessWidget {
   const _MobileFrame({
     super.key,
     required this.header,
-    required this.headerVisible,
     required this.navigationOpen,
     required this.page,
     required this.raised,
   });
   final Widget header;
-  final bool headerVisible;
   final bool navigationOpen;
   final Widget page;
   final bool raised;
   @override
   Widget build(BuildContext context) {
     final reveal = DHistoryTransition.navigationProgressOf(context);
-    final hidden = !headerVisible || reveal >= 1;
+    final hidden = reveal >= 1;
     final pageSlot = LayoutId(
       key: const ValueKey(_MobileFrameSlot.page),
       id: _MobileFrameSlot.page,

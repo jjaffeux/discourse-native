@@ -24,6 +24,17 @@ class _TopicListTitle extends StatelessWidget {
                   : tokens.foreground,
               fontWeight: read ? FontWeight.w400 : FontWeight.w700,
             );
+    final match = row.match;
+    if (match != null) {
+      return DItemTitle(
+        maxLines: null,
+        child: SiteEmojiText(
+          topicSearchRuns(context, match.title, match.query),
+          siteUrl: row.siteUrl,
+          style: titleStyle,
+        ),
+      );
+    }
     return DItemTitle(
       maxLines: null,
       child: TopicTitle(
@@ -74,4 +85,34 @@ class _TopicListTitle extends StatelessWidget {
       ),
     );
   }
+}
+
+List<SiteEmojiTextRun> topicSearchRuns(
+  BuildContext context,
+  String text,
+  String query,
+) {
+  final pattern = searchWordPattern(query);
+  if (pattern == null) return [SiteEmojiTextRun(text)];
+  final accent = DTokens.of(context).primary;
+  final runs = <SiteEmojiTextRun>[];
+  var cursor = 0;
+  for (final match in pattern.allMatches(text)) {
+    if (match.start > cursor) {
+      runs.add(SiteEmojiTextRun(text.substring(cursor, match.start)));
+    }
+    runs.add(
+      SiteEmojiTextRun(
+        match.group(0)!,
+        style: TextStyle(
+          color: accent,
+          backgroundColor: accent.withValues(alpha: .18),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+    cursor = match.end;
+  }
+  if (cursor < text.length) runs.add(SiteEmojiTextRun(text.substring(cursor)));
+  return runs;
 }

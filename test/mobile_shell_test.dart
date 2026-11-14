@@ -21,6 +21,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
@@ -278,6 +279,7 @@ Future<ShellController> pumpMobileShellFixture(
   Map<String, dynamic>? board,
   Map<String, Map<String, dynamic>> pluginResponses = const {},
   FakeForumTabStore? forumTabs,
+  List<TopicFilterOption> filterOptions = const [],
   Key? key,
   void Function(FakeDiscourseApi api)? onApi,
 }) async {
@@ -299,6 +301,7 @@ Future<ShellController> pumpMobileShellFixture(
   );
   final account = user ?? _user;
   final api = FakeDiscourseApi(
+    filterOptionsByPath: {'/filter.json': filterOptions},
     topicGate: topicGate,
     postGate: postGate,
     postsById: postsById,
