@@ -3,6 +3,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../foundation/icons/d_icons.dart';
+import '../avatar_image.dart';
 import '../platform.dart';
 import '../shell_controller.dart';
 import '../shell_scope.dart';
@@ -62,6 +63,9 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
     final lookup = _lookup!;
     final mobile = context.isTouch;
     final recipients = lookup.recipients;
+    final users = {
+      for (final user in lookup.results.users) user.username: user,
+    };
     final groups = [
       for (final group in lookup.results.groups)
         if (!mobile || !recipients.contains(group.name))
@@ -73,7 +77,53 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
     ];
     final results = [
       DComboboxEmpty<String>(child: Text(context.l10n.noUsersOrGroupsFound)),
-      const DComboboxList<String>(),
+      DComboboxList<String>(
+        itemBuilder: mobile
+            ? (context, option) {
+                final user = users[option.value];
+                if (user == null) return Text(option.label);
+                const avatarSize = 22.0;
+                return Row(
+                  spacing: DSpacing.sm,
+                  children: [
+                    DAvatar(
+                      dimension: avatarSize,
+                      decorative: true,
+                      child: AvatarImage(
+                        url: user.avatarUrl,
+                        size: avatarSize,
+                        fallback: DAvatarFallback(
+                          child: Text(
+                            user.username.characters.firstOrNull
+                                    ?.toUpperCase() ??
+                                '?',
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: user.username,
+                          children: [
+                            if (user.name case final name?)
+                              TextSpan(
+                                text: ' · $name',
+                                style: TextStyle(
+                                  color: DTokens.of(context).mutedForeground,
+                                ),
+                              ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                );
+              }
+            : null,
+      ),
     ];
     final picker = DCombobox<String>.multipleControlled(
       key: const ValueKey('composer-private-message-recipients'),

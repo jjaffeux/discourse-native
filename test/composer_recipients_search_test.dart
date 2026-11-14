@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/found_group.dart';
@@ -24,6 +26,40 @@ Finder _option(String name) => find.byWidgetPredicate(
 );
 
 void main() {
+  testWidgets('phone recipient results show the user avatar', (tester) async {
+    const capture = String.fromEnvironment('RECIPIENT_ROW_CAPTURE');
+    if (capture.isNotEmpty) {
+      await tester.runAsync(() async {
+        await (FontLoader(
+          'Lato',
+        )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+      });
+    }
+    await _pump(
+      tester,
+      mobile: true,
+      api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+    );
+    await _findSam(tester, mobile: true);
+    expect(
+      find.descendant(of: _option('sam'), matching: find.byType(DAvatar)),
+      findsOneWidget,
+    );
+    if (capture.isNotEmpty) {
+      await tester.runAsync(() async {
+        final builder = ui.SceneBuilder();
+        tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final image = await scene.toImage(390, 800);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(capture).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+        scene.dispose();
+      });
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   for (final mobile in [false, true]) {
     for (final duringLookup in [false, true]) {
       testWidgets('retained recipient widget retires replaced composer on '
@@ -392,6 +428,9 @@ Future<ComposerController> _pump(
     MaterialApp(
       theme: AppTheme.light.copyWith(
         platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
+        textTheme: const String.fromEnvironment('RECIPIENT_ROW_CAPTURE').isEmpty
+            ? AppTheme.light.textTheme
+            : AppTheme.light.textTheme.apply(fontFamily: 'Lato'),
       ),
       home: ListenableBuilder(
         listenable: shellSource ?? shell,
