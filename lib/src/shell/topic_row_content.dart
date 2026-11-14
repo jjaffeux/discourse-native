@@ -25,20 +25,13 @@ class _TopicListTitle extends StatelessWidget {
               fontWeight: read ? FontWeight.w400 : FontWeight.w700,
             );
     final match = row.match;
-    if (match != null) {
-      return DItemTitle(
-        maxLines: null,
-        child: SiteEmojiText(
-          topicSearchRuns(context, match.title, match.query),
-          siteUrl: row.siteUrl,
-          style: titleStyle,
-        ),
-      );
-    }
     return DItemTitle(
       maxLines: null,
       child: TopicTitle(
-        topic.displayTitle,
+        match?.title ?? topic.displayTitle,
+        styleRuns: match == null
+            ? null
+            : (text) => topicSearchRuns(context, text, match.query),
         siteUrl: row.siteUrl,
         keepTrailingWithLastWord: topic.showUnreadCount,
         style: titleStyle,

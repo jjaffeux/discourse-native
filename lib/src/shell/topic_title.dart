@@ -22,6 +22,7 @@ class TopicTitle extends StatelessWidget {
     this.leading = const [],
     this.trailing = const [],
     this.keepTrailingWithLastWord = false,
+    this.styleRuns,
   });
 
   final String title;
@@ -32,6 +33,10 @@ class TopicTitle extends StatelessWidget {
   final List<Widget> leading;
   final List<Widget> trailing;
   final bool keepTrailingWithLastWord;
+  final List<SiteEmojiTextRun> Function(String text)? styleRuns;
+
+  List<SiteEmojiTextRun> _runs(String text) =>
+      styleRuns?.call(text) ?? [SiteEmojiTextRun(text)];
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +47,8 @@ class TopicTitle extends StatelessWidget {
           : 1;
       final head = words.take(words.length - keep).join(' ');
       final tail = words.skip(words.length - keep).join(' ');
-      return SiteEmojiText.plain(
-        head.isEmpty ? '' : '$head ',
+      return SiteEmojiText(
+        _runs(head.isEmpty ? '' : '$head '),
         siteUrl: siteUrl,
         maxLines: maxLines,
         overflow: overflow,
@@ -57,8 +62,8 @@ class TopicTitle extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
-                  child: SiteEmojiText.plain(
-                    tail,
+                  child: SiteEmojiText(
+                    _runs(tail),
                     siteUrl: siteUrl,
                     style: style,
                   ),
@@ -70,8 +75,8 @@ class TopicTitle extends StatelessWidget {
         ],
       );
     }
-    return SiteEmojiText.plain(
-      title,
+    return SiteEmojiText(
+      _runs(title),
       siteUrl: siteUrl,
       maxLines: maxLines,
       overflow: overflow,

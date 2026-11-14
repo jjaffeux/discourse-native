@@ -34,6 +34,8 @@ class SearchResults {
         ),
         slug: jsonString(value['slug']),
         categoryId: jsonIntOrNull(value['category_id']),
+        bumpedAt:
+            jsonDate(value['bumped_at']) ?? jsonDate(value['last_posted_at']),
         tags: List.unmodifiable([
           for (final tag in jsonArray(value['tags'])) ?TopicTag.parse(tag),
         ]),
@@ -75,6 +77,7 @@ class SearchResults {
             jsonString(value['topic_title_headline']),
           ),
           categoryId: topic.categoryId,
+          topicBumpedAt: topic.bumpedAt,
           tags: topic.tags,
           pinned: topic.pinned,
           unpinned: topic.unpinned,
@@ -234,6 +237,7 @@ class SearchPostHit extends SearchResult {
     required this.username,
     required this.excerpt,
     this.topicTitleExcerpt = const SearchExcerpt([]),
+    this.topicBumpedAt,
     this.categoryId,
     this.tags = const [],
     this.pinned = false,
@@ -255,6 +259,7 @@ class SearchPostHit extends SearchResult {
   final String topicTitle;
   final String topicSlug;
   final SearchExcerpt topicTitleExcerpt;
+  final DateTime? topicBumpedAt;
   final int? categoryId;
   final List<TopicTag> tags;
   final bool pinned;
@@ -676,6 +681,7 @@ class _SearchTopic {
     required this.title,
     required this.slug,
     required this.categoryId,
+    required this.bumpedAt,
     required this.tags,
     required this.pinned,
     required this.unpinned,
@@ -691,6 +697,7 @@ class _SearchTopic {
   final String title;
   final String slug;
   final int? categoryId;
+  final DateTime? bumpedAt;
   final List<TopicTag> tags;
   final bool pinned;
   final bool unpinned;

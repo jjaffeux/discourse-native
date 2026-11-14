@@ -25,6 +25,11 @@ final class _GlobalSearchExecution {
   String? error;
   bool hasMore = false, loadingMore = false;
 
+  Topic? topicRow(int id) {
+    final run = _run;
+    return run != null && _current(run) ? run.topicRows[id] : null;
+  }
+
   void _cancel() {
     _debounce?.cancel();
     _queued = null;
@@ -192,6 +197,37 @@ final class _GlobalSearchExecution {
           ? GlobalSearchPhase.failed
           : GlobalSearchPhase.empty;
       notify();
+      if (!_accepts(attempt) ||
+          request.conditions.any(
+            (condition) => condition.filterId == 'author',
+          )) {
+        return;
+      }
+      final ids = {
+        for (final section in page.sections)
+          if (section.scope == GlobalSearchScope.forum &&
+              section.topicId == null)
+            for (final row in section.results)
+              if (row.source case final SearchPostHit hit
+                  when row.topic == null && !hit.privateMessage)
+                hit.topicId,
+      }..removeAll(run.requestedTopicIds);
+      if (ids.isEmpty) return;
+      run.requestedTopicIds.addAll(ids);
+      final topics = await auth.run(
+        () => api.topicRows(
+          siteUrl: run.site,
+          apiKey: key,
+          clientId: key == null ? null : auth.clientId,
+          topicIds: ids,
+          abortTrigger: attempt.abort.future,
+        ),
+      );
+      if (!_accepts(attempt) || topics.isEmpty) return;
+      run.topicRows.addEntries(
+        topics.map((topic) => MapEntry(topic.id, topic)),
+      );
+      notify();
     } catch (exception) {
       if (!_accepts(attempt)) return;
       error = GlobalSearchApi.failureMessage(exception);
@@ -225,12 +261,14 @@ final class _GlobalSearchExecution {
 }
 
 final class _SearchRun {
-  const _SearchRun(this.site, this.lease, this.request, this.prepare);
+  _SearchRun(this.site, this.lease, this.request, this.prepare);
 
   final String site;
   final SiteLease lease;
   final GlobalSearchRequest request;
   final GlobalSearchRequest Function(int page, int offset) prepare;
+  final requestedTopicIds = <int>{};
+  final topicRows = <int, Topic>{};
 }
 
 final class _SearchAttempt {

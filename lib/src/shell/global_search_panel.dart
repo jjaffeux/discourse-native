@@ -2127,7 +2127,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   }
 
   Widget _result(_PreparedSearchResult row) {
-    final reads = [..._rowReads, widget.selectedResultId == row.result.id];
+    final reads = [
+      ..._rowReads,
+      widget.selectedResultId == row.result.id,
+      widget.controller.topicRowFor(row.result),
+    ];
     if (row.row == null || !listEquals(reads, row.reads)) {
       row.reads = reads;
       row.row = _buildResult(row);
@@ -2403,8 +2407,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             controller.conditions.any(
               (condition) => condition.filterId == 'author',
             );
+    final topicRow = controller.topicRowFor(result);
     final topic =
-        result.topic ??
+        topicRow ??
         (source is SearchPostHit
             ? Topic(
                 id: source.topicId,
@@ -2414,7 +2419,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 tags: source.tags,
                 replyCount: result.replies ?? 0,
                 likeCount: result.likes ?? 0,
-                bumpedAt: result.createdAt,
+                bumpedAt: source.topicBumpedAt ?? result.createdAt,
                 posters: [
                   if (source.username.isNotEmpty)
                     TopicPoster(
@@ -2491,10 +2496,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         ),
       if (properties.contains(GlobalSearchDisplayProperty.tags))
         for (final tag in result.tags) Text('#$tag'),
-      if (result.likes case final likes?
+      if ((individualPost ? result.likes : topicRow?.likeCount ?? result.likes)
+          case final likes?
           when properties.contains(GlobalSearchDisplayProperty.likes))
         Text(countLabel(likes, CountNoun.like)),
-      if (result.replies case final replies?
+      if ((topicRow?.replyCount ?? result.replies) case final replies?
           when !individualPost &&
               (properties.contains(GlobalSearchDisplayProperty.replies) ||
                   result.scope == GlobalSearchScope.forum ||
