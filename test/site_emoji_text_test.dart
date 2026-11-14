@@ -42,6 +42,33 @@ void main() {
     );
   });
 
+  testWidgets('bounded previews end on a whole word and keep their semantics', (
+    tester,
+  ) async {
+    const text = 'one two three four five six seven';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: AlignmentDirectional.topStart,
+          child: SizedBox(
+            width: 85,
+            child: SiteEmojiText.plain(
+              text,
+              siteUrl: 'https://meta.example',
+              style: const TextStyle(fontSize: 10, letterSpacing: 0),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              ellipsisAtWordBoundary: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    final paragraph = tester.widget<RichText>(find.byType(RichText));
+    expect(paragraph.text.toPlainText(), 'one two three…');
+    expect(find.bySemanticsLabel(text), findsOneWidget);
+  });
+
   group('run projection and styling', () {
     testWidgets('preserves ordered styles across many emoji', (tester) async {
       const red = TextStyle(color: Colors.red, fontSize: 10);

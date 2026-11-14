@@ -28,6 +28,7 @@ class SiteEmojiText extends StatelessWidget {
     this.style,
     this.textAlign,
     this.resolveUnicode = false,
+    this.ellipsisAtWordBoundary = false,
     this.leading = const [],
     this.trailing = const [],
   });
@@ -41,6 +42,7 @@ class SiteEmojiText extends StatelessWidget {
     this.style,
     this.textAlign,
     this.resolveUnicode = false,
+    this.ellipsisAtWordBoundary = false,
     this.leading = const [],
     this.trailing = const [],
   }) : runs = [SiteEmojiTextRun(text)];
@@ -52,6 +54,7 @@ class SiteEmojiText extends StatelessWidget {
   final TextStyle? style;
   final TextAlign? textAlign;
   final bool resolveUnicode;
+  final bool ellipsisAtWordBoundary;
 
   /// Inline markers participate in text flow so later lines use the full width.
   final List<Widget> leading;
@@ -125,7 +128,14 @@ class SiteEmojiText extends StatelessWidget {
                   style: run.style?.merge(span.style) ?? span.style,
                 ),
           ];
-    if (emoji.isEmpty &&
+    final wrapExcerpt =
+        ellipsisAtWordBoundary &&
+        maxLines != null &&
+        overflow == TextOverflow.ellipsis &&
+        leading.isEmpty &&
+        trailing.isEmpty;
+    if (!wrapExcerpt &&
+        emoji.isEmpty &&
         runs.length == 1 &&
         runs.single.style == null &&
         leading.isEmpty &&
@@ -148,17 +158,28 @@ class SiteEmojiText extends StatelessWidget {
         ),
     ];
     final cursor = _StyledRunCursor(runs);
+    final emojiDimensions = <PlaceholderDimensions>[];
+    final scaler = MediaQuery.textScalerOf(context);
 
     for (final match in emoji) {
       cursor.appendText(spans, match.start);
       final emojiStyle = effectiveStyle.merge(cursor.style);
+      final fontSize = emojiStyle.fontSize ?? DiscourseTypography.sm;
+      if (wrapExcerpt) {
+        emojiDimensions.add(
+          PlaceholderDimensions(
+            size: Size.square(scaler.scale(fontSize) * emojiScale),
+            alignment: PlaceholderAlignment.middle,
+          ),
+        );
+      }
       spans.add(
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: SiteEmojiImage(
             siteUrl: siteUrl,
             name: match.name,
-            size: (emojiStyle.fontSize ?? DiscourseTypography.sm) * emojiScale,
+            size: fontSize * emojiScale,
             alt: text.substring(match.start, match.end),
             style: emojiStyle,
           ),
@@ -176,13 +197,33 @@ class SiteEmojiText extends StatelessWidget {
       ),
     );
 
-    final richText = Text.rich(
-      TextSpan(children: spans),
+    Widget buildText(List<InlineSpan> visible) => Text.rich(
+      TextSpan(children: visible),
       maxLines: maxLines,
       overflow: overflow,
       style: style,
       textAlign: textAlign,
     );
+    final richText = wrapExcerpt
+        ? LayoutBuilder(
+            builder: (context, constraints) => buildText(
+              _trimExcerpt(
+                spans,
+                emojiDimensions,
+                style: MediaQuery.boldTextOf(context)
+                    ? effectiveStyle.merge(
+                        const TextStyle(fontWeight: FontWeight.bold),
+                      )
+                    : effectiveStyle,
+                maxWidth: constraints.maxWidth,
+                lines: maxLines!,
+                direction: Directionality.of(context),
+                locale: Localizations.maybeLocaleOf(context),
+                scaler: scaler,
+              ),
+            ),
+          )
+        : buildText(spans);
 
     // Inline markers carry meaningful semantics of their own. Keep
     // those descendants exposed; ordinary emoji-only prose still gets one
@@ -197,6 +238,85 @@ class SiteEmojiText extends StatelessWidget {
       label: text,
       child: ExcludeSemantics(child: richText),
     );
+  }
+}
+
+// SkParagraph's built-in ellipsis may leave part of the final word. The
+// preview still uses its shaped line breaks, including the inline emoji boxes.
+List<InlineSpan> _trimExcerpt(
+  List<InlineSpan> spans,
+  List<PlaceholderDimensions> placeholderDimensions, {
+  required TextStyle style,
+  required double maxWidth,
+  required int lines,
+  required TextDirection direction,
+  required Locale? locale,
+  required TextScaler scaler,
+}) {
+  if (maxWidth <= 0 || !maxWidth.isFinite) return spans;
+  final shaped = TextSpan(style: style, children: spans);
+  final painter = TextPainter(
+    text: shaped,
+    textDirection: direction,
+    locale: locale,
+    textScaler: scaler,
+    maxLines: lines,
+  );
+  try {
+    painter
+      ..setPlaceholderDimensions(placeholderDimensions)
+      ..layout(maxWidth: maxWidth);
+    if (!painter.didExceedMaxLines) return spans;
+    final last = painter.computeLineMetrics().last;
+    final position = painter.getPositionForOffset(
+      Offset(last.left + last.width / 2, last.baseline - 1),
+    );
+    final line = painter.getLineBoundary(position);
+    final plain = shaped.toPlainText(includeSemanticsLabels: false);
+    var end = plain.substring(0, line.end).trimRight().length;
+    if (end <= line.start) return spans;
+    final word = painter.getWordBoundary(TextPosition(offset: end - 1));
+    if (word.end > end) end = plain.substring(0, word.start).trimRight().length;
+    while (end > line.start) {
+      final truncated = <InlineSpan>[];
+      var offset = 0;
+      var placeholders = 0;
+      for (final span in spans) {
+        if (offset >= end) break;
+        if (span is TextSpan) {
+          final text = span.text!;
+          final remaining = end - offset;
+          truncated.add(
+            remaining >= text.length
+                ? span
+                : TextSpan(
+                    text: text.substring(0, remaining),
+                    style: span.style,
+                  ),
+          );
+          offset += text.length;
+        } else {
+          truncated.add(span);
+          placeholders++;
+          offset++;
+        }
+      }
+      truncated.add(const TextSpan(text: '…'));
+      painter
+        ..text = TextSpan(style: style, children: truncated)
+        ..setPlaceholderDimensions(
+          placeholderDimensions.take(placeholders).toList(growable: false),
+        )
+        ..layout(maxWidth: maxWidth);
+      if (!painter.didExceedMaxLines) return truncated;
+      // The ellipsis took room from the final word. Keep the preceding one
+      // when it fits, or let the engine truncate an unbroken string itself.
+      end = plain.substring(0, end).lastIndexOf(RegExp(r'\s'));
+      if (end > 0) end = plain.substring(0, end).trimRight().length;
+    }
+    return spans;
+  } finally {
+    painter.dispose();
   }
 }
 
