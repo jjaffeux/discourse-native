@@ -430,6 +430,28 @@ void main() {
 
       await capture('');
       if (width < 700) {
+        final footer = find.byKey(const ValueKey('global-search-phone-footer'));
+        final all = find.byKey(const ValueKey('global-search-scope-all'));
+        expect(footer, findsOneWidget);
+        expect(
+          tester.getRect(footer).bottom,
+          closeTo(tester.getRect(find.byType(GlobalSearchPanel)).bottom, .01),
+        );
+        expect(find.descendant(of: footer, matching: all), findsOneWidget);
+        shell.globalSearch.addCondition(
+          const GlobalSearchCondition(filterId: 'author', value: ['mira']),
+        );
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.pumpAndSettle();
+        expect(all, findsNothing);
+        expect(
+          find.descendant(
+            of: footer,
+            matching: find.byKey(const ValueKey('global-search-condition-0')),
+          ),
+          findsOneWidget,
+        );
+        await capture('-condition');
         tester.view.viewInsets = const FakeViewPadding(bottom: 330);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));

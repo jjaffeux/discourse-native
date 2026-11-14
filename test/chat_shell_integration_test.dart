@@ -1288,6 +1288,9 @@ void _registerChatShellTests() {
         final shell = ShellScope.read(
           tester.element(find.byKey(const ValueKey('mobile-root'))),
         );
+        await shell.forumSettings.setShared(
+          shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+        );
         shell.openChatChannel(9);
         await tester.pumpAndSettle();
         const ringKey = ValueKey('chat-arrival-ring');

@@ -58,6 +58,7 @@ class GlobalSearchPanel extends StatefulWidget {
     this.onRefocus,
     this.showConditions = true,
     this.showClearFilters = false,
+    this.footerControls = false,
   });
 
   final GlobalSearchController controller;
@@ -70,6 +71,9 @@ class GlobalSearchPanel extends StatefulWidget {
   /// Includes the standalone condition toolbar; shell chips live in its input.
   final bool showConditions;
   final bool showClearFilters;
+
+  /// Phone search keeps scope and condition controls at the sheet foot.
+  final bool footerControls;
 
   @override
   State<GlobalSearchPanel> createState() => GlobalSearchPanelState();
@@ -978,43 +982,75 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: constraints.maxHeight * .55,
-                ),
-                child: DScrollArea(
-                  thumbVisibility: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _scopeBar(context),
-                      if (widget.showConditions)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                          child: Row(
-                            spacing: 4,
-                            children: [
-                              _GlobalSearchFilterPicker(controller: controller),
-                              _GlobalSearchDisplay(controller: controller),
-                            ],
+              if (!widget.footerControls)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight * .55,
+                  ),
+                  child: DScrollArea(
+                    thumbVisibility: false,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _scopeBar(context),
+                        if (widget.showConditions)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                            child: Row(
+                              spacing: 4,
+                              children: [
+                                _GlobalSearchFilterPicker(
+                                  controller: controller,
+                                ),
+                                _GlobalSearchDisplay(controller: controller),
+                              ],
+                            ),
                           ),
-                        ),
-                      if (widget.showConditions &&
-                          controller.conditions.isNotEmpty)
-                        _conditions(context),
-                    ],
+                        if (widget.showConditions &&
+                            controller.conditions.isNotEmpty)
+                          _conditions(context),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const DSeparator(),
+              if (!widget.footerControls) const DSeparator(),
               Expanded(child: phone ? DMenuContentScale(child: body) : body),
+              if (widget.footerControls) _phoneFooter(context),
             ],
           );
         },
       );
     },
   );
+
+  Widget _phoneFooter(BuildContext context) {
+    final controller = widget.controller;
+    final narrowed = controller.conditions.isNotEmpty;
+    return DSheetFooter(
+      key: const ValueKey('global-search-phone-footer'),
+      padding: EdgeInsets.zero,
+      children: [
+        const DSeparator(),
+        if (!narrowed) _scopeBar(context),
+        if (narrowed || controller.hasOrderFilter)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+            child: LayoutBuilder(
+              builder: (context, constraints) => DScrollArea(
+                axes: DScrollAxes.horizontal,
+                showScrollbar: false,
+                child: GlobalSearchChips(
+                  controller: controller,
+                  maxWidth: constraints.maxWidth,
+                  onRefocus: widget.onRefocus,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   int _scopeCount(GlobalSearchScope scope) => widget.controller.sections
       .where((section) => section.scope == scope && section.topicId == null)
@@ -1029,6 +1065,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       controller,
       context.l10n,
       phone,
+      widget.footerControls,
       controller.scope,
       for (final scope in controller.scopes) ...[scope, _scopeCount(scope)],
     ];
@@ -1038,10 +1075,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         values: [controller.scope],
         onChanged: (values) => controller.setScope(values.single),
         allowEmptySelection: false,
-        density: phone ? DToggleDensity.standard : DToggleDensity.menuFilter,
-        variant: phone ? DToggleVariant.standard : DToggleVariant.outline,
-        size: phone ? DToggleSize.segment : DToggleSize.regular,
-        inset: phone,
+        density: phone && !widget.footerControls
+            ? DToggleDensity.standard
+            : DToggleDensity.menuFilter,
+        variant: phone && !widget.footerControls
+            ? DToggleVariant.standard
+            : DToggleVariant.outline,
+        size: phone && !widget.footerControls
+            ? DToggleSize.segment
+            : DToggleSize.regular,
+        inset: phone && !widget.footerControls,
         spacing: 1.5,
         semanticLabel: context.l10n.globalSearch,
         items: [

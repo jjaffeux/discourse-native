@@ -864,12 +864,11 @@ class _ForumSearchState extends State<ForumSearch> {
               _setQuery(value);
             },
             onSubmitted: (_) {
-              if (phonePage &&
-                  _panelKey.currentState?.handleKey(LogicalKeyboardKey.enter) ==
-                      true) {
-                return;
+              if (widget.fullScreen) {
+                _focus.unfocus();
+              } else {
+                _apply();
               }
-              _apply();
             },
           ),
           if (width >= 140)
@@ -877,7 +876,7 @@ class _ForumSearchState extends State<ForumSearch> {
               alignment: DInputGroupAddonAlignment.inlineStart,
               child: DIcon(DIcons.magnifyingGlass, size: 16),
             ),
-          if (hasConditions)
+          if (hasConditions && !phonePage)
             DInputGroupAddon(
               alignment: DInputGroupAddonAlignment.inlineStart,
               child: LayoutBuilder(
@@ -967,14 +966,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _builtGlobalReads = _globalReads;
     if (!_search.canSearch) return const SizedBox.shrink();
     if (widget._pageContent) {
-      if (DControlStyle.isTouch(context)) {
-        return DSheetViewport(onDismiss: _closeSearch, content: _searchSheet());
-      }
-      return DPageSurface(
-        border: false,
-        backgroundColor: DTokens.of(context).background,
-        child: _buildPageContent(),
-      );
+      return _buildPageSurface(context, _buildPageContent());
     }
     if (widget.fullScreen) return _buildPageTrigger();
     final platform = Theme.of(context).platform;
@@ -1281,6 +1273,7 @@ class _ForumSearchState extends State<ForumSearch> {
               child: GlobalSearchPanel(
                 key: _panelKey,
                 showConditions: false,
+                footerControls: phone,
                 showClearFilters:
                     _listExpression.isNotEmpty &&
                     _global.wordsQuery.isEmpty &&
@@ -1302,29 +1295,33 @@ class _ForumSearchState extends State<ForumSearch> {
       );
     },
   );
-  DSheetContent _searchSheet() => DSheetContent(
-    side: DSheetSide.bottom,
-    variant: DSheetVariant.adaptiveMenu,
-    semanticLabel: appL10n.globalSearch,
-    initiallyExpanded: true,
-    sizeToContent: false,
-    showCloseButton: false,
-    scrollWholeSheet: false,
-    children: [
-      const DSheetHeader(children: []),
-      Expanded(child: DMenuContentScale.unscaled(child: _buildPageContent())),
-    ],
+
+  Widget _buildPageSurface(BuildContext context, Widget content) => SafeArea(
+    bottom: false,
+    child: DSheetViewport(
+      content: DSheetContent(
+        side: DSheetSide.bottom,
+        variant: DSheetVariant.page,
+        showCloseButton: false,
+        semanticLabel: context.l10n.globalSearch,
+        backgroundColor: DTokens.of(context).background,
+        children: [Expanded(child: SafeArea(top: false, child: content))],
+      ),
+    ),
   );
 
   void _openPage() {
-    final content = _searchSheet();
+    final content = _buildPageContent();
     final page = MaterialPageRoute<void>(
       settings: const RouteSettings(name: '/search'),
       builder: (_) => InheritedTheme.captureAll(
         context,
         ShellScope(
           controller: _shell!,
-          child: DSheetViewport(onDismiss: _closeSearch, content: content),
+          // Keep the search subtree stable as the keyboard animates its insets.
+          child: Builder(
+            builder: (context) => _buildPageSurface(context, content),
+          ),
         ),
       ),
     );
