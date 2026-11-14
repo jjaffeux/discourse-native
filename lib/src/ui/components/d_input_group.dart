@@ -669,6 +669,7 @@ class DInputGroupButton extends StatelessWidget {
 
     this.tooltip,
     this.focusNode,
+    this.foregroundColor,
 
     this.hasPopup = false,
   }) : _iconOnly = false;
@@ -682,6 +683,7 @@ class DInputGroupButton extends StatelessWidget {
     this.size = DInputGroupButtonSize.small,
 
     this.focusNode,
+    this.foregroundColor,
 
     this.hasPopup = false,
   }) : label = const SizedBox.shrink(),
@@ -697,6 +699,7 @@ class DInputGroupButton extends StatelessWidget {
 
   final String? tooltip;
   final FocusNode? focusNode;
+  final Color? foregroundColor;
 
   final bool hasPopup;
 
@@ -712,17 +715,19 @@ class DInputGroupButton extends StatelessWidget {
         icon: icon!,
         tooltip: tooltip!,
         onPressed: onPressed,
-        variant: search ? DButtonVariant.ghost : DButtonVariant.ghost,
+        variant: DButtonVariant.ghost,
         density: search ? DButtonDensity.searchClear : DButtonDensity.standard,
-        foregroundColor: quiet
-            ? DTokens.of(context).mutedForeground
-            : search
-            ? Color.lerp(
-                DTokens.of(context).background,
-                DTokens.of(context).foreground,
-                .5,
-              )
-            : null,
+        foregroundColor:
+            foregroundColor ??
+            (quiet
+                ? DTokens.of(context).mutedForeground
+                : search
+                ? Color.lerp(
+                    DTokens.of(context).background,
+                    DTokens.of(context).foreground,
+                    .5,
+                  )
+                : null),
         size: size,
         semanticLabel: null,
         focusNode: focusNode,
@@ -737,6 +742,7 @@ class DInputGroupButton extends StatelessWidget {
       icon: icon,
       iconPosition: DButtonIconPosition.start,
       variant: DButtonVariant.ghost,
+      foregroundColor: foregroundColor,
       size: size,
       semanticLabel: null,
       tooltip: tooltip,

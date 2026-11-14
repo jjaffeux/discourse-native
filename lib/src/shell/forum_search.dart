@@ -1751,7 +1751,7 @@ class _ForumSearchState extends State<ForumSearch> {
     final count = topicFilterMenuCount(_feedFilterExpression(words: ''));
     final label = context.l10n.filters;
     const key = ValueKey('search-filters-button');
-    const icon = DIcon(DIcons.filter, size: 12);
+    const icon = DIcon(DIcons.filter, size: 16);
     if (count == 0) {
       return DInputGroupButton.icon(
         key: key,
@@ -1763,7 +1763,11 @@ class _ForumSearchState extends State<ForumSearch> {
     return DInputGroupButton(
       key: key,
       icon: icon,
-      label: Text('$count'),
+      label: Text(
+        '$count',
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      foregroundColor: DTokens.of(context).primary,
       tooltip: '$label · $count',
       onPressed: _openFeedPicker,
     );
@@ -1828,7 +1832,12 @@ class _ForumSearchState extends State<ForumSearch> {
                 ),
               ],
             );
-      final sheetHeader = DSheetHeader(children: [header]);
+      final sheetHeader = phone
+          ? Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 1, 16, 6),
+              child: header,
+            )
+          : DSheetHeader(children: [header]);
       final panel = GlobalSearchPanel(
         key: _panelKey,
         phoneHeader: phone ? sheetHeader : null,

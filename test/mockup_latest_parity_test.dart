@@ -3,8 +3,10 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
+import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
@@ -293,6 +295,10 @@ void main() {
     await shell.forumSettings.setShared(
       shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
     );
+    await shell.forumSettings.setThemes(
+      shell.currentInstance!.url,
+      ForumThemePreferences.preset('dracula'),
+    );
     await shell.forumSettings.setThemeMode(
       shell.currentInstance!.url,
       AppThemeMode.dark,
@@ -308,6 +314,12 @@ void main() {
     await tester.enterText(field, 'tag:sourdough zzzzzz');
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     final filteredEmpty = tester.getRect(surface);
+    final fieldGroup = find.ancestor(
+      of: field,
+      matching: find.byType(DInputGroup),
+    );
+    expect(filteredEmpty.bottom, closeTo(838, .1));
+    expect(tester.getRect(fieldGroup).top - filteredEmpty.top, closeTo(24, .1));
     final emptyMessage = find.text('No results for “tag:sourdough zzzzzz”');
     final tagChip = find.descendant(
       of: footer,
@@ -336,6 +348,7 @@ void main() {
     await tester.enterText(field, 'tag:sourdough ');
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     final filteredResults = tester.getRect(surface);
+    expect(filteredResults.bottom, closeTo(filteredEmpty.bottom, .1));
     expect(filteredResults.height, greaterThan(filteredEmpty.height));
     if (const bool.fromEnvironment('captureMockupParity')) {
       expect(filteredResults.height, closeTo(560.84, 1));
@@ -366,6 +379,73 @@ void main() {
     expect(find.text('No results for “zzzzzz”'), findsOneWidget);
     expect(scopes.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('phone Search shows artwork on an uncached topic', (
+    tester,
+  ) async {
+    const response = {
+      'topics': [
+        {
+          'id': 71,
+          'title': "What's everyone's sourdough hydration sweet spot? 🍞",
+          'slug': 'sourdough-hydration',
+          'pinned': true,
+          'bookmarked': true,
+          'posts_count': 35,
+        },
+      ],
+      'posts': [
+        {
+          'id': 171,
+          'topic_id': 71,
+          'post_number': 1,
+          'username': 'felix',
+          'like_count': 14,
+          'blurb': "I've been experimenting between 72% and 82%.",
+        },
+      ],
+      'grouped_search_result': {'more_full_page_results': false},
+    };
+    final shell = await pumpMobileShellFixture(
+      tester,
+      pluginResponses: {
+        'GET /search/query.json?term=hydration': response,
+        'GET /search/query.json?term=hydration&type_filter=private_messages':
+            {},
+        'GET /search.json?q=hydration&page=1': response,
+      },
+    );
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+    );
+    await shell.forumSettings.setThemes(
+      shell.currentInstance!.url,
+      ForumThemePreferences.preset('dracula'),
+    );
+    await shell.forumSettings.setThemeMode(
+      shell.currentInstance!.url,
+      AppThemeMode.dark,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(ForumSearch.inputKey), 'hydration');
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+    final row = find.byKey(const ValueKey('search-row:forum:171'));
+    expect(row, findsOneWidget);
+    await _capture(tester, 'search-uncached-artwork');
+    final icons = tester.widgetList<DIcon>(
+      find.descendant(of: row, matching: find.byType(DIcon)),
+    );
+    expect(
+      icons.map((icon) => icon.icon),
+      containsAll([DIcons.thumbtack, DIcons.bookmark]),
+    );
+    expect(
+      find.descendant(of: row, matching: find.byType(DAvatar)),
+      findsOneWidget,
+    );
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('phone search edits the exact query of its source feed', (

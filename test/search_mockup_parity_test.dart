@@ -439,7 +439,7 @@ void main() {
         if (scale == 1) {
           expect(resultHeight, greaterThan(entryHeight));
         } else {
-          expect(resultHeight, closeTo(900 * .55, 1));
+          expect(resultHeight, closeTo(900 * .55 - 6, 1));
         }
         expect(find.byKey(const ValueKey('section:forum:')), findsNothing);
         final firstTopic = find.byKey(const ValueKey('search-row:forum:99'));

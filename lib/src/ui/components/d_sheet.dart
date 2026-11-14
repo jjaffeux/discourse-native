@@ -858,6 +858,7 @@ class _DSheetSideScope extends InheritedWidget {
     required this.fillAvailableHeight,
     required this.extendBehindKeyboard,
     this.menuFootCorners,
+    this.liftedMenuFoot = false,
     required super.child,
   });
 
@@ -867,6 +868,7 @@ class _DSheetSideScope extends InheritedWidget {
   final bool extendBehindKeyboard;
 
   final BorderRadius? menuFootCorners;
+  final bool liftedMenuFoot;
 
   static DSheetSide? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.side;
@@ -887,6 +889,7 @@ class _DSheetSideScope extends InheritedWidget {
       side != oldWidget.side ||
       inset != oldWidget.inset ||
       menuFootCorners != oldWidget.menuFootCorners ||
+      liftedMenuFoot != oldWidget.liftedMenuFoot ||
       fillAvailableHeight != oldWidget.fillAvailableHeight ||
       extendBehindKeyboard != oldWidget.extendBehindKeyboard;
 }
@@ -2564,11 +2567,14 @@ class DSheetContent extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: overArtwork
                         ? Colors.white.withValues(alpha: .9)
-                        : Color.lerp(
-                            tokens.background,
-                            tokens.foreground,
-                            .35,
-                          )!.withValues(alpha: .5),
+                        : (variant == DSheetVariant.adaptiveMenu
+                                  ? tokens.menuGrabMark
+                                  : Color.lerp(
+                                      tokens.background,
+                                      tokens.foreground,
+                                      .35,
+                                    )!)
+                              .withValues(alpha: .5),
                     borderRadius: BorderRadius.circular(3),
                     boxShadow: const [],
                   ),
@@ -2646,6 +2652,8 @@ class DSheetContent extends StatelessWidget {
     // it; its round and the shadow it casts up are enough.
     final writing = menu && extendBehindKeyboard;
     final edgeBorder = BorderSide(color: tokens.border);
+    final sideScope = context
+        .dependOnInheritedWidgetOfExactType<_DSheetSideScope>();
     final border = writing
         ? null
         : inset
@@ -2658,14 +2666,15 @@ class DSheetContent extends StatelessWidget {
               top: edgeBorder,
               left: edgeBorder,
               right: edgeBorder,
+              bottom: sideScope?.liftedMenuFoot == true
+                  ? edgeBorder
+                  : BorderSide.none,
             ),
             DSheetSide.bottom => Border(top: edgeBorder),
             DSheetSide.left => Border(right: edgeBorder),
             _ => throw StateError('Sheet side was not resolved.'),
           };
-    final menuFootCorners = context
-        .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
-        ?.menuFootCorners;
+    final menuFootCorners = sideScope?.menuFootCorners;
     final baseRadius = menu || (inset && menuFootCorners != null)
         ? (menuFootCorners ??
                   const BorderRadius.vertical(bottom: Radius.circular(24)))

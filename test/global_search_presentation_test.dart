@@ -490,8 +490,8 @@ void main({bool useDeviceMetrics = false}) {
           of: search,
           matching: find.byType(DSheetContent),
         );
-        expect(tester.getRect(surface).bottom, closeTo(phone.height, .01));
         if (_useDeviceMetrics) {
+          expect(tester.getRect(surface).bottom, closeTo(phone.height, .01));
           final keyboard = tester.view.viewInsets.bottom / ratio;
           expect(keyboard, greaterThan(0));
           expect(
@@ -502,7 +502,16 @@ void main({bool useDeviceMetrics = false}) {
           expect(tester.takeException(), isNull);
           return;
         }
-        expect(tester.getRect(search).bottom, closeTo(phone.height - 34, .01));
+        const safeBottom = 34;
+        const lift = 6 + safeBottom / 2;
+        expect(
+          tester.getRect(surface).bottom,
+          closeTo(phone.height - lift, .01),
+        );
+        expect(
+          tester.getRect(search).bottom,
+          closeTo(phone.height - safeBottom, .01),
+        );
         var panelBuilds = 0;
         final previous = debugOnRebuildDirtyWidget;
         debugOnRebuildDirtyWidget = (element, builtOnce) {
@@ -518,10 +527,13 @@ void main({bool useDeviceMetrics = false}) {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 350));
           await tester.pumpAndSettle();
-          expect(tester.getRect(surface).bottom, closeTo(phone.height, 1));
+          expect(
+            tester.getRect(surface).bottom,
+            closeTo(phone.height - (bottom == 0 ? lift : 0), 1),
+          );
           expect(
             tester.getRect(search).bottom,
-            closeTo(phone.height - (bottom == 0 ? 34 : bottom), 1),
+            closeTo(phone.height - (bottom == 0 ? safeBottom : bottom), 1),
           );
         }
         await tester.pumpAndSettle();
