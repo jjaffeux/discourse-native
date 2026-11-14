@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -189,6 +190,33 @@ void main() {
     expect(scroll.pixels, 0);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  testWidgets('phone search edits the exact query of its source feed', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+    );
+    await shell.applyTopicListFilterQuery('posts-min:17');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-list-filter')), findsNothing);
+    expect(shell.currentContent?.topicFilterQuery, 'posts-min:17');
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+    await _capture(tester, 'search-feed-filters-entry');
+    await tester.tap(find.byKey(const ValueKey('search-edit-feed-filters')));
+    await tester.pumpAndSettle();
+    final apply = find.byKey(const ValueKey('topic-filter-apply'));
+    expect(apply, findsOneWidget);
+    await _capture(tester, 'search-feed-filters-editor');
+    await tester.tap(apply);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicFilterQuery, 'posts-min:17');
+    expect(find.byKey(ForumSearch.inputKey), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('changing a topic filter reopens a visited list at its top', (
     tester,
   ) async {

@@ -14,6 +14,7 @@ import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../models/group_route.dart';
 import '../models/search_results.dart';
+import '../models/topic_filter.dart';
 import '../plugin_api/global_search_filters.dart';
 import '../plugin_api/global_search_models.dart';
 import '../theme/discourse_typography.dart';
@@ -28,6 +29,7 @@ import 'shell_scope.dart';
 import 'shell_search_controller.dart';
 import 'site_url.dart';
 import 'topic_filter_controller.dart';
+import 'topic_filter_input.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
 typedef _FieldLayout = ({
@@ -147,6 +149,100 @@ class _ForumSearchState extends State<ForumSearch> {
   Size? _layoutViewport;
   String? get _selectedResultId => _presentation.selectedResultId;
   final _panelKey = GlobalKey<GlobalSearchPanelState>();
+  List<TopicFilterOption>? _feedFilterOptions;
+
+  String _feedFilterQuery(ContentRoute route) => [
+    _shell!.topicListFilterEditorQuery(route),
+    if (!route.isSearchList) route.topicListSearch,
+  ].where((value) => value.isNotEmpty).join(' ');
+  ({ShellTabContext tab, ContentRoute route, String site})? _filterVisit;
+
+  ContentRoute? get _filterFeed {
+    final routes = _document?.contentStack ?? const <ContentRoute>[];
+    final route = routes.reversed
+        .where((route) => !route.isGlobalSearch)
+        .firstOrNull;
+    return route?.isTopicList == true && route?.isMessages != true
+        ? route
+        : null;
+  }
+
+  void _showFeedFilters() {
+    final shell = _shell!;
+    final tab = _document;
+    final route = _filterFeed;
+    final site = tab?.siteUrl;
+    if (tab == null || route == null || site == null || !_ownsInput(tab))
+      return;
+    final visit = (tab: tab, route: route, site: site);
+    _focus.unfocus();
+    _filterVisit = visit;
+    _feedFilterOptions = null;
+    _pageRevision.value++;
+    unawaited(
+      shell.topicFilterLookups.loadOptions(site).then((options) {
+        if (!mounted || _filterVisit != visit || !_ownsInput(tab)) return;
+        _feedFilterOptions = options;
+        _pageRevision.value++;
+      }),
+    );
+  }
+
+  void _hideFeedFilters() {
+    _filterVisit = null;
+    _feedFilterOptions = null;
+    _pageRevision.value++;
+    _requestEditorFocus();
+  }
+
+  Widget _feedFilters(
+    BuildContext context,
+    ({ShellTabContext tab, ContentRoute route, String site}) visit,
+  ) {
+    final shell = _shell!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DSheetHeader(
+          children: [
+            DButton(
+              key: const ValueKey('search-back-to-results'),
+              label: Text(context.l10n.search),
+              icon: const DIcon(DIcons.arrowLeft),
+              variant: DButtonVariant.ghost,
+              onPressed: _hideFeedFilters,
+            ),
+          ],
+        ),
+        Expanded(
+          child: TopicFilterInput(
+            siteUrl: visit.site,
+            initialQuery: _feedFilterQuery(visit.route),
+            categories: shell.filterCategoriesFor(visit.site),
+            options: _feedFilterOptions ?? const [],
+            tokenized: true,
+            embedded: true,
+            hintText: context.l10n.addAFilter,
+            onDismiss: _hideFeedFilters,
+            onSubmitted: (query) async {
+              if (_filterVisit != visit ||
+                  !_ownsInput(visit.tab) ||
+                  visit.tab.lease?.isCurrent != true ||
+                  _filterFeed?.sameDestinationAs(visit.route) != true)
+                return;
+              _filterVisit = null;
+              _closeSearch();
+              await visit.tab.applyTopicListFilterQuery(
+                splitTopicFilterQuery(query)
+                    .where((token) => topicFilterClauseKey(token) != token)
+                    .join(' '),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 
   String get _listExpression {
     final shell = _shell;
@@ -209,6 +305,7 @@ class _ForumSearchState extends State<ForumSearch> {
   String get _query => (_open ? _global.query : _closedExpression.query);
 
   void _closeSearch() {
+    _filterVisit = null;
     if (widget._pageContent) {
       if (_sourceRoute?.isGlobalSearch == true) {
         _openChanged(false, DPopoverChangeReason.imperative);
@@ -751,6 +848,21 @@ class _ForumSearchState extends State<ForumSearch> {
       if (_global.hasOrderFilter)
         GlobalSearchCondition(filterId: 'order', value: [_global.order]),
     ];
+    final feed = widget.fullScreen ? _filterFeed : null;
+    if (feed?.isAdvancedTopicFilter == true &&
+        words.isNotEmpty &&
+        conditions.isEmpty) {
+      final held = splitTopicFilterQuery(
+        _feedFilterQuery(feed!),
+      ).where((clause) => topicFilterClauseKey(clause) != null);
+      _global.rememberSearch();
+      if (!ownsAction()) return;
+      _closeSearch();
+      if (!ownsAction(requireSourceRoute: false)) return;
+      unawaited(owner.applyTopicListFilterQuery([...held, words].join(' ')));
+      _clearSubmittedSearch();
+      return;
+    }
     _global.rememberSearch();
     if (!ownsAction()) return;
     _closeSearch();
@@ -1301,31 +1413,49 @@ class _ForumSearchState extends State<ForumSearch> {
         child: Column(
           key: ForumSearch.panelKey,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: phone ? DMenuContentScale(child: header) : header,
-            ),
-            Expanded(
-              child: GlobalSearchPanel(
-                key: _panelKey,
-                showConditions: false,
-                footerControls: phone,
-                showClearFilters:
-                    _listExpression.isNotEmpty &&
-                    _global.wordsQuery.isEmpty &&
-                    _global.conditions.isEmpty,
-                controller: _global,
-                onApply: _apply,
-                onOpenSection: _openSection,
-                onRefocus: _focus.requestFocus,
-                selectedResultId: _selectedResultId,
-                onSelect: (id) {
-                  _selectResult(id);
-                  _pageRevision.value++;
-                },
-                onOpen: _openResult,
+            if (_filterVisit case final visit?)
+              Expanded(
+                child: DMenuContentScale(child: _feedFilters(context, visit)),
+              )
+            else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: phone ? DMenuContentScale(child: header) : header,
               ),
-            ),
+              if (phone && _filterFeed != null)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DButton(
+                    key: const ValueKey('search-edit-feed-filters'),
+                    icon: const DIcon(DIcons.filter),
+                    label: Text(context.l10n.filterTopics),
+                    size: DButtonSize.filter,
+                    variant: DButtonVariant.ghost,
+                    onPressed: _showFeedFilters,
+                  ),
+                ),
+              Expanded(
+                child: GlobalSearchPanel(
+                  key: _panelKey,
+                  showConditions: false,
+                  footerControls: phone,
+                  showClearFilters:
+                      _listExpression.isNotEmpty &&
+                      _global.wordsQuery.isEmpty &&
+                      _global.conditions.isEmpty,
+                  controller: _global,
+                  onApply: _apply,
+                  onOpenSection: _openSection,
+                  onRefocus: _focus.requestFocus,
+                  selectedResultId: _selectedResultId,
+                  onSelect: (id) {
+                    _selectResult(id);
+                    _pageRevision.value++;
+                  },
+                  onOpen: _openResult,
+                ),
+              ),
+            ],
           ],
         ),
       );
