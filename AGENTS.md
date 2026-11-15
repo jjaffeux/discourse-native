@@ -3,7 +3,7 @@
 ## Task workflow
 
 - At the start of each new task, pull the latest changes from `origin/main` into local `main`. Use the updated `main` as the base for any new task branch or worktree.
-- When you believe the task is complete, summarize the result and ask the user to choose a next step, unless they already specified one.
+- When you believe the task is complete and the user has yet to specify the next step, summarize the result and present the choices below using `AskUserQuestion` or the equivalent structured question tool. In Codex, use `request_user_input_async` in Default mode or `request_user_input` in Plan mode.
   1. Commit the changes to `main` and push to `origin/main`.
   2. Deploy to the connected iPhone.
   3. Describe more changes to make.
