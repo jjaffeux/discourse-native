@@ -119,6 +119,11 @@ class DSheet<T> extends StatelessWidget {
   /// Restores focus to the trigger or previous control after dismissal.
   final bool restoreFocus;
 
+  bool get _focusAfterLayout =>
+      content.variant == DSheetVariant.adaptiveMenu &&
+      content.side == DSheetSide.bottom &&
+      content.keepFootInView;
+
   @override
   Widget build(BuildContext context) => DDialog<T>(
     controller: controller,
@@ -132,7 +137,7 @@ class DSheet<T> extends StatelessWidget {
     dismissOnEscape: true,
     barrierLabel: barrierLabel,
     routeSettings: null,
-    initialFocusNode: initialFocusNode,
+    initialFocusNode: _focusAfterLayout ? null : initialFocusNode,
     finalFocusNode: finalFocusNode,
     restoreFocus: restoreFocus,
     transitionDuration: const Duration(milliseconds: 200),
@@ -155,6 +160,7 @@ class DSheet<T> extends StatelessWidget {
       initiallyExpanded: content.initiallyExpanded,
       contentLoading: content.contentLoading,
       restAt: content.restAt,
+      adaptiveInitialFocus: _focusAfterLayout ? initialFocusNode : null,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -1005,6 +1011,7 @@ Widget _sheetPresentation(
   bool initiallyExpanded = false,
   bool contentLoading = false,
   GlobalKey? restAt,
+  FocusNode? adaptiveInitialFocus,
   double? topBottomMaxWidth,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
@@ -1025,6 +1032,7 @@ Widget _sheetPresentation(
       initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
       restAt: restAt,
+      initialFocusNode: adaptiveInitialFocus,
     );
     return _DSheetKeyboardInsets(
       child: retainKeyboardInsets

@@ -926,6 +926,9 @@ class _DPopoverState extends State<DPopover>
       child: widget.child,
     );
     if (_sheet) {
+      final sheetOpen = _syncScheduled && !_suspended && _tickersEnabled
+          ? widget.open ?? _open
+          : _open;
       final adaptiveMenu =
           widget.mobileSheetVariant == DSheetVariant.adaptiveMenu &&
           !widget.fullScreenOnMobile;
@@ -947,12 +950,14 @@ class _DPopoverState extends State<DPopover>
         child: DSheet<void>(
           initialFocusNode:
               widget.initialFocusNode ?? (adaptiveMenu ? _menuFocus : null),
-          open: _open,
+          open: sheetOpen,
           onOpenChangeComplete: widget.onOpenChangeComplete,
           restoreFocus: widget.restoreFocus,
-          // Return directly to the previous editor instead of hiding its
-          // keyboard by focusing the sheet's button first.
-          finalFocusNode: _previousFocus ?? _triggerFocus,
+          // A controlled sheet can open before this popover captures focus.
+          // In that frame the dialog captures the active editor itself.
+          finalFocusNode: sheetOpen && !_open
+              ? null
+              : _previousFocus ?? _triggerFocus,
           onOpenChanged: (details) {
             if (details.open) return;
             _request(false, switch (details.reason) {

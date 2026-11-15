@@ -189,6 +189,77 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
+  testWidgets('controlled phone popover starts sheet motion promptly', (
+    tester,
+  ) async {
+    final open = ValueNotifier(false);
+    final editorFocus = FocusNode();
+    addTearDown(open.dispose);
+    addTearDown(editorFocus.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: Column(
+            children: [
+              DInput(focusNode: editorFocus, autofocus: true),
+              ValueListenableBuilder<bool>(
+                valueListenable: open,
+                builder: (context, value, child) => DPopover(
+                  open: value,
+                  onOpenChange: (value, _) => open.value = value,
+                  sheetOnMobile: true,
+                  mobileSheetVariant: DSheetVariant.adaptiveMenu,
+                  content: DPopoverContent(
+                    child: DPopoverClose(
+                      builder: (context, close) => DButton(
+                        label: const Text('Close menu'),
+                        onPressed: close,
+                      ),
+                    ),
+                  ),
+                  child: DPopoverTrigger(
+                    builder: (context, trigger) => DButton(
+                      label: const Text('Open menu'),
+                      focusNode: trigger.focusNode,
+                      onPressed: trigger.toggle,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final sheet = find.byType(DSheetContent);
+    expect(sheet, findsNothing);
+    expect(editorFocus.hasPrimaryFocus, isTrue);
+
+    Future<void> pumpThreeFrames() async {
+      for (var frame = 0; frame < 3; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+    }
+
+    await tester.tap(find.text('Open menu'));
+    await pumpThreeFrames();
+    final opened = sheet.hitTestable().evaluate().isNotEmpty;
+    await tester.pumpAndSettle();
+    final restTop = tester.getTopLeft(sheet).dy;
+    expect(editorFocus.hasFocus, isFalse);
+
+    await tester.tap(find.text('Close menu'));
+    await pumpThreeFrames();
+    final closing = tester.getTopLeft(sheet).dy > restTop;
+
+    expect((opened: opened, closing: closing), (opened: true, closing: true));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(editorFocus.hasPrimaryFocus, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
     testWidgets('IME Escape preserves an open editor on $platform', (
       tester,

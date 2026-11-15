@@ -283,6 +283,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.initiallyExpanded,
     required this.contentLoading,
     this.restAt,
+    this.initialFocusNode,
     this.onDismissRequested,
   });
 
@@ -295,6 +296,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final bool initiallyExpanded;
   final bool contentLoading;
   final GlobalKey? restAt;
+  final FocusNode? initialFocusNode;
   final VoidCallback? onDismissRequested;
 
   @override
@@ -341,6 +343,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     vsync: this,
   );
   _DSheetKeyboardFrame? _nativeKeyboardFrame;
+  double _viewKeyboardInset = 0;
+  ({double inset, double offset})? _keyboardRise;
   late final _peekClock = AnimationController(
     vsync: this,
     duration: DSwipeHint.hold,
@@ -469,11 +473,22 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _draggedPastDetent = false;
 
   bool get _animate => !MediaQuery.disableAnimationsOf(context);
-  double get _keyboardInset => _keyboardInsetAnimation.value;
+  bool get _tracksViewKeyboard =>
+      widget.keepFootInView && _nativeKeyboardFrame != null;
+
+  double get _keyboardInset =>
+      _tracksViewKeyboard ? _viewKeyboardInset : _keyboardInsetAnimation.value;
 
   double get _offset {
     final geometry = _exit.geometry;
-    if (geometry == null) return _travel.value;
+    if (geometry == null) {
+      final rise = _keyboardRise;
+      if (rise == null) return _travel.value;
+      final remaining =
+          (_nativeKeyboardFrame!.inset - _keyboardInset) /
+          (_nativeKeyboardFrame!.inset - rise.inset);
+      return rise.offset * remaining.clamp(0.0, 1.0);
+    }
     final progress =
         1 - widget.presentation.animation.value / geometry.initialValue;
     return geometry.origin + geometry.distance * progress.clamp(0.0, 1.0);
@@ -522,10 +537,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   Simulation? _beginExit() {
     if (!_animate) return null;
     _interacted = true;
+    final origin = _offset;
     _travel.stop();
     _keyboardPlacement.stop();
     _keyboardInsetAnimation.stop();
-    final origin = _travel.value;
     final animationValue = widget.presentation.animation.value;
     final viewport = context.findRenderObject();
     final surface = _surface.currentContext?.findRenderObject();
@@ -614,13 +629,32 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (current == 0 && frame.inset == 0 && _nativeKeyboardFrame == null) {
       return;
     }
+    if (_tracksViewKeyboard && _nativeKeyboardFrame!.inset == frame.inset) {
+      return;
+    }
+    final origin = _offset;
     _nativeKeyboardFrame = frame;
     _keyboardMinimum?.cancel();
     _keyboardStability?.cancel();
     _raiseForKeyboard = false;
     _keyboardSettled = frame.inset > 0;
-    _keyboard = math.max(current, frame.inset);
     _interacted = true;
+    if (_tracksViewKeyboard) {
+      // The view publishes iOS's animated inset on each frame. Use it for both
+      // the footer and the rise so they cannot get ahead of the keyboard.
+      _keyboard = frame.inset;
+      _travel.value = origin;
+      _keyboardRise = frame.inset > current && origin > 0 && !_dragging
+          ? (inset: current, offset: origin)
+          : null;
+      if (_keyboardRise == null && frame.inset > 0 && !_dragging) {
+        _travel.value = 0;
+        _completeExpansion();
+      }
+      _changed();
+      return;
+    }
+    _keyboard = math.max(current, frame.inset);
     _keyboardInsetAnimation.value = current;
     if (frame.inset == 0) _travel.stop();
     final duration = frame.remaining;
@@ -758,6 +792,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (_exit.geometry != null) return;
     final box = _surface.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
+    if (_keyboardRise != null && _offset == 0) {
+      _keyboardRise = null;
+      _travel.value = 0;
+      _completeExpansion();
+    }
     final tall = box.size.height;
     if (widget.holdContentHeight) {
       if (!widget.contentLoading &&
@@ -805,11 +844,22 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
               !_dragging &&
               !_travel.isAnimating
         : !_interacted;
-    if (!_measured || (followsLow && !_peeking && (wasLow - low).abs() > 1)) {
+    final firstLayout = !_measured;
+    if (firstLayout || (followsLow && !_peeking && (wasLow - low).abs() > 1)) {
       _measured = true;
       _travel.value = low;
       if (restBox is RenderBox) _schedulePeek();
       setState(() {});
+      if (firstLayout && widget.initialFocusNode != null) {
+        if (View.of(context).viewInsets.bottom > 0) {
+          _focusInitialInput();
+        } else {
+          // Let the measured sheet paint before starting a new system keyboard.
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _focusInitialInput(),
+          );
+        }
+      }
       // The first offstage layout establishes the detent. Let the visible
       // viewport and its scroll metrics settle before deciding it is short.
       return;
@@ -847,6 +897,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
   }
 
+  void _focusInitialInput() {
+    if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+    final node = widget.initialFocusNode;
+    if (node != null && node.canRequestFocus) node.requestFocus();
+  }
+
   bool _metrics(ScrollMetricsNotification notification) {
     _remember(notification.context, notification.metrics);
     return false;
@@ -867,6 +923,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _cancelPeek();
     _interacted = true;
     _dragging = true;
+    _stopKeyboardRise();
     _startOffset = _travel.value;
     final box = _surface.currentContext?.findRenderObject();
     _swipeExtent = math.max(
@@ -898,7 +955,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _update(delta);
       return widget.restAt == null ? 0 : delta - (_travel.value - before);
     }
-    if (_travel.value <= 0 &&
+    if (_offset <= 0 &&
         !(delta > 0 && metrics.pixels <= metrics.minScrollExtent)) {
       return delta;
     }
@@ -914,7 +971,15 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   bool _stopScrollMomentum() => _expansionGesture && widget.restAt == null;
 
+  void _stopKeyboardRise() {
+    if (_keyboardRise == null) return;
+    final origin = _offset;
+    _keyboardRise = null;
+    _travel.value = origin;
+  }
+
   void _settle(double to) {
+    _stopKeyboardRise();
     if (_animate) {
       unawaited(_travel.animateTo(to, duration: _duration, curve: _curve));
     } else {
@@ -926,7 +991,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   void _toggle() {
     _cancelPeek();
     _interacted = true;
-    _settle(_travel.value > 1 ? 0 : _low);
+    _settle(_offset > 1 ? 0 : _low);
   }
 
   void _finish(double velocity, {bool cancelled = false}) {
@@ -1086,6 +1151,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final view = View.of(context);
+    if (_tracksViewKeyboard &&
+        DOverlayRoute.modalCoverCountOf(context).value == 0) {
+      _viewKeyboardInset = view.viewInsets.bottom / view.devicePixelRatio;
+    }
     final systemKeyboard = media.viewInsets.bottom;
     if (_exit.geometry == null &&
         _nativeKeyboardFrame == null &&
@@ -1106,7 +1175,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     );
     final safeBottom =
         _exit.geometry?.safeBottom ??
-        screenFoot * (1 - _keyboardPlacement.value);
+        (widget.keepFootInView
+            ? screenFoot
+            : screenFoot * (1 - _keyboardPlacement.value));
     _safeBottom = safeBottom;
     _scheduleMeasure();
     final content = _DSheetAdaptiveMenuScope(

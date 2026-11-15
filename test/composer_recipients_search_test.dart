@@ -28,7 +28,27 @@ Finder _option(String name) => find.byWidgetPredicate(
 );
 
 void main() {
-  testWidgets('phone recipient sheet eases into its final top edge', (
+  testWidgets('the phone recipient sheet appears before opening the keyboard', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      mobile: true,
+      api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+    );
+    await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(find.byType(DSheetContent).hitTestable(), findsNothing);
+    expect(tester.testTextInput.isVisible, isFalse);
+
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(find.byType(DSheetContent).hitTestable(), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
+  });
+
+  testWidgets('phone recipient sheet rises with the system keyboard inset', (
     tester,
   ) async {
     await _pump(
@@ -43,31 +63,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(top(), greaterThan(100));
 
-    await sendKeyboardFrame(
-      tester,
-      inset: 320,
-      milliseconds: 383,
-      curve: 7,
-      spring: const {
-        'mass': 1,
-        'stiffness': 555.0265,
-        'damping': 47.118,
-        'velocity': 0,
-      },
-    );
+    await sendKeyboardFrame(tester, inset: 320);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 381));
-    final before = top();
-    await tester.pump(const Duration(milliseconds: 1));
-    final penultimate = top();
-    await tester.pump(const Duration(milliseconds: 1));
-    final settled = top();
+    final restingTop = top();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 160);
+    await tester.pump(const Duration(milliseconds: 16));
+    final halfwayTop = top();
+    expect(halfwayTop, closeTo((restingTop + 8) / 2, .01));
 
-    expect(settled, closeTo(8, .01));
-    expect(
-      penultimate - settled,
-      lessThanOrEqualTo(before - penultimate + .05),
-    );
+    await sendKeyboardFrame(tester, inset: 320);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(top(), halfwayTop);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+    expect(top(), closeTo(8, .01));
   });
 
   testWidgets('phone recipient footer stays above the rising keyboard', (
@@ -79,21 +89,25 @@ void main() {
       api: _RecipientApi(Completer<FoundUsersAndGroups>()),
       recipients: 'sam',
     );
+    const homeInset = 34.0;
+    tester.view.viewPadding = const FakeViewPadding(bottom: homeInset);
     final footer = find.byType(DSheetFooter);
     final screenBottom = tester.view.physicalSize.height;
     await tester.tap(find.byKey(const ValueKey('composer-recipients')));
     await tester.pumpAndSettle();
-    expect(tester.getBottomLeft(footer).dy, closeTo(screenBottom, .01));
+    expect(
+      tester.getBottomLeft(footer).dy,
+      closeTo(screenBottom - homeInset, .01),
+    );
 
-    const inset = 320.0;
-    const duration = 400;
-    await sendKeyboardFrame(tester, inset: inset, milliseconds: duration);
+    await sendKeyboardFrame(tester, inset: 320);
     await tester.pump();
-    for (var elapsed = 16; elapsed <= duration; elapsed += 16) {
+    for (final inset in [12.0, 27.0, 84.0, 146.0, 256.0, 320.0]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: inset);
       await tester.pump(const Duration(milliseconds: 16));
       expect(
         tester.getBottomLeft(footer).dy,
-        closeTo(screenBottom - inset * elapsed / duration, .01),
+        closeTo(screenBottom - (inset < homeInset ? homeInset : inset), .01),
       );
     }
   });
@@ -109,8 +123,9 @@ void main() {
           api: _RecipientApi(Completer<FoundUsersAndGroups>()),
         );
         await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+        await tester.pumpAndSettle();
+        await sendKeyboardFrame(tester, inset: 260);
         tester.view.viewInsets = const FakeViewPadding(bottom: 260);
-        await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
 
         final sheet = find.byType(DSheetContent);
@@ -129,6 +144,7 @@ void main() {
           await tester.tap(find.byTooltip('Close'));
         }
         await tester.pump();
+        await sendKeyboardFrame(tester, inset: 0);
         tester.view.viewInsets = FakeViewPadding.zero;
 
         var lastTop = lastGestureTop;

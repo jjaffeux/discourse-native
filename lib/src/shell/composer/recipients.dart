@@ -294,7 +294,6 @@ class _RecipientSearchField extends StatelessWidget {
       placeholder: context.l10n.searchUsersOrGroups,
       semanticLabel: context.l10n.searchRecipients,
       registerAsAnchor: false,
-      autofocus: true,
       showTrigger: false,
       addons: [
         DInputGroupAddon(

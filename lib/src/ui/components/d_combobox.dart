@@ -645,7 +645,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     }
     setState(() {});
     _controller._changed();
-    if (open && focusInput) _focusInputAfterBuild();
+    if (open && focusInput && !_usesSheetFooter) _focusInputAfterBuild();
     _revealOptions(
       open ? highlightedValue ?? selectedValues.firstOrNull : null,
     );
