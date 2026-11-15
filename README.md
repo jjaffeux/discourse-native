@@ -18,6 +18,11 @@ activity.
   preferences, badges and another person's messages, opens in the browser. A
   plain click on a `/u/{username}` link still opens the user card first, and
   the card's **View profile** button opens the page.
+- **Layout.** The identity is the page heading, as on the reader's own
+  summary, so the name is shown once. The Summary and Activity line tabs stay
+  below it while the chosen section scrolls, starting at the bio. A section's
+  own choices use the filled tab list, so they do not read as a second row of
+  page tabs.
 - **Endpoints.** The header reads `/u/{username}.json`. Its `user` object is a
   superset of the card's, and adds the full `bio_cooked`, `last_seen_at` and
   `profile_hidden`. The Summary section reads `/u/{username}/summary.json` and

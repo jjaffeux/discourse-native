@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 
 import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
+import '../models/user_card.dart';
 import '../models/user_profile.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/discourse_typography.dart';
@@ -199,29 +201,22 @@ class _ProfileViewState extends State<_ProfileView> {
         Expanded(
           child: _scrolling(
             profile,
-            below: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: DTabList<_ProfileSection>(
-                    children: [
-                      DTabTrigger(
-                        value: _ProfileSection.summary,
-                        child: Text(context.l10n.summary),
-                      ),
-                      DTabTrigger(
-                        value: _ProfileSection.activity,
-                        child: Text(context.l10n.activity),
-                      ),
-                    ],
-                  ),
+            controls: DTabList<_ProfileSection>(
+              variant: DTabListVariant.line,
+              children: [
+                DTabTrigger(
+                  value: _ProfileSection.summary,
+                  child: Text(context.l10n.summary),
                 ),
-              ),
-            ],
+                DTabTrigger(
+                  value: _ProfileSection.activity,
+                  child: Text(context.l10n.activity),
+                ),
+              ],
+            ),
             section: switch (_section) {
               _ProfileSection.summary => SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 sliver: SliverToBoxAdapter(
                   child: UserSummaryPanel(
                     siteUrl: widget.siteUrl,
@@ -230,11 +225,12 @@ class _ProfileViewState extends State<_ProfileView> {
                 ),
               ),
               _ProfileSection.activity => SliverPadding(
-                padding: const EdgeInsets.only(top: 8, bottom: 24),
+                padding: const EdgeInsets.only(bottom: 24),
                 sliver: UserActivityView(
                   siteUrl: widget.siteUrl,
                   username: username,
                   embedded: true,
+                  embeddedFilterVariant: DTabListVariant.defaultStyle,
                 ),
               ),
             },
@@ -244,12 +240,20 @@ class _ProfileViewState extends State<_ProfileView> {
     );
   }
 
+  // The person is the page's heading, as on the reader's own summary: the
+  // name is said once, and the tabs stay while what they chose scrolls.
   Widget _scrolling(
     UserProfile profile, {
-    required List<Widget> below,
+    Widget? controls,
+    List<Widget> below = const [],
     Widget? section,
   }) => DPageSurface.headed(
-    title: Text(widget.title),
+    title: _ProfileIdentity(
+      card: profile.card,
+      siteUrl: widget.siteUrl,
+      textStyle: DefaultTextStyle.of(context).style,
+    ),
+    controls: controls,
     bodyBuilder: (context, header) => ContentReadingLane(
       builder: (context, lane) => DPageScrollInsets(
         builder: (context, insets) => CustomScrollView(
@@ -269,7 +273,7 @@ class _ProfileViewState extends State<_ProfileView> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _ProfileHeader(
+                        _ProfileAbout(
                           profile: profile,
                           siteUrl: widget.siteUrl,
                         ),
@@ -288,8 +292,45 @@ class _ProfileViewState extends State<_ProfileView> {
   );
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile, required this.siteUrl});
+/// The card's identity as a page heading.
+class _ProfileIdentity extends StatelessWidget {
+  const _ProfileIdentity({
+    required this.card,
+    required this.siteUrl,
+    required this.textStyle,
+  });
+
+  final UserCard card;
+  final String siteUrl;
+
+  /// The text style outside the heading, whose face the card's lines must
+  /// not inherit.
+  final TextStyle textStyle;
+
+  // The heading is inset by the page's 16 and the card pads itself by as
+  // much, so the card is laid out that far past each side: its banner then
+  // spans the reading lane and its text starts where the bio does.
+  static const _inset = 16.0;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = constraints.maxWidth + 2 * _inset;
+      return OverflowBox(
+        fit: OverflowBoxFit.deferToChild,
+        minWidth: width,
+        maxWidth: width,
+        child: DefaultTextStyle(
+          style: textStyle,
+          child: UserCardHeader(card: card, siteUrl: siteUrl),
+        ),
+      );
+    },
+  );
+}
+
+class _ProfileAbout extends StatelessWidget {
+  const _ProfileAbout({required this.profile, required this.siteUrl});
 
   final UserProfile profile;
   final String siteUrl;
@@ -301,86 +342,79 @@ class _ProfileHeader extends StatelessWidget {
     final metadata = PluginScope.of(
       context,
     ).registry.userProfileMetadata(context, siteUrl, card);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        UserCardHeader(card: card, siteUrl: siteUrl),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (bio != null)
-                CookedHtml(
-                  html: bio,
-                  siteUrl: siteUrl,
-                  textStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    height: DiscourseTypography.lineHeightCooked,
+    final places = card.website != null || card.location != null;
+    final dates =
+        card.createdAt != null ||
+        profile.lastSeenAt != null ||
+        card.lastPostedAt != null;
+    if (bio == null && !places && !dates && metadata.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
+        children: [
+          if (bio != null)
+            CookedHtml(
+              html: bio,
+              siteUrl: siteUrl,
+              textStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                height: DiscourseTypography.lineHeightCooked,
+              ),
+            ),
+          if (places)
+            Wrap(
+              spacing: 14,
+              runSpacing: 6,
+              children: [
+                if (card.website case final website?)
+                  UserCardDetail(
+                    icon: const DIcon(DIcons.globe, size: 16),
+                    label: card.websiteName ?? userCardWebsiteLabel(website),
+                    onTap: () => unawaited(openExternalLink(website)),
                   ),
-                ),
-              if (card.website != null || card.location != null) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 6,
-                  children: [
-                    if (card.website case final website?)
-                      UserCardDetail(
-                        icon: const DIcon(DIcons.globe, size: 16),
-                        label:
-                            card.websiteName ?? userCardWebsiteLabel(website),
-                        onTap: () => unawaited(openExternalLink(website)),
-                      ),
-                    if (card.location case final location?)
-                      UserCardDetail(
-                        icon: const DIcon(DIcons.locationDot, size: 16),
-                        label: location,
-                      ),
-                  ],
-                ),
+                if (card.location case final location?)
+                  UserCardDetail(
+                    icon: const DIcon(DIcons.locationDot, size: 16),
+                    label: location,
+                  ),
               ],
-              if (card.createdAt != null ||
-                  profile.lastSeenAt != null ||
-                  card.lastPostedAt != null) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
-                  children: [
-                    if (card.createdAt case final joined?)
-                      UserCardMetadata(
-                        label: context.l10n.joined,
-                        value: userCardMonth(joined),
-                      ),
-                    if (profile.lastSeenAt case final seen?)
-                      RelativeTimeBuilder(
-                        when: seen,
-                        builder: (context, label) => UserCardMetadata(
-                          label: context.l10n.lastSeen,
-                          value: label,
-                        ),
-                      ),
-                    if (card.lastPostedAt case final posted?)
-                      RelativeTimeBuilder(
-                        when: posted,
-                        builder: (context, label) => UserCardMetadata(
-                          label: context.l10n.lastPost,
-                          value: label,
-                        ),
-                      ),
-                  ],
-                ),
+            ),
+          if (dates)
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                if (card.createdAt case final joined?)
+                  UserCardMetadata(
+                    label: context.l10n.joined,
+                    value: userCardMonth(joined),
+                  ),
+                if (profile.lastSeenAt case final seen?)
+                  RelativeTimeBuilder(
+                    when: seen,
+                    builder: (context, label) => UserCardMetadata(
+                      label: context.l10n.lastSeen,
+                      value: label,
+                    ),
+                  ),
+                if (card.lastPostedAt case final posted?)
+                  RelativeTimeBuilder(
+                    when: posted,
+                    builder: (context, label) => UserCardMetadata(
+                      label: context.l10n.lastPost,
+                      value: label,
+                    ),
+                  ),
               ],
-              if (metadata.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Wrap(spacing: 12, runSpacing: 6, children: metadata),
-              ],
-            ],
-          ),
-        ),
-      ],
+            ),
+          if (metadata.isNotEmpty)
+            Wrap(spacing: 12, runSpacing: 6, children: metadata),
+        ],
+      ),
     );
   }
 }
