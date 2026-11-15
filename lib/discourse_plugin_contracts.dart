@@ -22,6 +22,7 @@ export 'src/data/plugin_transport.dart';
 export 'src/data/preference_storage_scope.dart' show PreferenceStorage;
 export 'src/data/serial_operation_queue.dart';
 export 'src/data/site_lookup_failure.dart' hide HttpBasicAuthenticationRequired;
+export 'src/data/site_outbox.dart';
 export 'src/data/site_preference_keys.dart'
     show
         ForgottenSites,
@@ -162,7 +163,4 @@ export 'src/theme/code_colors.dart';
 export 'src/theme/discourse_colors.dart';
 export 'src/theme/discourse_typography.dart' show DiscourseTypography;
 export 'src/utils/paging_policy.dart'
-    show
-        ScrollPagingGate,
-        UserScrollGestures,
-        paginationPrefetchDistance;
+    show ScrollPagingGate, UserScrollGestures, paginationPrefetchDistance;

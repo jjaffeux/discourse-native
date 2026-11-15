@@ -53,6 +53,7 @@ import '../data/site_preference_keys.dart';
 import '../data/site_tracker.dart';
 import '../data/site_video_thumbnail_repository.dart';
 import '../data/store.dart';
+import '../data/topic_read_outbox.dart';
 import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
@@ -253,6 +254,7 @@ class ShellController extends FrameSafeNotifier
     required this.authenticator,
     required this.drafts,
     ContentSnapshotStore? contentSnapshots,
+    this.topicReadOutbox,
     HttpBasicAuthStore? basicAuth,
     EmojiPickerStore? emojiPickerStore,
     AppSettingsStore? appSettingsStore,
@@ -423,6 +425,9 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
     instanceAt: _instanceAt,
   );
+
+  /// Null keeps unconfirmed read timings in memory only.
+  final TopicReadOutbox? topicReadOutbox;
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
   final bool _ownsLifecycle;
@@ -1028,7 +1033,26 @@ class ShellController extends FrameSafeNotifier
     credentials: credentials,
     lifecycle: lifecycle,
     store: store,
+    outbox: topicReadOutbox,
+    accountFor: (siteUrl) {
+      final instance = _instanceAt(siteUrl);
+      return instance == null || !instance.isConnected
+          ? null
+          : _workspaceAccountIdentity(instance);
+    },
+    originSuccesses: switch (api.topicReads) {
+      final OriginSuccessSource source => source.onOriginSuccess,
+      _ => null,
+    },
   );
+
+  /// Offers every site the read timings it has not confirmed. This is the
+  /// place to call from a connectivity signal as well.
+  void _flushTopicReads() {
+    for (final instance in _instances) {
+      unawaited(_topicReads.flush(instance.url));
+    }
+  }
 
   late final GlobalSearchApi _globalSearchApi = GlobalSearchApi(
     transport: api.pluginTransport,
@@ -1904,6 +1928,7 @@ class ShellController extends FrameSafeNotifier
     // Refresh only the selected account; persisted metadata can draw inactive
     // sites until their first selection.
     unawaited(_refreshAccountState(initialInstance));
+    _flushTopicReads();
     _onLoaded?.call(this);
   }
 
@@ -3819,6 +3844,7 @@ class ShellController extends FrameSafeNotifier
     _syncTracking();
     if (!foreground) return;
     doNotDisturb.checkExpirations();
+    _flushTopicReads();
 
     final resyncTracking =
         backgroundedAt != null &&

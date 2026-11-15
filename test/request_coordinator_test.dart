@@ -298,6 +298,35 @@ void main() {
   });
 
   group('DiscourseRequestCoordinator', () {
+    test('only a successful answer is announced for its origin', () async {
+      final coordinator = DiscourseRequestCoordinator();
+      addTearDown(coordinator.close);
+      final answered = <String>[];
+      final detach = coordinator.onOriginSuccess(answered.add);
+      coordinator.onOriginSuccess((_) => throw StateError('observer'));
+      Future<http.Response> send(String url, int status) => coordinator.run(
+        Uri.parse(url),
+        () async => http.Response('', status),
+      );
+
+      expect((await send('https://one.example/a', 200)).statusCode, 200);
+      await send('https://one.example/b', 500);
+      await send('https://one.example/c', 404);
+      await expectLater(
+        coordinator.run(
+          Uri.parse('https://one.example/d'),
+          () => throw const SocketException('offline'),
+        ),
+        throwsA(isA<SocketException>()),
+      );
+      await send('https://two.example/sub/e', 204);
+      expect(answered, ['https://one.example', 'https://two.example']);
+
+      detach();
+      await send('https://one.example/f', 200);
+      expect(answered, hasLength(2));
+    });
+
     test(
       'shares immutable headers regardless of name case and order',
       () async {

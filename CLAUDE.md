@@ -140,7 +140,9 @@ Requirements line with it.
   time window), `foundation/read_dwell.dart` (how long a reader must stay on
   chat or topic content, and what time away costs),
   `foundation/retry_wait.dart` (the wait after a rate-limited
-  write and how to word it), `utils/pagination.dart` (when scroll-driven paging
+  write and how to word it), `data/site_outbox.dart` (how work a site has
+  not accepted is kept per site and account across launches, and discarded
+  when damaged), `utils/pagination.dart` (when scroll-driven paging
   may ask for the next page),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
   merged across pages, live arrivals, and the seam back to the present),

@@ -157,6 +157,29 @@ final class DiscourseRequestCoordinator {
   final OriginRequestGate _gate;
   final OriginRequestGate _transfers;
   final Map<DiscourseGetRequestKey, _SharedGet> _gets = {};
+  final Set<void Function(String origin)> _successObservers = {};
+
+  /// Tells [observer] each time an origin answers a request with success,
+  /// until the returned callback is called. That answer is the only evidence
+  /// this layer has that a site is reachable again, so work held back by a
+  /// failure may be offered once more. Observers run inside the request and
+  /// must not throw or do work there.
+  void Function() onOriginSuccess(void Function(String origin) observer) {
+    void registration(String origin) => observer(origin);
+    _successObservers.add(registration);
+    return () => _successObservers.remove(registration);
+  }
+
+  void _announceSuccess(String origin) {
+    if (_successObservers.isEmpty) return;
+    for (final observer in _successObservers.toList()) {
+      try {
+        observer(origin);
+      } catch (_) {
+        // The answered request must still reach its caller.
+      }
+    }
+  }
 
   /// [transfer] routes a request whose body or response takes minutes to move
   /// into the transfer lane. Transfers are never shared, so [coalesce] is not
@@ -292,6 +315,9 @@ final class DiscourseRequestCoordinator {
         // After the cooldown is in place: what recovery re-drives must see
         // a site that answered only to ask to be left alone.
         reachability.succeeded(url, dispatch);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _announceSuccess(url.origin);
+        }
         return response;
       },
       resolvePriority: () => intent.isInteractive
@@ -319,6 +345,7 @@ final class DiscourseRequestCoordinator {
     _transfers.close();
     _gets.clear();
     if (_ownsReachability) reachability.dispose();
+    _successObservers.clear();
   }
 
   static const Duration maximumRetryAfter = Duration(hours: 1);

@@ -15,6 +15,7 @@ import 'data/platform_app_badge.dart';
 import 'data/platform_content_snapshot_store.dart';
 import 'data/platform_draft_store.dart';
 import 'data/platform_push_registration.dart';
+import 'data/platform_topic_read_outbox.dart';
 import 'data/platform_web_auth.dart';
 import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
@@ -147,6 +148,7 @@ final class AppRuntime {
   ContentSnapshotStore? _contentSnapshots;
   late ForumTabStore _forumTabs;
   final _recentDestinations = RecentDestinationsStore();
+  final _topicReadOutbox = createPlatformTopicReadOutbox();
   final _destinationBookmarks = DestinationBookmarksStore();
   late SiteTrackerFactory _trackers;
   late Updater _updater;
@@ -191,6 +193,7 @@ final class AppRuntime {
     forumSettingsStore: _forumSettingsStore,
     drafts: _drafts,
     contentSnapshots: _contentSnapshots,
+    topicReadOutbox: _topicReadOutbox,
     forumTabs: _forumTabs,
     recentDestinations: _recentDestinations,
     destinationBookmarks: _destinationBookmarks,

@@ -32,6 +32,7 @@ import 'chat_reactors.dart';
 import 'chat_read_receipt_owner.dart';
 import 'chat_route.dart';
 import 'chat_send_coordinator.dart';
+import 'chat_send_outbox.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 import 'chat_thread_list_refresh.dart';
@@ -442,6 +443,7 @@ class ChatController extends FrameSafeNotifier {
     int? maxRetainedCanonicalMessageIdsPerSite,
     DateTime Function()? clock,
     ChatSendCoordinatorFactory? sendCoordinatorFactory,
+    ChatSendOutbox? sendOutbox,
     ChatMessageContext? Function(String siteUrl)? messageContextFor,
   }) : assert(minimumWindowRefreshInterval >= Duration.zero),
        assert(
@@ -505,6 +507,7 @@ class ChatController extends FrameSafeNotifier {
           requests: requests,
           host: sendHost,
           clock: _clock,
+          outbox: sendOutbox,
         );
     _liveSync = ChatLiveSyncCoordinator(
       requests: requests,

@@ -2,13 +2,21 @@ import 'dart:async';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
+import '../data/origin_cooldown.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../data/topic_read_outbox.dart';
 import '../data/topic_reads_api.dart';
+import '../data/write_failure.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/site_scoped_state.dart';
 import '../models/topic.dart';
 
+/// Read progress is credited to the site as timings. Timings the site has not
+/// confirmed are also kept in [outbox], so reading through a failure or just
+/// before the app is killed is offered again by [flush] instead of being lost.
+/// A timing sent twice only adds its half second to the post's read time: the
+/// site moves a read position to the highest post it is given.
 final class TopicReadController extends FrameSafeNotifier
     with AccountScopedState {
   TopicReadController({
@@ -16,13 +24,55 @@ final class TopicReadController extends FrameSafeNotifier
     required this.credentials,
     required this.lifecycle,
     required this.store,
-  });
+    this.outbox,
+    this.accountFor,
+    void Function() Function(void Function(String origin) observer)?
+    originSuccesses,
+    Duration Function()? elapsed,
+    OriginCooldown Function()? cooldownFactory,
+    this.confirmedSaveDelay = const Duration(seconds: 2),
+  }) : _elapsed = elapsed ?? _monotonicClock(),
+       _cooldownFactory = cooldownFactory ?? OriginCooldown.new {
+    _detachOriginSuccesses = originSuccesses?.call(_originAnswered);
+    final outbox = this.outbox;
+    if (outbox != null) {
+      unawaited(
+        outbox.sites().then((sites) {
+          if (!isDisposed) _waitingSites.addAll(sites);
+        }),
+      );
+    }
+  }
+
+  /// A site that keeps refusing timings while answering everything else is
+  /// offered them again no more often than this.
+  static const answeredFlushInterval = Duration(seconds: 30);
 
   final TopicReadsApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final Store store;
+
+  /// Null keeps unconfirmed timings in memory only.
+  final TopicReadOutbox? outbox;
+
+  /// Names the signed-in account of a site, or null while it has none. The
+  /// outbox holds timings for that account alone.
+  final String? Function(String siteUrl)? accountFor;
+
+  /// A confirmed timing left in the file is only sent once more after a
+  /// kill, so its removal waits this long for another write to carry it
+  /// instead of costing a write per batch.
+  final Duration confirmedSaveDelay;
+
+  final Duration Function() _elapsed;
+  final OriginCooldown Function() _cooldownFactory;
+  void Function()? _detachOriginSuccesses;
   final Map<String, _TopicReadAccount> _accounts = {};
+
+  /// Sites that may hold unconfirmed timings, in memory or in [outbox].
+  final Set<String> _waitingSites = {};
+  final Map<String, Duration> _answeredFlushes = {};
 
   _TopicReadAccount? _accountFor(String siteUrl) {
     final account = _accounts[siteUrl];
@@ -33,7 +83,10 @@ final class TopicReadController extends FrameSafeNotifier
     final held = _accounts[siteUrl];
     if (held?.lease.isCurrent == true) return held!;
     held?.retire();
-    final account = _TopicReadAccount(lease ?? lifecycle.capture(siteUrl));
+    final account = _TopicReadAccount(
+      lease ?? lifecycle.capture(siteUrl),
+      _cooldownFactory(),
+    );
     _accounts[siteUrl] = account;
     account.detach = account.lease.onRetire(() {
       if (!identical(_accounts[siteUrl], account)) return;
@@ -42,7 +95,118 @@ final class TopicReadController extends FrameSafeNotifier
       account.retire();
       if (hadPositions) notifySafely();
     });
+    _restore(siteUrl, account);
     return account;
+  }
+
+  /// Takes what an earlier session left for this account. A save issued
+  /// before that has arrived would overwrite it, so [_save] waits for it.
+  void _restore(String siteUrl, _TopicReadAccount account) {
+    final outbox = this.outbox;
+    if (outbox == null || account.restore != null) return;
+    final identity = account.identity ??= accountFor?.call(siteUrl);
+    if (identity == null) return;
+    account.restore = outbox.restore(siteUrl, identity).then((held) {
+      if (!_isCurrent(siteUrl, account)) return;
+      for (final entry in (held ?? const <int, List<int>>{}).entries) {
+        final state = account.topic(entry.key);
+        // A reset in flight clears the topic's reads once the site accepts it.
+        if (state.reset != null) continue;
+        // Posts this session already admitted are queued, sent or held, and
+        // posts under the site's position need no timing.
+        final credits = state.credits;
+        state.retries.addAll(
+          credits == null ? entry.value : entry.value.where(credits.admit),
+        );
+      }
+      account.restored = true;
+      if (account.hasPending) _waitingSites.add(siteUrl);
+      _save(siteUrl, account);
+    });
+  }
+
+  void _save(String siteUrl, _TopicReadAccount account) {
+    final outbox = this.outbox;
+    if (outbox == null || !_isCurrent(siteUrl, account)) return;
+    account.settle?.cancel();
+    account.settle = null;
+    _restore(siteUrl, account);
+    final identity = account.identity;
+    if (identity == null || !account.restored) return;
+    final pending = account.pending;
+    unawaited(outbox.save(siteUrl, identity, pending.isEmpty ? null : pending));
+  }
+
+  void _saveSoon(String siteUrl, _TopicReadAccount account) {
+    if (outbox == null || account.settle != null) return;
+    account.settle = Timer(confirmedSaveDelay, () {
+      account.settle = null;
+      _save(siteUrl, account);
+    });
+  }
+
+  /// Offers the site every timing it has not confirmed for [siteUrl], from
+  /// this session and from earlier ones. Call it when the site may be
+  /// reachable again: on app resume and from a connectivity signal. A site
+  /// answering any request does so by itself.
+  ///
+  /// Topics are sent one after another, so a recovered site is not handed the
+  /// whole backlog at once. The pass stops when the site does not answer or
+  /// turns the account away, which costs an unreachable site one request; a
+  /// topic the site fails on by itself does not hold back the ones after it.
+  Future<void> flush(String siteUrl) {
+    if (isDisposed) return Future.value();
+    // Only an outbox can hold timings for a site this session has not read.
+    final account = outbox == null || accountFor?.call(siteUrl) == null
+        ? _accountFor(siteUrl)
+        : _ensureAccount(siteUrl);
+    if (account == null) return Future.value();
+    return account.flush ??= _flush(siteUrl, account).whenComplete(() {
+      account.flush = null;
+    });
+  }
+
+  Future<void> _flush(String siteUrl, _TopicReadAccount account) async {
+    _restore(siteUrl, account);
+    await account.restore;
+    if (!_isCurrent(siteUrl, account)) return;
+    for (final topicId in account.topics.keys.toList()) {
+      if (account.cooldown.remaining != null) return;
+      final state = account.topics[topicId];
+      if (state == null || state.reset != null || state.retries.isEmpty) {
+        continue;
+      }
+      state.queued.addAll(state.retries);
+      state.retries.clear();
+      account.unanswered = false;
+      await _drainPending(siteUrl, topicId, account, state);
+      if (!_isCurrent(siteUrl, account)) return;
+      if (account.unanswered) return;
+    }
+    if (!account.hasPending && (outbox == null || account.restored)) {
+      _waitingSites.remove(siteUrl);
+    }
+  }
+
+  void _originAnswered(String origin) {
+    if (isDisposed || _waitingSites.isEmpty) return;
+    for (final siteUrl in _waitingSites.toList()) {
+      if (_originOf(siteUrl) != origin) continue;
+      final now = _elapsed();
+      final last = _answeredFlushes[siteUrl];
+      if (last != null && now - last < answeredFlushInterval) continue;
+      _answeredFlushes[siteUrl] = now;
+      unawaited(flush(siteUrl));
+    }
+  }
+
+  /// A site key read from the file is not known to be an HTTP URL.
+  static String? _originOf(String siteUrl) {
+    try {
+      return Uri.parse(siteUrl).origin;
+    } catch (_) {
+      return null;
+    }
   }
 
   bool _isCurrent(String siteUrl, _TopicReadAccount account) =>
@@ -115,6 +279,7 @@ final class TopicReadController extends FrameSafeNotifier
     state.retries.removeAll(retryPosts);
     // Install receipts before store listeners can reset or replace this account.
     state.queued.addAll({...unread, ...retryPosts});
+    _save(siteUrl, account);
     store.update<Topic>(
       siteUrl,
       topicId,
@@ -171,6 +336,7 @@ final class TopicReadController extends FrameSafeNotifier
       if (!isCurrent()) return;
       final hadPosition = state.position != null;
       state.clearReads();
+      _save(siteUrl, account);
       await accepted();
       if (isCurrent() && hadPosition) notifySafely();
     } catch (error, stackTrace) {
@@ -183,17 +349,26 @@ final class TopicReadController extends FrameSafeNotifier
     }
   }
 
+  /// The account has left the site, so nobody can send what it left unread
+  /// there. A lease that retires without this call keeps the file: the same
+  /// account restores it under its next lease, and any other account drops it.
   @override
   void forget(String siteUrl) {
     final account = _accounts.remove(siteUrl);
     final hadPositions = account?.hasPositions ?? false;
     account?.retire();
+    _waitingSites.remove(siteUrl);
+    _answeredFlushes.remove(siteUrl);
+    unawaited(outbox?.forget(siteUrl));
     if (hadPositions) notifySafely();
   }
 
+  /// The outbox keeps what is unconfirmed for the next launch.
   @override
   void dispose() {
     if (isDisposed) return;
+    _detachOriginSuccesses?.call();
+    _detachOriginSuccesses = null;
     for (final account in _accounts.values) {
       account.retire();
     }
@@ -248,6 +423,7 @@ final class TopicReadController extends FrameSafeNotifier
           .take(TopicReadsApi.maximumPostsPerRequest)
           .toSet();
       state.queued.removeAll(posts);
+      state.sending.addAll(posts);
       try {
         final auth = await AccountRequestSession(
           siteUrl,
@@ -258,9 +434,11 @@ final class TopicReadController extends FrameSafeNotifier
         if (apiKey == null) {
           // Retry admitted posts on a later observation, without spinning
           // through more batches while credentials remain unavailable.
+          state.sending.removeAll(posts);
           state.retries.addAll({...posts, ...state.queued});
           state.queued.clear();
           state.run = null;
+          _waitingSites.add(siteUrl);
           return;
         }
         await auth.run(
@@ -272,28 +450,96 @@ final class TopicReadController extends FrameSafeNotifier
             postNumbers: posts.toList(),
           ),
         );
-      } catch (_) {
+        if (!ownsRun()) return;
+        state.sending.removeAll(posts);
+        _saveSoon(siteUrl, account);
+      } catch (error) {
+        if (!ownsRun()) return;
+        state.sending.removeAll(posts);
+        account.unanswered = switch (error) {
+          WriteException(:final statusCode?) =>
+            statusCode == 401 || statusCode == 403 || statusCode == 429,
+          _ => true,
+        };
+        if (_refused(error)) {
+          _saveSoon(siteUrl, account);
+          continue;
+        }
         // A position cannot acknowledge exact timing keys. A later observation
-        // retries failed posts, while newer queued batches continue now.
-        if (ownsRun()) state.retries.addAll(posts);
+        // or flush retries failed posts, while newer queued batches continue
+        // now.
+        state.retries.addAll(posts);
+        _waitingSites.add(siteUrl);
+        if (error is WriteException &&
+            error.failure == WriteFailure.rateLimited) {
+          account.cooldown.extend(
+            error.retryWait,
+            onExpired: () {
+              if (_isCurrent(siteUrl, account)) unawaited(flush(siteUrl));
+            },
+          );
+        }
+        _save(siteUrl, account);
       }
     }
   }
+
+  /// The site answered and will answer the same way again: the topic is gone
+  /// or closed to this account. Holding the timing would resend it forever.
+  static bool _refused(Object error) => switch (error) {
+    WriteException(:final statusCode?) =>
+      statusCode >= 400 &&
+          statusCode < 500 &&
+          statusCode != 408 &&
+          statusCode != 429,
+    _ => false,
+  };
+}
+
+Duration Function() _monotonicClock() {
+  final stopwatch = Stopwatch()..start();
+  return () => stopwatch.elapsed;
 }
 
 final class _TopicReadAccount {
-  _TopicReadAccount(this.lease);
+  _TopicReadAccount(this.lease, this.cooldown);
 
   final SiteLease lease;
+
+  /// Holds [TopicReadController.flush] while the site asks to be left alone.
+  final OriginCooldown cooldown;
   final Map<int, _TopicReadState> topics = {};
   void Function()? detach;
+  String? identity;
+  Future<void>? restore;
+  bool restored = false;
+  Future<void>? flush;
+  Timer? settle;
+
+  /// The last failed batch says the site is unreachable, rate limited or
+  /// closed to this account, so the topics after it would fare no better.
+  bool unanswered = false;
 
   _TopicReadState topic(int id) => topics.putIfAbsent(id, _TopicReadState.new);
   bool get hasPositions => topics.values.any((state) => state.position != null);
+  bool get hasPending => topics.values.any((state) => state.hasPending);
+
+  PendingTopicReads get pending => boundTopicReads({
+    for (final entry in topics.entries)
+      if (entry.value.hasPending)
+        entry.key: {
+          ...entry.value.queued,
+          ...entry.value.sending,
+          ...entry.value.retries,
+        },
+  });
 
   void retire() {
     detach?.call();
     detach = null;
+    cooldown.cancel();
+    settle?.cancel();
+    settle = null;
     for (final state in topics.values) {
       state.clearReads();
       state.reset = null;
@@ -307,14 +553,21 @@ final class _TopicReadState {
   _TopicReadCredits? credits;
   final Set<int> retries = {};
   final Set<int> queued = {};
+
+  /// The batch on the wire, which is neither queued nor failed yet.
+  final Set<int> sending = {};
   _TopicReadRun? run;
   Object? reset;
+
+  bool get hasPending =>
+      retries.isNotEmpty || queued.isNotEmpty || sending.isNotEmpty;
 
   void clearReads() {
     position = null;
     credits = null;
     retries.clear();
     queued.clear();
+    sending.clear();
     run = null;
   }
 }
