@@ -99,6 +99,7 @@ final class _TaxonomySite {
 }
 
 final class _TaxonomyDirectoryController
+    with AccountScopedState
     implements NotificationPreferenceTaxonomy {
   _TaxonomyDirectoryController(this._shell);
 
@@ -124,6 +125,7 @@ final class _TaxonomyDirectoryController
     _site(siteUrl);
   }
 
+  @override
   void forget(String siteUrl) {
     _sites.remove(siteUrl)?.retire();
   }

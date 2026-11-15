@@ -93,7 +93,8 @@ void main() {
         reads++;
         return null;
       },
-      acceptDoNotDisturbSnapshot: (_, user, {required isCurrent}) => user,
+      acceptDoNotDisturbSnapshot:
+          (_, user, {required isCurrent, required accountReplaced}) => user,
       publishFreshCurrentUser: (_, _, _, _) => true,
     );
     addTearDown(statuses.dispose);

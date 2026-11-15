@@ -9,6 +9,7 @@ import '../data/store.dart';
 import '../data/topic_mutations_api.dart';
 import '../data/write_credential.dart';
 import '../data/write_failure.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/group_route.dart';
@@ -16,7 +17,7 @@ import '../models/post.dart';
 import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
 
-final class MessageArchiveTransactions {
+final class MessageArchiveTransactions implements SiteScopedState {
   MessageArchiveTransactions({
     required this.store,
     required this.credentials,
@@ -155,6 +156,7 @@ final class MessageArchiveTransactions {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     _writes.removeWhere((key) => key.startsWith('$siteUrl#'));
   }

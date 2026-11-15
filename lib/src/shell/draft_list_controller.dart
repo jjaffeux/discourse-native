@@ -8,6 +8,7 @@ import '../data/api_credentials.dart';
 import '../data/drafts_api.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/user_draft.dart';
@@ -19,7 +20,8 @@ typedef ListedDraftDeleter =
       bool Function() isCurrent,
     );
 
-final class DraftListController extends FrameSafeNotifier {
+final class DraftListController extends FrameSafeNotifier
+    with AccountScopedState {
   DraftListController({
     required this.api,
     required this.credentials,
@@ -297,6 +299,7 @@ final class DraftListController extends FrameSafeNotifier {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     final account = _accounts.remove(siteUrl);
     account?.retire();

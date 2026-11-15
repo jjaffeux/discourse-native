@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 
+import '../foundation/site_scoped_state.dart';
 import 'api_credentials.dart';
 import 'avif.dart';
 import 'byte_cache.dart';
@@ -65,7 +66,7 @@ final class SiteImageBytes {
 /// could retain on its own, so reading several forums costs no more memory
 /// than reading one. The forum that just loaded may keep the whole budget;
 /// the others give up their least recently used images first.
-final class SiteImageRepository {
+final class SiteImageRepository with AccountScopedState {
   SiteImageRepository({
     required this.credentials,
     required this.lifecycle,
@@ -265,6 +266,7 @@ final class SiteImageRepository {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     for (final request in _requests.toList(growable: false)) {
       if (request._siteUrl == siteUrl) request.release();

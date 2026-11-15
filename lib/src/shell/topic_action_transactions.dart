@@ -9,6 +9,7 @@ import '../data/store.dart';
 import '../data/topic_mutations_api.dart';
 import '../data/write_credential.dart';
 import '../data/write_failure.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
@@ -16,7 +17,7 @@ import '../models/topic.dart';
 import 'post_mutation_targets.dart';
 import 'topic_data_owner.dart';
 
-final class TopicActionTransactions {
+final class TopicActionTransactions implements SiteScopedState {
   TopicActionTransactions({
     required this.store,
     required this.credentials,
@@ -57,6 +58,7 @@ final class TopicActionTransactions {
   final Set<String> _topicDeletionWrites = {};
   bool _disposed = false;
 
+  @override
   void forget(String siteUrl) {
     _topicPinWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));

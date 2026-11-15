@@ -3,11 +3,12 @@ import 'dart:async';
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/notification.dart';
 import '../models/notification_type_counts.dart';
 
-final class NotificationFeedRefreshOwner {
+final class NotificationFeedRefreshOwner implements SiteScopedState {
   NotificationFeedRefreshOwner({
     required this.siteNotificationTypes,
     required this.credentials,
@@ -216,6 +217,7 @@ final class NotificationFeedRefreshOwner {
     account.timer = timer;
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?.retire();
 
   void dispose() {

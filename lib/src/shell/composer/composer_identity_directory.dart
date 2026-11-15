@@ -12,6 +12,7 @@ import '../../data/site_lifecycle.dart';
 import '../../foundation/bounded_lru_cache.dart';
 import '../../foundation/elapsed_time.dart';
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/site_scoped_state.dart';
 import '../../models/found_group.dart';
 import '../../models/found_hashtag.dart';
 import '../../models/found_user.dart';
@@ -67,7 +68,7 @@ final class ComposerRecipientSearch {
 /// Each site's identities belong to the account lease that resolved them: a
 /// replaced lease retires its resolution, and work it started cannot publish
 /// into the next account's.
-final class ComposerIdentityDirectory {
+final class ComposerIdentityDirectory with AccountScopedState {
   ComposerIdentityDirectory({
     required this._credentials,
     required this._lifecycle,
@@ -312,6 +313,7 @@ final class ComposerIdentityDirectory {
     required String term,
   }) => _resolutionFor(siteUrl).searchUsers(term, topicId);
 
+  @override
   void forget(String siteUrl) {
     _resolutions.remove(siteUrl)?.retire();
   }

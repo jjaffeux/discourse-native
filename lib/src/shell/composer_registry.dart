@@ -26,7 +26,7 @@ final class ComposerCloseFailed extends ComposerCloseResult {
   final String? message;
 }
 
-final class _RetainedComposerRegistry {
+final class _RetainedComposerRegistry implements SiteScopedState {
   _RetainedComposerRegistry(this._drafts, {this.onRemoved});
 
   final ComposerDraftCoordinator _drafts;
@@ -202,7 +202,8 @@ final class _RetainedComposerRegistry {
     remove(composer);
   }
 
-  void forgetSite(String siteUrl) {
+  @override
+  void forget(String siteUrl) {
     _drafts.forgetSite(siteUrl);
     for (final composer in forSite(siteUrl).toList()) {
       composer.draftSettled();

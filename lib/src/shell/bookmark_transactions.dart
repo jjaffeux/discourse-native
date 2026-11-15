@@ -9,6 +9,7 @@ import '../data/bookmarks_write_api.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/write_failure.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/post.dart';
@@ -47,7 +48,7 @@ typedef _WriteCredential = ({
   WriteException? failure,
 });
 
-final class BookmarkTransactions {
+final class BookmarkTransactions implements SiteScopedState {
   BookmarkTransactions({
     required this.api,
     required this.store,
@@ -157,6 +158,7 @@ final class BookmarkTransactions {
     return owner?.pluginBookmarkTarget;
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?._retire();
 
   void dispose() {

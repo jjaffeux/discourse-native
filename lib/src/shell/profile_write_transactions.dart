@@ -6,6 +6,7 @@ import '../data/current_user_reconciler.dart';
 import '../data/site_lifecycle.dart';
 import '../data/write_failure.dart';
 import '../foundation/retry_wait.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/user_status.dart';
@@ -107,7 +108,7 @@ final class _ProfileAccount {
   }
 }
 
-final class ProfileWriteTransactions {
+final class ProfileWriteTransactions implements SiteScopedState {
   ProfileWriteTransactions({
     required this.currentUser,
     required this._updateHidePresence,
@@ -516,6 +517,7 @@ final class ProfileWriteTransactions {
     }
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?.retire();
 
   void dispose() {

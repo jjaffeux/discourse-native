@@ -1,6 +1,7 @@
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/topic_tracking_reconciler.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_user.dart';
 import '../models/json.dart';
 import '../models/site_config.dart';
@@ -13,7 +14,7 @@ abstract interface class TopicTrackingAdmission {
 }
 
 /// Owns tracking identity and canonical row effects independently of transport.
-final class TopicTrackingDirectory {
+final class TopicTrackingDirectory implements SiteScopedState {
   TopicTrackingDirectory({
     required this.lifecycle,
     required this.store,
@@ -88,6 +89,7 @@ final class TopicTrackingDirectory {
     };
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?._retire();
 
   void dispose() {

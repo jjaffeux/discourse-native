@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
 
+import '../foundation/site_scoped_state.dart';
 import '../models/site_config.dart';
 import 'cooking_plugin.dart';
 
@@ -20,7 +21,7 @@ final class CookingUploadLease {
   final ApplicationCooking _host;
 }
 
-final class ApplicationCooking {
+final class ApplicationCooking with AccountScopedState {
   ApplicationCooking({
     required List<CookingPlugin> plugins,
     CookingServicePort? service,
@@ -320,6 +321,7 @@ final class ApplicationCooking {
         : CookingResult(html: '', failure: CookingFailure.stale);
   }
 
+  @override
   void forget(String siteUrl) {
     _generations.update(siteUrl, (value) => value + 1, ifAbsent: () => 1);
     _uploads.remove(siteUrl);

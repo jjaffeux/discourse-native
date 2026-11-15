@@ -6,9 +6,11 @@ import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/topic_reads_api.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/topic.dart';
 
-final class TopicReadController extends FrameSafeNotifier {
+final class TopicReadController extends FrameSafeNotifier
+    with AccountScopedState {
   TopicReadController({
     required this.api,
     required this.credentials,
@@ -181,6 +183,7 @@ final class TopicReadController extends FrameSafeNotifier {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     final account = _accounts.remove(siteUrl);
     final hadPositions = account?.hasPositions ?? false;

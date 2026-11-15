@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import 'topic_data_owner.dart';
@@ -62,7 +63,7 @@ final class _TopicPostHighlight {
   bool visible = false;
 }
 
-final class TopicNavigationAttempts {
+final class TopicNavigationAttempts implements SiteScopedState {
   TopicNavigationAttempts({
     required this._focusedContext,
     required this._store,
@@ -330,7 +331,8 @@ final class TopicNavigationAttempts {
     if (changed && notify && !_disposed) _changed();
   }
 
-  void forgetSite(String siteUrl) {
+  @override
+  void forget(String siteUrl) {
     _retireJumps((attempt) => attempt.key.siteUrl == siteUrl);
     if (_highlight?.siteUrl == siteUrl) clearHighlight(notify: false);
   }

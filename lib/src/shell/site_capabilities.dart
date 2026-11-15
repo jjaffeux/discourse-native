@@ -3,6 +3,7 @@ import 'dart:async';
 import '../data/site_lifecycle.dart';
 import '../data/topic_composer_queries_api.dart';
 import '../data/write_credential.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/post_flag.dart';
 import '../models/topic.dart';
 
@@ -25,7 +26,7 @@ final class _SiteCapabilityRecord {
 
 /// What each forum lets this account do, as far as the app has learned it.
 /// Retiring a site is one removal.
-final class SiteCapabilities {
+final class SiteCapabilities with AccountScopedState {
   SiteCapabilities({
     required this.credentialForWrite,
     required this.topicComposerQueries,
@@ -116,6 +117,17 @@ final class SiteCapabilities {
     changed();
   }
 
+  /// Drops what only the former account was allowed. The post-action catalog
+  /// and the server's plugin list are the same for every account.
+  @override
+  void accountChanged(String siteUrl) {
+    final site = _sites[siteUrl];
+    if (site == null) return;
+    site.composer = null;
+    site.composerRead = null;
+  }
+
+  @override
   void forget(String siteUrl) {
     _sites.remove(siteUrl);
   }

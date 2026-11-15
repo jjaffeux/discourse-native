@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../foundation/site_scoped_state.dart';
 import '../models/user_directory.dart';
 import '../plugin_api/global_search_models.dart';
 import 'recent_search_history.dart';
@@ -15,7 +16,7 @@ final class SearchFocusRequest {
   final GlobalSearchContext? context;
 }
 
-class ShellSearchController extends ChangeNotifier {
+class ShellSearchController extends ChangeNotifier with AccountScopedState {
   ShellSearchController({required this.history});
 
   final RecentSearchHistory history;
@@ -168,6 +169,7 @@ class ShellSearchController extends ChangeNotifier {
     _notify();
   }
 
+  @override
   void forget(String siteUrl) {
     _anonymousSearchDenied.remove(siteUrl);
     _pageWords.removeWhere((key, _) => key.siteUrl == siteUrl);

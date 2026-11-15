@@ -424,14 +424,17 @@ void main() {
     });
 
     test('account replacement discards the previous tag identity', () async {
-      final controller = await _loadController(_TagApi());
+      final api = _TagApi();
+      final controller = await _loadController(api);
       const query = TopicTag(name: 'personal');
       await controller.openTopicTag(query, siteUrl: _siteUrl);
       expect(controller.currentContent!.feedPath, '/tag/personal-label/1.json');
+      // Let the refresh that load started answer the first account.
+      await pumpEventQueue();
 
       _publishUser(
         controller,
-        const DiscourseUser(
+        api.reader = const DiscourseUser(
           id: 8,
           username: 'lee',
           sidebarTags: [

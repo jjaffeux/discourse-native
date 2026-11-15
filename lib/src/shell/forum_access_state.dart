@@ -1,5 +1,6 @@
 import '../data/account_session_coordinator.dart';
 import '../data/site_lifecycle.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../plugin_api/shell_extensions.dart';
 
@@ -15,7 +16,7 @@ final class _ForumAccess {
 /// Tracks what stands between the user and each forum, which is a failed
 /// sign-in, an unreachable site, and the retry of it. Retiring a site is one
 /// removal.
-final class ForumAccessState {
+final class ForumAccessState implements SiteScopedState {
   ForumAccessState({
     required this.instanceAt,
     required this.captureLease,
@@ -115,6 +116,7 @@ final class ForumAccessState {
     changed();
   }
 
+  @override
   void forget(String siteUrl) {
     _sites.remove(siteUrl);
   }

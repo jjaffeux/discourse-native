@@ -937,10 +937,12 @@ void main() {
       'keeps a stale account response from replacing the new account feed',
       () async {
         final firstGate = Completer<void>();
-        final api = _AccountFeedApi(firstGate);
+        const accountA = DiscourseUser(id: 1, username: 'account-a');
+        final api = _AccountFeedApi(firstGate)
+          ..accounts['account-a-key'] = accountA;
         final oldAccount = instance(
           'meta.discourse.org',
-        ).copyWith(user: const DiscourseUser(id: 1, username: 'account-a'));
+        ).copyWith(user: accountA);
         final authenticator = FakeAuthenticator()
           ..keys[_siteUrl] = 'account-a-key';
         final shell = ShellController(

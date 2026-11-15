@@ -60,6 +60,7 @@ import '../data/write_credential.dart';
 import '../foundation/elapsed_time.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/icons/d_icons.dart';
+import '../foundation/site_scoped_state.dart';
 import '../foundation/startup_timeline.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/badge_route.dart';
@@ -3545,25 +3546,18 @@ class ShellController extends FrameSafeNotifier
         ? _topicTracking.beginAccountChange(siteUrl)
         : () {};
     try {
-      if (accepted.accountChanged) {
-        _notificationPreferences.forget(siteUrl);
-        _newTopicDismissals.forget(siteUrl);
-        _liveSessions.clearRetry(siteUrl);
-      }
+      if (accepted.accountChanged) _liveSessions.clearRetry(siteUrl);
       final user = accepted.user;
       final changed = previous.user != user || accepted.accountChanged;
       _profileWrites.currentUserAccepted(siteUrl, user);
       if (!ownsPublication()) return false;
       if (changed) {
-        if (accepted.accountChanged) {
-          accountActivity.forget(siteUrl);
-          if (!ownsPublication()) return false;
-          groups.forget(siteUrl);
-          if (!ownsPublication()) return false;
-          userDirectory.forget(siteUrl);
-          if (!ownsPublication()) return false;
-          badges.forget(siteUrl);
-          if (!ownsPublication()) return false;
+        // Sign-in and sign-out rotate the lease and forget the whole site.
+        // This path keeps the lease, so it keeps the owners that carry the
+        // publication itself, open composers, and what every reader shares.
+        if (accepted.accountChanged &&
+            !_siteState.accountChanged(siteUrl, stillOwned: ownsPublication)) {
+          return false;
         }
         if (!ownsPublication() || !identical(_instanceAt(siteUrl), previous)) {
           return false;
@@ -3578,6 +3572,13 @@ class ShellController extends FrameSafeNotifier
         if (!ownsPublication()) return true;
         if (accepted.accountChanged) {
           _liveSessions.accountChanged(siteUrl, lease);
+          if (!ownsPublication()) return true;
+          _taxonomy.bind(siteUrl);
+          if (currentInstance?.url == siteUrl) {
+            _resetToInstanceDefault(refreshAppearance: false);
+          }
+          // A warm appearance is the former account's theme choice.
+          unawaited(_presentation.refreshAppearance(siteUrl));
         }
         if (!ownsPublication()) return true;
       }
@@ -3668,11 +3669,15 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     DiscourseUser user, {
     required bool isCurrent,
+    bool accountReplaced = false,
   }) {
+    // The former account's pause, and a write of it still in flight, say
+    // nothing about the accepted account, whose snapshot stands on its own.
+    if (accountReplaced) doNotDisturb.forget(siteUrl);
     final until = doNotDisturb.acceptSnapshot(
       siteUrl,
       user.doNotDisturbUntil,
-      isCurrent: isCurrent,
+      isCurrent: isCurrent || accountReplaced,
     );
     return until == user.doNotDisturbUntil
         ? user
@@ -7644,62 +7649,79 @@ class ShellController extends FrameSafeNotifier
     return applied;
   }
 
+  /// Every per-forum owner, in the order a forum retires them. Site removal,
+  /// account-session rotation and an in-place account change all walk this
+  /// one list; an owner joins it with one `register` line.
+  late final SiteStateRegistry _siteState = SiteStateRegistry()
+    ..register(cooking)
+    ..registerRemovalStep(lifecycle.invalidate)
+    ..register(_newTopicDismissals)
+    ..register(_bookmarks)
+    ..register(_checklists)
+    ..register(_topicData)
+    ..register(siteImages)
+    ..register(videoThumbnails)
+    ..register(pdfThumbnails)
+    ..register(AccountScopedState.step(_workspace.remove))
+    ..register(SiteScopedState.step(_rotatedWorkspaces.remove))
+    ..register(search)
+    ..register(_composerRegistry)
+    ..register(accountActivity)
+    ..register(draftList)
+    ..register(userSummary)
+    ..register(groups)
+    ..register(userDirectory)
+    ..register(badges)
+    ..register(preferences)
+    ..register(
+      AccountScopedState.step((siteUrl) {
+        store.forget(siteUrl);
+        _cookingContextOwner?.rebindStoreReferences(siteUrl);
+      }),
+    )
+    ..register(_selectedPostModeration)
+    ..register(_flags)
+    ..register(_notificationPreferences)
+    ..register(_currentUsers)
+    ..register(_topicActions)
+    ..register(_messageArchives)
+    ..register(_topicNavigation)
+    ..register(_topicReads)
+    ..register(_taxonomy)
+    ..register(_topicTracking)
+    ..register(SiteScopedState.step(_liveSessions.clearRetry))
+    ..register(_siteCapabilities)
+    ..register(_customSidebar)
+    ..register(_notificationFeeds)
+    ..register(
+      SiteScopedState.step((siteUrl) => _sitePresentation?.forget(siteUrl)),
+    )
+    ..register(
+      SiteScopedState.step(
+        (siteUrl) => _pluginSiteConfigListenables.remove(siteUrl)?.dispose(),
+      ),
+    )
+    ..register(composerIdentities)
+    ..register(_forumAccess)
+    ..register(SiteScopedState.step(_basicInfoRefreshes.remove))
+    ..register(
+      AccountScopedState.step((siteUrl) {
+        _backgroundRetention.releaseSite(siteUrl);
+        _observePluginLifecycle(
+          _pluginSession
+              .forget(siteUrl)
+              .whenComplete(() => _backgroundRetention.releaseSite(siteUrl)),
+        );
+      }),
+    )
+    ..register(topicFeeds)
+    ..register(doNotDisturb)
+    ..register(userStatuses)
+    ..register(_profileWrites)
+    ..register(_liveSessions);
+
   void _forgetSiteState(String siteUrl, {bool invalidateLifecycle = true}) {
-    cooking.forget(siteUrl);
-    if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
-    _newTopicDismissals.forget(siteUrl);
-    _bookmarks.forget(siteUrl);
-    _checklists.forget(siteUrl);
-    _topicData.forget(siteUrl);
-    siteImages.forget(siteUrl);
-    videoThumbnails.forget(siteUrl);
-    pdfThumbnails.forget(siteUrl);
-    _workspace.remove(siteUrl);
-    _rotatedWorkspaces.remove(siteUrl);
-    search.forget(siteUrl);
-    _composerRegistry.forgetSite(siteUrl);
-
-    accountActivity.forget(siteUrl);
-    draftList.forget(siteUrl);
-    userSummary.forget(siteUrl);
-    groups.forget(siteUrl);
-    userDirectory.forget(siteUrl);
-    badges.forget(siteUrl);
-    preferences.forget(siteUrl);
-    store.forget(siteUrl);
-    _cookingContextOwner?.rebindStoreReferences(siteUrl);
-
-    _selectedPostModeration.forget(siteUrl);
-    _flags.forget(siteUrl);
-    _notificationPreferences.forget(siteUrl);
-    _currentUsers.forget(siteUrl);
-    _topicActions.forget(siteUrl);
-    _messageArchives.forget(siteUrl);
-    _topicNavigation.forgetSite(siteUrl);
-    _topicReads.forget(siteUrl);
-
-    _taxonomy.forget(siteUrl);
-    _topicTracking.forget(siteUrl);
-    _liveSessions.clearRetry(siteUrl);
-    _siteCapabilities.forget(siteUrl);
-    _customSidebar.forget(siteUrl);
-    _notificationFeeds.forget(siteUrl);
-    _sitePresentation?.forget(siteUrl);
-    _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
-    composerIdentities.forget(siteUrl);
-    _forumAccess.forget(siteUrl);
-    _basicInfoRefreshes.remove(siteUrl);
-
-    _backgroundRetention.releaseSite(siteUrl);
-    final forgetPlugins = _pluginSession
-        .forget(siteUrl)
-        .whenComplete(() => _backgroundRetention.releaseSite(siteUrl));
-    _observePluginLifecycle(forgetPlugins);
-    topicFeeds.forget(siteUrl);
-    doNotDisturb.forget(siteUrl);
-    userStatuses.forget(siteUrl);
-    _profileWrites.forget(siteUrl);
-    _liveSessions.forget(siteUrl);
+    _siteState.forget(siteUrl, siteRemoved: invalidateLifecycle);
     _notify();
   }
 

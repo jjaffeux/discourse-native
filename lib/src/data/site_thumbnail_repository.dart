@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../foundation/site_scoped_state.dart';
 import 'api_credentials.dart';
 import 'http_url_safety.dart';
 import 'site_lifecycle.dart';
@@ -13,7 +14,7 @@ import 'thumbnail_request.dart';
 /// Uses the secure upload URL resolver so native requests never carry forum
 /// credentials to a CDN. Generated artwork is shared across consumers and
 /// released with the account.
-class SiteThumbnailRepository {
+class SiteThumbnailRepository with AccountScopedState {
   SiteThumbnailRepository({
     required this.credentials,
     required this.lifecycle,
@@ -209,6 +210,7 @@ class SiteThumbnailRepository {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     for (final key in _cache.keys.where((key) => key.$1 == siteUrl).toList()) {
       _removeCached(key);

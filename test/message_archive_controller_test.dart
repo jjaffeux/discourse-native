@@ -23,7 +23,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('an older topic read cannot undo a completed archive write', () async {
-    final api = _ArchiveApi();
+    final api = _ArchiveApi(user: _reader);
     final shell = await _shell(api);
     final staleRead = shell.loadTopic(7, 'question', force: true);
     await api.started.future;
@@ -37,16 +37,16 @@ void main() {
   test(
     'ordinary topics and accounts without PM permission cannot archive messages',
     () async {
-      final api = FakeDiscourseApi();
+      final api = FakeDiscourseApi(user: _reader);
       final shell = await _shell(api);
       shell.store.put(_site, _message.copyWith(privateMessage: false));
       expect(await shell.updateMessageArchived(_site, 7, true), isNotNull);
-      final denied = await _shell(
-        api,
-        user: const DiscourseUser(username: 'reader'),
-      );
+      const noPmReader = DiscourseUser(username: 'reader');
+      final deniedApi = FakeDiscourseApi(user: noPmReader);
+      final denied = await _shell(deniedApi, user: noPmReader);
       expect(await denied.updateMessageArchived(_site, 7, true), isNotNull);
       expect(api.messagesArchived, isEmpty);
+      expect(deniedApi.messagesArchived, isEmpty);
     },
   );
 
@@ -155,6 +155,8 @@ Future<ShellController> _shell(
 }
 
 class _ArchiveApi extends FakeDiscourseApi {
+  _ArchiveApi({super.user});
+
   final started = Completer<void>();
   final response = Completer<TopicPayload>();
 

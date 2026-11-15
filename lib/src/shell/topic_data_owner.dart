@@ -10,6 +10,7 @@ import '../data/store.dart';
 import '../data/topic_content_api.dart';
 import '../data/topic_feeds_api.dart';
 import '../data/topic_tracking_reconciler.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_model_codec.dart';
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
@@ -64,7 +65,7 @@ final class ReplyIndeterminate extends ReplyLookupResult {
   const ReplyIndeterminate();
 }
 
-final class TopicDataOwner {
+final class TopicDataOwner with AccountScopedState {
   TopicDataOwner({
     required this.content,
     required this.feeds,
@@ -140,6 +141,7 @@ final class TopicDataOwner {
 
   void validatePrefetch() => _prefetch.validate();
 
+  @override
   void forget(String siteUrl) {
     final account = _accounts.remove(siteUrl);
     if (account == null) return;

@@ -55,6 +55,7 @@ void main() {
           ).copyWith(user: const DiscourseUser(username: 'reader')),
         ]),
         api: FakeDiscourseApi(
+          user: const DiscourseUser(username: 'reader'),
           topics: {
             7: topicPayload(
               id: 7,

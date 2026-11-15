@@ -10,6 +10,7 @@ import '../data/site_lifecycle.dart';
 import '../data/site_lookup_failure.dart';
 import '../foundation/elapsed_time.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/bookmark_feed.dart';
 import '../models/discourse_instance.dart';
 import '../models/json.dart';
@@ -34,7 +35,8 @@ typedef GroupedUnreadAuthorityAdvanced = void Function(String siteUrl);
 typedef OtherNotificationTypes =
     Future<List<NotificationTypeName>> Function(String apiKey);
 
-final class AccountActivityController extends FrameSafeNotifier {
+final class AccountActivityController extends FrameSafeNotifier
+    with AccountScopedState {
   AccountActivityController({
     required this.api,
     required this.credentials,
@@ -822,6 +824,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     if (isDisposed) return;
     final owner = _reconciliations.remove(siteUrl);
