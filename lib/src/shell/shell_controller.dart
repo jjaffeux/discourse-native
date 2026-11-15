@@ -125,6 +125,7 @@ import '../plugin_api/topic_reader.dart';
 import '../site_preference_inventory.g.dart';
 import 'account_activity_controller.dart';
 import 'account_destination_bookmarks.dart';
+import 'account_email_transactions.dart';
 import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
 import 'badges_controller.dart';
@@ -992,6 +993,16 @@ class ShellController extends FrameSafeNotifier
           instance,
           (current) => current.withUserIgnored(username, ignored: ignored),
         ),
+  );
+
+  late final AccountEmailTransactions accountEmail = AccountEmailTransactions(
+    api: api.userEmails,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    onRequested: (instance, email) => preferences.confirmOutsideSections(
+      instance,
+      (current) => current.withEmailChangeRequested(email),
+    ),
   );
 
   late final ProfileAvatarTransactions profileAvatar =
@@ -7813,6 +7824,7 @@ class ShellController extends FrameSafeNotifier
     ..register(preferences)
     ..register(profileAvatar)
     ..register(ignoredUsers)
+    ..register(accountEmail)
     ..register(ownAvatars)
     ..register(
       AccountScopedState.step((siteUrl) {
@@ -9001,6 +9013,7 @@ class ShellController extends FrameSafeNotifier
     networkRecovery.dispose();
     profileAvatar.dispose();
     ignoredUsers.dispose();
+    accountEmail.dispose();
     ownAvatars.dispose();
     topicFeeds.dispose();
     appSettings.dispose();

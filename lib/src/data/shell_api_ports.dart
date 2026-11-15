@@ -27,6 +27,7 @@ final class ShellApiPorts {
     required this.doNotDisturb,
     required this.drafts,
     required this.userAvatars,
+    required this.userEmails,
     required this.userIgnores,
     required this.userProfiles,
     required this.userSummaries,
@@ -60,6 +61,7 @@ final class ShellApiPorts {
       doNotDisturb: capabilities,
       drafts: capabilities,
       userAvatars: capabilities,
+      userEmails: capabilities,
       userIgnores: capabilities,
       userProfiles: capabilities,
       userSummaries: capabilities,
@@ -92,6 +94,7 @@ final class ShellApiPorts {
   final DoNotDisturbApi doNotDisturb;
   final DraftsApi drafts;
   final UserAvatarApi userAvatars;
+  final UserEmailApi userEmails;
   final UserIgnoresApi userIgnores;
   final UserProfilesApi userProfiles;
   final UserSummariesApi userSummaries;

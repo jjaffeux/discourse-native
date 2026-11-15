@@ -18,6 +18,7 @@ import 'header_preferences.dart';
 import 'preference_fields.dart';
 import 'preferences_avatar_row.dart';
 import 'preferences_controller.dart';
+import 'preferences_email_section.dart';
 import 'preferences_users_section.dart';
 import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
@@ -352,6 +353,16 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     },
                   ),
                 ),
+                PreferencesEmailSection(
+                  siteUrl: siteUrl,
+                  preferences: draft,
+                  enabled: editable && instance?.isConnected == true,
+                  transactions: shell.accountEmail,
+                  onRequestChange: (email) async =>
+                      ownsView() &&
+                      instance != null &&
+                      await shell.accountEmail.requestChange(instance, email),
+                ),
               ),
               const SizedBox(height: 22),
               if (selected == PreferenceSection.interface) ...[
@@ -397,6 +408,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     Widget? avatar,
     _BioEditing bio,
     Widget users,
+    Widget email,
   ) => switch (section) {
     PreferenceSection.profile => _ProfileForm(
       timezone: _timezone,
@@ -424,6 +436,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
       onChanged: (change) => onEdit(PreferenceSection.tracking, change),
     ),
     PreferenceSection.users => users,
+    PreferenceSection.email => email,
     PreferenceSection.interface => _InterfaceForm(
       preferences: draft,
       enabled: editable,
@@ -506,6 +519,10 @@ class _PreferencesPageState extends State<PreferencesPage> {
     if (preferences.canChangeTrackingPreferences) PreferenceSection.tracking,
     PreferenceSection.interface,
     PreferenceSection.users,
+    // An account whose address the site neither shows nor lets it change has
+    // nothing on this tab.
+    if (preferences.email.isNotEmpty || preferences.canEditEmail)
+      PreferenceSection.email,
     for (final plugin in pluginSections) plugin.section,
   ];
 
@@ -1254,5 +1271,6 @@ String _sectionTitle(
       PreferenceSection.tracking => appL10n.tracking,
       PreferenceSection.interface => appL10n.interface,
       PreferenceSection.users => appL10n.users,
+      PreferenceSection.email => appL10n.email,
       _ => section.name,
     };

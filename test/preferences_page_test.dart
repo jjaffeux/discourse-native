@@ -240,6 +240,21 @@ Future<void> _chooseToIgnore(WidgetTester tester, String username) async {
   await tester.pumpAndSettle();
 }
 
+final _withEmail = _preferences.copyWith(
+  email: 'reader@example.org',
+  unconfirmedEmails: ['pending@example.org'],
+  canEditEmail: true,
+);
+Finder get _newEmail => find.byKey(const ValueKey('preferences-email-new'));
+Finder get _newEmailInput =>
+    find.descendant(of: _newEmail, matching: find.byType(EditableText));
+Finder get _changeEmailFinder =>
+    find.byKey(const ValueKey('preferences-email-change'));
+DButton _changeEmail(WidgetTester tester) =>
+    tester.widget<DButton>(_changeEmailFinder);
+Finder get _emailSent => find.byKey(const ValueKey('preferences-email-sent'));
+Finder get _emailError => find.byKey(const ValueKey('preferences-email-error'));
+
 Finder _removeMuted(String username) => find.descendant(
   of: _mutedChip(username),
   matching: find.byWidgetPredicate(
@@ -1042,6 +1057,191 @@ void main() {
         tester.getRect(_ignoredRow('a_rather_long_username_x')).right,
         lessThanOrEqualTo(320),
       );
+    });
+  });
+
+  group('email', () {
+    testWidgets('shows the addresses and requests a change by mail', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _withEmail);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      expect(find.text('reader@example.org'), findsOneWidget);
+      expect(find.text('pending@example.org'), findsOneWidget);
+      expect(_changeEmail(tester).onPressed, isNull);
+      expect(_emailSent, findsNothing);
+
+      await tester.enterText(_newEmailInput, 'READER@example.org');
+      await tester.pumpAndSettle();
+      expect(
+        _changeEmail(tester).onPressed,
+        isNull,
+        reason: 'the current address is not a change',
+      );
+
+      await tester.enterText(_newEmailInput, ' new@example.org');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_changeEmailFinder);
+      await tester.tap(_changeEmailFinder);
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.emailChangeRequests, [
+        (username: 'reader', email: 'new@example.org'),
+      ]);
+      expect(_emailSent, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('preferences-email-primary')),
+          matching: find.text('reader@example.org'),
+        ),
+        findsOneWidget,
+        reason: 'the site keeps the old address until the link is followed',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('preferences-email-unconfirmed')),
+          matching: find.text('new@example.org'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.widget<EditableText>(_newEmailInput).controller.text, '');
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      final state = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(state.confirmed!.email, 'reader@example.org');
+
+      await tester.enterText(_newEmailInput, 'x');
+      await tester.pumpAndSettle();
+      expect(_emailSent, findsNothing);
+    });
+
+    testWidgets('the field and button wait while a request is on its way', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _withEmail);
+      fixture.api.emailChangeHandler = (_) => gate.future;
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      await tester.enterText(_newEmailInput, 'new@example.org');
+      await tester.pumpAndSettle();
+      await tester.tap(_changeEmailFinder);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_changeEmail(tester).loading, isTrue);
+      expect(_changeEmail(tester).onPressed, isNull);
+      expect(tester.widget<DInput>(_newEmail).enabled, isFalse);
+      expect(_emailSent, findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_emailSent, findsOneWidget);
+    });
+
+    testWidgets('a refused address keeps the text and names the reason', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _withEmail);
+      fixture.api.emailChangeHandler = (_) async => throw const WriteException(
+        WriteFailure.validation,
+        errors: ['Email is invalid.'],
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      await tester.enterText(_newEmailInput, 'nope');
+      await tester.pumpAndSettle();
+      await tester.tap(_changeEmailFinder);
+      await tester.pumpAndSettle();
+
+      expect(_emailError, findsOneWidget);
+      expect(find.text('Email is invalid.'), findsOneWidget);
+      expect(_emailSent, findsNothing);
+      expect(
+        tester.widget<EditableText>(_newEmailInput).controller.text,
+        'nope',
+      );
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .confirmed!
+            .unconfirmedEmails,
+        ['pending@example.org'],
+      );
+
+      await tester.enterText(_newEmailInput, 'nope@example.org');
+      await tester.pumpAndSettle();
+      expect(_emailError, findsNothing);
+    });
+
+    testWidgets(
+      'an address the site owns is shown without a way to change it',
+      (tester) async {
+        final fixture = await _fixture(
+          preferences: _withEmail.copyWith(canEditEmail: false),
+        );
+        await _pumpPage(tester, fixture);
+        await _section(tester, PreferenceSection.email);
+
+        expect(find.text('reader@example.org'), findsOneWidget);
+        expect(_newEmail, findsNothing);
+        expect(_changeEmailFinder, findsNothing);
+        expect(
+          find.byKey(const ValueKey('preferences-email-managed')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('an account with no address to show has no Email tab', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+
+      expect(
+        find.byKey(const ValueKey('preferences-section-email')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('the field and its button are named for a screen reader', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _withEmail);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      await tester.enterText(_newEmailInput, 'new@example.org');
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(_newEmailInput),
+        isSemantics(
+          isTextField: true,
+          label: 'New email',
+          value: 'new@example.org',
+        ),
+      );
+      expect(find.bySemanticsLabel('Change email'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _withEmail.copyWith(
+          email: 'a.rather.long.address@a-long-domain.example.org',
+        ),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.email);
+      await tester.ensureVisible(_changeEmailFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(_newEmail).width, lessThanOrEqualTo(320));
     });
   });
 

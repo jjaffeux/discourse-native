@@ -16406,4 +16406,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ignoreForOneYear => 'For one year';
+
+  @override
+  String get primaryEmail => 'Primary email';
+
+  @override
+  String get primaryEmailDescription =>
+      'Only you and this site\'s staff can see it.';
+
+  @override
+  String get secondaryEmails => 'Other emails';
+
+  @override
+  String get waitingForConfirmation => 'Waiting for confirmation';
+
+  @override
+  String get newEmail => 'New email';
+
+  @override
+  String get newEmailDescription =>
+      'This site sends a confirmation link. Your address changes once you follow it.';
+
+  @override
+  String get changeEmail => 'Change email';
+
+  @override
+  String get sendingConfirmation => 'Sending…';
+
+  @override
+  String get confirmationEmailSent =>
+      'Check your inbox. Your address changes once you follow the confirmation link.';
+
+  @override
+  String get thisSiteManagesYourEmail =>
+      'This site does not let this account change its email here.';
 }

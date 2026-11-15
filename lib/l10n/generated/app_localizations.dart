@@ -26119,6 +26119,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'For one year'**
   String get ignoreForOneYear;
+
+  /// Label of the account's primary address on the Email preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Primary email'**
+  String get primaryEmail;
+
+  /// Help text under the Primary email label.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you and this site\'\'s staff can see it.'**
+  String get primaryEmailDescription;
+
+  /// Label of the account's secondary addresses on the Email preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Other emails'**
+  String get secondaryEmails;
+
+  /// Label of addresses whose confirmation link has not been followed yet, on the Email preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for confirmation'**
+  String get waitingForConfirmation;
+
+  /// Label and accessible name of the field that takes a new primary address.
+  ///
+  /// In en, this message translates to:
+  /// **'New email'**
+  String get newEmail;
+
+  /// Help text under the New email label.
+  ///
+  /// In en, this message translates to:
+  /// **'This site sends a confirmation link. Your address changes once you follow it.'**
+  String get newEmailDescription;
+
+  /// Button that asks the site to change the account's primary address.
+  ///
+  /// In en, this message translates to:
+  /// **'Change email'**
+  String get changeEmail;
+
+  /// Label of the Change email button while the request is on its way.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get sendingConfirmation;
+
+  /// Notice on the Email preferences tab after the site accepted a change request.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your inbox. Your address changes once you follow the confirmation link.'**
+  String get confirmationEmailSent;
+
+  /// Shown on the Email preferences tab when single sign-on owns the address or address changes are turned off.
+  ///
+  /// In en, this message translates to:
+  /// **'This site does not let this account change its email here.'**
+  String get thisSiteManagesYourEmail;
 }
 
 class _AppLocalizationsDelegate

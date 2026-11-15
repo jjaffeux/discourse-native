@@ -2288,6 +2288,21 @@ class FakeDiscourseApi
     await avatarPickHandler?.call(uploadId);
   }
 
+  final List<({String username, String email})> emailChangeRequests = [];
+  Future<void> Function(String email)? emailChangeHandler;
+
+  @override
+  Future<void> requestEmailChange({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required String email,
+    String? clientId,
+  }) async {
+    emailChangeRequests.add((username: username, email: email));
+    await emailChangeHandler?.call(email);
+  }
+
   final List<({String username, DateTime? until})> ignoreRequests = [];
   Future<void> Function(String username, DateTime? until)? ignoreHandler;
 

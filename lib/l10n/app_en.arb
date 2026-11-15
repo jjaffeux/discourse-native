@@ -21366,5 +21366,45 @@
   "ignoreForOneYear": "For one year",
   "@ignoreForOneYear": {
     "description": "Choice of how long to ignore a person."
+  },
+  "primaryEmail": "Primary email",
+  "@primaryEmail": {
+    "description": "Label of the account's primary address on the Email preferences tab."
+  },
+  "primaryEmailDescription": "Only you and this site''s staff can see it.",
+  "@primaryEmailDescription": {
+    "description": "Help text under the Primary email label."
+  },
+  "secondaryEmails": "Other emails",
+  "@secondaryEmails": {
+    "description": "Label of the account's secondary addresses on the Email preferences tab."
+  },
+  "waitingForConfirmation": "Waiting for confirmation",
+  "@waitingForConfirmation": {
+    "description": "Label of addresses whose confirmation link has not been followed yet, on the Email preferences tab."
+  },
+  "newEmail": "New email",
+  "@newEmail": {
+    "description": "Label and accessible name of the field that takes a new primary address."
+  },
+  "newEmailDescription": "This site sends a confirmation link. Your address changes once you follow it.",
+  "@newEmailDescription": {
+    "description": "Help text under the New email label."
+  },
+  "changeEmail": "Change email",
+  "@changeEmail": {
+    "description": "Button that asks the site to change the account's primary address."
+  },
+  "sendingConfirmation": "Sending…",
+  "@sendingConfirmation": {
+    "description": "Label of the Change email button while the request is on its way."
+  },
+  "confirmationEmailSent": "Check your inbox. Your address changes once you follow the confirmation link.",
+  "@confirmationEmailSent": {
+    "description": "Notice on the Email preferences tab after the site accepted a change request."
+  },
+  "thisSiteManagesYourEmail": "This site does not let this account change its email here.",
+  "@thisSiteManagesYourEmail": {
+    "description": "Shown on the Email preferences tab when single sign-on owns the address or address changes are turned off."
   }
 }

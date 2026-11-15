@@ -112,9 +112,23 @@ secret.
   both directions, so the muted list drops them as well. The list and its
   controls are absent without `can_ignore_users`, which core grants by group
   (`ignore_allowed_groups`).
+- **Email.** The Email tab shows `email`, `secondary_emails` and
+  `unconfirmed_emails`, which `/u/{username}.json` sends only to the account's
+  owner. **Change email** sends the new address to
+  `PUT /u/{username}/preferences/email`. Core's `users_email#update` asks for
+  a signed-in user and `can_edit_email?` and for no password or confirmed
+  session, because the change itself is confirmed by mail: core sends a link
+  and keeps the old address until it is followed. The app therefore never
+  shows the new address as the primary one. It lists it as waiting for
+  confirmation and says a link was sent. Core's own message is shown when it
+  refuses an address. Without `can_edit_email`, where single sign-on owns the
+  address or `email_editable` is off, the tab shows the address and says it
+  cannot be changed here. An address is held in memory for the tab and is not
+  logged: `ErrorLog` replaces any address in a captured error with `<email>`.
 
-`IgnoredUsersTransactions` owns the request per account session and has its
-own notifier. It composes `AccountWrites`, which holds what every immediate
+`IgnoredUsersTransactions` and `AccountEmailTransactions` each own their
+request per account session and have their own notifier. They compose
+`AccountWrites`, which holds what every immediate
 account write shares: one request at a time per site, because the site
 applies them in arrival order, a state that names what the request is about,
 and an answer dropped when its session retired. An accepted write is recorded

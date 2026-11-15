@@ -201,6 +201,65 @@ void main() {
       expect(result.canMuteUsers, isTrue);
     });
 
+    test('an email change is requested for the account, with the address '
+        'in the body alone', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('', 200);
+        }),
+      );
+      addTearDown(api.close);
+
+      await api.requestEmailChange(
+        siteUrl: 'https://forum.example',
+        apiKey: 'key',
+        username: 'Reader',
+        email: 'new@example.org',
+      );
+
+      expect(sent.single.method, 'PUT');
+      expect(
+        sent.single.url.toString(),
+        'https://forum.example/u/reader/preferences/email',
+      );
+      expect(jsonDecode(sent.single.body), {'email': 'new@example.org'});
+      expect(sent.single.headers['User-Api-Key'], 'key');
+    });
+
+    test('a refused email change carries the site reason', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['Email is invalid.'],
+            }),
+            422,
+          ),
+        ),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.requestEmailChange(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'reader',
+          email: 'nope',
+        ),
+        throwsA(
+          isA<WriteException>()
+              .having((error) => error.message, 'message', 'Email is invalid.')
+              .having(
+                (error) => error.toString(),
+                'printed form',
+                isNot(contains('nope')),
+              ),
+        ),
+      );
+    });
+
     test(
       'ignoring names the person in the path and sends an end date',
       () async {

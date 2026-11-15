@@ -861,6 +861,21 @@ class DiscourseApi
   );
 
   @override
+  Future<void> requestEmailChange({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required String email,
+    String? clientId,
+  }) async => _account.requestEmailChange(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    email: email,
+    clientId: clientId,
+  );
+
+  @override
   Future<void> ignoreUser({
     required String siteUrl,
     required String apiKey,

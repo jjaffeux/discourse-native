@@ -28,6 +28,10 @@ final class PreferenceSection {
   /// The people this account has muted. Ignoring someone is a separate write
   /// with its own owner, so it is not part of this section's draft.
   static const users = PreferenceSection._core('users');
+
+  /// The account's addresses. A change is requested at once and confirmed by
+  /// mail, so this section shows values and has no draft of its own.
+  static const email = PreferenceSection._core('email');
   static const values = [profile, notifications, tracking, interface, users];
 
   final String owner;
@@ -77,6 +81,10 @@ final class UserPreferences {
     'can_mute_users',
     'ignored_usernames',
     'can_ignore_users',
+    'email',
+    'secondary_emails',
+    'unconfirmed_emails',
+    'can_edit_email',
     'user_option',
     'sidebar_tags',
   };
@@ -106,6 +114,10 @@ final class UserPreferences {
     this.canMuteUsers = false,
     this.ignoredUsernames = const [],
     this.canIgnoreUsers = false,
+    this.email = '',
+    this.secondaryEmails = const [],
+    this.unconfirmedEmails = const [],
+    this.canEditEmail = false,
   });
 
   factory UserPreferences.fromJson(
@@ -184,13 +196,9 @@ final class UserPreferences {
         'can_change_tracking_preferences',
         fallback.canChangeTrackingPreferences,
       ),
-      mutedUsernames: _usernames(
-        json,
-        'muted_usernames',
-        fallback.mutedUsernames,
-      ),
+      mutedUsernames: _names(json, 'muted_usernames', fallback.mutedUsernames),
       canMuteUsers: _boolean(json, 'can_mute_users', fallback.canMuteUsers),
-      ignoredUsernames: _usernames(
+      ignoredUsernames: _names(
         json,
         'ignored_usernames',
         fallback.ignoredUsernames,
@@ -200,6 +208,18 @@ final class UserPreferences {
         'can_ignore_users',
         fallback.canIgnoreUsers,
       ),
+      email: _string(json, 'email', fallback.email),
+      secondaryEmails: _names(
+        json,
+        'secondary_emails',
+        fallback.secondaryEmails,
+      ),
+      unconfirmedEmails: _names(
+        json,
+        'unconfirmed_emails',
+        fallback.unconfirmedEmails,
+      ),
+      canEditEmail: _boolean(json, 'can_edit_email', fallback.canEditEmail),
     );
   }
 
@@ -270,6 +290,18 @@ final class UserPreferences {
   /// group.
   final bool canIgnoreUsers;
 
+  /// The account's primary address, which the site sends only to its owner.
+  /// Personal data: it is shown on the Email tab and written nowhere else.
+  final String email;
+  final List<String> secondaryEmails;
+
+  /// Addresses whose confirmation link has not been followed yet.
+  final List<String> unconfirmedEmails;
+
+  /// False where single sign-on owns the address or the site has turned
+  /// address changes off.
+  final bool canEditEmail;
+
   /// What the site holds once it has started or stopped ignoring [username].
   /// Core lifts a mute of the same person in both directions, because a
   /// person has one level: normal, muted or ignored.
@@ -283,6 +315,17 @@ final class UserPreferences {
       ],
     );
   }
+
+  /// What the site holds once it has mailed a confirmation link for [email]:
+  /// the address waits unconfirmed and the primary address is unchanged.
+  UserPreferences withEmailChangeRequested(String email) => copyWith(
+    unconfirmedEmails: [
+      ...unconfirmedEmails.where(
+        (address) => address.toLowerCase() != email.toLowerCase(),
+      ),
+      email,
+    ],
+  );
 
   Map<String, Object?> payloadFor(PreferenceSection section) =>
       Map.unmodifiable(switch (section) {
@@ -382,6 +425,10 @@ final class UserPreferences {
     bool? canMuteUsers,
     List<String>? ignoredUsernames,
     bool? canIgnoreUsers,
+    String? email,
+    List<String>? secondaryEmails,
+    List<String>? unconfirmedEmails,
+    bool? canEditEmail,
   }) => UserPreferences(
     sidebarCategoryIds: List.unmodifiable(
       sidebarCategoryIds ?? this.sidebarCategoryIds,
@@ -420,6 +467,12 @@ final class UserPreferences {
       ignoredUsernames ?? this.ignoredUsernames,
     ),
     canIgnoreUsers: canIgnoreUsers ?? this.canIgnoreUsers,
+    email: email ?? this.email,
+    secondaryEmails: List.unmodifiable(secondaryEmails ?? this.secondaryEmails),
+    unconfirmedEmails: List.unmodifiable(
+      unconfirmedEmails ?? this.unconfirmedEmails,
+    ),
+    canEditEmail: canEditEmail ?? this.canEditEmail,
   );
 
   @override
@@ -449,7 +502,11 @@ final class UserPreferences {
           listEquals(other.mutedUsernames, mutedUsernames) &&
           other.canMuteUsers == canMuteUsers &&
           listEquals(other.ignoredUsernames, ignoredUsernames) &&
-          other.canIgnoreUsers == canIgnoreUsers;
+          other.canIgnoreUsers == canIgnoreUsers &&
+          other.email == email &&
+          listEquals(other.secondaryEmails, secondaryEmails) &&
+          listEquals(other.unconfirmedEmails, unconfirmedEmails) &&
+          other.canEditEmail == canEditEmail;
 
   @override
   int get hashCode => Object.hash(
@@ -479,6 +536,10 @@ final class UserPreferences {
       canMuteUsers,
       Object.hashAll(ignoredUsernames),
       canIgnoreUsers,
+      email,
+      Object.hashAll(secondaryEmails),
+      Object.hashAll(unconfirmedEmails),
+      canEditEmail,
     ),
   );
 
@@ -488,9 +549,9 @@ final class UserPreferences {
 String _string(Map<String, dynamic> json, String key, String fallback) =>
     json[key] is String ? jsonString(json[key]) : fallback;
 
-/// The usernames under [key], without blanks or repeats. An absent or
+/// The names or addresses under [key], without blanks or repeats. An absent or
 /// malformed list keeps [fallback], as a write's answer may leave it out.
-List<String> _usernames(
+List<String> _names(
   Map<String, dynamic> json,
   String key,
   List<String> fallback,

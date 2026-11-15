@@ -704,6 +704,26 @@ final class DiscourseAccountApi {
     );
   }
 
+  Future<void> requestEmailChange({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required String email,
+    String? clientId,
+  }) async {
+    await _transport.write(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}'
+        '/preferences/email',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'email': email},
+    );
+  }
+
   Future<void> setUserNotificationLevel({
     required String siteUrl,
     required String apiKey,

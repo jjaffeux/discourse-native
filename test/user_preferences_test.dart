@@ -422,6 +422,60 @@ void main() {
     ]);
   });
 
+  test('reads the addresses, which no section sends', () {
+    final loaded = UserPreferences.fromJson(const {
+      'email': 'reader@example.org',
+      'secondary_emails': ['second@example.org'],
+      'unconfirmed_emails': ['new@example.org', 'new@example.org', 9],
+      'can_edit_email': true,
+    });
+    expect(loaded.email, 'reader@example.org');
+    expect(loaded.secondaryEmails, ['second@example.org']);
+    expect(loaded.unconfirmedEmails, ['new@example.org']);
+    expect(loaded.canEditEmail, isTrue);
+
+    final partial = UserPreferences.fromJson(const {
+      'email': 4,
+      'secondary_emails': 'second@example.org',
+      'unconfirmed_emails': null,
+      'can_edit_email': 'true',
+    }, fallback: loaded);
+    expect(partial, loaded);
+    const empty = UserPreferences();
+    expect(empty.email, isEmpty);
+    expect(empty.canEditEmail, isFalse);
+
+    for (final section in [
+      ...PreferenceSection.values,
+      PreferenceSection.about,
+      PreferenceSection.email,
+    ]) {
+      expect(
+        loaded.payloadFor(section).keys.where((key) => key.contains('email')),
+        isEmpty,
+      );
+    }
+    expect(loaded.payloadFor(PreferenceSection.email), isEmpty);
+  });
+
+  test('a requested address waits unconfirmed beside the primary one', () {
+    const before = UserPreferences(
+      email: 'reader@example.org',
+      unconfirmedEmails: ['old-request@example.org'],
+    );
+
+    final requested = before.withEmailChangeRequested('New@example.org');
+    expect(requested.email, 'reader@example.org');
+    expect(requested.unconfirmedEmails, [
+      'old-request@example.org',
+      'New@example.org',
+    ]);
+    expect(
+      requested.withEmailChangeRequested('new@example.org').unconfirmedEmails,
+      ['old-request@example.org', 'new@example.org'],
+    );
+  });
+
   test('writes each section with exact flat web field names', () {
     const preferences = UserPreferences(
       timezone: 'Asia/Tokyo',
