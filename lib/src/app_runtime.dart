@@ -12,6 +12,7 @@ import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
 import 'data/platform_draft_store.dart';
 import 'data/platform_push_registration.dart';
+import 'data/platform_topic_read_outbox.dart';
 import 'data/platform_web_auth.dart';
 import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
@@ -127,6 +128,7 @@ final class AppRuntime {
   late DraftStore _drafts;
   late ForumTabStore _forumTabs;
   final _recentDestinations = RecentDestinationsStore();
+  final _topicReadOutbox = createPlatformTopicReadOutbox();
   final _destinationBookmarks = DestinationBookmarksStore();
   late SiteTrackerFactory _trackers;
   late Updater _updater;
@@ -157,6 +159,7 @@ final class AppRuntime {
     appSettingsStore: _appSettingsStore,
     forumSettingsStore: _forumSettingsStore,
     drafts: _drafts,
+    topicReadOutbox: _topicReadOutbox,
     forumTabs: _forumTabs,
     recentDestinations: _recentDestinations,
     destinationBookmarks: _destinationBookmarks,
