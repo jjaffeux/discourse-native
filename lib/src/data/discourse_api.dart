@@ -58,6 +58,7 @@ export 'shell_api_ports.dart';
 class DiscourseApi
     implements
         ShellApiCapabilities,
+        OriginSuccessSource,
         DiscourseApiConfiguration,
         PluginCancellableJsonTransport,
         PluginJsonQueryTransport,
@@ -604,6 +605,10 @@ class DiscourseApi
     milliseconds: milliseconds,
     clientId: clientId,
   );
+
+  @override
+  void Function() onOriginSuccess(void Function(String origin) observer) =>
+      _transport.coordinator.onOriginSuccess(observer);
 
   @override
   Future<void> recordTopicReads({
