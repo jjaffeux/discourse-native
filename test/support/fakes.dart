@@ -1620,6 +1620,8 @@ class FakeDiscourseApi
     if (failure != null) throw failure;
     final updated = models.userPreferences({
       'bio_raw': ?values['bio_raw'],
+      if (values['muted_usernames'] case final String muted)
+        'muted_usernames': muted.isEmpty ? const <String>[] : muted.split(','),
       'user_option': values,
     }, fallback: fallback);
     userPreferences = updated;

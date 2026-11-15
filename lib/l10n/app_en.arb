@@ -21289,5 +21289,29 @@
   "couldnTOpenAPictureFromThisDevice": "Couldn''t open a picture from this device.",
   "@couldnTOpenAPictureFromThisDevice": {
     "description": "Error under the avatar when the device's image picker fails, for example when photo access is denied."
+  },
+  "mutedUsers": "Muted users",
+  "@mutedUsers": {
+    "description": "Label of the list of muted people in the Users preferences."
+  },
+  "mutedUsersDescription": "You get no notifications or messages from these people. Changes apply when you save.",
+  "@mutedUsersDescription": {
+    "description": "Help text under the Muted users label in the Users preferences."
+  },
+  "thisSiteDoesNotLetThisAccountMuteYet": "This site does not let this account mute people yet.",
+  "@thisSiteDoesNotLetThisAccountMuteYet": {
+    "description": "Help text under the Muted users label when the account's trust level is too low to mute anyone."
+  },
+  "addAUser": "Add a user",
+  "@addAUser": {
+    "description": "Placeholder of the search field that adds a person to the muted or ignored list."
+  },
+  "saveMutedUsers": "Save muted users",
+  "@saveMutedUsers": {
+    "description": "Accessible name of the button that saves the muted list in the Users preferences."
+  },
+  "matchingUsers": "Matching users",
+  "@matchingUsers": {
+    "description": "Accessible name of the list of people a user search in Preferences offers."
   }
 }

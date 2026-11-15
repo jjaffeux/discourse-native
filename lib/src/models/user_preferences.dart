@@ -24,7 +24,11 @@ final class PreferenceSection {
   static const sidebarCategories = PreferenceSection._core('sidebarCategories');
   static const sidebarTags = PreferenceSection._core('sidebarTags');
   static const interface = PreferenceSection._core('interface');
-  static const values = [profile, notifications, tracking, interface];
+
+  /// The people this account has muted. Ignoring someone is a separate write
+  /// with its own owner, so it is not part of this section's draft.
+  static const users = PreferenceSection._core('users');
+  static const values = [profile, notifications, tracking, interface, users];
 
   final String owner;
   final String name;
@@ -57,6 +61,7 @@ final class UserPreferences {
     'notification_level_when_replying',
     'bookmark_auto_delete_preference',
     'user_notification_schedule',
+    'muted_usernames',
   };
 
   /// Core response identities are reserved even when they are not editable.
@@ -69,6 +74,7 @@ final class UserPreferences {
     'can_upload_avatar',
     'uploaded_avatar_id',
     'can_change_tracking_preferences',
+    'can_mute_users',
     'user_option',
     'sidebar_tags',
   };
@@ -94,6 +100,8 @@ final class UserPreferences {
     this.canUploadAvatar = false,
     this.uploadedAvatarId,
     this.canChangeTrackingPreferences = false,
+    this.mutedUsernames = const [],
+    this.canMuteUsers = false,
   });
 
   factory UserPreferences.fromJson(
@@ -172,6 +180,12 @@ final class UserPreferences {
         'can_change_tracking_preferences',
         fallback.canChangeTrackingPreferences,
       ),
+      mutedUsernames: _usernames(
+        json,
+        'muted_usernames',
+        fallback.mutedUsernames,
+      ),
+      canMuteUsers: _boolean(json, 'can_mute_users', fallback.canMuteUsers),
     );
   }
 
@@ -227,6 +241,13 @@ final class UserPreferences {
   final int? uploadedAvatarId;
   final bool canChangeTrackingPreferences;
 
+  /// The people whose posts and notifications this account has muted, as the
+  /// site spells their usernames.
+  final List<String> mutedUsernames;
+
+  /// False below the trust level the site asks for before anyone may mute.
+  final bool canMuteUsers;
+
   Map<String, Object?> payloadFor(PreferenceSection section) =>
       Map.unmodifiable(switch (section) {
         PreferenceSection.sidebarCategories => {
@@ -253,6 +274,12 @@ final class UserPreferences {
         PreferenceSection.interface => {
           'bookmark_auto_delete_preference':
               bookmarkAutoDeletePreference.wireValue,
+        },
+        // Core takes the whole list as one comma-separated string and mutes
+        // exactly those people. The order carries no meaning, so it is fixed
+        // here and a list put back the way it was is not a change.
+        PreferenceSection.users => {
+          'muted_usernames': ([...mutedUsernames]..sort()).join(','),
         },
         _ => pluginValues[section.id]?.payload ?? const {},
       });
@@ -284,6 +311,9 @@ final class UserPreferences {
     PreferenceSection.interface => copyWith(
       bookmarkAutoDeletePreference: confirmed.bookmarkAutoDeletePreference,
     ),
+    PreferenceSection.users => copyWith(
+      mutedUsernames: confirmed.mutedUsernames,
+    ),
     _ => copyWith(
       pluginValues: {
         ...pluginValues,
@@ -312,6 +342,8 @@ final class UserPreferences {
     bool? canUploadAvatar,
     Object? uploadedAvatarId = _unchanged,
     bool? canChangeTrackingPreferences,
+    List<String>? mutedUsernames,
+    bool? canMuteUsers,
   }) => UserPreferences(
     sidebarCategoryIds: List.unmodifiable(
       sidebarCategoryIds ?? this.sidebarCategoryIds,
@@ -344,6 +376,8 @@ final class UserPreferences {
         : uploadedAvatarId as int?,
     canChangeTrackingPreferences:
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
+    mutedUsernames: List.unmodifiable(mutedUsernames ?? this.mutedUsernames),
+    canMuteUsers: canMuteUsers ?? this.canMuteUsers,
   );
 
   @override
@@ -369,7 +403,9 @@ final class UserPreferences {
           other.canEditAvatar == canEditAvatar &&
           other.canUploadAvatar == canUploadAvatar &&
           other.uploadedAvatarId == uploadedAvatarId &&
-          other.canChangeTrackingPreferences == canChangeTrackingPreferences;
+          other.canChangeTrackingPreferences == canChangeTrackingPreferences &&
+          listEquals(other.mutedUsernames, mutedUsernames) &&
+          other.canMuteUsers == canMuteUsers;
 
   @override
   int get hashCode => Object.hash(
@@ -394,6 +430,7 @@ final class UserPreferences {
     canUploadAvatar,
     uploadedAvatarId,
     canChangeTrackingPreferences,
+    Object.hash(Object.hashAll(mutedUsernames), canMuteUsers),
   );
 
   static const _unchanged = Object();
@@ -401,6 +438,22 @@ final class UserPreferences {
 
 String _string(Map<String, dynamic> json, String key, String fallback) =>
     json[key] is String ? jsonString(json[key]) : fallback;
+
+/// The usernames under [key], without blanks or repeats. An absent or
+/// malformed list keeps [fallback], as a write's answer may leave it out.
+List<String> _usernames(
+  Map<String, dynamic> json,
+  String key,
+  List<String> fallback,
+) {
+  if (json[key] is! List) return fallback;
+  final seen = <String>{};
+  return List.unmodifiable([
+    for (final value in jsonArray(json[key]))
+      if (value is String && value.trim().isNotEmpty && seen.add(value.trim()))
+        value.trim(),
+  ]);
+}
 
 bool _boolean(Map<String, dynamic> json, String key, bool fallback) =>
     json[key] is bool ? json[key] as bool : fallback;

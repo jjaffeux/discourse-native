@@ -299,6 +299,74 @@ void main() {
     expect(UserPreferences.coreFields, contains('bio_raw'));
   });
 
+  test('reads the muted list and whether the account may mute', () {
+    final loaded = UserPreferences.fromJson(const {
+      'muted_usernames': ['sam', ' Robin ', 'sam', '', 7, null],
+      'can_mute_users': true,
+    });
+    expect(loaded.mutedUsernames, ['sam', 'Robin']);
+    expect(loaded.canMuteUsers, isTrue);
+    expect(() => loaded.mutedUsernames.add('x'), throwsUnsupportedError);
+
+    for (final malformed in <Object?>[
+      'sam,robin',
+      4,
+      null,
+      {'a': 1},
+    ]) {
+      final kept = UserPreferences.fromJson({
+        'muted_usernames': malformed,
+        'can_mute_users': 'yes',
+      }, fallback: loaded);
+      expect(kept.mutedUsernames, ['sam', 'Robin']);
+      expect(kept.canMuteUsers, isTrue);
+    }
+    expect(
+      UserPreferences.fromJson(const {
+        'muted_usernames': <Object?>[],
+      }, fallback: loaded).mutedUsernames,
+      isEmpty,
+    );
+    expect(const UserPreferences().canMuteUsers, isFalse);
+  });
+
+  test('the muted list is sent whole, as core reads it', () {
+    const confirmed = UserPreferences(
+      timezone: 'Etc/UTC',
+      mutedUsernames: ['sam', 'robin'],
+    );
+    final draft = confirmed.copyWith(
+      timezone: 'Asia/Tokyo',
+      mutedUsernames: ['robin', 'sam', 'alex'],
+    );
+
+    expect(draft.payloadFor(PreferenceSection.users), {
+      'muted_usernames': 'alex,robin,sam',
+    });
+    expect(
+      confirmed
+          .copyWith(mutedUsernames: const [])
+          .payloadFor(PreferenceSection.users),
+      {'muted_usernames': ''},
+    );
+    expect(
+      confirmed
+          .copyWith(mutedUsernames: ['robin', 'sam'])
+          .payloadFor(PreferenceSection.users),
+      confirmed.payloadFor(PreferenceSection.users),
+    );
+    expect(
+      draft.withSectionFrom(PreferenceSection.users, confirmed),
+      confirmed.copyWith(timezone: 'Asia/Tokyo'),
+    );
+    expect(
+      draft.withSectionFrom(PreferenceSection.profile, confirmed),
+      confirmed.copyWith(mutedUsernames: ['robin', 'sam', 'alex']),
+    );
+    expect(draft == confirmed.copyWith(timezone: 'Asia/Tokyo'), isFalse);
+    expect(UserPreferences.coreFields, contains('muted_usernames'));
+  });
+
   test('writes each section with exact flat web field names', () {
     const preferences = UserPreferences(
       timezone: 'Asia/Tokyo',

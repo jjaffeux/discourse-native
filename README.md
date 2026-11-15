@@ -86,6 +86,22 @@ change redraws those avatars and nothing else, and it is dropped when the
 account changes. `DiscourseUser` keeps `avatar_template` for this. An avatar
 drawn outside an `AvatarOwner` shows the old picture until its list reloads.
 
+### Users, email and security preferences
+
+The app signs in with a Discourse user API key. Its `write` scope reaches
+every route (`app/models/user_api_key_scope.rb`), but the key carries no
+browser session. A Preferences tab is native where the action needs only the
+key, and opens the web page where core asks for a confirmed session or a
+secret.
+
+- **Muted users.** The Users tab lists `muted_usernames` from
+  `/u/{username}.json` as removable chips, with a search that adds people
+  through `/u/search/users.json`. The list is the `users` preference section.
+  It waits for **Save**, survives a refresh while unsaved, and is sent whole
+  as one comma-separated `muted_usernames` field of `PUT /u/{username}.json`,
+  which is how core's `UserUpdater` reads it. The search never offers the
+  reader. Without `can_mute_users` the tab says the account may not mute yet.
+
 ## Native image build tools
 
 AVIF stills and animations use the source-built `flutter_libavif` decoder.

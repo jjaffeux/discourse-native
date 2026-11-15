@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_profile.dart';
@@ -84,6 +86,7 @@ Future<_Fixture> _fixture({
   Completer<void>? writeGate,
   WriteException? writeFailure,
   FakeDiscourseApi? apiOverride,
+  Map<String, List<FoundUser>> userSearches = const {},
 }) async {
   var selectedSite = site ?? _chatSite;
   if (!selectedSite.config.plugins.contains(chatSettingsDataKey)) {
@@ -105,6 +108,7 @@ Future<_Fixture> _fixture({
         userPreferencesGate: loadGate,
         userPreferencesWriteGate: writeGate,
         writeFailure: writeFailure,
+        userSearches: userSearches,
       );
   final store = _RecordingInstanceStore([selectedSite]);
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
@@ -189,6 +193,56 @@ Future<ComposerUploadFile?> _pickMe() async => ComposerUploadFile(
   length: () async => 3,
   openRead: () => Stream.value([1, 2, 3]),
 );
+final _muting = _preferences.copyWith(
+  canMuteUsers: true,
+  mutedUsernames: ['sam'],
+);
+const _foundPeople = {
+  'ro': [
+    FoundUser(username: 'robin', name: 'Robin Hood'),
+    FoundUser(username: 'Reader', name: 'The reader'),
+    FoundUser(username: 'rory'),
+  ],
+};
+Finder get _mutedUsers => find.byKey(const ValueKey('preferences-muted-users'));
+Finder get _mutedSearch =>
+    find.descendant(of: _mutedUsers, matching: find.byType(EditableText));
+Finder get _mutedSaveFinder =>
+    find.byKey(const ValueKey('preferences-muted-users-save'));
+DButton _mutedSave(WidgetTester tester) =>
+    tester.widget<DButton>(_mutedSaveFinder);
+Finder _mutedChip(String username) => find.descendant(
+  of: _mutedUsers,
+  matching: find.widgetWithText(DComboboxChip<String>, username),
+);
+Finder _removeMuted(String username) => find.descendant(
+  of: _mutedChip(username),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DIcon && widget.icon == DIcons.xmark,
+  ),
+);
+
+/// The picker's results open over the button below it until dismissed.
+Future<void> _saveMuted(WidgetTester tester) async {
+  await tester.tapAt(const Offset(4, 4));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(_mutedSaveFinder);
+  await tester.tap(_mutedSaveFinder);
+}
+
+/// Types into a user picker and waits out its typing pause.
+Future<void> _searchPeople(
+  WidgetTester tester,
+  Finder input,
+  String term,
+) async {
+  await tester.ensureVisible(input);
+  await tester.tap(input);
+  await tester.enterText(input, term);
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _section(WidgetTester tester, PreferenceSection section) async {
   final tab = find.byKey(ValueKey('preferences-section-${section.keyName}'));
   await tester.ensureVisible(tab);
@@ -612,6 +666,178 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('About me'), findsOneWidget);
       expect(tester.getSize(_bio).width, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('muted users', () {
+    testWidgets('shows the muted people and saves an added one when asked', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _muting,
+        userSearches: _foundPeople,
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      expect(_mutedChip('sam'), findsOneWidget);
+      expect(_mutedSave(tester).onPressed, isNull);
+
+      await _searchPeople(tester, _mutedSearch, 'ro');
+      expect(find.text('Robin Hood'), findsOneWidget);
+      expect(find.text('@rory'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('mute-user-Reader')),
+        findsNothing,
+        reason: 'the reader cannot mute themselves',
+      );
+      await tester.tap(find.byKey(const ValueKey('mute-user-robin')));
+      await tester.pumpAndSettle();
+      expect(_mutedChip('robin'), findsOneWidget);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .dirty(PreferenceSection.users),
+        isTrue,
+      );
+
+      await _saveMuted(tester);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'muted_usernames': 'robin,sam',
+      });
+      expect(_mutedSave(tester).onPressed, isNull);
+      expect(find.text('Users preferences saved.'), findsOneWidget);
+    });
+
+    testWidgets('a chip removes its person from the list to save', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _muting);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      await tester.tap(_removeMuted('sam'));
+      await tester.pumpAndSettle();
+      expect(_mutedChip('sam'), findsNothing);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+
+      await _saveMuted(tester);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'muted_usernames': '',
+      });
+      expect(
+        fixture.shell.preferences.stateFor(_siteUrl)!.confirmed!.mutedUsernames,
+        isEmpty,
+      );
+    });
+
+    testWidgets('an empty list offers the search and nothing to save', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _muting.copyWith(mutedUsernames: const []),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.byType(DComboboxChip<String>), findsNothing);
+      expect(find.text('Add a user'), findsOneWidget);
+      expect(_mutedSave(tester).onPressed, isNull);
+    });
+
+    testWidgets('the save button waits while the list is on its way', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _muting, writeGate: gate);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      await tester.tap(_removeMuted('sam'));
+      await tester.pumpAndSettle();
+      await _saveMuted(tester);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_mutedSave(tester).loading, isTrue);
+      expect(_mutedSave(tester).onPressed, isNull);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_mutedSave(tester).loading, isFalse);
+    });
+
+    testWidgets('a refused list stays as edited and names the reason', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _muting,
+        writeFailure: const WriteException(
+          WriteFailure.validation,
+          errors: ['That list was refused.'],
+        ),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      await tester.tap(_removeMuted('sam'));
+      await tester.pumpAndSettle();
+      await _saveMuted(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('That list was refused.'), findsOneWidget);
+      expect(_mutedChip('sam'), findsNothing);
+      expect(_mutedSave(tester).onPressed, isNotNull);
+      expect(
+        fixture.shell.preferences.stateFor(_siteUrl)!.confirmed!.mutedUsernames,
+        ['sam'],
+      );
+    });
+
+    testWidgets('an account that may not mute is told so', (tester) async {
+      final fixture = await _fixture(
+        preferences: _muting.copyWith(canMuteUsers: false),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(_mutedUsers, findsNothing);
+      expect(_mutedSaveFinder, findsNothing);
+      expect(
+        find.text('This site does not let this account mute people yet.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the list and its save button are named for a screen reader', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _muting);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.bySemanticsLabel('Remove sam'), findsOneWidget);
+      expect(find.bySemanticsLabel('Save muted users'), findsOneWidget);
+      expect(tester.getSemantics(_mutedSearch), isSemantics(isTextField: true));
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _muting.copyWith(
+          mutedUsernames: ['sam', 'a_rather_long_username', 'robin'],
+        ),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.users);
+      await tester.ensureVisible(_mutedSaveFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(_mutedUsers).width, lessThanOrEqualTo(320));
     });
   });
 

@@ -18,6 +18,7 @@ import 'header_preferences.dart';
 import 'preference_fields.dart';
 import 'preferences_avatar_row.dart';
 import 'preferences_controller.dart';
+import 'preferences_users_section.dart';
 import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -206,6 +207,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
       unawaited(shell.preferences.save(instance, PreferenceSection.about));
     }
 
+    void saveMutedUsers() {
+      if (!ownsView() || instance == null) return;
+      unawaited(shell.preferences.save(instance, PreferenceSection.users));
+    }
+
     final editable = draft.canEdit;
     final pluginSections = instance?.user == null
         ? const <PluginUserPreferenceSection>[]
@@ -299,6 +305,35 @@ class _PreferencesPageState extends State<PreferencesPage> {
                       ? saveBio
                       : null,
                 ),
+                PreferencesUsersSection(
+                  preferences: draft,
+                  enabled: editable && instance?.isConnected == true,
+                  searchUsers: (term) async => ownsView()
+                      ? shell.composerIdentities.searchUsers(
+                          siteUrl: siteUrl,
+                          topicId: null,
+                          term: term,
+                        )
+                      : const [],
+                  muted: MutedUsersEditing(
+                    saving:
+                        state.saving && state.dirty(PreferenceSection.users),
+                    // Held in the draft until the reader saves the list.
+                    onChanged: (usernames) {
+                      if (!ownsView()) return;
+                      shell.preferences.edit(
+                        siteUrl,
+                        PreferenceSection.users,
+                        (current) =>
+                            current.copyWith(mutedUsernames: usernames),
+                      );
+                    },
+                    onSave:
+                        state.dirty(PreferenceSection.users) && !state.saving
+                        ? saveMutedUsers
+                        : null,
+                  ),
+                ),
               ),
               const SizedBox(height: 22),
               if (selected == PreferenceSection.interface) ...[
@@ -343,6 +378,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     VoidCallback onUseDeviceTimezone,
     Widget? avatar,
     _BioEditing bio,
+    Widget users,
   ) => switch (section) {
     PreferenceSection.profile => _ProfileForm(
       timezone: _timezone,
@@ -369,6 +405,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
       enabled: editable && draft.canChangeTrackingPreferences,
       onChanged: (change) => onEdit(PreferenceSection.tracking, change),
     ),
+    PreferenceSection.users => users,
     PreferenceSection.interface => _InterfaceForm(
       preferences: draft,
       enabled: editable,
@@ -450,6 +487,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     PreferenceSection.notifications,
     if (preferences.canChangeTrackingPreferences) PreferenceSection.tracking,
     PreferenceSection.interface,
+    PreferenceSection.users,
     for (final plugin in pluginSections) plugin.section,
   ];
 
@@ -1197,5 +1235,6 @@ String _sectionTitle(
       PreferenceSection.notifications => appL10n.notifications,
       PreferenceSection.tracking => appL10n.tracking,
       PreferenceSection.interface => appL10n.interface,
+      PreferenceSection.users => appL10n.users,
       _ => section.name,
     };

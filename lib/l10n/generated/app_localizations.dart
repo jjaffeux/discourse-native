@@ -26011,6 +26011,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'\'t open a picture from this device.'**
   String get couldnTOpenAPictureFromThisDevice;
+
+  /// Label of the list of muted people in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted users'**
+  String get mutedUsers;
+
+  /// Help text under the Muted users label in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'You get no notifications or messages from these people. Changes apply when you save.'**
+  String get mutedUsersDescription;
+
+  /// Help text under the Muted users label when the account's trust level is too low to mute anyone.
+  ///
+  /// In en, this message translates to:
+  /// **'This site does not let this account mute people yet.'**
+  String get thisSiteDoesNotLetThisAccountMuteYet;
+
+  /// Placeholder of the search field that adds a person to the muted or ignored list.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a user'**
+  String get addAUser;
+
+  /// Accessible name of the button that saves the muted list in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Save muted users'**
+  String get saveMutedUsers;
+
+  /// Accessible name of the list of people a user search in Preferences offers.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching users'**
+  String get matchingUsers;
 }
 
 class _AppLocalizationsDelegate

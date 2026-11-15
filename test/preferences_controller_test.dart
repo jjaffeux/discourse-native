@@ -34,6 +34,7 @@ const _initial = UserPreferences(
   notificationLevelWhenReplying: 2,
   canEdit: true,
   canChangeTrackingPreferences: true,
+  canMuteUsers: true,
 );
 
 typedef _LoadCall = ({
@@ -482,6 +483,7 @@ void main() {
             PreferenceSection.notifications,
             PreferenceSection.tracking,
             PreferenceSection.interface,
+            PreferenceSection.users,
             chatPreferenceSection,
           ],
         );
@@ -526,6 +528,11 @@ void main() {
                       BookmarkAutoDeletePreference.onOwnerReply,
                 ),
                 payload: const {'bookmark_auto_delete_preference': 2},
+              ),
+              PreferenceSection.users: (
+                change: (current) =>
+                    current.copyWith(mutedUsernames: ['sam', 'robin']),
+                payload: const {'muted_usernames': 'robin,sam'},
               ),
               chatPreferenceSection: (
                 change: (current) => current.withChatPreferences(
@@ -1597,6 +1604,152 @@ void main() {
         expect(state.draft?.timezone, 'Europe/Paris');
       },
     );
+  });
+
+  group('muted users', () {
+    const muting = UserPreferences(
+      username: 'alice',
+      canEdit: true,
+      canMuteUsers: true,
+      mutedUsernames: ['sam'],
+    );
+
+    test('an edit waits for its save and sends the whole list', () async {
+      final api = _PreferencesApi(
+        onLoad: (_) async => muting,
+        onUpdate: (call) async =>
+            call.fallback.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      expect(
+        controller.stateFor(_siteUrl)!.dirty(PreferenceSection.users),
+        isTrue,
+      );
+      expect(api.updates, isEmpty);
+
+      expect(await controller.save(_accountA, PreferenceSection.users), isTrue);
+      expect(api.updates.single.values, {'muted_usernames': 'robin,sam'});
+      final saved = controller.stateFor(_siteUrl)!;
+      expect(saved.dirty(PreferenceSection.users), isFalse);
+      expect(saved.confirmed!.mutedUsernames, ['sam', 'robin']);
+      expect(saved.savedSection, PreferenceSection.users);
+    });
+
+    test('putting the list back leaves nothing to save', () async {
+      final api = _PreferencesApi(onLoad: (_) async => muting);
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: const []),
+      );
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam']),
+      );
+
+      expect(
+        controller.stateFor(_siteUrl)!.dirty(PreferenceSection.users),
+        isFalse,
+      );
+      expect(
+        await controller.save(_accountA, PreferenceSection.users),
+        isFalse,
+      );
+      expect(api.updates, isEmpty);
+    });
+
+    test('a refused save keeps the list and names the reason', () async {
+      final api = _PreferencesApi(
+        onLoad: (_) async => muting,
+        onUpdate: (_) async => throw const WriteException(
+          WriteFailure.validation,
+          errors: ['You cannot mute that many people.'],
+        ),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      expect(
+        await controller.save(_accountA, PreferenceSection.users),
+        isFalse,
+      );
+
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.error, 'You cannot mute that many people.');
+      expect(state.draft!.mutedUsernames, ['sam', 'robin']);
+      expect(state.confirmed!.mutedUsernames, ['sam']);
+    });
+
+    test('an account that may not mute cannot edit the list', () async {
+      final api = _PreferencesApi(
+        onLoad: (_) async => muting.copyWith(canMuteUsers: false),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: const []),
+      );
+
+      expect(controller.stateFor(_siteUrl)!.draft!.mutedUsernames, ['sam']);
+      expect(
+        await controller.save(_accountA, PreferenceSection.users),
+        isFalse,
+      );
+    });
+
+    test('a refresh keeps an unsaved list and takes the rest', () async {
+      var loadCount = 0;
+      final api = _PreferencesApi(
+        onLoad: (_) async => ++loadCount == 1
+            ? muting
+            : muting.copyWith(
+                mutedUsernames: ['sam', 'muted-on-the-web'],
+                timezone: 'Asia/Tokyo',
+              ),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      await controller.load(_accountA, refresh: true);
+
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.draft!.mutedUsernames, ['sam', 'robin']);
+      expect(state.confirmed!.mutedUsernames, ['sam', 'muted-on-the-web']);
+      expect(state.draft!.timezone, 'Asia/Tokyo');
+      expect(state.dirty(PreferenceSection.users), isTrue);
+
+      expect(await controller.save(_accountA, PreferenceSection.users), isTrue);
+      expect(api.updates.single.values, {'muted_usernames': 'robin,sam'});
+    });
   });
 
   group('headless disposal', () {

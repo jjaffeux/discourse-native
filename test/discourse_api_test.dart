@@ -164,6 +164,43 @@ void main() {
       expect(result.timezone, 'Europe/Paris');
     });
 
+    test('a muted list is one comma-separated field and reads back', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(
+            jsonEncode({
+              'user': {
+                'muted_usernames': ['sam', 'robin'],
+                'can_mute_users': true,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      const draft = UserPreferences(
+        username: 'Reader',
+        mutedUsernames: ['sam', 'robin', 'no-such-person'],
+      );
+      final result = await api.updateUserPreferences(
+        siteUrl: 'https://forum.example',
+        apiKey: 'key',
+        username: 'Reader',
+        fallback: draft,
+        values: draft.payloadFor(PreferenceSection.users),
+      );
+      expect(sent.single.method, 'PUT');
+      expect(sent.single.url.path, '/u/reader.json');
+      expect(jsonDecode(sent.single.body), {
+        'muted_usernames': 'no-such-person,robin,sam',
+      });
+      expect(result.mutedUsernames, ['sam', 'robin']);
+      expect(result.canMuteUsers, isTrue);
+    });
+
     test(
       'saves the nested core notification schedule and reads server normalization',
       () async {

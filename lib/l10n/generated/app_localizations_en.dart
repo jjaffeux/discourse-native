@@ -16347,4 +16347,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get couldnTOpenAPictureFromThisDevice =>
       'Couldn\'t open a picture from this device.';
+
+  @override
+  String get mutedUsers => 'Muted users';
+
+  @override
+  String get mutedUsersDescription =>
+      'You get no notifications or messages from these people. Changes apply when you save.';
+
+  @override
+  String get thisSiteDoesNotLetThisAccountMuteYet =>
+      'This site does not let this account mute people yet.';
+
+  @override
+  String get addAUser => 'Add a user';
+
+  @override
+  String get saveMutedUsers => 'Save muted users';
+
+  @override
+  String get matchingUsers => 'Matching users';
 }
