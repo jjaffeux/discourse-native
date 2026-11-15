@@ -3071,17 +3071,22 @@ Future<ShellController> _controller(
   FakeDiscourseApi? api,
 }) async {
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+  final storedUser = signedIn
+      ? DiscourseUser(id: 1, username: 'reader', staff: staff)
+      : null;
   final resolvedApi =
       api ?? FakeDiscourseApi(categoryPostActionCatalog: flagCatalog);
+  // The fake must answer the stored account, or loading is an account change.
+  if (storedUser != null && resolvedApi.user == null) {
+    resolvedApi.accounts['api-key'] = storedUser;
+  }
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
       DiscourseInstance(
         url: _siteUrl,
         title: 'Meta',
         apiVersion: 4,
-        user: signedIn
-            ? DiscourseUser(id: 1, username: 'reader', staff: staff)
-            : null,
+        user: storedUser,
       ),
     ]),
     api: resolvedApi,

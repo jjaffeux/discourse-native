@@ -3160,6 +3160,7 @@ void main() {
                   : null,
             );
             final api = _ChatApi(
+              user: const DiscourseUser(id: 1, username: 'reader'),
               openPages: {
                 firstSite: [
                   (
@@ -3258,6 +3259,7 @@ void main() {
           ),
         );
         final api = _ChatApi(
+          user: const DiscourseUser(id: 1, username: 'reader'),
           openPages: {
             firstSite: [
               (

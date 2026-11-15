@@ -116,6 +116,15 @@ final class SiteCapabilities {
     changed();
   }
 
+  /// Drops what only the former account was allowed. The post-action catalog
+  /// and the server's plugin list are the same for every account.
+  void accountChanged(String siteUrl) {
+    final site = _sites[siteUrl];
+    if (site == null) return;
+    site.composer = null;
+    site.composerRead = null;
+  }
+
   void forget(String siteUrl) {
     _sites.remove(siteUrl);
   }

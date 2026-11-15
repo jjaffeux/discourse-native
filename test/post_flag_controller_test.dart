@@ -91,6 +91,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
   Post? flagResponse,
 }) async {
   final api = FakeDiscourseApi(
+    user: const DiscourseUser(id: 1, username: 'reader'),
     feeds: const {'/latest.json': []},
     categoryPostActionCatalog: _catalog,
     siteConfigs: const {_siteUrl: SiteConfig(minPersonalMessagePostLength: 10)},

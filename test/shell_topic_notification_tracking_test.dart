@@ -679,6 +679,8 @@ void main() {
       expect(lease.isCurrent, isTrue);
       expect(fixture.shell.currentInstance!.user!.id, 8);
       expect(fixture.shell.newReplyCount, 1);
+      // The former account's topic left with it; the accepted one reads its own.
+      fixture.open();
       final fresh = fixture.select(TopicNotificationLevel.muted);
       expect(fixture.shell.newReplyCount, 0);
       await pumpEventQueue();

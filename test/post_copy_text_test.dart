@@ -81,7 +81,7 @@ void main() {
             user: const DiscourseUser(username: 'reader'),
           ),
         ]),
-        api: FakeDiscourseApi(),
+        api: FakeDiscourseApi(user: const DiscourseUser(username: 'reader')),
         authenticator: FakeAuthenticator()..keys[site] = 'key',
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),

@@ -21,7 +21,7 @@ void main() {
   test(
     'reconciling a visit leaves the review queue unseen, opening the list does not',
     () async {
-      final api = _Api();
+      final api = _Api(user: const DiscourseUser(id: 1, username: 'reader'));
       final shell = ShellController(
         instanceStore: FakeInstanceStore([
           instance(
@@ -66,6 +66,8 @@ void main() {
 }
 
 final class _Api extends FakeDiscourseApi {
+  _Api({super.user});
+
   /// Whether each unfiltered notification read was a background one.
   final unfilteredReads = <bool>[];
 

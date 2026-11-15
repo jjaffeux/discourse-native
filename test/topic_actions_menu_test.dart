@@ -521,8 +521,12 @@ void main() {
       testWidgets('old menu rejects $change credentials (rebuild: $rebuild)', (
         tester,
       ) async {
-        final api = _MenuApi()
-          ..reader = change == 'replacement' ? _replacement : _reader;
+        final api = _MenuApi();
+        if (change == 'replacement') {
+          api
+            ..accounts['original-key'] = _reader
+            ..reader = _replacement;
+        }
         final shell = await _fixture(tester, api);
         final anchor = tester.element(_trigger);
         await _open(tester);
@@ -846,7 +850,7 @@ class _MenuApi extends FakeDiscourseApi {
         ),
       );
 
-  DiscourseUser reader = _replacement;
+  DiscourseUser reader = _reader;
   final bool initiallyDeleted;
   bool closed = false;
   Completer<void>? statusGate;
@@ -859,7 +863,7 @@ class _MenuApi extends FakeDiscourseApi {
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async => reader;
+  }) async => accounts[apiKey] ?? reader;
 
   @override
   Future<TopicPayload> topic({

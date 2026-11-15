@@ -3555,6 +3555,10 @@ class ShellController extends FrameSafeNotifier
           if (!ownsPublication()) return false;
           badges.forget(siteUrl);
           if (!ownsPublication()) return false;
+          for (final forget in _formerAccountRetirements) {
+            forget(siteUrl);
+            if (!ownsPublication()) return false;
+          }
         }
         if (!ownsPublication() || !identical(_instanceAt(siteUrl), previous)) {
           return false;
@@ -3569,6 +3573,9 @@ class ShellController extends FrameSafeNotifier
         if (!ownsPublication()) return true;
         if (accepted.accountChanged) {
           _liveSessions.accountChanged(siteUrl, lease);
+          if (!ownsPublication()) return true;
+          _taxonomy.bind(siteUrl);
+          if (currentInstance?.url == siteUrl) _resetToInstanceDefault();
         }
         if (!ownsPublication()) return true;
       }
@@ -3591,6 +3598,44 @@ class ShellController extends FrameSafeNotifier
       finishTrackingChange();
     }
   }
+
+  /// What a different account accepted under the same lease must not inherit.
+  ///
+  /// Sign-in and sign-out rotate the lease and forget the whole site. This
+  /// path keeps the lease, the owners that carry the publication itself
+  /// (current users, live sessions, profile writes, do-not-disturb), open
+  /// composers, and what is the same for every reader of the forum.
+  late final List<void Function(String siteUrl)> _formerAccountRetirements = [
+    cooking.forget,
+    _topicData.forget,
+    siteImages.forget,
+    videoThumbnails.forget,
+    pdfThumbnails.forget,
+    _workspace.remove,
+    search.forget,
+    draftList.forget,
+    userSummary.forget,
+    preferences.forget,
+    (siteUrl) {
+      store.forget(siteUrl);
+      _cookingContextOwner?.rebindStoreReferences(siteUrl);
+    },
+    _selectedPostModeration.forget,
+    _topicReads.forget,
+    _taxonomy.forget,
+    _siteCapabilities.accountChanged,
+    _customSidebar.forget,
+    composerIdentities.forget,
+    (siteUrl) {
+      _backgroundRetention.releaseSite(siteUrl);
+      _observePluginLifecycle(
+        _pluginSession
+            .forget(siteUrl)
+            .whenComplete(() => _backgroundRetention.releaseSite(siteUrl)),
+      );
+    },
+    topicFeeds.forget,
+  ];
 
   void _applyUserDraftsMessage(String siteUrl, Object? data) {
     if (data is! Map<Object?, Object?>) return;

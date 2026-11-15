@@ -56,7 +56,12 @@ void main() {
       final lease = shell.lifecycle.capture(_site);
       shell.store.put(
         _site,
-        const Topic(id: 99, title: 'Private', slug: 'private', bookmarked: true),
+        const Topic(
+          id: 99,
+          title: 'Private',
+          slug: 'private',
+          bookmarked: true,
+        ),
       );
 
       await replaceAccount();

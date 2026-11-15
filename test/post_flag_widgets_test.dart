@@ -62,6 +62,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _connectedShell({
 }) async {
   final feedGate = Completer<void>();
   final api = FakeDiscourseApi(
+    user: const DiscourseUser(id: 1, username: 'reader'),
     feeds: const {'/latest.json': []},
     gate: feedGate,
     categoryPostActionCatalog: catalog,
