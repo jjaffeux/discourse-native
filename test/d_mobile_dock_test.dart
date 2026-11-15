@@ -835,6 +835,73 @@ void main() {
     );
   }
 
+  for (final (label, direction, index, reduced) in [
+    ('Start', TextDirection.ltr, 0, false),
+    ('Users', TextDirection.rtl, 3, false),
+    ('Users', TextDirection.ltr, 3, true),
+  ]) {
+    testWidgets('the sheet handle morphs into the mark for $label '
+        '(reduced motion: $reduced)', (tester) async {
+      var selected = 'Topics';
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) => fixture(
+            foot: 34,
+            direction: direction,
+            reducedMotion: reduced,
+            selected: selected,
+            onPlace: (value) => setState(() => selected = value),
+          ),
+        ),
+      );
+      await openDockPanel(tester);
+      final handle = tester.getRect(find.byKey(DMobileDock.grabberKey));
+      final morph = find.byKey(const ValueKey('mobile-dock-mark-morph'));
+      final mark = find.byKey(ValueKey('mobile-dock-mark-$index'));
+
+      await tester.tap(
+        index < 3 ? find.byKey(ValueKey(label)) : dockPanelTile(label),
+      );
+      await tester.pump();
+      expect(selected, label);
+      if (reduced) {
+        expect(_panel, findsNothing);
+        expect(morph, findsNothing);
+        expect(tester.getRect(mark).size, const Size(28, 4));
+        return;
+      }
+      expect(morph, findsOneWidget);
+      expect(find.byKey(DMobileDock.grabberKey), findsNothing);
+      expect(tester.getRect(morph), handle);
+
+      await tester.pump(const Duration(milliseconds: 96));
+      final moving = tester.getRect(morph);
+      expect(moving.top, greaterThan(handle.top));
+      expect(moving.height, inExclusiveRange(4, 5));
+      final destination = tester.getCenter(find.byKey(ValueKey(label))).dx;
+      expect(moving.center.dx, inExclusiveRange(destination, handle.center.dx));
+
+      await tester.pump(
+        DMobileDock.settleDuration - const Duration(milliseconds: 97),
+      );
+      final landing = tester.getRect(morph);
+      await tester.pumpAndSettle();
+      expect(_panel, findsNothing);
+      expect(morph, findsNothing);
+      final landed = tester.getRect(mark);
+      expect(landed.size, const Size(28, 4));
+      expect(
+        landed.center.dx,
+        tester.getCenter(find.byKey(ValueKey(label))).dx,
+      );
+      expect(landing.topLeft, within(distance: .1, from: landed.topLeft));
+      expect(
+        landing.bottomRight,
+        within(distance: .1, from: landed.bottomRight),
+      );
+    });
+  }
+
   testWidgets('the page added to the bar carries the mark', (tester) async {
     await tester.pumpWidget(fixture(foot: 34, selected: 'Users'));
     await tester.pumpAndSettle();

@@ -312,10 +312,11 @@ final class _Dragging extends _Growth {
   final trail = DMobileDockDragTrail();
 }
 
-/// Pressed or let go, on its spring to open or closed.
+/// Pressed or let go, on its way to open or closed.
 final class _Settling extends _Growth {
-  const _Settling({required this.opening});
+  const _Settling({required this.opening, this.markMorph});
   final bool opening;
+  final ({Key place, double startGrowth})? markMorph;
 }
 
 final class _Open extends _Growth {
@@ -476,6 +477,20 @@ class _DMobileDockState extends State<DMobileDock>
       widget.places.skip(DMobileDockGeometry.placeColumns).toList();
 
   int get _tiles => _rest.length;
+
+  // A tap can open a menu or be ignored by the caller. The handle only
+  // becomes a mark once the tapped place actually has one.
+  ({Key place, double startGrowth})? get _markMorph {
+    if (_phase case _Settling(:final markMorph?)) {
+      final fixed = widget.notifications;
+      if ((fixed != null && fixed.key == markMorph.place && fixed.selected) ||
+          widget.places.where((place) => place.selected).firstOrNull?.key ==
+              markMorph.place) {
+        return markMorph;
+      }
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -772,7 +787,7 @@ class _DMobileDockState extends State<DMobileDock>
     child: child,
   );
 
-  void _grow(bool opening) {
+  void _grow(bool opening, {Key? markPlace}) {
     if (opening ? !_grows : !_out) return;
     _swipeRest?.cancel();
     _swipeRest = null;
@@ -781,10 +796,14 @@ class _DMobileDockState extends State<DMobileDock>
       _growth.value = lifted;
       _fade.value = lifted;
     }
+    final startGrowth = _growth.value;
+    final markMorph = !reduced && markPlace != null && startGrowth > 0
+        ? (place: markPlace, startGrowth: startGrowth)
+        : null;
     final token = ++_settle;
     setState(() {
       _cancelMove();
-      _phase = _Settling(opening: opening);
+      _phase = _Settling(opening: opening, markMorph: markMorph);
     });
     _showLayer();
     _reportOut();
@@ -798,7 +817,9 @@ class _DMobileDockState extends State<DMobileDock>
         .animateTo(
           opening ? 1 : 0,
           duration: reduced ? Duration.zero : DMobileDock.settleDuration,
-          curve: DMobileDock.settleCurve,
+          curve: markMorph == null
+              ? DMobileDock.settleCurve
+              : const Cubic(.25, .6, .35, 1),
         )
         .whenCompleteOrCancel(() {
           if (!mounted || token != _settle) return;
@@ -1172,7 +1193,7 @@ class _DMobileDockState extends State<DMobileDock>
                 index: DMobileDockGeometry.placeColumns + index,
               ),
               onPressed: () {
-                _grow(false);
+                _grow(false, markPlace: place.key);
                 place.onPressed();
               },
             ),
@@ -1189,14 +1210,15 @@ class _DMobileDockState extends State<DMobileDock>
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          PositionedDirectional(
-            top: panel.grabberTop(growth),
-            start: 0,
-            end: 0,
-            child: Center(
-              child: _Grabber(key: DMobileDock.grabberKey, onPressed: _close),
+          if (_markMorph == null)
+            PositionedDirectional(
+              top: panel.grabberTop(growth),
+              start: 0,
+              end: 0,
+              child: Center(
+                child: _Grabber(key: DMobileDock.grabberKey, onPressed: _close),
+              ),
             ),
-          ),
           // A peek taken over by a pull: its hint going.
           if (_peek != _Peek.none) _hint(context),
           Positioned.fill(
@@ -1561,7 +1583,7 @@ class _DMobileDockState extends State<DMobileDock>
         selected: place.selected,
         customSemanticsActions: _readerActions(context, index: index),
         onPressed: () {
-          if (_out) _grow(false);
+          if (_out) _grow(false, markPlace: place.key);
           place.onPressed();
         },
       );
@@ -1613,7 +1635,7 @@ class _DMobileDockState extends State<DMobileDock>
                 expanded: fixed.selected,
                 customSemanticsActions: _readerActions(context),
                 onPressed: () {
-                  if (_out) _grow(false);
+                  if (_out) _grow(false, markPlace: fixed.key);
                   fixed.onPressed();
                 },
               ),
@@ -1700,6 +1722,66 @@ class _DMobileDockState extends State<DMobileDock>
         if (here != null) shown.length,
         if (fixed != null && fixed.selected) markSlots.length - 1,
       };
+      Widget? movingMark;
+      if (_markMorph case (:final place, :final startGrowth)) {
+        final target = fixed?.key == place
+            ? atRest.fixed
+            : switch (current) {
+                DMobileDockAtPlace(:final index) => atRest.places[index],
+                DMobileDockOverflowed() => atRest.here,
+                DMobileDockNowhere() => null,
+              };
+        if (target != null) {
+          final panel = geometry.panel(tiles: _tiles);
+          final progress = (1 - growth / startGrowth).clamp(0.0, 1.0);
+          final slide = Curves.easeInOutCubic.transform(progress);
+          const grabber = DMobileDockPanelGeometry.grabberSize;
+          final markWidth = math.min(
+            DMobileDockGeometry.markWidth,
+            target.width,
+          );
+          final width =
+              lerpDouble(grabber.width, markWidth, slide)! +
+              6 * math.sin(math.pi * slide);
+          final center = lerpDouble(
+            constraints.maxWidth / 2,
+            padding.start + target.start + target.width / 2,
+            slide,
+          )!;
+          final grabberTop =
+              panel.barRise(growth) - panel.reveal + panel.grabberTop(growth);
+          movingMark = PositionedDirectional(
+            start: center - width / 2,
+            top: lerpDouble(grabberTop, 0, slide),
+            width: width,
+            height: lerpDouble(
+              grabber.height,
+              DMobileDockGeometry.markHeight,
+              slide,
+            ),
+            child: IgnorePointer(
+              child: DecoratedBox(
+                key: const ValueKey('mobile-dock-mark-morph'),
+                decoration: BoxDecoration(
+                  color: Color.lerp(
+                    tokens.subtleMark,
+                    tokens.foreground,
+                    slide,
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(
+                      DMobileDockPanelGeometry.grabberRadius * (1 - slide),
+                    ),
+                    bottom: const Radius.circular(
+                      DMobileDockGeometry.markRadius,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
       final gone = (1 - 2 * grown).clamp(0.0, 1.0);
       final marks = IgnorePointer(
         child: ExcludeSemantics(
@@ -1776,6 +1858,7 @@ class _DMobileDockState extends State<DMobileDock>
                   ),
             child: Stack(
               key: _surfaceContentKey,
+              clipBehavior: movingMark == null ? Clip.hardEdge : Clip.none,
               children: [
                 AnimatedPadding(
                   key: const ValueKey('mobile-dock-controls'),
@@ -1827,7 +1910,8 @@ class _DMobileDockState extends State<DMobileDock>
                     ),
                   ),
                 ),
-                marks,
+                Opacity(opacity: movingMark == null ? 1 : 0, child: marks),
+                ?movingMark,
               ],
             ),
           ),
