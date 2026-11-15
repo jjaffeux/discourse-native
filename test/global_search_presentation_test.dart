@@ -575,6 +575,38 @@ void main({bool useDeviceMetrics = false}) {
       expect(tester.takeException(), isNull);
     });
 
+    _testPresentation(
+      'mobile $platform keeps the Messages title hidden as Search opens',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        final shell = await _pumpSearch(tester, size: phone);
+        shell.pushContent(ContentRoute.messages());
+        await tester.pumpAndSettle();
+        final title = find.descendant(
+          of: find.byKey(const ValueKey('mobile-header')),
+          matching: find.text('Messages'),
+        );
+        expect(title, findsOneWidget);
+
+        await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        if (!_useDeviceMetrics) {
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: 300 * tester.view.devicePixelRatio,
+          );
+        }
+        for (var frame = 0; frame < 45; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(title, findsNothing, reason: 'Search opening frame $frame');
+        }
+        expect(_editor(tester).focusNode.hasFocus, isTrue);
+        if (_useDeviceMetrics) {
+          expect(tester.view.viewInsets.bottom, greaterThan(0));
+        }
+      },
+    );
+
     _testPresentation('mobile $platform can dismiss search while opening', (
       tester,
     ) async {
