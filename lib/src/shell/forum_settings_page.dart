@@ -20,37 +20,54 @@ class ForumSettingsPage extends StatefulWidget {
   State<ForumSettingsPage> createState() => _ForumSettingsPageState();
 }
 
+enum _InterfaceSection { display, themes, accessibility }
+
 class _ForumSettingsPageState extends State<ForumSettingsPage> {
-  String _section = 'display';
+  // The route stays alive in history across page rebuilds.
+  static final _sectionsByVisit = Expando<_InterfaceSection>();
+  final _standaloneVisit = Object();
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.identityOf(context);
+    final route = ShellScope.tabOf(context).currentContent;
+    final visit = route != null && route.isAppearance
+        ? route
+        : _standaloneVisit;
+    final section = _sectionsByVisit[visit] ?? _InterfaceSection.display;
     final appSettings = shell.appSettings;
     final forumSettings = shell.forumSettings;
     return DPageSurface.headed(
       identity: widget.siteUrl,
       icon: DIcons.gear,
       title: Text(context.l10n.interface),
-      controls: SettingsSectionTabs<String>(
-        value: _section,
-        onChanged: (value) => setState(() => _section = value),
+      controls: SettingsSectionTabs<_InterfaceSection>(
+        value: section,
+        onChanged: (value) => setState(() => _sectionsByVisit[visit] = value),
         sections: [
-          (value: 'display', label: context.l10n.display, key: null),
-          (value: 'themes', label: context.l10n.themes, key: null),
           (
-            value: 'accessibility',
+            value: _InterfaceSection.display,
+            label: context.l10n.display,
+            key: null,
+          ),
+          (
+            value: _InterfaceSection.themes,
+            label: context.l10n.themes,
+            key: null,
+          ),
+          (
+            value: _InterfaceSection.accessibility,
             label: context.l10n.accessibility,
             key: null,
           ),
         ],
       ),
-      child: switch (_section) {
-        'display' => ForumDisplaySettings(
+      child: switch (section) {
+        _InterfaceSection.display => ForumDisplaySettings(
           appSettings: appSettings,
           forumSettings: forumSettings,
         ),
-        'accessibility' => DScrollArea(
+        _InterfaceSection.accessibility => DScrollArea(
           padding: EdgeInsets.only(
             bottom: DScrollChrome.bottomInsetOf(context),
           ),
@@ -82,7 +99,7 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
             ),
           ),
         ),
-        _ => ForumAppearanceSettings(
+        _InterfaceSection.themes => ForumAppearanceSettings(
           key: ValueKey(widget.siteUrl),
           siteUrl: widget.siteUrl,
         ),

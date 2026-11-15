@@ -41,6 +41,34 @@ void main() {
 
   mobileSettingsPanelClipTests();
 
+  testWidgets('a forward swipe restores the Interface section', (tester) async {
+    await pumpShell(tester, phone);
+    final shell = ShellScope.read(tester.element(find.byType(MobileForumRoot)));
+    final accessibility = find.byKey(
+      const ValueKey('disable-gif-animations-switch'),
+    );
+
+    shell.openCurrentSettings();
+    await tester.pumpAndSettle();
+    await _openSection(tester, 'Accessibility');
+    expect(accessibility.hitTestable(), findsOneWidget);
+
+    await tester.dragFrom(const Offset(2, 400), const Offset(300, 0));
+    await tester.pumpAndSettle();
+    expect(find.byType(ForumSettingsPage), findsNothing);
+
+    await tester.dragFrom(const Offset(388, 400), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(find.byType(ForumSettingsPage), findsOneWidget);
+    expect(accessibility.hitTestable(), findsOneWidget);
+
+    await tester.dragFrom(const Offset(2, 400), const Offset(300, 0));
+    await tester.pumpAndSettle();
+    shell.openCurrentSettings();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('display-font-system')), findsOneWidget);
+  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
+
   testWidgets('the Settings title carries the gear mark', (tester) async {
     final shell = controller();
     addTearDown(shell.dispose);
