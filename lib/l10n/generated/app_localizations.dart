@@ -21866,6 +21866,30 @@ abstract class AppLocalizations {
   /// **'Could not open the link. Please try again.'**
   String get aboutLinkOpenFailed;
 
+  /// Button in About that copies the redacted in-memory log of recent app errors to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy error log'**
+  String get aboutCopyErrorLog;
+
+  /// Confirmation shown in About after the error log was copied to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Error log copied. Review it before sharing.'**
+  String get aboutErrorLogCopied;
+
+  /// Shown in About when the user asks to copy the error log and it holds nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No errors recorded since the app started.'**
+  String get aboutErrorLogEmpty;
+
+  /// Error shown in About when the clipboard rejects the error log.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not copy the error log. Please try again.'**
+  String get aboutErrorLogCopyFailed;
+
   /// Accessible label for an external link in About.
   ///
   /// In en, this message translates to:

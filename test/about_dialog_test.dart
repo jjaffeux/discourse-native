@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/error_log.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/about_dialog.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -16,6 +17,7 @@ import 'support/fakes.dart';
 const _dialog = ValueKey('native-about-dialog');
 const _replay = ValueKey('about-replay-mark');
 const _open = ValueKey('open-about');
+const _copyErrorLog = ValueKey('about-copy-error-log');
 const _menuItem = ValueKey('user-menu-row-about');
 
 void main() {
@@ -114,6 +116,52 @@ void main() {
       }
     });
   }
+
+  testWidgets('copies the redacted error log to the clipboard', (tester) async {
+    addTearDown(ErrorLog.instance.clear);
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await _pumpDialog(tester);
+
+    await tester.ensureVisible(find.byKey(_copyErrorLog));
+    await tester.tap(find.byKey(_copyErrorLog));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No errors recorded since the app started.'),
+      findsOneWidget,
+    );
+    expect(copied, isNull);
+
+    ErrorLog.instance.record(
+      StateError('GET https://forum.example.com/t/42?api_key=abc failed'),
+      null,
+      source: ErrorSource.platform,
+    );
+    await tester.tap(find.byKey(_copyErrorLog));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Error log copied. Review it before sharing.'),
+      findsOneWidget,
+    );
+    expect(copied, contains('Bad state: GET https://<redacted> failed'));
+    expect(copied, isNot(contains('example')));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('links use the external browser and announce their destination', (
     tester,

@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vector_graphics_compiler/vector_graphics_compiler.dart' as vg;
 
+import '../data/app_release.dart';
+import '../foundation/error_log.dart';
 import '../foundation/icons/d_icons.dart';
 import 'external_link.dart';
 
@@ -33,6 +35,7 @@ class _NativeAboutDialogState extends State<NativeAboutDialog>
   bool _reducedMotion = false;
   String? _openingLink;
   String? _linkError;
+  ({String text, bool failed})? _errorLogStatus;
 
   @override
   void initState() {
@@ -74,6 +77,32 @@ class _NativeAboutDialogState extends State<NativeAboutDialog>
       _openingLink = null;
       if (!opened) _linkError = context.l10n.aboutLinkOpenFailed;
     });
+  }
+
+  Future<void> _copyErrorLog() async {
+    final l10n = context.l10n;
+    final log = ErrorLog.instance;
+    if (log.isEmpty) {
+      setState(
+        () => _errorLogStatus = (text: l10n.aboutErrorLogEmpty, failed: false),
+      );
+      return;
+    }
+    var failed = false;
+    try {
+      await Clipboard.setData(
+        ClipboardData(text: log.export(appVersion: AppRelease.version)),
+      );
+    } catch (_) {
+      failed = true;
+    }
+    if (!mounted) return;
+    setState(
+      () => _errorLogStatus = (
+        text: failed ? l10n.aboutErrorLogCopyFailed : l10n.aboutErrorLogCopied,
+        failed: failed,
+      ),
+    );
   }
 
   @override
@@ -155,6 +184,26 @@ class _NativeAboutDialogState extends State<NativeAboutDialog>
           child: Text(
             error,
             style: TextStyle(color: DTokens.of(context).destructive),
+          ),
+        ),
+      DButton(
+        key: const ValueKey('about-copy-error-log'),
+        variant: DButtonVariant.ghost,
+        onPressed: () => unawaited(_copyErrorLog()),
+        label: Text(context.l10n.aboutCopyErrorLog),
+      ),
+      if (_errorLogStatus case final status?)
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            status.text,
+            key: const ValueKey('about-error-log-status'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: status.failed
+                  ? DTokens.of(context).destructive
+                  : DTokens.of(context).mutedForeground,
+            ),
           ),
         ),
     ],

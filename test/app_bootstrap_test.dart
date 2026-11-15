@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/app_bootstrap.dart';
+import 'package:discourse_native/src/foundation/error_log.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -15,6 +19,7 @@ void main() {
     bootstrap.start();
     bootstrap.start();
     expect(host.calls, [
+      'errors',
       'binding',
       'preferences',
       'preload',
@@ -46,7 +51,13 @@ void main() {
     expect(first, same(host.failure));
     expect(second, same(first));
     expect(secondStack.toString(), firstStack.toString());
-    expect(host.calls, ['binding', 'preferences', 'preload', 'plugins']);
+    expect(host.calls, [
+      'errors',
+      'binding',
+      'preferences',
+      'preload',
+      'plugins',
+    ]);
     expect(host.schedules, 0);
   });
 
@@ -56,6 +67,7 @@ void main() {
     AppBootstrap(host: host).start();
 
     expect(host.calls, [
+      'errors',
       'binding',
       'preferences',
       'preload',
@@ -65,7 +77,7 @@ void main() {
     expect(host.deferred, isNotNull);
 
     await host.deferred!();
-    expect(host.calls.skip(5), ['timezone', 'cache', 'directories']);
+    expect(host.calls.skip(6), ['timezone', 'cache', 'directories']);
   });
 
   for (final stage in ['timezone', 'cache', 'directories']) {
@@ -98,6 +110,7 @@ void main() {
   });
 
   for (final stage in [
+    'errors',
     'binding',
     'preferences',
     'preload',
@@ -115,6 +128,52 @@ void main() {
       expect(host.deferred, isNull);
     });
   }
+
+  test('records an uncaught asynchronous error and still reports it, '
+      'with no binding', () async {
+    final log = ErrorLog();
+    final host = _BootstrapHost();
+    final failure = StateError('late failure');
+    host.onStage = (stage) {
+      if (stage == 'launch') unawaited(Future<void>.error(failure));
+    };
+    final reported = <Object>[];
+
+    runZonedGuarded(
+      () => AppBootstrap(host: host, errorLog: log).start(),
+      (error, _) => reported.add(error),
+    );
+    await pumpEventQueue();
+
+    expect(BindingBase.debugBindingType(), isNull);
+    expect(reported, [same(failure)]);
+    expect(log.entries.single.source, ErrorSource.zone);
+    expect(log.entries.single.type, 'StateError');
+    expect(host.calls, contains('launch'));
+  });
+
+  test('records a fatal startup failure once and still propagates it', () {
+    final log = ErrorLog();
+    final host = _BootstrapHost(failAt: 'plugins');
+    final bootstrap = AppBootstrap(host: host, errorLog: log);
+
+    expect(bootstrap.start, throwsA(same(host.failure)));
+    expect(bootstrap.start, throwsA(same(host.failure)));
+
+    expect(log.entries.single.source, ErrorSource.startup);
+    expect(log.entries.single.count, 1);
+  });
+
+  test('records a contained optional startup failure', () async {
+    final log = ErrorLog();
+    final host = _BootstrapHost(failAt: 'cache');
+    AppBootstrap(host: host, errorLog: log).start();
+
+    await host.deferred!();
+
+    expect(log.entries.single.source, ErrorSource.startup);
+    expect(log.entries.single.message, contains('startup failed'));
+  });
 }
 
 final class _BootstrapHost implements AppBootstrapHost {
@@ -132,6 +191,9 @@ final class _BootstrapHost implements AppBootstrapHost {
     onStage?.call(stage);
     if (failAt == stage) throw failure;
   }
+
+  @override
+  void installErrorCapture(ErrorLog log) => _call('errors');
 
   @override
   void ensureFlutterInitialized() => _call('binding');

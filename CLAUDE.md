@@ -141,7 +141,8 @@ Requirements line with it.
   merged across pages, live arrivals, and the seam back to the present),
   `plugins/voice/voice_diagnostics_report.dart` (how
   ordinary and deep Voice diagnostics are sanitized, de-duplicated, and
-  merged).
+  merged), `foundation/error_log.dart` (which unhandled errors are kept, in
+  memory only, and how each is redacted before it is stored).
 - Application and Voice tests live under `test/`. A change to `foo.dart`
   almost always has a `foo_test.dart` in its owning package to extend. Follow
   `docs/testing.md` for suite ownership, naming, assertions, async control,

@@ -13914,6 +13914,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not open the link. Please try again.';
 
   @override
+  String get aboutCopyErrorLog => 'Copy error log';
+
+  @override
+  String get aboutErrorLogCopied =>
+      'Error log copied. Review it before sharing.';
+
+  @override
+  String get aboutErrorLogEmpty => 'No errors recorded since the app started.';
+
+  @override
+  String get aboutErrorLogCopyFailed =>
+      'Could not copy the error log. Please try again.';
+
+  @override
   String aboutExternalLinkLabel(String label) {
     return '$label, opens in browser';
   }

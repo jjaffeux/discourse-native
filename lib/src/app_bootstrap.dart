@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -9,6 +10,7 @@ import 'data/http_basic_auth.dart';
 import 'data/linux_application_directories.dart';
 import 'data/linux_preferences_store.dart';
 import 'data/media_pipeline.dart';
+import 'foundation/error_log.dart';
 import 'foundation/startup_timeline.dart';
 import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
@@ -17,6 +19,9 @@ import 'plugin_api/plugin_runtime.dart';
 import 'shell/component_styleguide_scope.dart';
 
 abstract interface class AppBootstrapHost {
+  /// Runs first, so a failure of any later stage is already captured.
+  void installErrorCapture(ErrorLog log);
+
   void ensureFlutterInitialized();
 
   /// Runs before anything can reach preferences: `SharedPreferences` caches
@@ -41,7 +46,8 @@ abstract interface class AppBootstrapHost {
 }
 
 final class AppBootstrap {
-  AppBootstrap({required this._host});
+  AppBootstrap({required this._host, ErrorLog? errorLog})
+    : _errorLog = errorLog ?? ErrorLog.instance;
 
   factory AppBootstrap.production({
     PluginManifest manifest = corePluginManifest,
@@ -51,6 +57,7 @@ final class AppBootstrap {
   );
 
   final AppBootstrapHost _host;
+  final ErrorLog _errorLog;
   bool _admitted = false;
   ({Object error, StackTrace stack})? _failure;
 
@@ -60,8 +67,23 @@ final class AppBootstrap {
     }
     if (_admitted) return;
     _admitted = true;
+    // The binding and `runApp` must share a zone, so the whole launch runs
+    // inside the guard. A guarded zone would also swallow a synchronous
+    // startup failure, which is why `_launch` keeps it for the rethrow below.
+    final parent = Zone.current;
+    runZonedGuarded(_launch, (error, stack) {
+      _errorLog.record(error, stack, source: ErrorSource.zone);
+      parent.handleUncaughtError(error, stack);
+    });
+    if (_failure case final failure?) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
+    }
+  }
+
+  void _launch() {
     try {
       markStartup('main');
+      _host.installErrorCapture(_errorLog);
       _host.ensureFlutterInitialized();
       _host.installPreferencesStore();
       _host.preloadLocalState();
@@ -81,7 +103,7 @@ final class AppBootstrap {
       // Startup is not transactional: repeating partial installation can
       // construct a second runtime or assign the production plugin graph twice.
       _failure = (error: error, stack: stack);
-      rethrow;
+      _errorLog.record(error, stack, source: ErrorSource.startup);
     }
   }
 
@@ -90,10 +112,27 @@ final class AppBootstrap {
   ) async {
     try {
       await initialize();
-    } catch (_) {
+    } catch (error, stack) {
       // Deferred startup work must never take down an already-visible UI.
+      _errorLog.record(error, stack, source: ErrorSource.startup);
     }
   }
+}
+
+/// Records framework and uncaught platform errors into [log], then hands each
+/// to whatever handled it before, so reporting to the console is unchanged.
+void installFlutterErrorCapture(ErrorLog log) {
+  final presentFrameworkError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    log.record(details.exception, details.stack, source: ErrorSource.framework);
+    presentFrameworkError?.call(details);
+  };
+  final dispatcher = PlatformDispatcher.instance;
+  final handlePlatformError = dispatcher.onError;
+  dispatcher.onError = (error, stack) {
+    log.record(error, stack, source: ErrorSource.platform);
+    return handlePlatformError?.call(error, stack) ?? false;
+  };
 }
 
 final class _ProductionAppBootstrapHost implements AppBootstrapHost {
@@ -102,6 +141,9 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   final PluginManifest _manifest;
   final ComponentStyleguideOpener _openComponentStyleguide;
   late final InstalledPlugins _plugins;
+
+  @override
+  void installErrorCapture(ErrorLog log) => installFlutterErrorCapture(log);
 
   @override
   void ensureFlutterInitialized() {
