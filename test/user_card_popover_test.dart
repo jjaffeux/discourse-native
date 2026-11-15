@@ -415,6 +415,26 @@ void main() {
     );
   }
 
+  testWidgets('mobile View profile closes the card and opens the page', (
+    tester,
+  ) async {
+    final api = await _pumpTarget(tester, platform: TargetPlatform.iOS);
+    final shell = ShellScope.read(tester.element(_target));
+    await _open(tester);
+    api.requests.single.complete(_profile);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View profile'));
+    await tester.pumpAndSettle();
+    expect(_surface, findsNothing);
+    expect(
+      shell.currentContent?.sameDestinationAs(
+        ContentRoute.userProfile(username: _profile.username),
+      ),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
       '${platform.name} card fills the viewport foot with swipe dismissal',

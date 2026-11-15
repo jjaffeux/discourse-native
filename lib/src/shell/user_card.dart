@@ -506,6 +506,23 @@ class _MobileCardContent extends StatelessWidget {
         ...PluginScope.of(
           context,
         ).registry.userCardActions(context, siteUrl, card, close),
+      DButton(
+        size: DButtonSize.toolbar,
+        shape: DButtonShape.pill,
+        borderColor: Colors.transparent,
+        label: Text(context.l10n.viewProfile),
+        icon: const DIcon(DIcons.user),
+        onPressed: () {
+          if (lease.isCurrent) {
+            close();
+            shell.openUserProfile(
+              siteUrl,
+              username: card.username,
+              displayName: card.displayName,
+            );
+          }
+        },
+      ),
     ];
     final zone = TimezoneEnvironment.instance.location(card.timezone);
     final secondary = Color.lerp(tokens.background, tokens.foreground, .62)!;
