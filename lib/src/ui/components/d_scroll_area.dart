@@ -10,8 +10,6 @@ import 'd_scroll_behavior.dart';
 /// Axes enabled by [DScrollArea]. Each axis has one native scroll position.
 enum DScrollAxes { vertical, horizontal, both }
 
-enum DScrollBarVariant { standard, scrubber }
-
 /// A themed scrollbar around an existing viewport. Does not own its controller
 /// or add a scroll position; suitable for lazy lists and restored app panes.
 class DScrollBar extends StatelessWidget {
@@ -22,8 +20,6 @@ class DScrollBar extends StatelessWidget {
     this.axis = Axis.vertical,
     this.showScrollbar = true,
     this.thumbVisibility = true,
-    this.variant = DScrollBarVariant.standard,
-    this.onDragEnd,
 
     this.backgroundColor,
     this.cornerExtent = 0,
@@ -44,13 +40,6 @@ class DScrollBar extends StatelessWidget {
   /// use [showScrollbar] to hide it even during scrolling and hover.
   final bool thumbVisibility;
 
-  /// A scrubber draws an accent thumb over a visible, draggable track and
-  /// settles at the release position.
-  final DScrollBarVariant variant;
-
-  /// Called when a scrollbar drag is released.
-  final VoidCallback? onDragEnd;
-
   /// Painted container surface. Defaults to the current theme background.
   final Color? backgroundColor;
 
@@ -61,61 +50,46 @@ class DScrollBar extends StatelessWidget {
   final int notificationDepth;
 
   @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final scrubber = variant == DScrollBarVariant.scrubber;
-    final background = backgroundColor ?? tokens.background;
-    final padding = axis == Axis.vertical
-        ? EdgeInsets.only(bottom: cornerExtent)
-        : EdgeInsetsDirectional.only(end: cornerExtent);
-    const radius = Radius.circular(999);
-    return ScrollConfiguration(
-      behavior: DScrollBehavior(
-        delegate: ScrollConfiguration.of(context),
-      ).copyWith(scrollbars: false),
-      // Keep the viewport subtree mounted when the scrollbar is hidden.
-      child: _NaturalScrollbar(
-        pageHeader: axis == Axis.vertical
-            ? DPageSurface.headerGeometryOf(context)
-            : null,
-        controller: controller,
-        thumbVisibility: showScrollbar && thumbVisibility,
-        interactive: showScrollbar,
-        trackVisibility: showScrollbar && thumbVisibility && scrubber,
-        trackColor: Color.lerp(background, tokens.primary, .19),
-        trackBorderColor: Colors.transparent,
-        trackRadius: radius,
-        scrubber: scrubber,
-        onDragEnd: onDragEnd,
-        thickness: scrubber ? 10 : DScrollThumb.defaultThickness,
-        crossAxisMargin: scrubber ? 0 : DScrollThumb.containerInset,
-        mainAxisMargin: DScrollThumb.containerInset,
-        padding: scrubber ? padding.add(const EdgeInsets.all(6)) : padding,
-        radius: radius,
-        minThumbLength: scrubber ? 34 : 16,
-        thumbColor: showScrollbar
-            ? scrubber
-                  ? tokens.primary
-                  : DScrollThumb.colorOn(
-                      background,
-                      foreground: tokens.foreground,
-                    )
-            : Colors.transparent,
-        fadeDuration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 150),
-        notificationPredicate: (notification) =>
-            notification.metrics.axis == axis &&
-            notification.depth == notificationDepth,
-        scrollbarOrientation: axis == Axis.horizontal
-            ? ScrollbarOrientation.bottom
-            : Directionality.of(context) == TextDirection.rtl
-            ? ScrollbarOrientation.left
-            : ScrollbarOrientation.right,
-        child: child,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ScrollConfiguration(
+    behavior: DScrollBehavior(
+      delegate: ScrollConfiguration.of(context),
+    ).copyWith(scrollbars: false),
+    // Keep the viewport subtree mounted when the scrollbar is hidden.
+    child: _NaturalScrollbar(
+      pageHeader: axis == Axis.vertical
+          ? DPageSurface.headerGeometryOf(context)
+          : null,
+      controller: controller,
+      thumbVisibility: showScrollbar && thumbVisibility,
+      interactive: showScrollbar,
+      thickness: DScrollThumb.defaultThickness,
+      crossAxisMargin: DScrollThumb.containerInset,
+      mainAxisMargin: DScrollThumb.containerInset,
+      padding: axis == Axis.vertical
+          ? EdgeInsets.only(bottom: cornerExtent)
+          : EdgeInsetsDirectional.only(end: cornerExtent),
+      radius: const Radius.circular(999),
+      minThumbLength: 16,
+      thumbColor: showScrollbar
+          ? (DScrollThumb.colorOn(
+              backgroundColor ?? DTokens.of(context).background,
+              foreground: DTokens.of(context).foreground,
+            ))
+          : Colors.transparent,
+      fadeDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 150),
+      notificationPredicate: (notification) =>
+          notification.metrics.axis == axis &&
+          notification.depth == notificationDepth,
+      scrollbarOrientation: axis == Axis.horizontal
+          ? ScrollbarOrientation.bottom
+          : Directionality.of(context) == TextDirection.rtl
+          ? ScrollbarOrientation.left
+          : ScrollbarOrientation.right,
+      child: child,
+    ),
+  );
 }
 
 /// The native single-axis viewport used by DScrollArea. Its controller is
@@ -446,10 +420,6 @@ class _NaturalScrollbar extends RawScrollbar {
     super.controller,
     super.thumbVisibility,
     super.interactive,
-    super.trackVisibility,
-    super.trackColor,
-    super.trackBorderColor,
-    super.trackRadius,
     super.thickness,
     super.crossAxisMargin,
     super.mainAxisMargin,
@@ -461,13 +431,9 @@ class _NaturalScrollbar extends RawScrollbar {
     super.notificationPredicate,
     super.scrollbarOrientation,
     this.pageHeader,
-    this.scrubber = false,
-    this.onDragEnd,
   });
 
   final DPageHeaderGeometry? pageHeader;
-  final bool scrubber;
-  final VoidCallback? onDragEnd;
 
   @override
   RawScrollbarState<_NaturalScrollbar> createState() =>
@@ -478,7 +444,6 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   late final _NaturalScrollbarPainter _naturalPainter;
   _HeaderThumbGrip? _headerGrip;
   int? _eventPointer;
-  int? _scrubberPointer;
 
   @override
   ScrollbarPainter get scrollbarPainter => _naturalPainter;
@@ -557,11 +522,6 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
     final pointer = _eventPointer;
     super.handleThumbPressStart(localPosition);
     _headerGrip = null;
-    if (widget.scrubber) {
-      _scrubberPointer = pointer;
-      _naturalPainter.beginScrub();
-      return;
-    }
     final controller = _controller;
     final header = widget.pageHeader;
     if (pointer == null ||
@@ -611,17 +571,7 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   @override
   void handleThumbPressEnd(Offset localPosition, Velocity velocity) {
     _finishHeaderGrip();
-    super.handleThumbPressEnd(
-      localPosition,
-      widget.scrubber ? Velocity.zero : velocity,
-    );
-    _endScrub();
-    widget.onDragEnd?.call();
-  }
-
-  void _endScrub() {
-    _scrubberPointer = null;
-    _naturalPainter.endScrub();
+    super.handleThumbPressEnd(localPosition, velocity);
   }
 
   @override
@@ -642,7 +592,6 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
       if (event.pointer == _headerGrip?.pointer) {
         _headerGrip = null;
       }
-      if (event.pointer == _scrubberPointer) _endScrub();
     },
     child: super.build(context),
   );
@@ -650,8 +599,6 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   @override
   void updateScrollbarPainter() {
     super.updateScrollbarPainter();
-    _naturalPainter.dragTrack =
-        widget.scrubber && widget.trackVisibility == true;
     _updateHeaderInset();
   }
 
@@ -663,7 +610,6 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
         oldWidget.scrollbarOrientation != widget.scrollbarOrientation) {
       _headerGrip = null;
       _eventPointer = null;
-      _endScrub();
     }
     super.didUpdateWidget(oldWidget);
     if (oldWidget.pageHeader != widget.pageHeader) {
@@ -709,25 +655,6 @@ class _NaturalScrollbarPainter extends ScrollbarPainter {
 
   Size? _size;
   EdgeInsetsGeometry? _paintedPadding;
-  bool dragTrack = false;
-  double? _scrubScale;
-
-  void beginScrub() {
-    final scale = super.getTrackToScroll(1);
-    _scrubScale = scale.isFinite ? scale : null;
-  }
-
-  void endScrub() => _scrubScale = null;
-
-  // Lazy content can change the estimated scroll extent mid-drag. Keep the
-  // conversion from finger travel to scroll distance stable until release.
-  @override
-  double getTrackToScroll(double thumbOffsetLocal) {
-    final scale = _scrubScale;
-    return scale == null
-        ? super.getTrackToScroll(thumbOffsetLocal)
-        : thumbOffsetLocal * scale;
-  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -790,7 +717,5 @@ class _NaturalScrollbarPainter extends ScrollbarPainter {
 
   @override
   bool hitTestOnlyThumbInteractive(Offset position, PointerDeviceKind kind) =>
-      dragTrack
-      ? hitTestInteractive(position, PointerDeviceKind.mouse)
-      : super.hitTestOnlyThumbInteractive(position, PointerDeviceKind.mouse);
+      super.hitTestOnlyThumbInteractive(position, PointerDeviceKind.mouse);
 }
