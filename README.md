@@ -6,6 +6,33 @@ See [Application ownership](docs/architecture/README.md) for service, account,
 request, and feature boundaries. [Composer ownership](docs/composer-architecture.md)
 covers the live editor, built-in component modules, and plugin extension points.
 
+## User profiles
+
+A person's profile is a native page. It mirrors the web client's
+`/u/{username}/summary`: who the person is, then their summary or their
+activity.
+
+- **Links.** `/u/{username}` and `/u/{username}/summary` open the profile.
+  `/u/{username}/activity` and its filters open the activity page, for a
+  signed-in reader. Every other page under `/u/{username}`, such as
+  preferences, badges and another person's messages, opens in the browser. A
+  plain click on a `/u/{username}` link still opens the user card first, and
+  the card's **View profile** button opens the page.
+- **Endpoints.** The header reads `/u/{username}.json`. Its `user` object is a
+  superset of the card's, and adds the full `bio_cooked`, `last_seen_at` and
+  `profile_hidden`. The Summary section reads `/u/{username}/summary.json` and
+  the Activity section reads the same feed as the activity page.
+- **Hidden.** When `profile_hidden` is true, the page shows the identity the
+  site sent and a notice. It shows no Summary or Activity section and asks for
+  neither.
+- **Missing.** A 404 shows a message with no retry. A 401 or 403 says the
+  profile cannot be seen. Any other failure offers a retry.
+- **Anonymous.** A reader with no account still loads the header from a public
+  site. The Summary and Activity sections ask them to connect the account.
+
+`UserProfileController` holds each profile per account session and username,
+so a response for a retired session or a superseded request is dropped.
+
 ## Native image build tools
 
 AVIF stills and animations use the source-built `flutter_libavif` decoder.
