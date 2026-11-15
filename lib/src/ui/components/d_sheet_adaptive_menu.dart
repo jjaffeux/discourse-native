@@ -436,6 +436,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double? _retainedExitHeightOffset;
   double _safeBottom = 0;
   _DSheetDragScopeState? _dragOwner;
+  bool _draggedPastDetent = false;
 
   bool get _animate => !MediaQuery.disableAnimationsOf(context);
   double get _keyboardInset => _keyboardInsetAnimation.value;
@@ -452,8 +453,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double get _heightOffset => _heightOffsetAt(_offset);
 
   @override
-  double get _dismissProgress =>
-      ((_offset - _low) / (_swipeExtent * .4)).clamp(0, 1);
+  double get _dismissProgress {
+    if (!_draggedPastDetent && _retainedExitHeightOffset == null) return 0;
+    return ((_offset - _low) / (_swipeExtent * .4)).clamp(0, 1);
+  }
 
   double _heightOffsetAt(double offset) => _fullyExpanded
       ? 0
@@ -659,6 +662,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   }
 
   void _travelChanged() {
+    if (_travel.value <= _low) _draggedPastDetent = false;
     _dragOwner?._reportProgress(this);
     // Translation and backdrop dimming listen directly to travel. Rebuild the
     // content's inherited state only when the handle changes Expand/Collapse.
@@ -825,10 +829,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   void _update(double delta, {bool allowExpand = true}) {
     if (_exit.geometry != null) return;
-    _travel.value = math.max(
-      allowExpand ? 0 : _startOffset,
+    final next = math.max(
+      allowExpand ? 0.0 : _startOffset,
       _travel.value + delta,
     );
+    if (delta > 0 && next > _low) _draggedPastDetent = true;
+    _travel.value = next;
   }
 
   double _consume(ScrollMetrics metrics, double delta) {
