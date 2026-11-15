@@ -165,6 +165,7 @@ Object? _sidebarSectionCounts(ShellController shell) {
   return (
     totals?.unreadPersonalMessages,
     totals?.topicTrackingSidebarCount,
+    totals?.unseenReviewables,
     totals?.pluginCounters,
   );
 }
@@ -248,6 +249,8 @@ class InstanceSidebar extends StatelessWidget {
         currentContent?.isPage(CorePage.bookmarks) == true ||
         currentContent?.isPage(CorePage.dashboard) == true) {
       selectedDestinationId = currentContent?.id;
+    } else if (currentContent?.isPage(CorePage.review) == true) {
+      selectedDestinationId = CorePage.review.key;
     } else if (currentContent?.isTopic == true &&
         selectedDestinationId == 'drafts') {
       // Reply drafts keep Drafts in their back stack, but the topic itself
@@ -566,6 +569,11 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                 ),
               if (controller.currentInstance?.user?.staff == true)
                 SidebarDestination.dashboard(),
+              if (controller.currentInstance?.user?.reviews == true &&
+                  !section.moreDestinations.any(
+                    (destination) => destination.id == CorePage.review.key,
+                  ))
+                SidebarDestination.review(),
             ],
             showHeader: widget.mobile || section.showHeader,
             collapsible: widget.mobile || section.collapsible,

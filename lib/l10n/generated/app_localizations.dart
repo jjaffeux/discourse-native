@@ -25489,6 +25489,354 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tiled'**
   String get voiceLayoutTiled;
+
+  /// Title of the moderator review queue page, its sidebar row and its phone dock entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get reviewTitle;
+
+  /// Review queue page shown to an account that may not review.
+  ///
+  /// In en, this message translates to:
+  /// **'Only staff and category moderators can see the review queue.'**
+  String get reviewNotPermitted;
+
+  /// Screen reader label while the review queue loads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading review queue'**
+  String get reviewLoading;
+
+  /// Review queue load failure.
+  ///
+  /// In en, this message translates to:
+  /// **'The review queue couldn’t be loaded.'**
+  String get reviewLoadError;
+
+  /// Review queue with no items for the chosen filters.
+  ///
+  /// In en, this message translates to:
+  /// **'There are no items to review.'**
+  String get reviewEmpty;
+
+  /// Label of the review queue status filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get reviewFilterStatus;
+
+  /// Label of the review queue item type filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get reviewFilterType;
+
+  /// Label of the review queue priority filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum priority'**
+  String get reviewFilterPriority;
+
+  /// Label of the review queue category filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get reviewFilterCategory;
+
+  /// Label and placeholder of the review queue filter by the author’s username.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get reviewFilterUsername;
+
+  /// Label of the review queue sort order selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Order by'**
+  String get reviewFilterOrder;
+
+  /// Review status: awaiting a decision.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get reviewStatusPending;
+
+  /// Review queue filter: every item already decided.
+  ///
+  /// In en, this message translates to:
+  /// **'All reviewed'**
+  String get reviewStatusReviewed;
+
+  /// Review status: approved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved'**
+  String get reviewStatusApproved;
+
+  /// Review status: rejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get reviewStatusRejected;
+
+  /// Review status: ignored.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignored'**
+  String get reviewStatusIgnored;
+
+  /// Review status: its content was deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted'**
+  String get reviewStatusDeleted;
+
+  /// Review queue filter: items in any state.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything'**
+  String get reviewStatusAll;
+
+  /// Review status of an item that is no longer pending, when the site names a state this app does not know.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviewed'**
+  String get reviewStatusHandled;
+
+  /// Review queue type filter option that removes the filter.
+  ///
+  /// In en, this message translates to:
+  /// **'(all types)'**
+  String get reviewAllTypes;
+
+  /// Review queue category filter option that removes the filter.
+  ///
+  /// In en, this message translates to:
+  /// **'(all categories)'**
+  String get reviewAllCategories;
+
+  /// Review queue priority filter option that uses the site’s default.
+  ///
+  /// In en, this message translates to:
+  /// **'(any)'**
+  String get reviewPriorityAny;
+
+  /// Review queue priority filter option.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get reviewPriorityLow;
+
+  /// Review queue priority filter option.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get reviewPriorityMedium;
+
+  /// Review queue priority filter option.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get reviewPriorityHigh;
+
+  /// Review queue sort order: highest score first.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get reviewOrderScore;
+
+  /// Review queue sort order: lowest score first.
+  ///
+  /// In en, this message translates to:
+  /// **'Score (reverse)'**
+  String get reviewOrderScoreAscending;
+
+  /// Review queue sort order: newest first.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get reviewOrderNewest;
+
+  /// Review queue sort order: oldest first.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest'**
+  String get reviewOrderOldest;
+
+  /// Review item type: a post that was flagged.
+  ///
+  /// In en, this message translates to:
+  /// **'Flagged post'**
+  String get reviewTypeFlaggedPost;
+
+  /// Review item type: a reply awaiting approval.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued post'**
+  String get reviewTypeQueuedPost;
+
+  /// Review item type: a new topic awaiting approval.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued topic'**
+  String get reviewTypeQueuedTopic;
+
+  /// Review item type: an account awaiting approval or suspected of spam.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get reviewTypeUser;
+
+  /// Review item type: a post sent for review without a flag.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get reviewTypePost;
+
+  /// Review item type: a chat message that was flagged.
+  ///
+  /// In en, this message translates to:
+  /// **'Flagged chat message'**
+  String get reviewTypeChatMessage;
+
+  /// State of one flag on a review item: a moderator agreed with it.
+  ///
+  /// In en, this message translates to:
+  /// **'Agreed'**
+  String get reviewScoreAgreed;
+
+  /// State of one flag on a review item: a moderator disagreed with it.
+  ///
+  /// In en, this message translates to:
+  /// **'Disagreed'**
+  String get reviewScoreDisagreed;
+
+  /// Heading above the flags and automatic reasons of a review item.
+  ///
+  /// In en, this message translates to:
+  /// **'Reasons'**
+  String get reviewReasons;
+
+  /// Review item with no flags or reasons.
+  ///
+  /// In en, this message translates to:
+  /// **'No reasons were recorded.'**
+  String get reviewNoReasons;
+
+  /// Review item whose post no longer exists.
+  ///
+  /// In en, this message translates to:
+  /// **'This post has been deleted.'**
+  String get reviewContentDeleted;
+
+  /// Review item of a type this app has no dedicated view for.
+  ///
+  /// In en, this message translates to:
+  /// **'This kind of item can’t be shown in full here yet.'**
+  String get reviewUnsupportedType;
+
+  /// Button that opens a review item on the site in the browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in browser'**
+  String get reviewOpenInBrowser;
+
+  /// Button that opens the post or topic a review item is about.
+  ///
+  /// In en, this message translates to:
+  /// **'View in context'**
+  String get reviewViewInContext;
+
+  /// Button that returns from a review item to the queue.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to queue'**
+  String get reviewBackToQueue;
+
+  /// Review item load failure.
+  ///
+  /// In en, this message translates to:
+  /// **'This item couldn’t be loaded.'**
+  String get reviewItemLoadError;
+
+  /// Review item the site did not return.
+  ///
+  /// In en, this message translates to:
+  /// **'This item no longer exists or isn’t visible to you.'**
+  String get reviewItemMissing;
+
+  /// Notice after a review action was refused because another moderator had already acted.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone else acted on this item first. It now shows their result.'**
+  String get reviewConflict;
+
+  /// Notice after a review action succeeded and the site sent no message of its own.
+  ///
+  /// In en, this message translates to:
+  /// **'Done.'**
+  String get reviewPerformed;
+
+  /// Heading above the action buttons of a review item.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get reviewActions;
+
+  /// Review item with no available actions.
+  ///
+  /// In en, this message translates to:
+  /// **'There is nothing left to do on this item.'**
+  String get reviewNoActions;
+
+  /// Confirmation text for a destructive review action when the site supplies none.
+  ///
+  /// In en, this message translates to:
+  /// **'This acts on the site right away and may not be reversible.'**
+  String get reviewConfirmDestructive;
+
+  /// Label of the full name of an account under review.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get reviewAccountName;
+
+  /// Label of the email address of an account under review.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get reviewAccountEmail;
+
+  /// Label of the recorded reason an account was rejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject reason'**
+  String get reviewRejectReason;
+
+  /// Who raised one flag on a review item.
+  ///
+  /// In en, this message translates to:
+  /// **'Flagged by @{username}'**
+  String reviewFlaggedBy(String username);
+
+  /// Author of the content under review.
+  ///
+  /// In en, this message translates to:
+  /// **'Written by @{username}'**
+  String reviewWrittenBy(String username);
+
+  /// Screen reader label of a review action that needs details only the site’s page collects.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}, opens in browser'**
+  String reviewActionInBrowser(String label);
+
+  /// Screen reader label of a row in the review queue.
+  ///
+  /// In en, this message translates to:
+  /// **'Review item: {summary}'**
+  String reviewItemLabel(String summary);
 }
 
 class _AppLocalizationsDelegate

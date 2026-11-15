@@ -144,6 +144,10 @@ class DiscourseUser {
 
   final bool canReview;
 
+  /// Staff always review; `can_review` also admits category moderators, and
+  /// is absent from accounts stored before it was read.
+  bool get reviews => staff || canReview;
+
   final bool canUseDsaAccountEmail;
 
   final List<String> groups;

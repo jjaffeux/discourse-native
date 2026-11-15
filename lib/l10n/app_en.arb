@@ -20896,5 +20896,257 @@
   "voiceLayoutTiled": "Tiled",
   "@voiceLayoutTiled": {
     "description": "Live room layout showing equally sized participant tiles."
+  },
+  "reviewTitle": "Review",
+  "@reviewTitle": {
+    "description": "Title of the moderator review queue page, its sidebar row and its phone dock entry."
+  },
+  "reviewNotPermitted": "Only staff and category moderators can see the review queue.",
+  "@reviewNotPermitted": {
+    "description": "Review queue page shown to an account that may not review."
+  },
+  "reviewLoading": "Loading review queue",
+  "@reviewLoading": {
+    "description": "Screen reader label while the review queue loads."
+  },
+  "reviewLoadError": "The review queue couldn’t be loaded.",
+  "@reviewLoadError": {
+    "description": "Review queue load failure."
+  },
+  "reviewEmpty": "There are no items to review.",
+  "@reviewEmpty": {
+    "description": "Review queue with no items for the chosen filters."
+  },
+  "reviewFilterStatus": "Status",
+  "@reviewFilterStatus": {
+    "description": "Label of the review queue status filter."
+  },
+  "reviewFilterType": "Type",
+  "@reviewFilterType": {
+    "description": "Label of the review queue item type filter."
+  },
+  "reviewFilterPriority": "Minimum priority",
+  "@reviewFilterPriority": {
+    "description": "Label of the review queue priority filter."
+  },
+  "reviewFilterCategory": "Category",
+  "@reviewFilterCategory": {
+    "description": "Label of the review queue category filter."
+  },
+  "reviewFilterUsername": "Username",
+  "@reviewFilterUsername": {
+    "description": "Label and placeholder of the review queue filter by the author’s username."
+  },
+  "reviewFilterOrder": "Order by",
+  "@reviewFilterOrder": {
+    "description": "Label of the review queue sort order selector."
+  },
+  "reviewStatusPending": "Pending",
+  "@reviewStatusPending": {
+    "description": "Review status: awaiting a decision."
+  },
+  "reviewStatusReviewed": "All reviewed",
+  "@reviewStatusReviewed": {
+    "description": "Review queue filter: every item already decided."
+  },
+  "reviewStatusApproved": "Approved",
+  "@reviewStatusApproved": {
+    "description": "Review status: approved."
+  },
+  "reviewStatusRejected": "Rejected",
+  "@reviewStatusRejected": {
+    "description": "Review status: rejected."
+  },
+  "reviewStatusIgnored": "Ignored",
+  "@reviewStatusIgnored": {
+    "description": "Review status: ignored."
+  },
+  "reviewStatusDeleted": "Deleted",
+  "@reviewStatusDeleted": {
+    "description": "Review status: its content was deleted."
+  },
+  "reviewStatusAll": "Everything",
+  "@reviewStatusAll": {
+    "description": "Review queue filter: items in any state."
+  },
+  "reviewStatusHandled": "Reviewed",
+  "@reviewStatusHandled": {
+    "description": "Review status of an item that is no longer pending, when the site names a state this app does not know."
+  },
+  "reviewAllTypes": "(all types)",
+  "@reviewAllTypes": {
+    "description": "Review queue type filter option that removes the filter."
+  },
+  "reviewAllCategories": "(all categories)",
+  "@reviewAllCategories": {
+    "description": "Review queue category filter option that removes the filter."
+  },
+  "reviewPriorityAny": "(any)",
+  "@reviewPriorityAny": {
+    "description": "Review queue priority filter option that uses the site’s default."
+  },
+  "reviewPriorityLow": "Low",
+  "@reviewPriorityLow": {
+    "description": "Review queue priority filter option."
+  },
+  "reviewPriorityMedium": "Medium",
+  "@reviewPriorityMedium": {
+    "description": "Review queue priority filter option."
+  },
+  "reviewPriorityHigh": "High",
+  "@reviewPriorityHigh": {
+    "description": "Review queue priority filter option."
+  },
+  "reviewOrderScore": "Score",
+  "@reviewOrderScore": {
+    "description": "Review queue sort order: highest score first."
+  },
+  "reviewOrderScoreAscending": "Score (reverse)",
+  "@reviewOrderScoreAscending": {
+    "description": "Review queue sort order: lowest score first."
+  },
+  "reviewOrderNewest": "Newest",
+  "@reviewOrderNewest": {
+    "description": "Review queue sort order: newest first."
+  },
+  "reviewOrderOldest": "Oldest",
+  "@reviewOrderOldest": {
+    "description": "Review queue sort order: oldest first."
+  },
+  "reviewTypeFlaggedPost": "Flagged post",
+  "@reviewTypeFlaggedPost": {
+    "description": "Review item type: a post that was flagged."
+  },
+  "reviewTypeQueuedPost": "Queued post",
+  "@reviewTypeQueuedPost": {
+    "description": "Review item type: a reply awaiting approval."
+  },
+  "reviewTypeQueuedTopic": "Queued topic",
+  "@reviewTypeQueuedTopic": {
+    "description": "Review item type: a new topic awaiting approval."
+  },
+  "reviewTypeUser": "User",
+  "@reviewTypeUser": {
+    "description": "Review item type: an account awaiting approval or suspected of spam."
+  },
+  "reviewTypePost": "Post",
+  "@reviewTypePost": {
+    "description": "Review item type: a post sent for review without a flag."
+  },
+  "reviewTypeChatMessage": "Flagged chat message",
+  "@reviewTypeChatMessage": {
+    "description": "Review item type: a chat message that was flagged."
+  },
+  "reviewScoreAgreed": "Agreed",
+  "@reviewScoreAgreed": {
+    "description": "State of one flag on a review item: a moderator agreed with it."
+  },
+  "reviewScoreDisagreed": "Disagreed",
+  "@reviewScoreDisagreed": {
+    "description": "State of one flag on a review item: a moderator disagreed with it."
+  },
+  "reviewReasons": "Reasons",
+  "@reviewReasons": {
+    "description": "Heading above the flags and automatic reasons of a review item."
+  },
+  "reviewNoReasons": "No reasons were recorded.",
+  "@reviewNoReasons": {
+    "description": "Review item with no flags or reasons."
+  },
+  "reviewContentDeleted": "This post has been deleted.",
+  "@reviewContentDeleted": {
+    "description": "Review item whose post no longer exists."
+  },
+  "reviewUnsupportedType": "This kind of item can’t be shown in full here yet.",
+  "@reviewUnsupportedType": {
+    "description": "Review item of a type this app has no dedicated view for."
+  },
+  "reviewOpenInBrowser": "Open in browser",
+  "@reviewOpenInBrowser": {
+    "description": "Button that opens a review item on the site in the browser."
+  },
+  "reviewViewInContext": "View in context",
+  "@reviewViewInContext": {
+    "description": "Button that opens the post or topic a review item is about."
+  },
+  "reviewBackToQueue": "Back to queue",
+  "@reviewBackToQueue": {
+    "description": "Button that returns from a review item to the queue."
+  },
+  "reviewItemLoadError": "This item couldn’t be loaded.",
+  "@reviewItemLoadError": {
+    "description": "Review item load failure."
+  },
+  "reviewItemMissing": "This item no longer exists or isn’t visible to you.",
+  "@reviewItemMissing": {
+    "description": "Review item the site did not return."
+  },
+  "reviewConflict": "Someone else acted on this item first. It now shows their result.",
+  "@reviewConflict": {
+    "description": "Notice after a review action was refused because another moderator had already acted."
+  },
+  "reviewPerformed": "Done.",
+  "@reviewPerformed": {
+    "description": "Notice after a review action succeeded and the site sent no message of its own."
+  },
+  "reviewActions": "Actions",
+  "@reviewActions": {
+    "description": "Heading above the action buttons of a review item."
+  },
+  "reviewNoActions": "There is nothing left to do on this item.",
+  "@reviewNoActions": {
+    "description": "Review item with no available actions."
+  },
+  "reviewConfirmDestructive": "This acts on the site right away and may not be reversible.",
+  "@reviewConfirmDestructive": {
+    "description": "Confirmation text for a destructive review action when the site supplies none."
+  },
+  "reviewAccountName": "Name",
+  "@reviewAccountName": {
+    "description": "Label of the full name of an account under review."
+  },
+  "reviewAccountEmail": "Email",
+  "@reviewAccountEmail": {
+    "description": "Label of the email address of an account under review."
+  },
+  "reviewRejectReason": "Reject reason",
+  "@reviewRejectReason": {
+    "description": "Label of the recorded reason an account was rejected."
+  },
+  "reviewFlaggedBy": "Flagged by @{username}",
+  "@reviewFlaggedBy": {
+    "description": "Who raised one flag on a review item.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewWrittenBy": "Written by @{username}",
+  "@reviewWrittenBy": {
+    "description": "Author of the content under review.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewActionInBrowser": "{label}, opens in browser",
+  "@reviewActionInBrowser": {
+    "description": "Screen reader label of a review action that needs details only the site’s page collects.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewItemLabel": "Review item: {summary}",
+  "@reviewItemLabel": {
+    "description": "Screen reader label of a row in the review queue.",
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
   }
 }

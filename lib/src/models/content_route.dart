@@ -242,6 +242,12 @@ class ContentRoute {
     icon: DIcons.barsStaggered,
   );
 
+  factory ContentRoute.review({int? reviewableId}) => ContentRoute(
+    destination: PageDestination(CorePage.review, reviewableId: reviewableId),
+    title: appL10n.reviewTitle,
+    icon: DIcons.flag,
+  );
+
   factory ContentRoute.forumAbout() => ContentRoute(
     destination: const PageDestination(CorePage.forumAbout),
     title: appL10n.forumAboutTitle,

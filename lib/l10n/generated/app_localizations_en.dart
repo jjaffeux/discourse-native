@@ -16051,4 +16051,191 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceLayoutTiled => 'Tiled';
+
+  @override
+  String get reviewTitle => 'Review';
+
+  @override
+  String get reviewNotPermitted =>
+      'Only staff and category moderators can see the review queue.';
+
+  @override
+  String get reviewLoading => 'Loading review queue';
+
+  @override
+  String get reviewLoadError => 'The review queue couldn’t be loaded.';
+
+  @override
+  String get reviewEmpty => 'There are no items to review.';
+
+  @override
+  String get reviewFilterStatus => 'Status';
+
+  @override
+  String get reviewFilterType => 'Type';
+
+  @override
+  String get reviewFilterPriority => 'Minimum priority';
+
+  @override
+  String get reviewFilterCategory => 'Category';
+
+  @override
+  String get reviewFilterUsername => 'Username';
+
+  @override
+  String get reviewFilterOrder => 'Order by';
+
+  @override
+  String get reviewStatusPending => 'Pending';
+
+  @override
+  String get reviewStatusReviewed => 'All reviewed';
+
+  @override
+  String get reviewStatusApproved => 'Approved';
+
+  @override
+  String get reviewStatusRejected => 'Rejected';
+
+  @override
+  String get reviewStatusIgnored => 'Ignored';
+
+  @override
+  String get reviewStatusDeleted => 'Deleted';
+
+  @override
+  String get reviewStatusAll => 'Everything';
+
+  @override
+  String get reviewStatusHandled => 'Reviewed';
+
+  @override
+  String get reviewAllTypes => '(all types)';
+
+  @override
+  String get reviewAllCategories => '(all categories)';
+
+  @override
+  String get reviewPriorityAny => '(any)';
+
+  @override
+  String get reviewPriorityLow => 'Low';
+
+  @override
+  String get reviewPriorityMedium => 'Medium';
+
+  @override
+  String get reviewPriorityHigh => 'High';
+
+  @override
+  String get reviewOrderScore => 'Score';
+
+  @override
+  String get reviewOrderScoreAscending => 'Score (reverse)';
+
+  @override
+  String get reviewOrderNewest => 'Newest';
+
+  @override
+  String get reviewOrderOldest => 'Oldest';
+
+  @override
+  String get reviewTypeFlaggedPost => 'Flagged post';
+
+  @override
+  String get reviewTypeQueuedPost => 'Queued post';
+
+  @override
+  String get reviewTypeQueuedTopic => 'Queued topic';
+
+  @override
+  String get reviewTypeUser => 'User';
+
+  @override
+  String get reviewTypePost => 'Post';
+
+  @override
+  String get reviewTypeChatMessage => 'Flagged chat message';
+
+  @override
+  String get reviewScoreAgreed => 'Agreed';
+
+  @override
+  String get reviewScoreDisagreed => 'Disagreed';
+
+  @override
+  String get reviewReasons => 'Reasons';
+
+  @override
+  String get reviewNoReasons => 'No reasons were recorded.';
+
+  @override
+  String get reviewContentDeleted => 'This post has been deleted.';
+
+  @override
+  String get reviewUnsupportedType =>
+      'This kind of item can’t be shown in full here yet.';
+
+  @override
+  String get reviewOpenInBrowser => 'Open in browser';
+
+  @override
+  String get reviewViewInContext => 'View in context';
+
+  @override
+  String get reviewBackToQueue => 'Back to queue';
+
+  @override
+  String get reviewItemLoadError => 'This item couldn’t be loaded.';
+
+  @override
+  String get reviewItemMissing =>
+      'This item no longer exists or isn’t visible to you.';
+
+  @override
+  String get reviewConflict =>
+      'Someone else acted on this item first. It now shows their result.';
+
+  @override
+  String get reviewPerformed => 'Done.';
+
+  @override
+  String get reviewActions => 'Actions';
+
+  @override
+  String get reviewNoActions => 'There is nothing left to do on this item.';
+
+  @override
+  String get reviewConfirmDestructive =>
+      'This acts on the site right away and may not be reversible.';
+
+  @override
+  String get reviewAccountName => 'Name';
+
+  @override
+  String get reviewAccountEmail => 'Email';
+
+  @override
+  String get reviewRejectReason => 'Reject reason';
+
+  @override
+  String reviewFlaggedBy(String username) {
+    return 'Flagged by @$username';
+  }
+
+  @override
+  String reviewWrittenBy(String username) {
+    return 'Written by @$username';
+  }
+
+  @override
+  String reviewActionInBrowser(String label) {
+    return '$label, opens in browser';
+  }
+
+  @override
+  String reviewItemLabel(String summary) {
+    return 'Review item: $summary';
+  }
 }

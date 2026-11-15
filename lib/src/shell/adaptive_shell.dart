@@ -565,6 +565,7 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
           (route.isGlobalSearch ||
               route.isTopic ||
               route.isPage(CorePage.dashboard) ||
+              route.isPage(CorePage.review) ||
               PluginScope.of(
                 context,
               ).registry.usesMobilePageSheet(context, route));

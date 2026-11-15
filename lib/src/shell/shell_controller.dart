@@ -2099,6 +2099,12 @@ class ShellController extends FrameSafeNotifier
   SidebarBadge sidebarBadgeFor(String destinationId) {
     final instance = currentInstance;
     final user = instance?.user;
+    if (destinationId == CorePage.review.key) {
+      final unseen = user?.reviews == true
+          ? currentTotals?.unseenReviewables ?? 0
+          : 0;
+      return unseen > 0 ? SidebarBadge.count(unseen) : SidebarBadge.none;
+    }
     final communityCount = switch (destinationId) {
       'drafts' => draftCountFor(instance?.url),
       'latest' =>
