@@ -8458,8 +8458,8 @@ class ShellController extends FrameSafeNotifier
     if (parent != null) {
       mobileNavigation.prependAncestors([
         ForumTabLocation(rootDestinationId: parent.id, contentStack: [parent]),
-      ]);
-      if (!route.isTopic) return workspace;
+      ], tab: route.isGlobalSearch ? MobileTab.topics : null);
+      if (!route.isTopic && !route.isGlobalSearch) return workspace;
       final updated = workspace.activeTab.copyWith(
         rootDestinationId: parent.id,
         contentStack: [parent, route],

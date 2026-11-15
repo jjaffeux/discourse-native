@@ -148,7 +148,7 @@ void main() {
     }),
   );
   for (final source in ['topics', 'messages', 'users', 'chat', 'voice']) {
-    for (final dismissal in ['cancel', 'system back', 'swipe']) {
+    for (final dismissal in ['cancel', 'system back', 'swipe', 'pull down']) {
       testWidgets('$source search returns with chrome after $dismissal', (
         tester,
       ) async {
@@ -193,6 +193,22 @@ void main() {
             await tester.binding.handlePopRoute();
           case 'swipe':
             await tester.dragFrom(const Offset(2, 400), const Offset(360, 0));
+          case 'pull down':
+            final gesture = await tester.startGesture(
+              tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+            );
+            await gesture.moveBy(const Offset(0, 140));
+            await tester.pump();
+            expect(shell.currentContent?.isGlobalSearch, isTrue);
+            if (source == 'chat') {
+              expect(find.byType(ChatMobileSidebar), findsOneWidget);
+              expect(
+                find.byType(ChatMobileSidebar).hitTestable(),
+                findsNothing,
+              );
+            }
+            await gesture.moveBy(const Offset(0, 450));
+            await gesture.up();
         }
         await tester.pumpAndSettle();
         expect(shell.mobileNavigation.entryId, root);
