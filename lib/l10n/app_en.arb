@@ -21313,5 +21313,58 @@
   "matchingUsers": "Matching users",
   "@matchingUsers": {
     "description": "Accessible name of the list of people a user search in Preferences offers."
+  },
+  "ignoredUsers": "Ignored users",
+  "@ignoredUsers": {
+    "description": "Label of the list of ignored people in the Users preferences."
+  },
+  "ignoredUsersDescription": "Their posts are hidden and you get no notifications or messages from them. Ignoring someone applies at once and ends by itself.",
+  "@ignoredUsersDescription": {
+    "description": "Help text under the Ignored users label in the Users preferences."
+  },
+  "youAreNotIgnoringAnyone": "You are not ignoring anyone.",
+  "@youAreNotIgnoringAnyone": {
+    "description": "Shown in the Users preferences when the ignored list is empty."
+  },
+  "stopIgnoring": "Stop ignoring",
+  "@stopIgnoring": {
+    "description": "Button beside an ignored person in the Users preferences that ends the ignore."
+  },
+  "stopIgnoringUser": "Stop ignoring {username}",
+  "@stopIgnoringUser": {
+    "description": "Accessible name of the Stop ignoring button beside one ignored person.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "ignoreAUser": "Ignore a user",
+  "@ignoreAUser": {
+    "description": "Accessible name and placeholder of the search field that picks a person to ignore."
+  },
+  "ignoreFor": "Ignore for",
+  "@ignoreFor": {
+    "description": "Accessible name of the select that chooses how long an ignore lasts."
+  },
+  "ignoreUser": "Ignore",
+  "@ignoreUser": {
+    "description": "Button that starts ignoring the chosen person for the chosen time."
+  },
+  "ignoreForOneMonth": "For one month",
+  "@ignoreForOneMonth": {
+    "description": "Choice of how long to ignore a person."
+  },
+  "ignoreForThreeMonths": "For three months",
+  "@ignoreForThreeMonths": {
+    "description": "Choice of how long to ignore a person."
+  },
+  "ignoreForSixMonths": "For six months",
+  "@ignoreForSixMonths": {
+    "description": "Choice of how long to ignore a person."
+  },
+  "ignoreForOneYear": "For one year",
+  "@ignoreForOneYear": {
+    "description": "Choice of how long to ignore a person."
   }
 }

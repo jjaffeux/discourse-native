@@ -26047,6 +26047,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Matching users'**
   String get matchingUsers;
+
+  /// Label of the list of ignored people in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignored users'**
+  String get ignoredUsers;
+
+  /// Help text under the Ignored users label in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Their posts are hidden and you get no notifications or messages from them. Ignoring someone applies at once and ends by itself.'**
+  String get ignoredUsersDescription;
+
+  /// Shown in the Users preferences when the ignored list is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'You are not ignoring anyone.'**
+  String get youAreNotIgnoringAnyone;
+
+  /// Button beside an ignored person in the Users preferences that ends the ignore.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop ignoring'**
+  String get stopIgnoring;
+
+  /// Accessible name of the Stop ignoring button beside one ignored person.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop ignoring {username}'**
+  String stopIgnoringUser(String username);
+
+  /// Accessible name and placeholder of the search field that picks a person to ignore.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore a user'**
+  String get ignoreAUser;
+
+  /// Accessible name of the select that chooses how long an ignore lasts.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore for'**
+  String get ignoreFor;
+
+  /// Button that starts ignoring the chosen person for the chosen time.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore'**
+  String get ignoreUser;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For one month'**
+  String get ignoreForOneMonth;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For three months'**
+  String get ignoreForThreeMonths;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For six months'**
+  String get ignoreForSixMonths;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For one year'**
+  String get ignoreForOneYear;
 }
 
 class _AppLocalizationsDelegate

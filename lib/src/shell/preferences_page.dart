@@ -333,6 +333,24 @@ class _PreferencesPageState extends State<PreferencesPage> {
                         ? saveMutedUsers
                         : null,
                   ),
+                  ignored: IgnoredUsersEditing(
+                    siteUrl: siteUrl,
+                    transactions: shell.ignoredUsers,
+                    onIgnore: (username, duration) async =>
+                        ownsView() &&
+                        instance != null &&
+                        await shell.ignoredUsers.ignore(
+                          instance,
+                          username,
+                          duration,
+                        ),
+                    onStopIgnoring: (username) {
+                      if (!ownsView() || instance == null) return;
+                      unawaited(
+                        shell.ignoredUsers.stopIgnoring(instance, username),
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 22),

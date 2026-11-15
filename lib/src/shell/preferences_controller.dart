@@ -146,18 +146,24 @@ final class PreferencesController extends FrameSafeNotifier
         : account.section(section).saveAutomatically(instance);
   }
 
-  /// Records which upload the account's picture is now drawn from, after a
-  /// write made outside any section. Drafts keep their unsaved edits, and a
-  /// read that began before the write cannot bring the old picture back.
-  void confirmUploadedAvatar(DiscourseInstance instance, int? uploadId) {
+  /// Records what a write made outside any section left on the site. Drafts
+  /// keep their unsaved edits, and a read that began before the write cannot
+  /// bring the old value back.
+  ///
+  /// [change] is applied to the confirmed value and to the draft, so it may
+  /// touch only what the write itself changed.
+  void confirmOutsideSections(
+    DiscourseInstance instance,
+    UserPreferences Function(UserPreferences current) change,
+  ) {
     final account = _accountForSave(instance);
     final draft = account?.state.draft;
     final confirmed = account?.state.confirmed;
     if (account == null || draft == null || confirmed == null) return;
     account.writeGeneration++;
     account.state = account.state.copyWith(
-      draft: draft.copyWith(uploadedAvatarId: uploadId),
-      confirmed: confirmed.copyWith(uploadedAvatarId: uploadId),
+      draft: change(draft),
+      confirmed: change(confirmed),
     );
     _notifySession(account);
   }

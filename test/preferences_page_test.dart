@@ -215,6 +215,31 @@ Finder _mutedChip(String username) => find.descendant(
   of: _mutedUsers,
   matching: find.widgetWithText(DComboboxChip<String>, username),
 );
+final _ignoring = _muting.copyWith(
+  canIgnoreUsers: true,
+  ignoredUsernames: ['pat'],
+);
+Finder get _ignorePicker =>
+    find.byKey(const ValueKey('preferences-ignore-user'));
+Finder get _ignoreSearch =>
+    find.descendant(of: _ignorePicker, matching: find.byType(EditableText));
+Finder get _ignoreSubmitFinder =>
+    find.byKey(const ValueKey('preferences-ignore-submit'));
+DButton _ignoreSubmit(WidgetTester tester) =>
+    tester.widget<DButton>(_ignoreSubmitFinder);
+Finder _ignoredRow(String username) =>
+    find.byKey(ValueKey('preferences-ignored-user-$username'));
+Finder _stopIgnoring(String username) =>
+    find.byKey(ValueKey('preferences-stop-ignoring-$username'));
+Finder get _ignoreError =>
+    find.byKey(const ValueKey('preferences-ignored-users-error'));
+
+Future<void> _chooseToIgnore(WidgetTester tester, String username) async {
+  await _searchPeople(tester, _ignoreSearch, 'ro');
+  await tester.tap(find.byKey(ValueKey('ignore-user-$username')));
+  await tester.pumpAndSettle();
+}
+
 Finder _removeMuted(String username) => find.descendant(
   of: _mutedChip(username),
   matching: find.byWidgetPredicate(
@@ -838,6 +863,185 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(tester.getSize(_mutedUsers).width, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('ignored users', () {
+    testWidgets('lists the ignored people and stops ignoring one at once', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _ignoring);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      expect(_ignoredRow('pat'), findsOneWidget);
+      expect(find.text('@pat'), findsOneWidget);
+      expect(_ignoreSubmit(tester).onPressed, isNull);
+
+      await tester.ensureVisible(_stopIgnoring('pat'));
+      await tester.tap(_stopIgnoring('pat'));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.ignoreRequests, [(username: 'pat', until: null)]);
+      expect(_ignoredRow('pat'), findsNothing);
+      expect(find.text('You are not ignoring anyone.'), findsOneWidget);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      final state = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(state.confirmed!.ignoredUsernames, isEmpty);
+      expect(state.dirty(PreferenceSection.users), isFalse);
+    });
+
+    testWidgets('a found person is ignored for the chosen time', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _ignoring.copyWith(mutedUsernames: ['sam', 'robin']),
+        userSearches: _foundPeople,
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      expect(_mutedChip('robin'), findsOneWidget);
+
+      await _searchPeople(tester, _ignoreSearch, 'ro');
+      expect(
+        find.byKey(const ValueKey('ignore-user-Reader')),
+        findsNothing,
+        reason: 'the reader cannot ignore themselves',
+      );
+      await tester.tap(find.byKey(const ValueKey('ignore-user-robin')));
+      await tester.pumpAndSettle();
+      expect(fixture.api.ignoreRequests, isEmpty);
+
+      await tester.tap(
+        find.byKey(const ValueKey('preferences-ignore-duration')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('For one year').last);
+      await tester.pumpAndSettle();
+      final before = DateTime.now();
+      await tester.tap(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+
+      final request = fixture.api.ignoreRequests.single;
+      expect(request.username, 'robin');
+      expect(
+        request.until!.difference(before).inDays,
+        inInclusiveRange(364, 365),
+      );
+      expect(_ignoredRow('robin'), findsOneWidget);
+      expect(_ignoredRow('pat'), findsOneWidget);
+      expect(
+        _mutedChip('robin'),
+        findsNothing,
+        reason: 'core lifts the mute of a person it starts ignoring',
+      );
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .dirty(PreferenceSection.users),
+        isFalse,
+      );
+      expect(tester.widget<EditableText>(_ignoreSearch).controller.text, '');
+      expect(_ignoreSubmit(tester).onPressed, isNull);
+    });
+
+    testWidgets('every action waits while a request is on its way', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _ignoring);
+      fixture.api.ignoreHandler = (_, _) => gate.future;
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      await tester.tap(_stopIgnoring('pat'));
+      await tester.pump();
+      await tester.pump();
+      final stop = tester.widget<DButton>(_stopIgnoring('pat'));
+      expect(stop.loading, isTrue);
+      expect(stop.onPressed, isNull);
+      expect(_ignoreSubmit(tester).onPressed, isNull);
+      expect(_ignoredRow('pat'), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_ignoredRow('pat'), findsNothing);
+    });
+
+    testWidgets('a refused ignore says why and changes nothing', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _ignoring,
+        userSearches: _foundPeople,
+      );
+      fixture.api.ignoreHandler = (_, _) async => throw const WriteException(
+        WriteFailure.validation,
+        errors: ['You cannot ignore that user.'],
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      await _chooseToIgnore(tester, 'robin');
+      await tester.tap(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+
+      expect(_ignoreError, findsOneWidget);
+      expect(find.text('You cannot ignore that user.'), findsOneWidget);
+      expect(_ignoredRow('robin'), findsNothing);
+      expect(_ignoreSubmit(tester).onPressed, isNotNull);
+
+      fixture.api.ignoreHandler = null;
+      await tester.tap(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+      expect(_ignoreError, findsNothing);
+      expect(_ignoredRow('robin'), findsOneWidget);
+    });
+
+    testWidgets('an account that may not ignore is offered nothing', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _ignoring.copyWith(canIgnoreUsers: false),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.text('Ignored users'), findsNothing);
+      expect(_ignorePicker, findsNothing);
+      expect(_ignoredRow('pat'), findsNothing);
+      expect(_mutedUsers, findsOneWidget);
+    });
+
+    testWidgets('its controls are named for a screen reader', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _ignoring);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.bySemanticsLabel('Stop ignoring pat'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Ignore for')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp('Ignore a user')), findsWidgets);
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _ignoring.copyWith(
+          ignoredUsernames: ['pat', 'a_rather_long_username_x'],
+        ),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.users);
+      await tester.ensureVisible(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(_ignorePicker).width, lessThanOrEqualTo(320));
+      expect(
+        tester.getRect(_ignoredRow('a_rather_long_username_x')).right,
+        lessThanOrEqualTo(320),
+      );
     });
   });
 

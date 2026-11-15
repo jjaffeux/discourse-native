@@ -704,6 +704,32 @@ final class DiscourseAccountApi {
     );
   }
 
+  Future<void> setUserNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required DateTime? ignoredUntil,
+    String? clientId,
+  }) async {
+    await _transport.write(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}'
+        '/notification_level.json',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      // Core parses `expiring_at` as a date and has no ignore without one.
+      body: ignoredUntil == null
+          ? const {'notification_level': 'normal'}
+          : {
+              'notification_level': 'ignore',
+              'expiring_at': ignoredUntil.toUtc().toIso8601String(),
+            },
+    );
+  }
+
   Future<UserDraftPage> userDrafts({
     required String siteUrl,
     required String apiKey,

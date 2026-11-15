@@ -16367,4 +16367,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get matchingUsers => 'Matching users';
+
+  @override
+  String get ignoredUsers => 'Ignored users';
+
+  @override
+  String get ignoredUsersDescription =>
+      'Their posts are hidden and you get no notifications or messages from them. Ignoring someone applies at once and ends by itself.';
+
+  @override
+  String get youAreNotIgnoringAnyone => 'You are not ignoring anyone.';
+
+  @override
+  String get stopIgnoring => 'Stop ignoring';
+
+  @override
+  String stopIgnoringUser(String username) {
+    return 'Stop ignoring $username';
+  }
+
+  @override
+  String get ignoreAUser => 'Ignore a user';
+
+  @override
+  String get ignoreFor => 'Ignore for';
+
+  @override
+  String get ignoreUser => 'Ignore';
+
+  @override
+  String get ignoreForOneMonth => 'For one month';
+
+  @override
+  String get ignoreForThreeMonths => 'For three months';
+
+  @override
+  String get ignoreForSixMonths => 'For six months';
+
+  @override
+  String get ignoreForOneYear => 'For one year';
 }

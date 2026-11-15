@@ -785,7 +785,10 @@ void main() {
           (current) => current.copyWith(bioRaw: 'Typing'),
         );
 
-        controller.confirmUploadedAvatar(_accountA, null);
+        controller.confirmOutsideSections(
+          _accountA,
+          (current) => current.copyWith(uploadedAvatarId: null),
+        );
 
         final state = controller.stateFor(_siteUrl)!;
         expect(state.draft!.uploadedAvatarId, isNull);
@@ -813,7 +816,10 @@ void main() {
 
         final reading = controller.load(_accountA, refresh: true);
         await pumpEventQueue();
-        controller.confirmUploadedAvatar(_accountA, 9);
+        controller.confirmOutsideSections(
+          _accountA,
+          (current) => current.copyWith(uploadedAvatarId: 9),
+        );
         refresh.complete(_initial.copyWith(uploadedAvatarId: 4));
         await reading;
 
@@ -828,7 +834,10 @@ void main() {
       addTearDown(controller.dispose);
       await _seed(controller);
 
-      controller.confirmUploadedAvatar(_accountB, 9);
+      controller.confirmOutsideSections(
+        _accountB,
+        (current) => current.copyWith(uploadedAvatarId: 9),
+      );
 
       expect(
         controller.stateFor(_siteUrl)!.confirmed!.uploadedAvatarId,
@@ -1749,6 +1758,82 @@ void main() {
 
       expect(await controller.save(_accountA, PreferenceSection.users), isTrue);
       expect(api.updates.single.values, {'muted_usernames': 'robin,sam'});
+    });
+  });
+
+  group('writes outside the sections', () {
+    const before = UserPreferences(
+      username: 'alice',
+      canEdit: true,
+      canMuteUsers: true,
+      canIgnoreUsers: true,
+      mutedUsernames: ['sam', 'robin'],
+      ignoredUsernames: ['pat'],
+    );
+
+    test('an ignore is recorded under an unsaved muted list', () async {
+      final api = _PreferencesApi(onLoad: (_) async => before);
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin', 'alex']),
+      );
+
+      controller.confirmOutsideSections(
+        _accountA,
+        (current) => current.withUserIgnored('robin', ignored: true),
+      );
+
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.confirmed!.ignoredUsernames, ['pat', 'robin']);
+      expect(state.confirmed!.mutedUsernames, ['sam']);
+      expect(state.draft!.ignoredUsernames, ['pat', 'robin']);
+      expect(state.draft!.mutedUsernames, ['sam', 'alex']);
+      expect(state.dirty(PreferenceSection.users), isTrue);
+    });
+
+    test('a read that began before the ignore cannot undo it', () async {
+      var loadCount = 0;
+      final refresh = Completer<UserPreferences>();
+      final api = _PreferencesApi(
+        onLoad: (_) => ++loadCount == 1 ? Future.value(before) : refresh.future,
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      final reading = controller.load(_accountA, refresh: true);
+      await pumpEventQueue();
+      controller.confirmOutsideSections(
+        _accountA,
+        (current) => current.withUserIgnored('pat', ignored: false),
+      );
+      refresh.complete(before);
+      await reading;
+
+      expect(
+        controller.stateFor(_siteUrl)!.confirmed!.ignoredUsernames,
+        isEmpty,
+      );
+    });
+
+    test('another account is left alone', () async {
+      final api = _PreferencesApi(onLoad: (_) async => before);
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.confirmOutsideSections(
+        _accountB,
+        (current) => current.withUserIgnored('pat', ignored: false),
+      );
+
+      expect(controller.stateFor(_siteUrl)!.confirmed!.ignoredUsernames, [
+        'pat',
+      ]);
     });
   });
 

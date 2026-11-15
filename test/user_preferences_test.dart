@@ -367,6 +367,61 @@ void main() {
     expect(UserPreferences.coreFields, contains('muted_usernames'));
   });
 
+  test('reads the ignored list, which no section sends', () {
+    final loaded = UserPreferences.fromJson(const {
+      'ignored_usernames': ['pat', 'pat', 3],
+      'can_ignore_users': true,
+      'muted_usernames': ['sam'],
+    });
+    expect(loaded.ignoredUsernames, ['pat']);
+    expect(loaded.canIgnoreUsers, isTrue);
+    expect(
+      UserPreferences.fromJson(const {
+        'ignored_usernames': 'pat',
+        'can_ignore_users': 1,
+      }, fallback: loaded),
+      loaded,
+    );
+    expect(const UserPreferences().canIgnoreUsers, isFalse);
+    for (final section in [
+      ...PreferenceSection.values,
+      PreferenceSection.about,
+    ]) {
+      expect(
+        loaded.payloadFor(section).keys.where((key) => key.contains('ignore')),
+        isEmpty,
+      );
+    }
+    expect(
+      loaded
+          .copyWith(ignoredUsernames: const [])
+          .withSectionFrom(PreferenceSection.users, loaded)
+          .ignoredUsernames,
+      isEmpty,
+    );
+  });
+
+  test('ignoring or releasing a person lifts their mute', () {
+    const before = UserPreferences(
+      mutedUsernames: ['sam', 'Robin'],
+      ignoredUsernames: ['pat'],
+    );
+
+    final ignored = before.withUserIgnored('robin', ignored: true);
+    expect(ignored.ignoredUsernames, ['pat', 'robin']);
+    expect(ignored.mutedUsernames, ['sam']);
+    expect(ignored.withUserIgnored('robin', ignored: true).ignoredUsernames, [
+      'pat',
+      'robin',
+    ]);
+
+    final released = ignored.withUserIgnored('PAT', ignored: false);
+    expect(released.ignoredUsernames, ['robin']);
+    expect(before.withUserIgnored('sam', ignored: false).mutedUsernames, [
+      'Robin',
+    ]);
+  });
+
   test('writes each section with exact flat web field names', () {
     const preferences = UserPreferences(
       timezone: 'Asia/Tokyo',

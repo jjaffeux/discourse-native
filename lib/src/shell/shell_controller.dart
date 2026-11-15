@@ -153,6 +153,7 @@ import 'forum_tab_scope.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'groups_controller.dart';
+import 'ignored_users_transactions.dart';
 import 'instance_rail_transactions.dart';
 import 'message_archive_transactions.dart';
 import 'mobile_navigation.dart';
@@ -982,6 +983,17 @@ class ShellController extends FrameSafeNotifier
 
   late final OwnAvatarOverrides ownAvatars = OwnAvatarOverrides();
 
+  late final IgnoredUsersTransactions ignoredUsers = IgnoredUsersTransactions(
+    api: api.userIgnores,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    onChanged: (instance, username, {required ignored}) =>
+        preferences.confirmOutsideSections(
+          instance,
+          (current) => current.withUserIgnored(username, ignored: ignored),
+        ),
+  );
+
   late final ProfileAvatarTransactions profileAvatar =
       ProfileAvatarTransactions(
         api: api.userAvatars,
@@ -990,7 +1002,10 @@ class ShellController extends FrameSafeNotifier
         refreshCurrentUser: (siteUrl, apiKey, lease) =>
             _currentUsers.refresh(siteUrl, apiKey, lease: lease, force: true),
         onChanged: (instance, uploadId) {
-          preferences.confirmUploadedAvatar(instance, uploadId);
+          preferences.confirmOutsideSections(
+            instance,
+            (current) => current.copyWith(uploadedAvatarId: uploadId),
+          );
           final username = instance.user?.username;
           if (username == null) return;
           if (userProfile.stateFor(instance.url, username) != null) {
@@ -7797,6 +7812,7 @@ class ShellController extends FrameSafeNotifier
     ..register(badges)
     ..register(preferences)
     ..register(profileAvatar)
+    ..register(ignoredUsers)
     ..register(ownAvatars)
     ..register(
       AccountScopedState.step((siteUrl) {
@@ -8984,6 +9000,7 @@ class ShellController extends FrameSafeNotifier
     preferences.dispose();
     networkRecovery.dispose();
     profileAvatar.dispose();
+    ignoredUsers.dispose();
     ownAvatars.dispose();
     topicFeeds.dispose();
     appSettings.dispose();

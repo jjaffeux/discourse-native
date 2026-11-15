@@ -101,6 +101,25 @@ secret.
   as one comma-separated `muted_usernames` field of `PUT /u/{username}.json`,
   which is how core's `UserUpdater` reads it. The search never offers the
   reader. Without `can_mute_users` the tab says the account may not mute yet.
+- **Ignored users.** Ignoring is not part of that draft. Core takes it one
+  person at a time on `PUT /u/{username}/notification_level.json`, where the
+  username is the person ignored, with `notification_level=ignore` and an
+  `expiring_at` date. **Ignore** sends it at once for the chosen time, and
+  **Stop ignoring** sends `notification_level=normal`. The web client offers
+  calendar shortcuts in the reader's timezone. The app offers eight lengths
+  counted from now, and "forever" is the web client's thousand years, because
+  core has no ignore without an end. Core lifts a mute of the same person in
+  both directions, so the muted list drops them as well. The list and its
+  controls are absent without `can_ignore_users`, which core grants by group
+  (`ignore_allowed_groups`).
+
+`IgnoredUsersTransactions` owns the request per account session and has its
+own notifier. It composes `AccountWrites`, which holds what every immediate
+account write shares: one request at a time per site, because the site
+applies them in arrival order, a state that names what the request is about,
+and an answer dropped when its session retired. An accepted write is recorded
+with `PreferencesController.confirmOutsideSections`, which patches the
+confirmed value and the draft and discards a read that began before it.
 
 ## Native image build tools
 

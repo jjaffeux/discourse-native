@@ -2288,6 +2288,32 @@ class FakeDiscourseApi
     await avatarPickHandler?.call(uploadId);
   }
 
+  final List<({String username, DateTime? until})> ignoreRequests = [];
+  Future<void> Function(String username, DateTime? until)? ignoreHandler;
+
+  @override
+  Future<void> ignoreUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required DateTime until,
+    String? clientId,
+  }) async {
+    ignoreRequests.add((username: username, until: until));
+    await ignoreHandler?.call(username, until);
+  }
+
+  @override
+  Future<void> stopIgnoringUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    ignoreRequests.add((username: username, until: null));
+    await ignoreHandler?.call(username, null);
+  }
+
   @override
   Future<UserProfile> userProfile({
     required String siteUrl,

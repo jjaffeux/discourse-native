@@ -861,6 +861,35 @@ class DiscourseApi
   );
 
   @override
+  Future<void> ignoreUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required DateTime until,
+    String? clientId,
+  }) async => _account.setUserNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    ignoredUntil: until,
+    clientId: clientId,
+  );
+
+  @override
+  Future<void> stopIgnoringUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async => _account.setUserNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    ignoredUntil: null,
+    clientId: clientId,
+  );
+
+  @override
   Future<void> setUserStatus({
     required String siteUrl,
     required String apiKey,

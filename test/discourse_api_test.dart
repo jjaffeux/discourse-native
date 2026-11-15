@@ -202,6 +202,75 @@ void main() {
     });
 
     test(
+      'ignoring names the person in the path and sends an end date',
+      () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+        addTearDown(api.close);
+
+        await api.ignoreUser(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'Sam Spade',
+          until: DateTime.parse('2026-12-15T13:00:00+01:00'),
+        );
+        await api.stopIgnoringUser(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'sam',
+        );
+
+        expect(sent.map((request) => request.method), ['PUT', 'PUT']);
+        expect(
+          sent.first.url.toString(),
+          'https://forum.example/u/sam%20spade/notification_level.json',
+        );
+        expect(jsonDecode(sent.first.body), {
+          'notification_level': 'ignore',
+          'expiring_at': '2026-12-15T12:00:00.000Z',
+        });
+        expect(sent.last.url.path, '/u/sam/notification_level.json');
+        expect(jsonDecode(sent.last.body), {'notification_level': 'normal'});
+        expect(sent.first.headers['User-Api-Key'], 'key');
+      },
+    );
+
+    test('a refused ignore carries the site reason', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['You cannot ignore that user.'],
+            }),
+            422,
+          ),
+        ),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.ignoreUser(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'sam',
+          until: DateTime.utc(2027),
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            'You cannot ignore that user.',
+          ),
+        ),
+      );
+    });
+
+    test(
       'saves the nested core notification schedule and reads server normalization',
       () async {
         final schedule = NotificationSchedule(

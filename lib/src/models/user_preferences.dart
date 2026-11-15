@@ -75,6 +75,8 @@ final class UserPreferences {
     'uploaded_avatar_id',
     'can_change_tracking_preferences',
     'can_mute_users',
+    'ignored_usernames',
+    'can_ignore_users',
     'user_option',
     'sidebar_tags',
   };
@@ -102,6 +104,8 @@ final class UserPreferences {
     this.canChangeTrackingPreferences = false,
     this.mutedUsernames = const [],
     this.canMuteUsers = false,
+    this.ignoredUsernames = const [],
+    this.canIgnoreUsers = false,
   });
 
   factory UserPreferences.fromJson(
@@ -186,6 +190,16 @@ final class UserPreferences {
         fallback.mutedUsernames,
       ),
       canMuteUsers: _boolean(json, 'can_mute_users', fallback.canMuteUsers),
+      ignoredUsernames: _usernames(
+        json,
+        'ignored_usernames',
+        fallback.ignoredUsernames,
+      ),
+      canIgnoreUsers: _boolean(
+        json,
+        'can_ignore_users',
+        fallback.canIgnoreUsers,
+      ),
     );
   }
 
@@ -247,6 +261,28 @@ final class UserPreferences {
 
   /// False below the trust level the site asks for before anyone may mute.
   final bool canMuteUsers;
+
+  /// The people this account ignores. It changes one person at a time through
+  /// a write of its own, so no section's payload carries it.
+  final List<String> ignoredUsernames;
+
+  /// Whether the site lets this account ignore anyone, which it grants by
+  /// group.
+  final bool canIgnoreUsers;
+
+  /// What the site holds once it has started or stopped ignoring [username].
+  /// Core lifts a mute of the same person in both directions, because a
+  /// person has one level: normal, muted or ignored.
+  UserPreferences withUserIgnored(String username, {required bool ignored}) {
+    bool other(String name) => name.toLowerCase() != username.toLowerCase();
+    return copyWith(
+      mutedUsernames: mutedUsernames.where(other).toList(),
+      ignoredUsernames: [
+        ...ignoredUsernames.where(other),
+        if (ignored) username,
+      ],
+    );
+  }
 
   Map<String, Object?> payloadFor(PreferenceSection section) =>
       Map.unmodifiable(switch (section) {
@@ -344,6 +380,8 @@ final class UserPreferences {
     bool? canChangeTrackingPreferences,
     List<String>? mutedUsernames,
     bool? canMuteUsers,
+    List<String>? ignoredUsernames,
+    bool? canIgnoreUsers,
   }) => UserPreferences(
     sidebarCategoryIds: List.unmodifiable(
       sidebarCategoryIds ?? this.sidebarCategoryIds,
@@ -378,6 +416,10 @@ final class UserPreferences {
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
     mutedUsernames: List.unmodifiable(mutedUsernames ?? this.mutedUsernames),
     canMuteUsers: canMuteUsers ?? this.canMuteUsers,
+    ignoredUsernames: List.unmodifiable(
+      ignoredUsernames ?? this.ignoredUsernames,
+    ),
+    canIgnoreUsers: canIgnoreUsers ?? this.canIgnoreUsers,
   );
 
   @override
@@ -405,7 +447,9 @@ final class UserPreferences {
           other.uploadedAvatarId == uploadedAvatarId &&
           other.canChangeTrackingPreferences == canChangeTrackingPreferences &&
           listEquals(other.mutedUsernames, mutedUsernames) &&
-          other.canMuteUsers == canMuteUsers;
+          other.canMuteUsers == canMuteUsers &&
+          listEquals(other.ignoredUsernames, ignoredUsernames) &&
+          other.canIgnoreUsers == canIgnoreUsers;
 
   @override
   int get hashCode => Object.hash(
@@ -430,7 +474,12 @@ final class UserPreferences {
     canUploadAvatar,
     uploadedAvatarId,
     canChangeTrackingPreferences,
-    Object.hash(Object.hashAll(mutedUsernames), canMuteUsers),
+    Object.hash(
+      Object.hashAll(mutedUsernames),
+      canMuteUsers,
+      Object.hashAll(ignoredUsernames),
+      canIgnoreUsers,
+    ),
   );
 
   static const _unchanged = Object();
