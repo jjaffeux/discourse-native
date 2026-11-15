@@ -301,6 +301,28 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   State<_DSheetAdaptiveMenu> createState() => _DSheetAdaptiveMenuState();
 }
 
+class _DSheetAdaptiveCloseSimulation extends Simulation {
+  _DSheetAdaptiveCloseSimulation(this.initialValue);
+
+  static const _duration = .24;
+  final double initialValue;
+
+  @override
+  double x(double time) {
+    final t = (time / _duration).clamp(0.0, 1.0);
+    return initialValue * (1 - t * t * (3 - 2 * t));
+  }
+
+  @override
+  double dx(double time) {
+    final t = (time / _duration).clamp(0.0, 1.0);
+    return -6 * initialValue * t * (1 - t) / _duration;
+  }
+
+  @override
+  bool isDone(double time) => time >= _duration;
+}
+
 class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     with
         TickerProviderStateMixin,
@@ -382,6 +404,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double _low = 0;
   double _fixedLow = 0;
 
+  // The keyboard removes the lower stop before the sheet reaches full height.
+  // Keep its height limit so the foot stays anchored through the rise.
+  double _footDetent = 0;
+
   // A sheet that keeps its foot in view is laid out no taller than what is in
   // view. Its full height is read whenever a layout was not cut short of it.
   double _fullHeight = 0;
@@ -436,7 +462,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double _startOffset = 0;
   double _swipeExtent = 1;
   final _exit = _DSheetExitLifecycle<_DSheetMenuExitGeometry>();
-  double _exitVelocity = 0;
+  double? _exitVelocity;
   double? _retainedExitHeightOffset;
   double _safeBottom = 0;
   _DSheetDragScopeState? _dragOwner;
@@ -449,10 +475,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final geometry = _exit.geometry;
     if (geometry == null) return _travel.value;
     final progress =
-        1 -
-        widget.presentation.animation.value / geometry.simulation.initialValue;
-    return geometry.origin +
-        geometry.simulation.distance * progress.clamp(0.0, 1.0);
+        1 - widget.presentation.animation.value / geometry.initialValue;
+    return geometry.origin + geometry.distance * progress.clamp(0.0, 1.0);
   }
 
   double get _heightOffset => _heightOffsetAt(_offset);
@@ -465,7 +489,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   double _heightOffsetAt(double offset) => _fullyExpanded
       ? 0
-      : math.min(offset, widget.keepFootInView ? _low : _fixedLow);
+      : math.min(offset, widget.keepFootInView ? _footDetent : _fixedLow);
 
   @override
   void initState() {
@@ -505,29 +529,36 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final animationValue = widget.presentation.animation.value;
     final viewport = context.findRenderObject();
     final surface = _surface.currentContext?.findRenderObject();
-    final distance =
-        viewport is RenderBox &&
-            viewport.hasSize &&
-            surface is RenderBox &&
-            surface.hasSize
-        ? viewport.size.height -
-              surface.localToGlobal(Offset.zero, ancestor: viewport).dy
-        : _viewportHeight - origin;
-    final simulation = _DSheetDismissSimulation(
-      math.max(1, distance),
-      math.max(0, _exitVelocity),
-      math.max(.001, animationValue),
-      duration: _exitVelocity > 0 ? .24 : .18,
+    final distance = math.max(
+      1.0,
+      viewport is RenderBox &&
+              viewport.hasSize &&
+              surface is RenderBox &&
+              surface.hasSize
+          ? viewport.size.height -
+                surface.localToGlobal(Offset.zero, ancestor: viewport).dy
+          : _viewportHeight - origin,
     );
+    final initialValue = math.max(.001, animationValue);
     _exit.geometry = (
       origin: origin,
       curve: _curve.transform(animationValue),
-      simulation: simulation,
+      distance: distance,
+      initialValue: initialValue,
       keyboard: _keyboardInset,
       safeBottom: _safeBottom,
       heightOffset: _heightOffsetAt(origin),
     );
-    return simulation;
+    if (_exitVelocity == null && _keyboardInset > 0) {
+      return _DSheetAdaptiveCloseSimulation(initialValue);
+    }
+    final velocity = math.max(0.0, _exitVelocity ?? 0);
+    return _DSheetDismissSimulation(
+      distance,
+      velocity,
+      initialValue,
+      duration: velocity > 0 ? .24 : .18,
+    );
   }
 
   @override
@@ -766,6 +797,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     final wasLow = _low;
     _low = low;
+    if (_keyboard == 0 && _keyboardInset == 0) _footDetent = low;
     final followsLow = widget.holdContentHeight
         ? _keyboard == 0 &&
               wasLow > 0 &&
@@ -993,7 +1025,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
           widget.presentation.animation.status == AnimationStatus.completed) {
         _exit.geometry = null;
         _retainedExitHeightOffset = null;
-        _exitVelocity = 0;
+        _exitVelocity = null;
         _settle(_low);
       }
     });
@@ -1155,7 +1187,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                       _heightOffset;
             _laidHeightOffset = heightOffset;
             final visibleHeight = heightOffset > 0 && widget.keepFootInView
-                ? math.min(maximum, math.max(0.0, _fullHeight - heightOffset))
+                ? math.min(
+                    maximum,
+                    math.max(0.0, _fullHeight - heightOffset - keyboard),
+                  )
                 : maximum;
             final loadingHeight =
                 widget.holdContentHeight &&

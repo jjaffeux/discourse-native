@@ -9,7 +9,8 @@ typedef _DSheetSwipeExitGeometry = ({
 typedef _DSheetMenuExitGeometry = ({
   double origin,
   double curve,
-  _DSheetDismissSimulation simulation,
+  double distance,
+  double initialValue,
   double keyboard,
   double safeBottom,
   double heightOffset,
