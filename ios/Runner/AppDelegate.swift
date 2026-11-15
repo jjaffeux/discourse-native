@@ -179,6 +179,19 @@ func pushTokenHex(_ data: Data) -> String {
   data.map { String(format: "%02x", $0) }.joined()
 }
 
+// The badge is drawn only where the user allowed badges; without that
+// permission the system ignores the count.
+func setAppBadgeCount(_ count: Int) {
+  if #available(iOS 16.0, *) {
+    UNUserNotificationCenter.current().setBadgeCount(count)
+  } else {
+    // Assigning zero here also empties Notification Center, and the count at
+    // launch can be older than a push the user has not seen. A negative
+    // number removes the badge and leaves delivered notifications alone.
+    UIApplication.shared.applicationIconBadgeNumber = count > 0 ? count : -1
+  }
+}
+
 func discourseUrl(in userInfo: [AnyHashable: Any]) -> String? {
   guard let url = userInfo["discourse_url"] as? String,
     !url.isEmpty,
@@ -191,6 +204,7 @@ func discourseUrl(in userInfo: [AnyHashable: Any]) -> String? {
 
 final class IOSPushNotifications: NSObject, FlutterStreamHandler {
   private var registrationChannel: FlutterMethodChannel?
+  private var badgeChannel: FlutterMethodChannel?
   private var notificationOpenChannel: FlutterEventChannel?
   private var notificationOpenSink: FlutterEventSink?
   private var pendingNotificationUrls: [String] = []
@@ -201,6 +215,14 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
         options: [.alert, .badge, .sound]
       ) { granted, error in
         completion(granted && error == nil)
+      }
+    },
+    authorizationGranted: { completion in
+      UNUserNotificationCenter.current().getNotificationSettings { settings in
+        completion(
+          settings.authorizationStatus == .authorized
+            || settings.authorizationStatus == .provisional
+        )
       }
     },
     registerForRemoteNotifications: {
@@ -214,7 +236,8 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
       binaryMessenger: messenger
     )
     registrationChannel.setMethodCallHandler { [weak self] call, result in
-      guard call.method == "registrationToken" else {
+      guard call.method == "registrationToken" || call.method == "currentRegistrationToken"
+      else {
         result(FlutterMethodNotImplemented)
         return
       }
@@ -222,9 +245,25 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
         result(nil)
         return
       }
-      self.registrationToken(result)
+      self.registrationToken(result, mayPrompt: call.method == "registrationToken")
     }
     self.registrationChannel = registrationChannel
+
+    let badgeChannel = FlutterMethodChannel(
+      name: "org.discourse.native/app_badge",
+      binaryMessenger: messenger
+    )
+    badgeChannel.setMethodCallHandler { call, result in
+      guard call.method == "setBadgeCount", let count = call.arguments as? Int else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      DispatchQueue.main.async {
+        setAppBadgeCount(max(0, count))
+        result(nil)
+      }
+    }
+    self.badgeChannel = badgeChannel
 
     let notificationOpenChannel = FlutterEventChannel(
       name: "org.discourse.native/notification_opens",
@@ -290,13 +329,17 @@ final class IOSPushNotifications: NSObject, FlutterStreamHandler {
     return nil
   }
 
-  private func registrationToken(_ result: @escaping FlutterResult) {
+  private func registrationToken(_ result: @escaping FlutterResult, mayPrompt: Bool) {
     DispatchQueue.main.async { [weak self] in
       guard let self else {
         result(nil)
         return
       }
-      self.registration.registrationToken { result($0) }
+      if mayPrompt {
+        self.registration.registrationToken { result($0) }
+      } else {
+        self.registration.currentToken { result($0) }
+      }
     }
   }
 

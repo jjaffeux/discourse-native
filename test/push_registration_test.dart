@@ -34,6 +34,40 @@ void main() {
     );
   });
 
+  test(
+    'reads the current token without the permission-asking method',
+    () async {
+      final methods = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            methods.add(call.method);
+            return 'apns-token';
+          });
+      final provider = PlatformPushRegistrationProvider(
+        channel: channel,
+        platform: TargetPlatform.iOS,
+      );
+
+      final registration = await provider.current();
+
+      expect(methods, ['currentRegistrationToken']);
+      expect(registration?.clientId, 'apns-token');
+      expect(
+        registration?.pushUrl,
+        PlatformPushRegistrationProvider.iosPushUrl,
+      );
+    },
+  );
+
+  test('a runner without the current-token method reports no token', () async {
+    final provider = PlatformPushRegistrationProvider(
+      channel: const MethodChannel('test.discourse.native/absent'),
+      platform: TargetPlatform.android,
+    );
+
+    expect(await provider.current(), isNull);
+  });
+
   test('uses the iOS publisher for an iOS APNs token', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {

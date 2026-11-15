@@ -54,6 +54,10 @@ func pushTokenHex(_ data: Data) -> String {
   data.map { String(format: "%02x", $0) }.joined()
 }
 
+func setAppBadgeCount(_ count: Int) {
+  NSApplication.shared.dockTile.badgeLabel = count > 0 ? String(count) : nil
+}
+
 func discourseUrl(in userInfo: [AnyHashable: Any]) -> String? {
   guard let url = userInfo["discourse_url"] as? String,
     !url.isEmpty,
@@ -68,6 +72,7 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
   static let shared = MacOSPushNotifications()
 
   private var registrationChannel: FlutterMethodChannel?
+  private var badgeChannel: FlutterMethodChannel?
   private var notificationOpenChannel: FlutterEventChannel?
   private var notificationOpenSink: FlutterEventSink?
   private var pendingNotificationUrls: [String] = []
@@ -78,6 +83,14 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
         options: [.alert, .badge, .sound]
       ) { granted, error in
         completion(granted && error == nil)
+      }
+    },
+    authorizationGranted: { completion in
+      UNUserNotificationCenter.current().getNotificationSettings { settings in
+        completion(
+          settings.authorizationStatus == .authorized
+            || settings.authorizationStatus == .provisional
+        )
       }
     },
     registerForRemoteNotifications: {
@@ -95,7 +108,8 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
       binaryMessenger: messenger
     )
     registrationChannel.setMethodCallHandler { [weak self] call, result in
-      guard call.method == "registrationToken" else {
+      guard call.method == "registrationToken" || call.method == "currentRegistrationToken"
+      else {
         result(FlutterMethodNotImplemented)
         return
       }
@@ -103,9 +117,25 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
         result(nil)
         return
       }
-      self.registrationToken(result)
+      self.registrationToken(result, mayPrompt: call.method == "registrationToken")
     }
     self.registrationChannel = registrationChannel
+
+    let badgeChannel = FlutterMethodChannel(
+      name: "org.discourse.native/app_badge",
+      binaryMessenger: messenger
+    )
+    badgeChannel.setMethodCallHandler { call, result in
+      guard call.method == "setBadgeCount", let count = call.arguments as? Int else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      DispatchQueue.main.async {
+        setAppBadgeCount(max(0, count))
+        result(nil)
+      }
+    }
+    self.badgeChannel = badgeChannel
 
     let notificationOpenChannel = FlutterEventChannel(
       name: "org.discourse.native/notification_opens",
@@ -171,13 +201,17 @@ final class MacOSPushNotifications: NSObject, FlutterStreamHandler {
     return nil
   }
 
-  private func registrationToken(_ result: @escaping FlutterResult) {
+  private func registrationToken(_ result: @escaping FlutterResult, mayPrompt: Bool) {
     DispatchQueue.main.async { [weak self] in
       guard let self else {
         result(nil)
         return
       }
-      self.registration.registrationToken { result($0) }
+      if mayPrompt {
+        self.registration.registrationToken { result($0) }
+      } else {
+        self.registration.currentToken { result($0) }
+      }
     }
   }
 

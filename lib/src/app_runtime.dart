@@ -10,6 +10,7 @@ import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
+import 'data/platform_app_badge.dart';
 import 'data/platform_draft_store.dart';
 import 'data/platform_push_registration.dart';
 import 'data/platform_web_auth.dart';
@@ -21,6 +22,7 @@ import 'foundation/active_use.dart';
 import 'foundation/startup_timeline.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
+import 'shell/app_badge_controller.dart';
 import 'shell/shell_controller.dart';
 
 part 'app_notification_ingress.dart';
@@ -38,6 +40,7 @@ final class AppRuntimeDependencies {
     this.updater,
     this.updateStore,
     this.plugins,
+    this.appBadge,
     this.pluginManifest = corePluginManifest,
     this.initialRootMode = ShellRootMode.forum,
     this.forumTabsEnabled = false,
@@ -55,6 +58,7 @@ final class AppRuntimeDependencies {
   final Updater? updater;
   final UpdateStore? updateStore;
   final InstalledPlugins? plugins;
+  final AppBadge? appBadge;
   final PluginManifest pluginManifest;
   final ShellRootMode initialRootMode;
   final bool forumTabsEnabled;
@@ -143,12 +147,25 @@ final class AppRuntime {
   Future<void>? _appReady;
   final _notificationIngress = _NotificationIngress();
 
+  AppBadgeController? _appBadge;
+
+  void _followAppBadge(ShellController controller) {
+    _appBadge?.dispose();
+    _appBadge = AppBadgeController(
+      totals: controller.accountActivity.totalsListenable,
+      count: () => controller.appBadgeCount,
+      badge: _dependencies.appBadge ?? PlatformAppBadge(),
+    );
+  }
+
   ShellController get controller => _controller;
 
   ShellController _createController() => ShellController(
     onLoaded: (controller) {
       if (!_isCurrent(controller)) return;
       _notificationIngress.ready(controller);
+      _followAppBadge(controller);
+      unawaited(controller.pushRegistrations.check());
       unawaited(_startAppReady(controller));
     },
     instanceStore: _store,
@@ -186,6 +203,8 @@ final class AppRuntime {
     _replacing = true;
     try {
       _notificationIngress.unavailable();
+      _appBadge?.dispose();
+      _appBadge = null;
       _startup = null;
       _bootstrappedController = null;
       _appReady = null;
@@ -378,6 +397,10 @@ final class AppRuntime {
     if (state == 'resumed') activeUse.seen();
     unawaited(_observePluginAppState(_plugins, state));
     _controller.setForeground(foreground);
+    if (state == 'resumed') {
+      _appBadge?.refresh();
+      unawaited(_controller.pushRegistrations.check());
+    }
     if (!foreground) unawaited(_flushPlugins(_plugins));
   }
 
@@ -391,6 +414,7 @@ final class AppRuntime {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _appBadge?.dispose();
     _notificationIngress.dispose();
     // The active replacement owns retirement and service cleanup.
     if (_replacing) return;

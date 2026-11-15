@@ -25489,6 +25489,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tiled'**
   String get voiceLayoutTiled;
+
+  /// Title of the prompt shown when this device's push token changed since the account signed in. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications stopped for {site}'**
+  String pushReauthorizationRotatedTitle(String site);
+
+  /// Body of the prompt shown when this device's push token changed since the account signed in.
+  ///
+  /// In en, this message translates to:
+  /// **'The notification address of this device changed after you signed in. Sign in again to keep receiving notifications.'**
+  String get pushReauthorizationRotatedDescription;
+
+  /// Title of the prompt shown when notifications were not allowed at sign-in and are allowed now. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications are off for {site}'**
+  String pushReauthorizationAvailableTitle(String site);
+
+  /// Body of the prompt shown when notifications were not allowed at sign-in and are allowed now.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are now allowed on this device. Sign in again so this forum can send them.'**
+  String get pushReauthorizationAvailableDescription;
+
+  /// Button on the push notification prompt that starts the forum sign-in again.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in again'**
+  String get pushReauthorizationAction;
 }
 
 class _AppLocalizationsDelegate

@@ -188,6 +188,9 @@ final class _PushRegistration implements PushRegistrationProvider {
   int requests = 0;
 
   @override
+  Future<PushRegistration?> current() async => null;
+
+  @override
   Future<PushRegistration?> registration() async {
     requests++;
     await Future<void>.delayed(_registrationLatency);

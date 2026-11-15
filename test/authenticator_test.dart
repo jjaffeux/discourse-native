@@ -297,6 +297,37 @@ void main() {
       );
 
       test(
+        '${persist ? 'connect' : 'authorize'} reports no registration once the platform stops offering one',
+        () async {
+          final provider = _FakePushRegistrationProvider(_macosRegistration);
+          final authenticator = Authenticator(
+            store: _FakeSecureStore(),
+            protocol: _FakeProtocol(),
+            pushRegistrations: provider,
+            keyPairGenerator: () async => _pair,
+            nonceGenerator: () => 'nonce',
+            launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+          );
+          final connect = persist
+              ? authenticator.connect
+              : authenticator.authorize;
+
+          final withPush = await connect(_site);
+          expect(
+            authenticator.pushAuthorization(withPush).registration,
+            same(_macosRegistration),
+          );
+
+          provider.value = null;
+          final withoutPush = await connect(_site);
+          expect(
+            authenticator.pushAuthorization(withoutPush).registration,
+            isNull,
+          );
+        },
+      );
+
+      test(
         '${persist ? 'connect' : 'authorize'} registers push independently of request credentials',
         () async {
           final events = <String>[];
@@ -323,6 +354,10 @@ void main() {
           expect(protocol.clientId, _macosRegistration.clientId);
           expect(protocol.pushUrl, _macosRegistration.pushUrl);
           expect(store.apiKeyWrites, [if (persist) (_site, _credentials.key)]);
+          expect(
+            authenticator.pushAuthorization(credentials).registration,
+            same(_macosRegistration),
+          );
           expect(await authenticator.clientId(), isEmpty);
           expect(await authenticator.clientId(), isEmpty);
           expect(events.where((event) => event == 'read-push-registration'), [
@@ -864,6 +899,9 @@ final class _FakePushRegistrationProvider implements PushRegistrationProvider {
     events?.add('read-push-registration');
     return value;
   }
+
+  @override
+  Future<PushRegistration?> current() async => value;
 }
 
 final class _ControlledPushRegistrationProvider
@@ -876,6 +914,9 @@ final class _ControlledPushRegistrationProvider
     requests.add(request);
     return request.future;
   }
+
+  @override
+  Future<PushRegistration?> current() async => null;
 }
 
 final class _FakeSecureStore implements SecureStore {

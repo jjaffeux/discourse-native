@@ -56,6 +56,14 @@ class DiscourseMessagingService : FirebaseMessagingService() {
     companion object {
         private const val CHANNEL_ID = "discourse_notifications"
 
+        fun cancelDelivered(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val notifications = context.getSystemService(NotificationManager::class.java)
+            notifications.activeNotifications
+                .filter { it.notification.channelId == CHANNEL_ID }
+                .forEach { notifications.cancel(it.tag, it.id) }
+        }
+
         fun createNotificationChannel(context: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(

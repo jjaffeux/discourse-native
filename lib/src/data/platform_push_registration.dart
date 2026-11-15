@@ -26,7 +26,12 @@ final class PlatformPushRegistrationProvider
   final Duration registrationTimeout;
 
   @override
-  Future<PushRegistration?> registration() async {
+  Future<PushRegistration?> registration() => _read('registrationToken');
+
+  @override
+  Future<PushRegistration?> current() => _read('currentRegistrationToken');
+
+  Future<PushRegistration?> _read(String method) async {
     final pushUrl = switch (_platform) {
       TargetPlatform.iOS => iosPushUrl,
       TargetPlatform.macOS => macosPushUrl,
@@ -37,7 +42,7 @@ final class PlatformPushRegistrationProvider
 
     try {
       final token = await _channel
-          .invokeMethod<String>('registrationToken')
+          .invokeMethod<String>(method)
           .timeout(registrationTimeout);
       if (token == null || token.isEmpty) return null;
       return PushRegistration(clientId: token, pushUrl: pushUrl);

@@ -17,6 +17,8 @@ class UserApiCredentials {
   final String key;
 
   final int apiVersion;
+
+  /// Whether the forum bound a push URL to this key.
   final bool push;
 }
 

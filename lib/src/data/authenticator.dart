@@ -37,6 +37,7 @@ class Authenticator implements ApiCredentialReader {
 
   final Map<String, Object> _connectionGenerations = {};
   PushRegistration? _knownPushRegistration;
+  static final _authorizedRegistrations = Expando<PushRegistration>();
 
   static UserApiAuthException get _supersededConnection => UserApiAuthException(
     UserApiAuthFailure.cancelled,
@@ -108,6 +109,7 @@ class Authenticator implements ApiCredentialReader {
         privateKeyPem: pair.privatePem,
         expectedNonce: nonce,
       );
+      _authorizedRegistrations[credentials] = pushRegistration;
       _ensureCurrent(siteUrl, generation);
 
       if (persist) {
@@ -149,6 +151,23 @@ class Authenticator implements ApiCredentialReader {
   /// registers the push token; token changes require a new authorization.
   @override
   Future<String> clientId() async => '';
+
+  /// What the authorization behind [credentials] told the forum about push.
+  /// The registration rides beside the credentials because the protocol's
+  /// decoded reply is handed on untouched.
+  PushAuthorization pushAuthorization(UserApiCredentials credentials) =>
+      PushAuthorization(
+        registration: _authorizedRegistrations[credentials],
+        accepted: credentials.push,
+      );
+
+  /// The device registration held now, read without asking for permission.
+  Future<PushRegistration?> currentPushRegistration() async =>
+      _pushRegistrations?.current();
+
+  /// The token the newest authorization on this install named. It predates
+  /// per-account records, so it is only a baseline for accounts without one.
+  Future<String?> lastAuthorizedPushClientId() => store.readPushClientId();
 
   /// The client identity for a new authorization, never for ordinary requests.
   Future<String> _readClientId() async {

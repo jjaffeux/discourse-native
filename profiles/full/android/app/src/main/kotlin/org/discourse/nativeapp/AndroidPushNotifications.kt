@@ -16,6 +16,8 @@ class AndroidPushNotifications(private val activity: Activity) :
     MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
     private var registrationChannel: MethodChannel? = null
     private var openChannel: EventChannel? = null
+    private var badgeChannel: MethodChannel? = null
+    private var badgeCount: Int? = null
     private var openSink: EventChannel.EventSink? = null
     private val pendingUrls = ArrayDeque<String>()
     private val pendingRegistrations = mutableListOf<MethodChannel.Result>()
@@ -28,16 +30,43 @@ class AndroidPushNotifications(private val activity: Activity) :
         openChannel = EventChannel(
             messenger, "org.discourse.native/notification_opens",
         ).also { it.setStreamHandler(this) }
+        badgeChannel = MethodChannel(messenger, "org.discourse.native/app_badge").also {
+            it.setMethodCallHandler { call, result ->
+                val count = call.arguments as? Int
+                if (call.method != "setBadgeCount" || count == null) {
+                    result.notImplemented()
+                } else {
+                    setBadgeCount(count)
+                    result.success(null)
+                }
+            }
+        }
+    }
+
+    // Android has no badge of its own: launchers count this app's delivered
+    // notifications. Reading everything in the app therefore clears those the
+    // forum sent. A zero that follows no count is a launch that has not read
+    // anything yet, and must leave unseen notifications alone.
+    fun setBadgeCount(count: Int) {
+        val previous = badgeCount
+        badgeCount = count
+        if (count > 0 || previous == null || previous <= 0) return
+        DiscourseMessagingService.cancelDelivered(activity)
     }
 
     fun detach() {
         registrationChannel?.setMethodCallHandler(null)
+        badgeChannel?.setMethodCallHandler(null)
         openChannel?.setStreamHandler(null)
         openSink = null
         completeRegistration(null)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method == "currentRegistrationToken") {
+            currentToken(result)
+            return
+        }
         if (call.method != "registrationToken") {
             result.notImplemented()
             return
@@ -63,6 +92,26 @@ class AndroidPushNotifications(private val activity: Activity) :
             registrationToken()
         } else {
             completeRegistration(null)
+        }
+    }
+
+    // Answers only what is already allowed: a launch or resume check must
+    // never raise the permission dialog.
+    private fun currentToken(result: MethodChannel.Result) {
+        val notifications = activity.getSystemService(NotificationManager::class.java)
+        val denied = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        if (denied || !notifications.areNotificationsEnabled()) {
+            result.success(null)
+            return
+        }
+        try {
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                result.success(if (task.isSuccessful) task.result else null)
+            }
+        } catch (_: IllegalStateException) {
+            result.success(null)
         }
     }
 

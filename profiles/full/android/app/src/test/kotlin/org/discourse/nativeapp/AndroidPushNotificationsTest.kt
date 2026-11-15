@@ -1,6 +1,8 @@
 package org.discourse.nativeapp
 
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import io.flutter.plugin.common.EventChannel
@@ -85,6 +87,34 @@ class AndroidPushNotificationsTest {
 
         assertTrue(result.completed)
         assertNull(result.token)
+    }
+
+    @Test
+    fun currentTokenNeverAsksForPermission() {
+        val result = RegistrationResult()
+        push.onMethodCall(MethodCall("currentRegistrationToken", null), result)
+
+        assertTrue(result.completed)
+        assertNull(result.token)
+        assertNull(shadowOf(activity).lastRequestedPermission)
+    }
+
+    @Test
+    fun readingEverythingClearsDeliveredNotificationsButALaunchAtZeroDoesNot() {
+        val notifications = activity.getSystemService(NotificationManager::class.java)
+        DiscourseMessagingService.createNotificationChannel(activity)
+        fun deliver() = notifications.notify(
+            "tag", 0, Notification.Builder(activity, "discourse_notifications").build(),
+        )
+
+        deliver()
+        push.setBadgeCount(0)
+        assertEquals(1, notifications.activeNotifications.size)
+
+        push.setBadgeCount(2)
+        assertEquals(1, notifications.activeNotifications.size)
+        push.setBadgeCount(0)
+        assertEquals(0, notifications.activeNotifications.size)
     }
 
     private fun urlSink(urls: MutableList<String>) = object : EventChannel.EventSink {
