@@ -28,7 +28,7 @@ final class ComposerRecipientLookup extends ChangeNotifier {
   bool _rejectedSelection = false;
   bool _mobile = false;
   String _query = '';
-  FoundUsersAndGroups _results = const FoundUsersAndGroups();
+  FoundUsersAndGroups? _results = const FoundUsersAndGroups();
   final _rosters = <String, Set<String>?>{};
   final _loadingRosters = <String>{};
   final _knownUsers = <String>{};
@@ -52,7 +52,7 @@ final class ComposerRecipientLookup extends ChangeNotifier {
 
   void loadRecipientCounts() {
     if (!_isCurrent) return;
-    final visibleGroups = _results.groups.map((group) => group.name).toSet();
+    final visibleGroups = results.groups.map((group) => group.name).toSet();
     for (final name in {...visibleGroups, ...recipients}) {
       if (_knownUsers.contains(name) ||
           _rosters.containsKey(name) ||
@@ -84,7 +84,8 @@ final class ComposerRecipientLookup extends ChangeNotifier {
   }
 
   String get query => _query;
-  FoundUsersAndGroups get results => _results;
+  bool get isLoading => _results == null;
+  FoundUsersAndGroups get results => _results ?? const FoundUsersAndGroups();
   List<String> get recipients => composer.target.targetRecipients!
       .split(',')
       .where((name) => name.isNotEmpty)
@@ -116,21 +117,20 @@ final class ComposerRecipientLookup extends ChangeNotifier {
     _cancelPending();
     final generation = _generation;
     _query = query;
-    _results = const FoundUsersAndGroups();
+    _results = null;
     notifyListeners();
     if (!_isCurrent || generation != _generation) return;
     _debounce = Timer(const Duration(milliseconds: 200), () async {
       if (!_isCurrent || generation != _generation) return;
-      final FoundUsersAndGroups results;
+      FoundUsersAndGroups found;
       try {
-        results = await _search.search(query.trim());
+        found = await _search.search(query.trim());
       } catch (_) {
-        // Keep the query editable so the reader can retry the lookup.
-        return;
+        found = const FoundUsersAndGroups();
       }
       if (!_isCurrent || generation != _generation) return;
-      _results = results;
-      _knownUsers.addAll(results.users.map((user) => user.username));
+      _results = found;
+      _knownUsers.addAll(found.users.map((user) => user.username));
       if (_mobile) loadRecipientCounts();
       notifyListeners();
     });
@@ -143,8 +143,8 @@ final class ComposerRecipientLookup extends ChangeNotifier {
         .where(
           (name) =>
               current.contains(name) ||
-              _results.users.any((user) => user.username == name) ||
-              _results.groups.any((group) => group.name == name),
+              results.users.any((user) => user.username == name) ||
+              results.groups.any((group) => group.name == name),
         )
         .toList();
     _rejectedSelection = accepted.length != values.length;
@@ -161,7 +161,7 @@ final class ComposerRecipientLookup extends ChangeNotifier {
         loadRecipientCounts();
         search('');
       }
-    } else if (open && _results.users.isEmpty && _results.groups.isEmpty) {
+    } else if (open && results.users.isEmpty && results.groups.isEmpty) {
       search(_query);
     }
   }
@@ -169,6 +169,7 @@ final class ComposerRecipientLookup extends ChangeNotifier {
   void _cancelPending() {
     _debounce?.cancel();
     _generation++;
+    _results ??= const FoundUsersAndGroups();
   }
 
   void _retire() {

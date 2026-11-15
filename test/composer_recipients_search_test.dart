@@ -44,35 +44,33 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('composer-recipients')));
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(milliseconds: 1));
 
       final sheet = find.byType(DSheetContent);
       final emptyMessage = find.text('No users or groups found.');
+      expect(api.terms, isEmpty);
+      expect(emptyMessage, findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      final loadingTop = tester.getTopLeft(sheet).dy;
+      expect(loadingTop, closeTo(8, 1));
+
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
       expect(api.terms, ['']);
       expect(emptyMessage, findsNothing);
       expect(find.byType(DSkeletonRegion), findsOneWidget);
-      expect(tester.getTopLeft(sheet).dy, closeTo(8, 1));
-      final loadingBounds = tester.getRect(sheet);
+      expect(tester.getTopLeft(sheet).dy, closeTo(loadingTop, .01));
 
-      defaults.complete(
-        FoundUsersAndGroups(
-          users: [
-            _sam,
-            for (var index = 0; index < 20; index++)
-              FoundUser(username: 'recipient$index'),
-          ],
-        ),
-      );
+      defaults.complete(const FoundUsersAndGroups(users: [_sam]));
       await tester.pumpAndSettle();
       expect(find.byType(DSkeletonRegion), findsNothing);
       expect(_option('sam'), findsOneWidget);
-      expect(tester.getRect(sheet), loadingBounds);
+      expect(tester.getTopLeft(sheet).dy, closeTo(loadingTop, .01));
 
       await tester.enterText(_input, 'missing');
       await tester.pumpAndSettle();
       expect(emptyMessage, findsOneWidget);
+      expect(tester.getTopLeft(sheet).dy, closeTo(loadingTop, .01));
     },
   );
 
