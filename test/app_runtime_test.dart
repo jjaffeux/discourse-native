@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:discourse_native/src/app_runtime.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/platform_app_badge.dart';
+import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
@@ -255,6 +259,53 @@ void main() {
     runtime.observeAppState('resumed', foreground: true);
     expect(runtime.activeUse.isActive, isTrue);
   });
+
+  test(
+    'launch and resume publish the badge and compare the push token',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final signedIn = instance('one.example').copyWith(
+        user: const DiscourseUser(id: 1, username: 'reader'),
+        notificationTotals: const NotificationTotals(unreadNotifications: 3),
+      );
+      final fixture = _Fixture(
+        api: FakeDiscourseApi(
+          user: signedIn.user,
+          totals: const NotificationTotals(unreadNotifications: 3),
+        ),
+      );
+      final authenticator = FakeAuthenticator.signedIn([
+        signedIn,
+      ], site: fixture.api);
+      final badge = _RecordingBadge();
+      final runtime = _runtime(
+        fixture.dependencies(
+          store: FakeInstanceStore([signedIn]),
+          authenticator: authenticator,
+          appBadge: badge,
+        ),
+      );
+      addTearDown(runtime.dispose);
+      await runtime.start(runtime.controller);
+      await pumpEventQueue();
+      expect(badge.counts, [3]);
+      expect(runtime.controller.pushRegistrations.prompts, isEmpty);
+
+      authenticator.currentPush = const PushRegistration(
+        clientId: 'granted-later',
+        pushUrl: 'https://push.example/',
+      );
+      runtime.observeAppState('paused', foreground: false);
+      runtime.observeAppState('resumed', foreground: true);
+      await pumpEventQueue();
+
+      expect(badge.counts, [3, 3]);
+      expect(
+        runtime.controller.pushRegistrations.prompts.single.siteUrl,
+        signedIn.url,
+      );
+    },
+  );
 
   test(
     'concurrent and repeated starts publish initial plugin state once',
@@ -850,7 +901,9 @@ final class _Fixture {
     FakeAuthenticator? authenticator,
     InstalledPlugins? plugins,
     PluginManifest manifest = const PluginManifest([]),
+    AppBadge? appBadge,
   }) => AppRuntimeDependencies(
+    appBadge: appBadge,
     store: store ?? this.store,
     api: api,
     authenticator: authenticator ?? this.authenticator,
@@ -862,6 +915,13 @@ final class _Fixture {
     plugins: plugins,
     pluginManifest: manifest,
   );
+}
+
+final class _RecordingBadge implements AppBadge {
+  final counts = <int>[];
+
+  @override
+  Future<void> setCount(int count) async => counts.add(count);
 }
 
 final class _Module implements PluginModule {

@@ -165,6 +165,7 @@ import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
 import 'profile_write_transactions.dart';
+import 'push_registration_health.dart';
 import 'recent_search_history.dart';
 import 'selected_post_moderation.dart';
 import 'shell_search_controller.dart';
@@ -1103,7 +1104,17 @@ class ShellController extends FrameSafeNotifier
     instanceAt: _instanceAt,
     captureLease: lifecycle.capture,
     routeRetries: () => _pluginSession.capabilities<PluginRouteRetry>(),
-    connectAccount: (siteUrl) => _accountSessions.connect(siteUrl),
+    connectAccount: (siteUrl) async {
+      final result = await _accountSessions.connect(siteUrl);
+      if (result case AccountConnected(:final instance, :final push)) {
+        if (instance.user case final user?) {
+          pushRegistrations
+              .authorized(instance.url, user.username, push)
+              .ignore();
+        }
+      }
+      return result;
+    },
     changed: _notify,
   );
 
@@ -2111,6 +2122,29 @@ class ShellController extends FrameSafeNotifier
 
   int railBadgeFor(DiscourseInstance instance) =>
       accountActivity.totalsFor(instance.url)?.badge ?? 0;
+
+  /// The unread total the app icon shows: every signed-in forum's rail badge.
+  int get appBadgeCount =>
+      _instances.fold(0, (total, instance) => total + railBadgeFor(instance));
+
+  late final PushRegistrationHealth pushRegistrations = PushRegistrationHealth(
+    current: authenticator.currentPushRegistration,
+    lastAuthorizedClientId: authenticator.lastAuthorizedPushClientId,
+    accounts: () => [
+      for (final instance in _instances)
+        if (instance.user case final user? when instance.isConnected)
+          (siteUrl: instance.url, username: user.username),
+    ],
+  );
+
+  /// Runs the ordinary sign-in for [siteUrl] again; a new authorization is the
+  /// only way a forum learns this device's current push token.
+  Future<void> reauthorizeNotifications(String siteUrl) async {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    if (index != _instanceIndex) selectInstance(index);
+    await connectCurrentInstance();
+  }
 
   SidebarBadge sidebarBadgeFor(String destinationId) {
     final instance = currentInstance;
@@ -8861,6 +8895,7 @@ class ShellController extends FrameSafeNotifier
     _liveSessions.dispose();
     updates.dispose();
     accountActivity.dispose();
+    pushRegistrations.dispose();
     doNotDisturb.dispose();
     userStatuses.dispose();
     _previews.dispose();

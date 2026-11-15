@@ -7,6 +7,7 @@ import 'account_session_api.dart';
 import 'authenticator.dart';
 import 'draft_store.dart';
 import 'instance_store.dart';
+import 'push_registration.dart';
 import 'site_lifecycle.dart';
 import 'site_lookup_failure.dart';
 import 'user_api_key.dart';
@@ -40,10 +41,12 @@ sealed class AccountConnectionResult {
 }
 
 final class AccountConnected extends AccountConnectionResult {
-  const AccountConnected(this.instance, this.apiKey) : super._();
+  const AccountConnected(this.instance, this.apiKey, {required this.push})
+    : super._();
 
   final DiscourseInstance instance;
   final String apiKey;
+  final PushAuthorization push;
 }
 
 final class AccountConnectionCancelled extends AccountConnectionResult {
@@ -224,7 +227,11 @@ final class AccountSessionCoordinator {
       if (!_isCurrent(siteUrl, operation, connectedLease)) {
         return const AccountConnectionStale();
       }
-      return AccountConnected(applied, credentials.key);
+      return AccountConnected(
+        applied,
+        credentials.key,
+        push: authenticator.pushAuthorization(credentials),
+      );
     } on UserApiAuthException catch (error) {
       if (credentials != null) {
         final recovered = await _recoverConnection(

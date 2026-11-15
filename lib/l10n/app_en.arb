@@ -21173,5 +21173,35 @@
         "type": "String"
       }
     }
+  },
+  "pushReauthorizationRotatedTitle": "Push notifications stopped for {site}",
+  "@pushReauthorizationRotatedTitle": {
+    "description": "Title of the prompt shown when this device's push token changed since the account signed in. Keep placeholders intact.",
+    "placeholders": {
+      "site": {
+        "type": "String"
+      }
+    }
+  },
+  "pushReauthorizationRotatedDescription": "The notification address of this device changed after you signed in. Sign in again to keep receiving notifications.",
+  "@pushReauthorizationRotatedDescription": {
+    "description": "Body of the prompt shown when this device's push token changed since the account signed in."
+  },
+  "pushReauthorizationAvailableTitle": "Push notifications are off for {site}",
+  "@pushReauthorizationAvailableTitle": {
+    "description": "Title of the prompt shown when notifications were not allowed at sign-in and are allowed now. Keep placeholders intact.",
+    "placeholders": {
+      "site": {
+        "type": "String"
+      }
+    }
+  },
+  "pushReauthorizationAvailableDescription": "Notifications are now allowed on this device. Sign in again so this forum can send them.",
+  "@pushReauthorizationAvailableDescription": {
+    "description": "Body of the prompt shown when notifications were not allowed at sign-in and are allowed now."
+  },
+  "pushReauthorizationAction": "Sign in again",
+  "@pushReauthorizationAction": {
+    "description": "Button on the push notification prompt that starts the forum sign-in again."
   }
 }

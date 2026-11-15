@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/live_channels.dart';
+import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
@@ -4524,6 +4525,19 @@ class FakeAuthenticator implements Authenticator {
   ) async {
     keys[siteUrl] = credentials.key;
   }
+
+  PushRegistration? currentPush;
+  String? lastAuthorizedPush;
+
+  @override
+  PushAuthorization pushAuthorization(UserApiCredentials credentials) =>
+      PushAuthorization(registration: currentPush, accepted: credentials.push);
+
+  @override
+  Future<PushRegistration?> currentPushRegistration() async => currentPush;
+
+  @override
+  Future<String?> lastAuthorizedPushClientId() async => lastAuthorizedPush;
 
   @override
   Future<void> disconnect(String siteUrl) async {

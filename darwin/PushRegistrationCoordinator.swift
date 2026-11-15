@@ -8,19 +8,23 @@ final class PushRegistrationCoordinator {
   typealias TimeoutScheduler = (@escaping () -> Void) -> () -> Void
 
   private let requestAuthorization: AuthorizationRequest
+  private let authorizationGranted: AuthorizationRequest
   private let registerForRemoteNotifications: () -> Void
   private let scheduleTimeout: TimeoutScheduler
   private var token: String?
   private var attempt: UUID?
+  private var attemptMayPrompt = false
   private var pending: [(String?) -> Void] = []
   private var cancelTimeout: (() -> Void)?
 
   init(
     requestAuthorization: @escaping AuthorizationRequest,
+    authorizationGranted: @escaping AuthorizationRequest,
     registerForRemoteNotifications: @escaping () -> Void,
     scheduleTimeout: @escaping TimeoutScheduler = PushRegistrationCoordinator.scheduleRegistrationTimeout
   ) {
     self.requestAuthorization = requestAuthorization
+    self.authorizationGranted = authorizationGranted
     self.registerForRemoteNotifications = registerForRemoteNotifications
     self.scheduleTimeout = scheduleTimeout
   }
@@ -35,15 +39,30 @@ final class PushRegistrationCoordinator {
       result(token)
       return
     }
+    begin(result, mayPrompt: true)
+  }
 
+  /// The token this installation holds now, without ever asking the user for
+  /// permission. APNs is asked again rather than trusting the cached token:
+  /// this is how a rotated token or a revoked permission is noticed.
+  func currentToken(_ result: @escaping (String?) -> Void) {
+    precondition(Thread.isMainThread)
+    begin(result, mayPrompt: false)
+  }
+
+  private func begin(_ result: @escaping (String?) -> Void, mayPrompt: Bool) {
     pending.append(result)
-    guard attempt == nil else { return }
+    // A sign-in must not inherit a passive check's refusal to ask the user.
+    guard attempt == nil || (mayPrompt && !attemptMayPrompt) else { return }
+    cancelTimeout?()
     let current = UUID()
     attempt = current
+    attemptMayPrompt = mayPrompt
     cancelTimeout = scheduleTimeout { [weak self] in
       self?.finish(with: nil, attempt: current)
     }
-    requestAuthorization { [weak self] granted in
+    let authorization = mayPrompt ? requestAuthorization : authorizationGranted
+    authorization { [weak self] granted in
       DispatchQueue.main.async { [weak self] in
         guard let self, self.attempt == current else { return }
         guard granted else {

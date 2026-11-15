@@ -38,6 +38,7 @@ import 'shell/app_text_scale.dart';
 import 'shell/component_styleguide_scope.dart';
 import 'shell/content_reading_lane.dart';
 import 'shell/platform.dart';
+import 'shell/push_reauthorization_prompts.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'shell/user_card.dart';
@@ -325,6 +326,14 @@ class _DiscourseAppState extends State<DiscourseApp>
     return UserCardOpenerScope(open: showUserCard, child: app);
   }
 
+  String _siteTitle(String siteUrl) {
+    for (final instance in _controller.instances) {
+      if (instance.url != siteUrl) continue;
+      return instance.title.isEmpty ? instance.host : instance.title;
+    }
+    return Uri.tryParse(siteUrl)?.host ?? siteUrl;
+  }
+
   Widget _materialApp({
     required ThemeData theme,
     required ThemeData darkTheme,
@@ -354,11 +363,16 @@ class _DiscourseAppState extends State<DiscourseApp>
         child: DFocusHighlight(
           child: DToaster(
             key: ObjectKey(_controller),
-            child: AppTextScaleRegion(
-              controller: _controller.appSettings,
-              child: _MouseNavigationRegion(
-                navigatorKey: _navigatorKey,
-                child: child ?? const SizedBox.shrink(),
+            child: PushReauthorizationPrompts(
+              health: _controller.pushRegistrations,
+              siteTitle: _siteTitle,
+              onReauthorize: _controller.reauthorizeNotifications,
+              child: AppTextScaleRegion(
+                controller: _controller.appSettings,
+                child: _MouseNavigationRegion(
+                  navigatorKey: _navigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),

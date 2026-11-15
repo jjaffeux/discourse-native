@@ -113,6 +113,48 @@ final class PushRegistrationCoordinatorTests: XCTestCase {
     XCTAssertEqual(host.cancelledTimeouts, [0, 1])
   }
 
+  func testCurrentTokenNeverPromptsAndAsksAPNsAgainDespiteACachedToken() async {
+    let host = RegistrationHost()
+    let coordinator = host.makeCoordinator()
+    var results: [String?] = []
+    coordinator.didRegister("cached-token")
+
+    coordinator.currentToken { results.append($0) }
+    XCTAssertTrue(host.authorizations.isEmpty)
+    host.statusChecks[0](true)
+    await drainMainQueue()
+    XCTAssertEqual(host.registrations, 1)
+    XCTAssertTrue(results.isEmpty)
+    coordinator.didRegister("rotated-token")
+    XCTAssertEqual(results, ["rotated-token"])
+
+    coordinator.currentToken { results.append($0) }
+    host.statusChecks[1](false)
+    await drainMainQueue()
+    XCTAssertEqual(results, ["rotated-token", nil])
+    XCTAssertEqual(host.registrations, 1)
+    XCTAssertTrue(host.authorizations.isEmpty)
+  }
+
+  func testSignInDuringAPassiveCheckStillAsksForPermission() async {
+    let host = RegistrationHost()
+    let coordinator = host.makeCoordinator()
+    var results: [String?] = []
+    coordinator.currentToken { results.append($0) }
+    coordinator.registrationToken { results.append($0) }
+    XCTAssertEqual(host.authorizations.count, 1)
+    XCTAssertEqual(host.cancelledTimeouts, [0])
+
+    host.statusChecks[0](false)
+    await drainMainQueue()
+    XCTAssertTrue(results.isEmpty)
+
+    host.authorizations[0](true)
+    await drainMainQueue()
+    coordinator.didRegister("granted-token")
+    XCTAssertEqual(results, ["granted-token", "granted-token"])
+  }
+
   private func drainMainQueue() async {
     await withCheckedContinuation { continuation in
       DispatchQueue.main.async { continuation.resume() }
@@ -123,6 +165,7 @@ final class PushRegistrationCoordinatorTests: XCTestCase {
 @MainActor
 private final class RegistrationHost {
   var authorizations: [(Bool) -> Void] = []
+  var statusChecks: [(Bool) -> Void] = []
   var timeouts: [() -> Void] = []
   var cancelledTimeouts: [Int] = []
   var registrations = 0
@@ -130,6 +173,7 @@ private final class RegistrationHost {
   func makeCoordinator() -> PushRegistrationCoordinator {
     PushRegistrationCoordinator(
       requestAuthorization: { self.authorizations.append($0) },
+      authorizationGranted: { self.statusChecks.append($0) },
       registerForRemoteNotifications: { self.registrations += 1 },
       scheduleTimeout: { callback in
         let index = self.timeouts.count

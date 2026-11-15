@@ -16257,4 +16257,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String reviewItemLabel(String summary) {
     return 'Review item: $summary';
   }
+
+  @override
+  String pushReauthorizationRotatedTitle(String site) {
+    return 'Push notifications stopped for $site';
+  }
+
+  @override
+  String get pushReauthorizationRotatedDescription =>
+      'The notification address of this device changed after you signed in. Sign in again to keep receiving notifications.';
+
+  @override
+  String pushReauthorizationAvailableTitle(String site) {
+    return 'Push notifications are off for $site';
+  }
+
+  @override
+  String get pushReauthorizationAvailableDescription =>
+      'Notifications are now allowed on this device. Sign in again so this forum can send them.';
+
+  @override
+  String get pushReauthorizationAction => 'Sign in again';
 }
