@@ -361,7 +361,7 @@ void main() {
             final p = curve == 0
                 ? Curves.easeInOut.transform(t)
                 : curve == 7
-                ? 1 - (1 + 4 * t) * math.exp(-4 * t)
+                ? (1 - (1 + 4 * t) * math.exp(-4 * t)) / (1 - 5 * math.exp(-4))
                 : t;
             final rect = tester.getRect(sheet);
             expect(rect.left, 0);

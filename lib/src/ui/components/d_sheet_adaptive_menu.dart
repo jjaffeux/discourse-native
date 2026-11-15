@@ -52,19 +52,16 @@ class _DSheetKeyboardFrame {
           damping >= 0 &&
           velocity != null &&
           seconds > 0) {
-        curve = _DSheetKeyboardSpring(
-          SpringSimulation(
-            SpringDescription(
-              mass: mass,
-              stiffness: stiffness,
-              damping: damping,
-            ),
-            0,
-            1,
-            velocity,
-          ),
-          seconds,
+        final simulation = SpringSimulation(
+          SpringDescription(mass: mass, stiffness: stiffness, damping: damping),
+          0,
+          1,
+          velocity,
         );
+        final progressAtEnd = simulation.x(seconds);
+        if (progressAtEnd.isFinite && progressAtEnd > 0) {
+          curve = _DSheetKeyboardSpring(simulation, seconds, progressAtEnd);
+        }
       }
     }
     return _DSheetKeyboardFrame(inset, duration, elapsed, curve);
@@ -96,13 +93,20 @@ class _DSheetKeyboardRemainingCurve extends Curve {
 }
 
 class _DSheetKeyboardSpring extends Curve {
-  const _DSheetKeyboardSpring(this.simulation, this.seconds);
+  const _DSheetKeyboardSpring(
+    this.simulation,
+    this.seconds,
+    this.progressAtEnd,
+  );
   final SpringSimulation simulation;
   final double seconds;
+  final double progressAtEnd;
 
+  // The spring may still be moving when the native keyboard deadline arrives.
+  // Normalize to its position at that deadline so the last frame cannot jump.
   @override
   double transformInternal(double t) =>
-      simulation.x(t * seconds).clamp(0.0, 1.0);
+      (simulation.x(t * seconds) / progressAtEnd).clamp(0.0, 1.0);
 }
 
 // iOS supplies its target frame and timing before the keyboard moves. Older
