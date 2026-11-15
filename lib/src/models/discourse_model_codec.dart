@@ -242,6 +242,7 @@ final class DiscourseModelCodec {
         siteUrl,
         size: 120,
       ),
+      avatarTemplate: jsonText(json['avatar_template']),
       status: UserStatus.fromJson(json['status']),
       draftCount: jsonInt(json['draft_count']),
       canCreateTopic: json['can_create_topic'] == true,

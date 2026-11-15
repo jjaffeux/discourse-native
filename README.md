@@ -61,13 +61,26 @@ The Profile tab of Preferences edits what the reader's own profile shows.
   no upload without `can_upload_avatar`, and **Use default** only while
   `uploaded_avatar_id` is set. Gravatar, selectable avatars and avatars from a
   linked account are not offered. After the site accepts a pick the app reads
-  the current user again, so every avatar it draws for the reader is the new
-  one, and reloads the reader's profile page if one is open.
+  the current user again, and reloads the reader's profile page and stored
+  user card if it has them.
 
 `ProfileAvatarTransactions` owns the two-step write per account session. A
 second change is refused while one is in flight, because the site applies
 picks in arrival order. A retired session aborts its upload and its late
 answer is dropped.
+
+Posts, cards and messages that were already loaded keep the avatar URL they
+were read with. `OwnAvatarOverrides` records, per site, the avatar templates
+the signed-in account replaced from this app and the template it draws from
+now. `AvatarImage` asks it when an `AvatarOwner` above names whose picture it
+is. `UserCardTarget`, the user card header and the hover preview each set one.
+Only a URL resolved from a replaced template is redrawn, at the size it was
+read at, and only under the reader's own name, because a letter avatar's
+template is shared by everyone with that letter and color. A row read after
+the change is left as the site sent it. The record has its own notifier, so a
+change redraws those avatars and nothing else, and it is dropped when the
+account changes. `DiscourseUser` keeps `avatar_template` for this. An avatar
+drawn outside an `AvatarOwner` shows the old picture until its list reloads.
 
 ## Native image build tools
 

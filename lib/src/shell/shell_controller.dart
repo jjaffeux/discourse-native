@@ -159,6 +159,7 @@ import 'mobile_navigation.dart';
 import 'network_recovery.dart';
 import 'notification_feed_refresh_owner.dart';
 import 'notification_preference_transactions.dart';
+import 'own_avatar_overrides.dart';
 import 'plugin_background_retention.dart';
 import 'post_mutation_policy.dart';
 import 'post_mutation_targets.dart';
@@ -979,6 +980,8 @@ class ShellController extends FrameSafeNotifier
     onSaved: _onPreferencesSaved,
   );
 
+  late final OwnAvatarOverrides ownAvatars = OwnAvatarOverrides();
+
   late final ProfileAvatarTransactions profileAvatar =
       ProfileAvatarTransactions(
         api: api.userAvatars,
@@ -989,11 +992,17 @@ class ShellController extends FrameSafeNotifier
         onChanged: (instance, uploadId) {
           preferences.confirmUploadedAvatar(instance, uploadId);
           final username = instance.user?.username;
-          if (username != null &&
-              userProfile.stateFor(instance.url, username) != null) {
+          if (username == null) return;
+          if (userProfile.stateFor(instance.url, username) != null) {
             unawaited(userProfile.load(instance, username, refresh: true));
           }
+          if (userCard(username, siteUrl: instance.url) != null) {
+            unawaited(
+              loadUserCard(username, siteUrl: instance.url, force: true),
+            );
+          }
         },
+        onReplaced: ownAvatars.record,
       );
 
   late final TopicFeedController topicFeeds = _createTopicFeedController();
@@ -7788,6 +7797,7 @@ class ShellController extends FrameSafeNotifier
     ..register(badges)
     ..register(preferences)
     ..register(profileAvatar)
+    ..register(ownAvatars)
     ..register(
       AccountScopedState.step((siteUrl) {
         store.forget(siteUrl);
@@ -8974,6 +8984,7 @@ class ShellController extends FrameSafeNotifier
     preferences.dispose();
     networkRecovery.dispose();
     profileAvatar.dispose();
+    ownAvatars.dispose();
     topicFeeds.dispose();
     appSettings.dispose();
     forumSettings.dispose();

@@ -626,6 +626,53 @@ void main() {
       expect(asked, ['reader', 'reader']);
     });
 
+    testWidgets('a new picture reaches what was loaded with the old one', (
+      tester,
+    ) async {
+      const letter = '/letter_avatar_proxy/v4/letter/r/a587f6/{size}.png';
+      const uploaded =
+          '/user_avatar/preferences.example/reader/{size}/91_2.png';
+      DiscourseUser reader(String template) => DiscourseUser(
+        id: 7,
+        username: 'reader',
+        timezone: 'Etc/UTC',
+        avatarTemplate: template,
+      );
+      final fixture = await _fixture(
+        site: _site.copyWith(user: reader(letter)),
+        apiOverride: FakeDiscourseApi(
+          models: bundledPluginCodec,
+          user: reader(letter),
+          userPreferences: _pictures,
+          cards: const {'reader': UserCard(id: 7, username: 'reader')},
+        ),
+      );
+      fixture.api.avatarPickHandler = (_) async {
+        fixture.api.accounts['api-key'] = reader(uploaded);
+      };
+      await fixture.shell.loadUserCard('reader', siteUrl: _siteUrl);
+      await _pumpPage(tester, fixture, pickPicture: _pickMe);
+      String? drawn(String username) => fixture.shell.ownAvatars.urlFor(
+        _siteUrl,
+        username,
+        '$_siteUrl${letter.replaceAll('{size}', '90')}',
+      );
+      expect(drawn('reader'), '$_siteUrl${letter.replaceAll('{size}', '90')}');
+      fixture.api.cardsRequested.clear();
+
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+
+      expect(
+        drawn('reader'),
+        '$_siteUrl${uploaded.replaceAll('{size}', '90')}',
+      );
+      expect(drawn('rival'), '$_siteUrl${letter.replaceAll('{size}', '90')}');
+      expect(fixture.api.cardsRequested, [
+        'reader',
+      ], reason: 'the stored card of the reader is read again');
+    });
+
     testWidgets('both actions wait while a change is on its way', (
       tester,
     ) async {
