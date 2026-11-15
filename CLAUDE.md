@@ -97,8 +97,6 @@ Requirements line with it.
   hides the second-order cases.
 - Credentials never go in `shared_preferences`; they live behind
   `PrivateStorage` (Keychain on Apple, mode-0600 XDG file on Linux).
-  Diagnostics exports must stay redacted — anything captured by
-  `recording_http.dart` flows through `diagnostics_redactor.dart`.
 
 ## Layout
 
@@ -116,13 +114,11 @@ Requirements line with it.
   `lib/src/plugins/voice/`.
 - `profiles/full/` — compatibility application runners using the same bundled
   manifest as the repository-root app.
-- `lib/src/diagnostics/`, `lib/src/foundation/` — error capture, shared
-  primitives.
+- `lib/src/foundation/` — shared primitives.
 - Things with exactly one owner, because a second copy drifts:
-  `store_diagnostics.dart` (how a persistence failure is classified),
-  `cooked_dom.dart` (searching a cooked post's DOM), `diagnostics_text.dart`
-  (how a captured field is drawn), `foundation/calendar_day.dart` (what day a
-  moment falls on, and what that day is called),
+  `cooked_dom.dart` (searching a cooked post's DOM),
+  `foundation/calendar_day.dart` (what day a moment falls on, and what that
+  day is called),
   `foundation/private_file_document.dart` (how an owner-only whole-file update
   is serialized and committed), `data/serial_operation_queue.dart` (how reads
   observe already-accepted preference writes), `data/origin_request_gate.dart`
@@ -138,11 +134,6 @@ Requirements line with it.
   write and how to word it), `utils/pagination.dart` (when scroll-driven paging
   may ask for the next page),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
-  merged across pages, live arrivals, and the seam back to the present),
-  `plugins/voice/voice_diagnostics_report.dart` (how
-  ordinary and deep Voice diagnostics are sanitized, de-duplicated, and
-  merged).
+  merged across pages, live arrivals, and the seam back to the present).
 - Application and Voice tests live under `test/`. A change to `foo.dart`
-  almost always has a `foo_test.dart` in its owning package to extend. Follow
-  `docs/testing.md` for suite ownership, naming, assertions, async control,
-  and cleanup.
+  almost always has a `foo_test.dart` in its owning package to extend.
