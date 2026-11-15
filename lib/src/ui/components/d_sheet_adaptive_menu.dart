@@ -1027,17 +1027,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final safeBottom =
         _exit.geometry?.safeBottom ??
         screenFoot * (1 - _keyboardPlacement.value);
-    // A held menu always keeps its footer in view. Lift its frame clear of
-    // the screen foot while keeping the keyboard transition on its own inset.
-    final lift = widget.holdContentHeight && keyboard == 0
-        ? 6 + safeBottom / 2
-        : 0.0;
     _safeBottom = safeBottom;
-    final viewportCorners = _sheetBottomCorners(context);
-    Radius lifted(Radius corner) => Radius.elliptical(
-      math.max(24, corner.x - lift),
-      math.max(24, corner.y - lift),
-    );
     _scheduleMeasure();
     final content = _DSheetAdaptiveMenuScope(
       menu: this,
@@ -1046,18 +1036,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       child: _DSheetSideScope(
         side: DSheetSide.bottom,
         inset: false,
-        menuFootCorners: lift == 0
-            ? viewportCorners
-            : BorderRadius.only(
-                bottomLeft: lifted(viewportCorners.bottomLeft),
-                bottomRight: lifted(viewportCorners.bottomRight),
-              ),
-        liftedMenuFoot: lift > 0,
+        menuFootCorners: _sheetBottomCorners(context),
         fillAvailableHeight: false,
         extendBehindKeyboard: false,
         child: MediaQuery(
           data: media.copyWith(
-            padding: EdgeInsets.only(bottom: math.max(0, safeBottom - lift)),
+            padding: EdgeInsets.only(bottom: safeBottom),
             viewInsets: EdgeInsets.only(bottom: keyboard),
           ),
           child: widget.presentation.content,
@@ -1181,10 +1165,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                                             ) +
                                             keyboard,
                                       ),
-                                child: Padding(
-                                  padding: EdgeInsets.only(bottom: lift),
-                                  child: child,
-                                ),
+                                child: child,
                               ),
                             ),
                           ),

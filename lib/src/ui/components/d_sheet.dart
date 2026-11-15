@@ -858,7 +858,6 @@ class _DSheetSideScope extends InheritedWidget {
     required this.fillAvailableHeight,
     required this.extendBehindKeyboard,
     this.menuFootCorners,
-    this.liftedMenuFoot = false,
     required super.child,
   });
 
@@ -868,7 +867,6 @@ class _DSheetSideScope extends InheritedWidget {
   final bool extendBehindKeyboard;
 
   final BorderRadius? menuFootCorners;
-  final bool liftedMenuFoot;
 
   static DSheetSide? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.side;
@@ -889,7 +887,6 @@ class _DSheetSideScope extends InheritedWidget {
       side != oldWidget.side ||
       inset != oldWidget.inset ||
       menuFootCorners != oldWidget.menuFootCorners ||
-      liftedMenuFoot != oldWidget.liftedMenuFoot ||
       fillAvailableHeight != oldWidget.fillAvailableHeight ||
       extendBehindKeyboard != oldWidget.extendBehindKeyboard;
 }
@@ -2666,9 +2663,6 @@ class DSheetContent extends StatelessWidget {
               top: edgeBorder,
               left: edgeBorder,
               right: edgeBorder,
-              bottom: sideScope?.liftedMenuFoot == true
-                  ? edgeBorder
-                  : BorderSide.none,
             ),
             DSheetSide.bottom => Border(top: edgeBorder),
             DSheetSide.left => Border(right: edgeBorder),
