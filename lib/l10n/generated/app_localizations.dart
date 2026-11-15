@@ -25595,8 +25595,56 @@ abstract class AppLocalizations {
   /// Review queue with no items for the chosen filters.
   ///
   /// In en, this message translates to:
-  /// **'There are no items to review.'**
+  /// **'Flags, queued posts and accounts awaiting approval appear here.'**
   String get reviewEmpty;
+
+  /// Heading shown to an account that may not open the review queue.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff only'**
+  String get reviewNotPermittedTitle;
+
+  /// Heading of a review queue with no items.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to review'**
+  String get reviewEmptyTitle;
+
+  /// Review queue with no items while filters are applied.
+  ///
+  /// In en, this message translates to:
+  /// **'No items match these filters.'**
+  String get reviewEmptyFiltered;
+
+  /// Button that resets the review queue filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get reviewClearFilters;
+
+  /// Accessible label while the next page of the review queue loads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading more review items'**
+  String get reviewLoadingMore;
+
+  /// Accessible label while one review item loads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading review item'**
+  String get reviewLoadingItem;
+
+  /// Note under a review action that is carried out on the website.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens in your browser'**
+  String get reviewOpensInBrowser;
+
+  /// A flag reason raised more than once on a review item.
+  ///
+  /// In en, this message translates to:
+  /// **'{reason} ×{count}'**
+  String reviewReasonCount(String reason, int count);
 
   /// Label of the review queue status filter.
   ///
@@ -25685,19 +25733,19 @@ abstract class AppLocalizations {
   /// Review queue type filter option that removes the filter.
   ///
   /// In en, this message translates to:
-  /// **'(all types)'**
+  /// **'All types'**
   String get reviewAllTypes;
 
   /// Review queue category filter option that removes the filter.
   ///
   /// In en, this message translates to:
-  /// **'(all categories)'**
+  /// **'All categories'**
   String get reviewAllCategories;
 
   /// Review queue priority filter option that uses the site’s default.
   ///
   /// In en, this message translates to:
-  /// **'(any)'**
+  /// **'Any priority'**
   String get reviewPriorityAny;
 
   /// Review queue priority filter option.
@@ -25796,12 +25844,6 @@ abstract class AppLocalizations {
   /// **'Reasons'**
   String get reviewReasons;
 
-  /// Review item with no flags or reasons.
-  ///
-  /// In en, this message translates to:
-  /// **'No reasons were recorded.'**
-  String get reviewNoReasons;
-
   /// Review item whose post no longer exists.
   ///
   /// In en, this message translates to:
@@ -25861,12 +25903,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Actions'**
   String get reviewActions;
-
-  /// Review item with no available actions.
-  ///
-  /// In en, this message translates to:
-  /// **'There is nothing left to do on this item.'**
-  String get reviewNoActions;
 
   /// Confirmation text for a destructive review action when the site supplies none.
   ///

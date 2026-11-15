@@ -65,6 +65,17 @@ final class ReviewFilters {
     sortOrder: sortOrder ?? this.sortOrder,
   );
 
+  /// How many filters narrow the queue beyond its status and its order.
+  int get narrowing =>
+      (type?.isNotEmpty == true ? 1 : 0) +
+      (priority == ReviewPriorityFilter.any ? 0 : 1) +
+      ((categoryId ?? 0) > 0 ? 1 : 0) +
+      (username.trim().isEmpty ? 0 : 1);
+
+  /// The same status and order with nothing else narrowing them.
+  ReviewFilters get cleared =>
+      ReviewFilters(status: status, sortOrder: sortOrder);
+
   Map<String, String> query({int offset = 0}) => {
     'status': status.name,
     if (type case final type? when type.isNotEmpty) 'type': type,

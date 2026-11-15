@@ -32,6 +32,7 @@ Widget queue({
   ReviewQueuePage(
     state: state ?? ReviewState(items: items, loaded: true),
     permitted: permitted,
+    siteUrl: site,
     categories: const [(id: 5, name: 'Sailing')],
     onRefresh: onRefresh ?? () async {},
     onFilters: onFilters ?? (_) {},
@@ -54,6 +55,12 @@ Widget detail({
     onOpenInBrowser: onBrowser ?? () {},
   ),
 );
+
+/// The flagged post's first bundle holds several actions, so it is a menu.
+Future<void> openBundle(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('review-bundle-77-agree')));
+  await tester.pumpAndSettle();
+}
 
 void main() {
   group('queue', () {
@@ -89,17 +96,14 @@ void main() {
 
       final flagged = find.bySemanticsLabel(
         RegExp(
-          r'^Review item: Dock lines, Flagged post · Pending · '
-          r'Written by @spammer.*, Spam, Inappropriate$',
+          r'^Review item: Dock lines, Flagged post, '
+          r'Written by @spammer, .+, Spam, Inappropriate$',
         ),
       );
       expect(flagged, findsOneWidget);
       expect(
         tester.getSemantics(flagged),
-        matchesSemantics(
-          label: tester.getSemantics(flagged).label,
-          isButton: true,
-        ),
+        isSemantics(isButton: true, hasTapAction: true),
       );
       expect(
         find.bySemanticsLabel(
@@ -132,7 +136,8 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(queue(state: ReviewState(loaded: true)));
-      expect(find.text('There are no items to review.'), findsOneWidget);
+      expect(find.text('Nothing to review'), findsOneWidget);
+      expect(find.text('Clear filters'), findsNothing);
 
       var retries = 0;
       await tester.pumpWidget(
@@ -142,7 +147,7 @@ void main() {
         ),
       );
       expect(find.text('The review queue couldn’t be loaded.'), findsOneWidget);
-      expect(find.text('There are no items to review.'), findsNothing);
+      expect(find.text('Nothing to review'), findsNothing);
       await tester.tap(find.text('Try again'));
       expect(retries, 1);
     });
@@ -167,24 +172,57 @@ void main() {
     testWidgets('a submitted username filters by the author', (tester) async {
       ReviewFilters? chosen;
       await tester.pumpWidget(queue(onFilters: (filters) => chosen = filters));
+      await tester.tap(find.byKey(const ValueKey('review-filters')));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(EditableText), ' sam ');
       await tester.testTextInput.receiveAction(TextInputAction.search);
       expect(chosen?.username, 'sam');
     });
 
-    testWidgets('the outcome of the last action is said above the rows', (
+    testWidgets('filters in force are counted, and one press clears them', (
       tester,
     ) async {
+      ReviewFilters? chosen;
+      const narrowed = ReviewFilters(
+        status: ReviewStatusFilter.reviewed,
+        type: 'ReviewableUser',
+        username: 'sam',
+        sortOrder: ReviewSortOrder.newest,
+      );
+      await tester.pumpWidget(
+        queue(
+          state: ReviewState(loaded: true, filters: narrowed),
+          onFilters: (filters) => chosen = filters,
+        ),
+      );
+      expect(find.text('Filters · 2'), findsOneWidget);
+      expect(find.text('No items match these filters.'), findsOneWidget);
+      await tester.tap(find.text('Clear filters'));
+      expect(
+        chosen,
+        const ReviewFilters(
+          status: ReviewStatusFilter.reviewed,
+          sortOrder: ReviewSortOrder.newest,
+        ),
+      );
+    });
+
+    testWidgets('a row names its status only outside the pending queue', (
+      tester,
+    ) async {
+      await tester.pumpWidget(queue());
+      expect(find.text('Pending'), findsOneWidget);
       await tester.pumpWidget(
         queue(
           state: ReviewState(
-            items: items,
+            items: [item(77)],
             loaded: true,
-            notice: const ReviewPerformed('Flag agreed.'),
+            filters: const ReviewFilters(status: ReviewStatusFilter.all),
           ),
         ),
       );
-      expect(find.text('Flag agreed.'), findsOneWidget);
+      expect(find.text('Pending'), findsOneWidget);
+      expect(find.text('Everything'), findsOneWidget);
     });
 
     testWidgets('more rows are requested from the foot of the list', (
@@ -211,9 +249,9 @@ void main() {
         find.textContaining('Buy cheap rope here', findRichText: true),
         findsOneWidget,
       );
-      expect(find.textContaining('Written by @spammer'), findsOneWidget);
+      expect(find.text('spammer'), findsOneWidget);
       expect(find.text('Spam'), findsOneWidget);
-      expect(find.textContaining('Flagged by @flagger'), findsOneWidget);
+      expect(find.text('flagger'), findsOneWidget);
       expect(find.textContaining('Agreed'), findsOneWidget);
     });
 
@@ -222,9 +260,9 @@ void main() {
         detail(state: ReviewState(selectedId: 79, selected: item(79))),
       );
       await tester.pumpAndSettle();
-      expect(find.text('@newbie'), findsOneWidget);
+      expect(find.text('newbie'), findsOneWidget);
       expect(find.text('newbie@example.com'), findsOneWidget);
-      expect(find.text('No reasons were recorded.'), findsOneWidget);
+      expect(find.text('Reasons'), findsNothing);
     });
 
     testWidgets('an unknown type says so and still shows what the site sent', (
@@ -242,10 +280,6 @@ void main() {
         find.textContaining('chat text', findRichText: true),
         findsOneWidget,
       );
-      expect(
-        find.text('There is nothing left to do on this item.'),
-        findsOneWidget,
-      );
     });
 
     testWidgets('a plain action is sent as soon as it is pressed', (
@@ -255,6 +289,7 @@ void main() {
       await tester.pumpWidget(
         detail(onPerform: (_, action) => performed.add(action.serverAction)),
       );
+      await openBundle(tester);
       await tester.tap(find.text('Keep post'));
       await tester.pumpAndSettle();
       expect(performed, ['agree_and_keep']);
@@ -268,7 +303,7 @@ void main() {
       await tester.pumpWidget(
         detail(onPerform: (_, action) => performed.add(action.serverAction)),
       );
-      await tester.ensureVisible(find.text('Delete post'));
+      await openBundle(tester);
       await tester.tap(find.text('Delete post'));
       await tester.pumpAndSettle();
       expect(find.byType(DAlertDialogContent), findsOneWidget);
@@ -276,6 +311,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(performed, isEmpty);
 
+      await openBundle(tester);
       await tester.tap(find.text('Delete user'));
       await tester.pumpAndSettle();
       expect(
@@ -299,11 +335,12 @@ void main() {
           onBrowser: () => browser++,
         ),
       );
+      await openBundle(tester);
       expect(
         find.bySemanticsLabel('Suspend user, opens in browser'),
         findsOneWidget,
       );
-      await tester.ensureVisible(find.text('Suspend user'));
+      expect(find.text('Opens in your browser'), findsNWidgets(2));
       await tester.tap(find.text('Suspend user'));
       await tester.pumpAndSettle();
       expect(browser, 1);
@@ -397,8 +434,8 @@ void main() {
         find.text('This item no longer exists or isn’t visible to you.'),
         findsOneWidget,
       );
-      expect(find.byType(DSpinner), findsNothing);
-      await tester.tap(find.text('Back to queue'));
+      expect(find.byType(DSkeleton), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('review-back')));
       expect(back, 1);
     });
   });
