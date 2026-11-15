@@ -16,6 +16,7 @@ import '../models/discourse_instance.dart';
 import '../models/incoming_topics.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
+import 'content_snapshots.dart';
 
 typedef TopicFeedLoaded =
     void Function(
@@ -395,6 +396,10 @@ final class _FeedSession {
   TopicFeed? feed;
   String? requestedPath;
   Object? revision;
+
+  /// Held from the moment a load asks the last launch for this list until a
+  /// response or that answer is published, whichever is first.
+  Object? hydration;
   int? scrollRow;
   ({IncomingTopicsFilter filter, int order})? incomingFilter;
   Future<void>? loadRequest;
@@ -454,6 +459,7 @@ final class _FeedSession {
     if (retired) return;
     retired = true;
     revision = null;
+    hydration = null;
     loadRequest = null;
     final pending = replay;
     replay = null;
@@ -488,6 +494,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     this.prepareTopicForStore,
     this.incomingFilterFor,
     this.readerTopics,
+    this.snapshots,
     this.maximumRetainedTopics = 300,
     this.maximumCursorCheckpoints = 32,
     this.maximumDestinations = 32,
@@ -518,6 +525,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   /// that loaded it, as core's `trackIncoming` runs once a list is found.
   final TopicFeedIncomingFilter? incomingFilterFor;
   final Set<int> Function(String siteUrl, String destinationId)? readerTopics;
+  final FeedSnapshots? snapshots;
 
   final Map<_FeedKey, _FeedSession> _sessions = {};
   final _retainedRefreshes = <(String, Object), Future<bool>>{};
@@ -819,7 +827,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     IncomingTopics? incoming,
     bool Function(String path)? wherePath,
   }) {
-    if (isDisposed || !lifecycle.owns(instance.url, lease) || !lease.isCurrent) {
+    if (isDisposed ||
+        !lifecycle.owns(instance.url, lease) ||
+        !lease.isCurrent) {
       return Future.value(false);
     }
     final key = (instance.url, lease.session);
@@ -931,6 +941,19 @@ final class TopicFeedController extends FrameSafeNotifier {
     bool requestIsCurrent() =>
         lease.isCurrent && _sessionIsCurrent(session, revision);
 
+    // Only a list with nothing to show asks: rows a request already confirmed
+    // are newer than anything the last launch wrote down.
+    session.hydration = null;
+    final hydration = snapshots == null || existing?.loaded == true
+        ? null
+        : _hydrate(
+            session,
+            load,
+            lease,
+            personalizationStamp,
+            requestIsCurrent,
+          );
+
     try {
       final auth = await AccountRequestSession(
         instance.url,
@@ -965,24 +988,11 @@ final class TopicFeedController extends FrameSafeNotifier {
         )) {
           return;
         }
+        // From here the response owns the list. A snapshot still being read
+        // finds its claim gone and publishes nothing.
+        session.hydration = null;
         _touchSession(session);
-        final window = session.window;
-        window.rootPath = path;
-        window.pagesWithoutRows = 0;
-        window.rows.clear();
-        window.checkpoints.clear();
-        final rawIds = list.topics.map((topic) => topic.id).toList();
-        final shape = _PageShape(rawIds, {});
-        final ids = shape.resolve(rawIds);
-        window.put(0, ids, maximumRetainedTopics);
-        window.remember(0, path, maximumCursorCheckpoints, shape: shape);
-        if (list.nextPagePath case final nextPath?) {
-          window.remember(ids.length, nextPath, maximumCursorCheckpoints);
-        }
-        session.feed = window.publish(
-          TopicFeed.of(list),
-          totalRows: ids.length,
-        );
+        _publishFirstPage(session, path, list, TopicFeed.of(list));
         // Core's `trackIncoming` starts counting once the list is found, so
         // an arrival the answer already lists is not announced over it. One
         // that arrived while the request was out and that the answer missed
@@ -1000,6 +1010,15 @@ final class TopicFeedController extends FrameSafeNotifier {
         }
         markStartup('feed shown');
         notifySafely();
+        if (requestIsCurrent()) {
+          snapshots?.rememberFeed(
+            instance.url,
+            lease,
+            destinationId,
+            path,
+            list,
+          );
+        }
         // Publishing can synchronously replace the account or forget the feed.
         // Its completion hook must retain the same owner as the response.
         if (requestIsCurrent()) {
@@ -1013,6 +1032,9 @@ final class TopicFeedController extends FrameSafeNotifier {
       });
     } on SiteLookupException catch (error) {
       if (publishAfter != null) await publishAfter;
+      // The failure is drawn over whatever the last launch kept, so that
+      // answer has to land first.
+      if (hydration != null) await hydration;
       if (!requestIsCurrent()) return;
 
       _commit(lease, () {
@@ -1028,6 +1050,7 @@ final class TopicFeedController extends FrameSafeNotifier {
       });
     } catch (error) {
       if (publishAfter != null) await publishAfter;
+      if (hydration != null) await hydration;
       if (!requestIsCurrent()) return;
 
       _commit(lease, () {
@@ -1040,6 +1063,74 @@ final class TopicFeedController extends FrameSafeNotifier {
         notifySafely();
       });
     }
+  }
+
+  void _publishFirstPage(
+    _FeedSession session,
+    String path,
+    TopicList list,
+    TopicFeed feed,
+  ) {
+    final window = session.window;
+    window.rootPath = path;
+    window.pagesWithoutRows = 0;
+    window.rows.clear();
+    window.checkpoints.clear();
+    final rawIds = list.topics.map((topic) => topic.id).toList();
+    final shape = _PageShape(rawIds, {});
+    final ids = shape.resolve(rawIds);
+    window.put(0, ids, maximumRetainedTopics);
+    window.remember(0, path, maximumCursorCheckpoints, shape: shape);
+    if (list.nextPagePath case final nextPath?) {
+      window.remember(ids.length, nextPath, maximumCursorCheckpoints);
+    }
+    session.feed = window.publish(feed, totalRows: ids.length);
+  }
+
+  /// Shows the list as the last launch left it while its request is out.
+  ///
+  /// The claim on [_FeedSession.hydration] is what orders this against the
+  /// request: a response takes the claim as it commits, and this publishes
+  /// only while it still holds it. Rows go into the store only where it has
+  /// none, because any record already there was put by a request.
+  Future<void> _hydrate(
+    _FeedSession session,
+    _FeedLoad load,
+    SiteLease lease,
+    TopicFeedReadStamp? personalizationStamp,
+    bool Function() requestIsCurrent,
+  ) async {
+    final claim = Object();
+    session.hydration = claim;
+    final siteUrl = load.instance.url;
+    final list = await snapshots!.feed(
+      siteUrl,
+      lease,
+      load.destinationId,
+      load.path,
+    );
+    if (list == null) return;
+    _commit(lease, () {
+      if (!requestIsCurrent() || !identical(session.hydration, claim)) return;
+      session.hydration = null;
+      final prepare = prepareTopicForStore;
+      for (final topic in list.topics) {
+        if (store.containsRecord<Topic>(siteUrl, topic.id)) continue;
+        store.put(
+          siteUrl,
+          prepare?.call(siteUrl, topic, personalizationStamp) ?? topic,
+        );
+        if (!requestIsCurrent()) return;
+      }
+      _publishFirstPage(
+        session,
+        load.path,
+        list,
+        TopicFeed.of(list, stale: true).copyWith(loading: true),
+      );
+      markStartup('feed restored');
+      notifySafely();
+    });
   }
 
   void _finishLoad(_FeedSession session, Future<void> request) {

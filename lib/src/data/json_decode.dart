@@ -29,7 +29,7 @@ Future<Object?> decodeJsonHttpResponse(
   int backgroundThreshold = backgroundJsonDecodeThreshold,
 }) => decodeJsonResponseBytes(
   response.bodyBytes,
-  encodingName: _responseEncodingName(response.headers),
+  encodingName: jsonResponseEncodingName(response.headers),
   backgroundThreshold: backgroundThreshold,
 );
 
@@ -42,7 +42,7 @@ Future<T> decodeAndProjectJsonHttpResponse<T>(
   final input = (
     input: (
       bytes: response.bodyBytes,
-      encodingName: _responseEncodingName(response.headers),
+      encodingName: jsonResponseEncodingName(response.headers),
     ),
     project: project,
   );
@@ -55,6 +55,29 @@ Future<T> decodeAndProjectJsonHttpResponse<T>(
     debugLabel: 'Discourse JSON projection',
   );
 }
+
+/// Decodes and projects stored JSON text as [decodeAndProjectJsonHttpResponse]
+/// does a response, so a large document is parsed away from the UI isolate.
+Future<T> decodeAndProjectJsonText<T>(
+  String source, {
+  required T Function(Object?) project,
+  int backgroundThreshold = backgroundJsonDecodeThreshold,
+}) {
+  final input = (source: source, project: project);
+  if (source.length < backgroundThreshold) {
+    return Future<T>.sync(() => _decodeAndProjectJsonText(input));
+  }
+  return compute<_ProjectedJsonText<T>, T>(
+    _decodeAndProjectJsonText<T>,
+    input,
+    debugLabel: 'Discourse JSON projection',
+  );
+}
+
+typedef _ProjectedJsonText<T> = ({String source, T Function(Object?) project});
+
+T _decodeAndProjectJsonText<T>(_ProjectedJsonText<T> input) =>
+    input.project(jsonDecode(input.source));
 
 Future<Object?> decodeJsonResponseBytes(
   Uint8List bytes, {
@@ -89,7 +112,8 @@ Encoding _encoding(String name) => Encoding.getByName(name) ?? utf8;
 
 final _charsetParameter = RegExp(r'''charset\s*=\s*["']?([^;\s"']+)''');
 
-String _responseEncodingName(Map<String, String> headers) {
+/// The charset a JSON response's bytes are in, as every decoder here reads it.
+String jsonResponseEncodingName(Map<String, String> headers) {
   final header = headers['content-type'];
   if (header == 'application/json' ||
       header == 'application/json; charset=utf-8') {

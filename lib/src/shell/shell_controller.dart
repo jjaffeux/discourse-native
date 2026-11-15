@@ -24,6 +24,7 @@ import '../data/api_credentials.dart';
 import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
+import '../data/content_snapshot_store.dart';
 import '../data/cooking_plugin.dart';
 import '../data/current_user_reconciler.dart';
 import '../data/custom_sidebar_sections.dart';
@@ -137,6 +138,7 @@ import 'composer/existing_topic_opening_owner.dart';
 import 'composer/opening_owner.dart';
 import 'composer/plugin_composer_host.dart';
 import 'content_page_contract.dart';
+import 'content_snapshots.dart';
 import 'cooking_context_owner.dart';
 import 'core_link_resolver.dart';
 import 'current_user_directory.dart';
@@ -247,6 +249,7 @@ class ShellController extends FrameSafeNotifier
     required ShellApiCapabilities api,
     required this.authenticator,
     required this.drafts,
+    ContentSnapshotStore? contentSnapshots,
     HttpBasicAuthStore? basicAuth,
     EmojiPickerStore? emojiPickerStore,
     AppSettingsStore? appSettingsStore,
@@ -298,6 +301,7 @@ class ShellController extends FrameSafeNotifier
        store = store ?? Store(policy: _shellEntityStorePolicy),
        lifecycle = lifecycle ?? SiteLifecycle(),
        _ownsLifecycle = lifecycle == null,
+       _contentSnapshotStore = contentSnapshots,
        _clock = clock ?? DateTime.now,
        _providedSiteImages = siteImages,
        _providedVideoThumbnails = videoThumbnails,
@@ -407,6 +411,17 @@ class ShellController extends FrameSafeNotifier
     isConnected: (siteUrl) => _instanceAt(siteUrl)?.isConnected == true,
   );
   final DraftStore drafts;
+  final ContentSnapshotStore? _contentSnapshotStore;
+  late final ContentSnapshots? _contentSnapshots =
+      switch (_contentSnapshotStore) {
+        final store? => ContentSnapshots(
+          store: store,
+          models: api.models,
+          lifecycle: lifecycle,
+          instanceAt: _instanceAt,
+        ),
+        null => null,
+      };
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
   final bool _ownsLifecycle;
@@ -959,6 +974,7 @@ class ShellController extends FrameSafeNotifier
       credentials: credentials,
       lifecycle: lifecycle,
       store: store,
+      snapshots: _contentSnapshots,
       readerTopics: (siteUrl, destinationId) => {
         for (final tab in workspaceFor(siteUrl)?.tabs ?? const <ForumTab>[])
           if (tab.currentContent.topicId case final id?)
@@ -3737,6 +3753,7 @@ class ShellController extends FrameSafeNotifier
       _workspace.writesSettled,
       _composerDrafts.localWritesSettled(),
       destinationBookmarks.flush(),
+      ?_contentSnapshotStore?.flush(),
     ]);
   }
 
@@ -3749,6 +3766,7 @@ class ShellController extends FrameSafeNotifier
     // The OS may suspend the process before a debounce timer fires again.
     if (!foreground) {
       _workspace.flushAnchors();
+      _contentSnapshots?.flush();
       for (final composer in _composerRegistry.live) {
         unawaited(composer.flushDraftOnBackground());
       }
@@ -3842,6 +3860,7 @@ class ShellController extends FrameSafeNotifier
     content: api.topicContent,
     feeds: api.topicFeeds,
     models: api.models,
+    snapshots: _contentSnapshots,
     acceptedPost: (siteUrl, topicId, post) {
       final lease = lifecycle.capture(siteUrl);
       _readerEvents.add((
@@ -7647,6 +7666,7 @@ class ShellController extends FrameSafeNotifier
         .whenComplete(() => _backgroundRetention.releaseSite(siteUrl));
     _observePluginLifecycle(forgetPlugins);
     topicFeeds.forget(siteUrl);
+    _contentSnapshots?.forget(siteUrl);
     doNotDisturb.forget(siteUrl);
     userStatuses.forget(siteUrl);
     _profileWrites.forget(siteUrl);
