@@ -10,6 +10,63 @@ import 'd_mobile_dock_test.dart' as fixture;
 import 'support/dock_panel.dart';
 
 void main() {
+  testWidgets('an overflow destination is painted as its dock slot opens', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    const destination = ValueKey('Extra destination');
+    const iconColor = Color(0xffd500f9);
+    var selected = false;
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) => fixture.fixture(
+          foot: 34,
+          selected: selected ? null : 'Topics',
+          you: DMobileDockPlace(
+            key: destination,
+            icon: const SizedBox.square(
+              dimension: 18,
+              child: ColoredBox(color: iconColor),
+            ),
+            label: 'Extra destination',
+            selected: selected,
+            onPressed: () => setState(() => selected = true),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final slot = find.byKey(destination);
+    expect(slot, findsNothing);
+    await openDockPanel(tester);
+    await tester.tap(find.byKey(DMobileDock.tileKey(destination)));
+    await tester.pump();
+
+    final icon = find.descendant(
+      of: slot,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is ColoredBox && widget.color == iconColor,
+      ),
+    );
+    for (var frame = 1; frame <= 4; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.byKey(DMobileDock.panelKey), findsOneWidget);
+      expect(tester.getSize(slot).width, greaterThan(0));
+      expect(
+        await _pixel(tester, tester.getCenter(icon)),
+        iconColor,
+        reason: 'The icon should be visible on closing frame $frame',
+      );
+    }
+    await tester.pumpAndSettle();
+    expect(find.byKey(DMobileDock.panelKey), findsNothing);
+    expect(slot.hitTestable(), findsOneWidget);
+  });
+
   for (final brightness in Brightness.values) {
     for (final foot in [0.0, 34.0]) {
       testWidgets(
