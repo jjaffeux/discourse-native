@@ -5,6 +5,7 @@ import 'plugin_transport.dart';
 final class ShellApiPorts {
   const ShellApiPorts({
     required this.lifecycle,
+    required this.reachability,
     required this.dsaNotices,
     required this.models,
     required this.pluginTransport,
@@ -34,6 +35,7 @@ final class ShellApiPorts {
   factory ShellApiPorts.fromCapabilities(ShellApiCapabilities capabilities) {
     return ShellApiPorts(
       lifecycle: capabilities,
+      reachability: capabilities,
       dsaNotices: capabilities,
       models: capabilities.models,
       pluginTransport: capabilities,
@@ -62,6 +64,7 @@ final class ShellApiPorts {
   }
 
   final DiscourseApiLifecycle lifecycle;
+  final SiteReachabilityApi reachability;
   final DsaNoticesApi dsaNotices;
   final DiscourseModelCodec models;
   final PluginApiTransport pluginTransport;

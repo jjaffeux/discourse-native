@@ -127,6 +127,12 @@ final class OriginRequestGate {
     _extendCooldown(url.origin, delay);
   }
 
+  /// Whether [url]'s origin is waiting out a server cooldown. Work that is
+  /// optional while a site asks to be left alone reads this instead of joining
+  /// the backlog.
+  bool isCoolingDown(Uri url) =>
+      _origins[url.origin]?.cooldown.isActive ?? false;
+
   void _enqueue(
     String origin,
     _PendingAdmission pending,

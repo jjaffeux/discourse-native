@@ -5294,6 +5294,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String canTConnectToRetryingAutomatically(String instanceHost) {
+    return 'Can\'t connect to $instanceHost. Retrying automatically.';
+  }
+
+  @override
   String couldnTReach(String instanceHost) {
     return 'Couldn\'t reach $instanceHost.';
   }

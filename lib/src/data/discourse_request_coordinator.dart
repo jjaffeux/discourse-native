@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
+import 'http_transport.dart';
 import 'origin_cooldown.dart';
+import 'origin_reachability.dart';
 import 'origin_request_gate.dart';
 import 'request_intent.dart';
 import 'retry_after.dart';
@@ -81,9 +84,12 @@ final class DiscourseGetRequestKey {
 /// connection per admitted request: dart:io's `maxConnectionsPerHost` is left
 /// unset, and a per-host cap there would queue both lanes together again.
 ///
-/// This coordinator deliberately does not retry. A queued operation is sent
-/// once when capacity and the server's cooldown allow it; an operation that
-/// already received a response remains the caller's result.
+/// A queued operation is sent once when capacity and the server's cooldown
+/// allow it, and an operation that already received a response remains the
+/// caller's result. The one exception is a shared GET whose connection
+/// provably never opened: nothing reached the site, so it is admitted a second
+/// time after a short jittered wait. Writes, transfers, and any failure that
+/// could follow a delivered request are never sent again.
 final class DiscourseRequestCoordinator {
   DiscourseRequestCoordinator({
     this.maxConcurrentPerOrigin = 4,
@@ -92,11 +98,17 @@ final class DiscourseRequestCoordinator {
     this.defaultRateLimitCooldown = const Duration(seconds: 15),
     DateTime Function()? clock,
     OriginCooldown Function()? cooldownFactory,
+    OriginReachability? reachability,
+    Duration Function()? neverConnectedRetryDelay,
   }) : assert(maxConcurrentPerOrigin > 0),
        assert(maxConcurrentTransfersPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
        _clock = clock ?? DateTime.now,
+       reachability = reachability ?? OriginReachability(),
+       _ownsReachability = reachability == null,
+       _neverConnectedRetryDelay =
+           neverConnectedRetryDelay ?? _jitteredRetryDelay,
        _gate = OriginRequestGate(
          maxConcurrentPerOrigin: maxConcurrentPerOrigin,
          maxQueuedPerOrigin: maxQueuedPerOrigin,
@@ -126,6 +138,21 @@ final class DiscourseRequestCoordinator {
   final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
   final DateTime Function() _clock;
+
+  /// Fed by the outcome of every request this coordinator admits.
+  final OriginReachability reachability;
+  final bool _ownsReachability;
+  final Duration Function() _neverConnectedRetryDelay;
+
+  static final Random _retryJitter = Random();
+
+  /// Long enough for a radio handover or a resumed interface to finish, short
+  /// enough that the reader is still looking at the loading state.
+  static Duration _jitteredRetryDelay() =>
+      Duration(milliseconds: 400 + _retryJitter.nextInt(500));
+
+  /// Whether [url]'s origin is waiting out a rate limit.
+  bool isCoolingDown(Uri url) => _gate.isCoolingDown(url);
 
   final OriginRequestGate _gate;
   final OriginRequestGate _transfers;
@@ -189,17 +216,49 @@ final class DiscourseRequestCoordinator {
       _gets[coalesce] = shared;
       final result = shared.join(abortTrigger, source);
       unawaited(
-        _enqueue(
-          _gate,
-          url,
+        _sendShared(
+          created,
           () => send(created.abort.future),
-          created.intent,
-          abortTrigger: created.abort.future,
         ).then(created.complete, onError: created.fail),
       );
       return result;
     }
     return shared.join(abortTrigger, source);
+  }
+
+  /// The shared hop stays registered across the wait, so callers arriving
+  /// meanwhile join the second attempt instead of starting their own. The
+  /// first failure is not reported as the origin's state: one refused lookup
+  /// that the retry recovers from is not an outage.
+  Future<http.Response> _sendShared(
+    _SharedGet shared,
+    Future<http.Response> Function() send,
+  ) async {
+    final abort = shared.abort;
+    try {
+      return await _enqueue(
+        _gate,
+        shared.url,
+        send,
+        shared.intent,
+        abortTrigger: abort.future,
+        reportFailure: false,
+      );
+    } catch (error) {
+      if (!connectionNeverOpened(error) || abort.isCompleted) rethrow;
+      final waited = Completer<void>();
+      final wait = Timer(_neverConnectedRetryDelay(), waited.complete);
+      await Future.any<void>([waited.future, abort.future]);
+      wait.cancel();
+      if (abort.isCompleted || _gate.isClosed) rethrow;
+    }
+    return _enqueue(
+      _gate,
+      shared.url,
+      send,
+      shared.intent,
+      abortTrigger: abort.future,
+    );
   }
 
   Future<http.Response> _enqueue(
@@ -208,11 +267,19 @@ final class DiscourseRequestCoordinator {
     Future<http.Response> Function() send,
     RequestIntent intent, {
     Future<void>? abortTrigger,
+    bool reportFailure = true,
   }) => _translateGateErrors(
     lane.run(
       url,
       (lease) async {
-        final response = await send();
+        final dispatch = reachability.dispatched();
+        final http.Response response;
+        try {
+          response = await send();
+        } catch (error) {
+          if (reportFailure) reachability.failed(url, error, dispatch);
+          rethrow;
+        }
         if (_originCooldownFrom(response) case final delay?) {
           lease.extendCooldown(delay);
           // A request-wide limiter counts the site's requests whichever lane
@@ -222,6 +289,9 @@ final class DiscourseRequestCoordinator {
             delay,
           );
         }
+        // After the cooldown is in place: what recovery re-drives must see
+        // a site that answered only to ask to be left alone.
+        reachability.succeeded(url, dispatch);
         return response;
       },
       resolvePriority: () => intent.isInteractive
@@ -248,6 +318,7 @@ final class DiscourseRequestCoordinator {
     _gate.close();
     _transfers.close();
     _gets.clear();
+    if (_ownsReachability) reachability.dispose();
   }
 
   static const Duration maximumRetryAfter = Duration(hours: 1);

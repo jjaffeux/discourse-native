@@ -59,7 +59,9 @@ final class DiscourseTransport {
              maxConcurrentPerOrigin: maxConcurrentPerOrigin,
              maxQueuedPerOrigin: maxQueuedPerOrigin,
              defaultRateLimitCooldown: defaultRateLimitCooldown,
-           );
+           ) {
+    this.coordinator.reachability.probe ??= _probeOrigin;
+  }
 
   final SafeHttpClient _client;
   final ActiveUse? _activeUse;
@@ -84,6 +86,26 @@ final class DiscourseTransport {
   );
 
   static const int _maxGetRedirects = 5;
+
+  /// Any answer proves the origin reachable, so this asks for core's
+  /// unauthenticated health route and reads no body. It carries no account
+  /// scope or credentials: the timer that sends it outlives the request whose
+  /// failure started it, and that request's account may since have retired.
+  Future<void> _probeOrigin(Uri origin) async {
+    final url = requireSafeHttpUrl(origin.resolve('/srv/status'));
+    final request = http.Request('HEAD', url)
+      ..headers['User-Agent'] = discourseUserAgent;
+    await coordinator.run(
+      url,
+      () => sendBoundedHttpRequest(
+        _client,
+        request,
+        timeout: timeout,
+        maxBodyBytes: _maxResponseBytes,
+      ),
+      intent: RequestIntent.background(),
+    );
+  }
 
   Future<http.Response> request(
     String method,

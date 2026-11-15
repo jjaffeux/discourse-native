@@ -111,6 +111,151 @@ void main() {
     }
   });
 
+  group('reloading failed feeds', () {
+    final site = instance('one.example');
+    const unreachable = SiteLookupException(
+      SiteLookupFailure.unreachable,
+      'https://one.example',
+    );
+
+    Future<void> load(
+      String destinationId,
+      String path, {
+      bool force = false,
+    }) => controller.load(
+      instance: site,
+      destinationId: destinationId,
+      path: path,
+      incoming: null,
+      force: force,
+    );
+
+    test('asks again for the failed feed and leaves a loaded one', () async {
+      final failing = load('latest', '/latest.json');
+      final healthy = load('top', '/top.json');
+      await pumpEventQueue();
+      api.requests[0].response.completeError(unreachable);
+      api.requests[1].response.complete(_page(2));
+      await Future.wait([failing, healthy]);
+      expect(controller.feedFor(site.url, 'latest')?.error, isNotNull);
+
+      controller.reloadFailed(instance: site, incoming: null);
+      await pumpEventQueue();
+
+      expect(api.requests.map((request) => request.path), [
+        '/latest.json',
+        '/top.json',
+        '/latest.json',
+      ]);
+      api.requests.last.response.complete(_page(1));
+      await pumpEventQueue();
+      final feed = controller.feedFor(site.url, 'latest');
+      expect(feed?.error, isNull);
+      expect(feed?.topicIds, [1]);
+    });
+
+    test('leaves another site\'s failed feed alone', () async {
+      final loading = load('latest', '/latest.json');
+      await pumpEventQueue();
+      api.requests.single.response.completeError(unreachable);
+      await loading;
+
+      controller.reloadFailed(
+        instance: instance('two.example'),
+        incoming: null,
+      );
+      await pumpEventQueue();
+
+      expect(api.requests, hasLength(1));
+    });
+
+    test('asks again for a failed page rather than the first page', () async {
+      final loading = load('latest', '/latest.json');
+      await pumpEventQueue();
+      api.requests.single.response.complete(
+        _page(1, moreTopicsUrl: '/latest?page=1'),
+      );
+      await loading;
+      final paging = controller.loadMore(
+        instance: site,
+        destinationId: 'latest',
+      );
+      await pumpEventQueue();
+      api.requests.last.response.completeError(unreachable);
+      await paging;
+      expect(controller.feedFor(site.url, 'latest')?.pageError, isTrue);
+
+      controller.reloadFailed(instance: site, incoming: null);
+      await pumpEventQueue();
+
+      expect(api.requests, hasLength(3));
+      expect(api.requests.last.path, api.requests[1].path);
+      api.requests.last.response.complete(_page(2));
+      await pumpEventQueue();
+      final feed = controller.feedFor(site.url, 'latest');
+      expect(feed?.error, isNull);
+      expect(feed?.topicIds, [1, 2]);
+    });
+
+    test('does not double a reload that is already in flight', () async {
+      final loading = load('latest', '/latest.json');
+      await pumpEventQueue();
+      api.requests.single.response.completeError(unreachable);
+      await loading;
+
+      controller.reloadFailed(instance: site, incoming: null);
+      controller.reloadFailed(instance: site, incoming: null);
+      await pumpEventQueue();
+
+      expect(api.requests, hasLength(2));
+    });
+
+    test('a stale reload cannot replace the newer path it lost to', () async {
+      final loading = load('latest', '/latest.json');
+      await pumpEventQueue();
+      api.requests.single.response.completeError(unreachable);
+      await loading;
+
+      controller.reloadFailed(instance: site, incoming: null);
+      await pumpEventQueue();
+      final reload = api.requests.last;
+      final newer = load('latest', '/latest.json?order=activity', force: true);
+      await pumpEventQueue();
+
+      reload.response.complete(_page(1));
+      await pumpEventQueue();
+      expect(api.requests.last.path, '/latest.json?order=activity');
+      api.requests.last.response.complete(_page(9));
+      await newer;
+
+      final feed = controller.feedFor(site.url, 'latest');
+      expect(feed?.error, isNull);
+      expect(feed?.topicIds, [9]);
+    });
+
+    test('a stale reload failure cannot mark a newer result failed', () async {
+      final loading = load('latest', '/latest.json');
+      await pumpEventQueue();
+      api.requests.single.response.completeError(unreachable);
+      await loading;
+
+      controller.reloadFailed(instance: site, incoming: null);
+      await pumpEventQueue();
+      final reload = api.requests.last;
+      final newer = load('latest', '/latest.json?order=activity', force: true);
+      await pumpEventQueue();
+
+      reload.response.completeError(unreachable);
+      await pumpEventQueue();
+      api.requests.last.response.complete(_page(9));
+      await newer;
+
+      final feed = controller.feedFor(site.url, 'latest');
+      expect(feed?.error, isNull);
+      expect(feed?.topicIds, [9]);
+    });
+  });
+
   for (final initialPending in [false, true]) {
     test(
       'external reconciliation refreshes original feed path (pending=$initialPending)',

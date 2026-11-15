@@ -152,6 +152,7 @@ import 'groups_controller.dart';
 import 'instance_rail_transactions.dart';
 import 'message_archive_transactions.dart';
 import 'mobile_navigation.dart';
+import 'network_recovery.dart';
 import 'notification_feed_refresh_owner.dart';
 import 'notification_preference_transactions.dart';
 import 'plugin_background_retention.dart';
@@ -310,7 +311,9 @@ class ShellController extends FrameSafeNotifier
        updates = UpdateController(
          updater: updater,
          store: updateStore ?? UpdateStore(),
-       );
+       ) {
+    networkRecovery.attach();
+  }
 
   final CookingServicePort? _providedCookingService;
   late final ApplicationCooking cooking = ApplicationCooking(
@@ -3770,6 +3773,46 @@ class ShellController extends FrameSafeNotifier
       unawaited(_presentation.warmConfig(instance.url));
       unawaited(_presentation.warmCustomEmojis(instance.url));
       unawaited(_presentation.warmEmojiCatalog(instance.url));
+    }
+    networkRecovery.resumed();
+  }
+
+  /// Owns when errored loads are retried; the shell says only which they are.
+  late final NetworkRecovery networkRecovery = NetworkRecovery(
+    api: api.reachability,
+    currentSiteUrl: () {
+      final instance = isDisposed ? null : currentInstance;
+      return instance == null ||
+              (instance.loginRequired && !instance.isConnected)
+          ? null
+          : instance.url;
+    },
+    reload: _reloadFailedLoads,
+  );
+
+  void _reloadFailedLoads(String siteUrl) {
+    final instance = currentInstance;
+    if (isDisposed || instance == null || instance.url != siteUrl) return;
+    topicFeeds.reloadFailed(
+      instance: instance,
+      incoming: _liveSessions.trackerFor(siteUrl)?.incoming,
+    );
+    final categories = categoryFeedFor(siteUrl);
+    if (categories.error != null && !categories.loading) {
+      unawaited(
+        categories.pageError
+            ? loadMoreCategories(siteUrl)
+            : loadCategories(siteUrl),
+      );
+    }
+    for (final tab in tabsForCurrentForum) {
+      final context = tabContext(tab.id);
+      final route = context.currentContent;
+      final topicId = route?.topicId;
+      if (topicId == null || topicReaderFailure(siteUrl, topicId) == null) {
+        continue;
+      }
+      unawaited(context.loadTopic(topicId, route!.slug ?? ''));
     }
   }
 
@@ -8781,6 +8824,7 @@ class ShellController extends FrameSafeNotifier
     userDirectory.dispose();
     badges.dispose();
     preferences.dispose();
+    networkRecovery.dispose();
     topicFeeds.dispose();
     appSettings.dispose();
     forumSettings.dispose();

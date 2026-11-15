@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:discourse_native/src/data/request_intent.dart';
+import 'package:fake_async/fake_async.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -790,6 +791,248 @@ void main() {
           expect(sent, _lanes.map((lane) => lane.name));
           await Future.wait(queued);
           expect(scheduler.activeTimerCount, 0);
+        },
+      );
+    }
+  });
+
+  group('a shared GET whose connection never opened', () {
+    final url = Uri.parse('https://forum.example/latest.json');
+    const neverConnected = SocketException(
+      "Failed host lookup: 'forum.example'",
+    );
+    DiscourseGetRequestKey key() => DiscourseGetRequestKey(
+      url,
+      headers: const {},
+      timeout: const Duration(seconds: 10),
+      maxResponseBytes: 100,
+    );
+
+    test('is sent once more and answers with the second result', () async {
+      final coordinator = DiscourseRequestCoordinator(
+        neverConnectedRetryDelay: () => Duration.zero,
+      );
+      addTearDown(coordinator.close);
+      var sends = 0;
+
+      final response = await coordinator.runGet(url, (_) async {
+        if (++sends == 1) throw neverConnected;
+        return http.Response('second', 200);
+      }, coalesce: key());
+
+      expect(response.body, 'second');
+      expect(sends, 2);
+      expect(coordinator.reachability.isUrlReachable(url), isTrue);
+    });
+
+    test('a recovered retry never reports the origin unreachable', () async {
+      final coordinator = DiscourseRequestCoordinator(
+        neverConnectedRetryDelay: () => Duration.zero,
+      );
+      addTearDown(coordinator.close);
+      var changes = 0;
+      coordinator.reachability.addListener(() => changes++);
+      var sends = 0;
+
+      await coordinator.runGet(url, (_) async {
+        if (++sends == 1) throw neverConnected;
+        return http.Response('', 200);
+      }, coalesce: key());
+
+      expect(changes, 0);
+    });
+
+    test('is not sent a third time, and then marks the origin', () async {
+      final coordinator = DiscourseRequestCoordinator(
+        neverConnectedRetryDelay: () => Duration.zero,
+      );
+      addTearDown(coordinator.close);
+      var sends = 0;
+
+      await expectLater(
+        coordinator.runGet(url, (_) async {
+          sends++;
+          throw neverConnected;
+        }, coalesce: key()),
+        throwsA(isA<SocketException>()),
+      );
+
+      expect(sends, 2);
+      expect(coordinator.reachability.isUrlReachable(url), isFalse);
+    });
+
+    test('waits out its delay before the second send', () {
+      fakeAsync((async) {
+        final coordinator = DiscourseRequestCoordinator(
+          neverConnectedRetryDelay: () => const Duration(milliseconds: 600),
+        );
+        var sends = 0;
+        http.Response? response;
+        unawaited(
+          coordinator
+              .runGet(url, (_) async {
+                if (++sends == 1) throw neverConnected;
+                return http.Response('', 200);
+              }, coalesce: key())
+              .then((value) => response = value),
+        );
+
+        async.elapse(const Duration(milliseconds: 599));
+        expect(sends, 1);
+        async.elapse(const Duration(milliseconds: 1));
+        expect(sends, 2);
+        expect(response, isNotNull);
+        coordinator.close();
+      });
+    });
+
+    test('the default delay is jittered inside a sub-second window', () {
+      fakeAsync((async) {
+        final coordinator = DiscourseRequestCoordinator();
+        var sends = 0;
+        unawaited(
+          coordinator.runGet(url, (_) async {
+            if (++sends == 1) throw neverConnected;
+            return http.Response('', 200);
+          }, coalesce: key()),
+        );
+
+        async.elapse(const Duration(milliseconds: 399));
+        expect(sends, 1);
+        async.elapse(const Duration(milliseconds: 501));
+        expect(sends, 2);
+        coordinator.close();
+      });
+    });
+
+    test('a caller arriving during the wait joins the second send', () {
+      fakeAsync((async) {
+        final coordinator = DiscourseRequestCoordinator(
+          neverConnectedRetryDelay: () => const Duration(milliseconds: 600),
+        );
+        var sends = 0;
+        Future<http.Response> send() => coordinator.runGet(url, (_) async {
+          if (++sends == 1) throw neverConnected;
+          return http.Response('shared', 200);
+        }, coalesce: key());
+        final bodies = <String>[];
+        unawaited(send().then((response) => bodies.add(response.body)));
+        async.elapse(const Duration(milliseconds: 300));
+        unawaited(send().then((response) => bodies.add(response.body)));
+        async.elapse(const Duration(milliseconds: 300));
+
+        expect(sends, 2);
+        expect(bodies, ['shared', 'shared']);
+        coordinator.close();
+      });
+    });
+
+    test('is not sent again once its only caller has left', () {
+      fakeAsync((async) {
+        final coordinator = DiscourseRequestCoordinator(
+          neverConnectedRetryDelay: () => const Duration(milliseconds: 600),
+        );
+        final abort = Completer<void>();
+        var sends = 0;
+        Object? failure;
+        unawaited(
+          coordinator
+              .runGet(
+                url,
+                (_) async {
+                  sends++;
+                  throw neverConnected;
+                },
+                coalesce: key(),
+                abortTrigger: abort.future,
+              )
+              .then<void>((_) {}, onError: (Object error) => failure = error),
+        );
+        async.elapse(const Duration(milliseconds: 100));
+        abort.complete();
+        async.elapse(const Duration(seconds: 2));
+
+        expect(sends, 1);
+        expect(failure, isA<http.RequestAbortedException>());
+        coordinator.close();
+      });
+    });
+
+    test('waits behind a rate limit like any other request', () {
+      fakeAsync((async) {
+        final coordinator = DiscourseRequestCoordinator(
+          neverConnectedRetryDelay: () => const Duration(milliseconds: 100),
+          defaultRateLimitCooldown: const Duration(seconds: 15),
+          cooldownFactory: () => OriginCooldown(clock: () => async.elapsed),
+        );
+        var sends = 0;
+        unawaited(
+          coordinator.runGet(url, (_) async {
+            if (++sends == 1) throw neverConnected;
+            return http.Response('', 200);
+          }, coalesce: key()),
+        );
+        async.flushMicrotasks();
+        unawaited(
+          coordinator.run(
+            url.resolve('/limited'),
+            () async => http.Response('', 429),
+          ),
+        );
+        async.elapse(const Duration(seconds: 14));
+        expect(sends, 1);
+        expect(coordinator.isCoolingDown(url), isTrue);
+        async.elapse(const Duration(seconds: 2));
+        expect(sends, 2);
+        expect(coordinator.isCoolingDown(url), isFalse);
+        coordinator.close();
+      });
+    });
+
+    for (final (name, error) in <(String, Object)>[
+      ('a timeout', TimeoutException('slow')),
+      ('a reset', const SocketException('Connection reset by peer')),
+      ('a failed handshake', const HandshakeException('bad certificate')),
+    ]) {
+      test('$name is never sent again', () async {
+        final coordinator = DiscourseRequestCoordinator(
+          neverConnectedRetryDelay: () => Duration.zero,
+        );
+        addTearDown(coordinator.close);
+        var sends = 0;
+
+        await expectLater(
+          coordinator.runGet(url, (_) async {
+            sends++;
+            throw error;
+          }, coalesce: key()),
+          throwsA(same(error)),
+        );
+
+        expect(sends, 1);
+      });
+    }
+
+    for (final lane in _lanes) {
+      test(
+        '${lane.name} requests outside the GET path are sent once',
+        () async {
+          final coordinator = DiscourseRequestCoordinator(
+            neverConnectedRetryDelay: () => Duration.zero,
+          );
+          addTearDown(coordinator.close);
+          var sends = 0;
+
+          await expectLater(
+            coordinator.run(url, () async {
+              sends++;
+              throw neverConnected;
+            }, transfer: lane.transfer),
+            throwsA(isA<SocketException>()),
+          );
+          await pumpEventQueue();
+
+          expect(sends, 1);
         },
       );
     }

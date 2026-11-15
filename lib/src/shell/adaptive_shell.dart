@@ -37,6 +37,7 @@ import 'keyboard_shortcuts_help.dart';
 import 'main_content.dart';
 import 'mobile_dock_panel_scope.dart';
 import 'mobile_shell.dart';
+import 'network_status_banner.dart';
 import 'platform.dart';
 import 'reader_content_bounds.dart';
 import 'resizable_pane.dart';
@@ -439,7 +440,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         child: AccountMenuScope(
           child: ComposerPresentationHost(
             panelsLayout: _panelsLayout,
-            child: _buildShell(context),
+            child: NetworkStatusBanner(child: _buildShell(context)),
           ),
         ),
       ),
