@@ -70,6 +70,34 @@ void main() {
     );
   });
 
+  testWidgets('phone recipient footer stays above the rising keyboard', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      mobile: true,
+      api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+      recipients: 'sam',
+    );
+    final footer = find.byType(DSheetFooter);
+    final screenBottom = tester.view.physicalSize.height;
+    await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+    await tester.pumpAndSettle();
+    expect(tester.getBottomLeft(footer).dy, closeTo(screenBottom, .01));
+
+    const inset = 320.0;
+    const duration = 400;
+    await sendKeyboardFrame(tester, inset: inset, milliseconds: duration);
+    await tester.pump();
+    for (var elapsed = 16; elapsed <= duration; elapsed += 16) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getBottomLeft(footer).dy,
+        closeTo(screenBottom - inset * elapsed / duration, .01),
+      );
+    }
+  });
+
   for (final swipe in [false, true]) {
     testWidgets(
       'phone recipient sheet slides offscreen while the keyboard hides '
@@ -104,6 +132,8 @@ void main() {
         tester.view.viewInsets = FakeViewPadding.zero;
 
         var lastTop = lastGestureTop;
+        var lastStep = 0.0;
+        var largestStep = 0.0;
         for (
           var frame = 0;
           frame < 80 && sheet.evaluate().isNotEmpty;
@@ -111,11 +141,20 @@ void main() {
         ) {
           final top = tester.getTopLeft(sheet).dy;
           expect(top, greaterThanOrEqualTo(lastTop));
+          lastStep = top - lastTop;
+          if (lastStep > largestStep) largestStep = lastStep;
           lastTop = top;
           await tester.pump(const Duration(milliseconds: 4));
         }
         final screenBottom = tester.view.physicalSize.height;
         expect(lastTop, greaterThan(screenBottom - 40));
+        if (!swipe) {
+          expect(
+            lastStep,
+            lessThan(largestStep / 2),
+            reason: 'closing with the button slows down at the viewport edge',
+          );
+        }
         expect(sheet, findsNothing);
       },
     );
