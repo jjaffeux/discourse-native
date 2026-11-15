@@ -499,15 +499,29 @@ void main({bool useDeviceMetrics = false}) {
             closeTo(phone.height - keyboard, 1),
           );
           expect(_editor(tester).focusNode.hasFocus, isTrue);
+
+          await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+          for (
+            var frame = 0;
+            frame < 30 && tester.view.viewInsets.bottom > 0;
+            frame++
+          ) {
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          await tester.pumpAndSettle();
+          final safeBottom = tester.view.viewPadding.bottom / ratio;
+          expect(tester.view.viewInsets.bottom, 0);
+          expect(tester.getRect(surface).bottom, closeTo(phone.height, .01));
+          expect(
+            tester.getRect(search).bottom,
+            closeTo(phone.height - safeBottom, 1),
+          );
+          expect(_editor(tester).controller.text, 'design');
           expect(tester.takeException(), isNull);
           return;
         }
         const safeBottom = 34;
-        const lift = 6 + safeBottom / 2;
-        expect(
-          tester.getRect(surface).bottom,
-          closeTo(phone.height - lift, .01),
-        );
+        expect(tester.getRect(surface).bottom, closeTo(phone.height, .01));
         expect(
           tester.getRect(search).bottom,
           closeTo(phone.height - safeBottom, .01),
@@ -527,10 +541,7 @@ void main({bool useDeviceMetrics = false}) {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 350));
           await tester.pumpAndSettle();
-          expect(
-            tester.getRect(surface).bottom,
-            closeTo(phone.height - (bottom == 0 ? lift : 0), 1),
-          );
+          expect(tester.getRect(surface).bottom, closeTo(phone.height, 1));
           expect(
             tester.getRect(search).bottom,
             closeTo(phone.height - (bottom == 0 ? safeBottom : bottom), 1),
