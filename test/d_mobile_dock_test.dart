@@ -758,7 +758,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(_panel, findsOneWidget);
       expect(tester.getSize(here).width, 0);
-      expect(_opacityOver(tester, here), 0);
       expect(here.hitTestable(), findsNothing);
       for (final (index, key) in [
         'Start',

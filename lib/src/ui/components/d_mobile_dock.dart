@@ -1565,17 +1565,15 @@ class _DMobileDockState extends State<DMobileDock>
           place.onPressed();
         },
       );
-      // The page added to the bar opens the panel; grown, it eases away,
-      // and takes the focus back as the panel closes.
+      // The slot clips the current page's icon as its width changes, so
+      // the icon and its space appear together as the panel closes.
       final hereItem = here == null
           ? null
           : ClipRect(
               child: IgnorePointer(
                 ignoring: out,
-                child: AnimatedOpacity(
-                  opacity: out ? 0 : 1,
-                  duration: dimDuration,
-                  curve: Curves.ease,
+                child: ExcludeSemantics(
+                  excluding: out,
                   child: DMobileDockItem(
                     key: here.key,
                     growth: out ? grown : 0,
