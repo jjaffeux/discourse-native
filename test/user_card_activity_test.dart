@@ -562,7 +562,7 @@ void main() {
       await tester.tap(find.text('View activity'));
       await tester.pumpAndSettle();
       final route = shell.currentContent!;
-      expect((route.destination as PageDestination).activityUsername, 'sam');
+      expect((route.destination as PageDestination).username, 'sam');
       expect(route.title, "Sam Example's activity");
       expect(
         ContentRoute.fromJson(route.toJson()).destination.identity,
@@ -571,7 +571,7 @@ void main() {
       expect(find.byKey(const ValueKey('user-card-surface')), findsNothing);
       shell.openUserActivity(site);
       expect(
-        (shell.currentContent!.destination as PageDestination).activityUsername,
+        (shell.currentContent!.destination as PageDestination).username,
         isNull,
       );
       expect(shell.currentContent!.title, 'Activity');
@@ -631,7 +631,7 @@ void main() {
       shell.openUserActivity(site);
       await tester.pumpAndSettle();
       expect(
-        (shell.currentContent!.destination as PageDestination).activityUsername,
+        (shell.currentContent!.destination as PageDestination).username,
         isNull,
       );
       expect(

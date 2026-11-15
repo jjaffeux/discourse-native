@@ -38,12 +38,13 @@ sealed class ContentDestination {
       route.badgeId,
       route.username,
     ),
-    PageDestination(
-      :final page,
-      :final activityUsername,
-      :final reviewableId,
-    ) =>
-      (PageDestination, key, page, activityUsername, reviewableId),
+    PageDestination(:final page, :final username, :final reviewableId) => (
+      PageDestination,
+      key,
+      page,
+      username,
+      reviewableId,
+    ),
     ExtensionDestination() => (ExtensionDestination, key, feedPath),
   };
 
@@ -172,18 +173,20 @@ enum CorePage {
 }
 
 final class PageDestination extends ContentDestination {
-  const PageDestination(this.page, {this.activityUsername, this.reviewableId})
-    : assert(activityUsername == null || page == CorePage.activity),
+  const PageDestination(this.page, {this.username, this.reviewableId})
+    : assert(username == null || page == CorePage.activity),
       assert(
         reviewableId == null || (page == CorePage.review && reviewableId > 0),
       );
   final CorePage page;
-  final String? activityUsername;
+
+  /// The person a per-person page is about.
+  final String? username;
 
   /// The queue item a review link names; the queue itself when null.
   final int? reviewableId;
   @override
-  String get key => switch ((activityUsername, reviewableId)) {
+  String get key => switch ((username, reviewableId)) {
     (final username?, _) => '${page.key}-user-${username.toLowerCase()}',
     (_, final id?) => '${page.key}-$id',
     _ => page.key,

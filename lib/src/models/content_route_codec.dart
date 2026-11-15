@@ -96,7 +96,7 @@ final class ContentRouteCodec {
         if (page != null) {
           return PageDestination(
             page,
-            activityUsername: username as String?,
+            username: username as String?,
             reviewableId: reviewableId as int?,
           );
         }
@@ -223,7 +223,7 @@ final class ContentRouteCodec {
       'message_mode': mode.name,
     if (route.destination case PageDestination(
       :final page,
-      activityUsername: final username?,
+      username: final username?,
     )) ...{
       'page': page.key,
       'activity_username': username,

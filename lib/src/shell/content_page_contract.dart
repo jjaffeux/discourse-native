@@ -83,7 +83,7 @@ final class ContentPageContract {
       ContentRoute.group(const GroupRoute.directory()),
     BadgeDestination(route: final badge) when !badge.isDirectory =>
       ContentRoute.badges(const BadgeRoute.directory()),
-    PageDestination(page: CorePage.activity, activityUsername: String()) =>
+    PageDestination(page: CorePage.activity, username: String()) =>
       ContentRoute(
         destination: const PageDestination(CorePage.users),
         title: appL10n.users,
