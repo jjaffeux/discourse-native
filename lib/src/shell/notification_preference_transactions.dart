@@ -10,6 +10,7 @@ import '../data/store.dart';
 import '../data/tag_api_contracts.dart';
 import '../data/topic_mutations_api.dart';
 import '../data/topic_tracking_reconciler.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_user.dart';
 import '../models/post.dart';
 import '../models/tag_notification.dart';
@@ -58,7 +59,7 @@ final class NotificationPreferenceTracking {
   refresh;
 }
 
-final class NotificationPreferenceTransactions {
+final class NotificationPreferenceTransactions with AccountScopedState {
   NotificationPreferenceTransactions({
     required this.store,
     required this.credentials,
@@ -111,6 +112,7 @@ final class NotificationPreferenceTransactions {
     return account;
   }
 
+  @override
   void forget(String siteUrl) => _sessions.remove(siteUrl)?.retire();
 
   void dispose() {

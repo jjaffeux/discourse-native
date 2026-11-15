@@ -9,6 +9,7 @@ import '../data/site_lifecycle.dart';
 import '../data/site_message_bus_bootstrap.dart';
 import '../data/site_tracker.dart';
 import '../data/topic_tracking_reconciler.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/topic_tracking_state.dart';
@@ -83,7 +84,7 @@ final class SiteLiveDemand {
   bool get watchesVisibleTopics => shouldPoll && foreground && selected;
 }
 
-final class SiteLiveSessions {
+final class SiteLiveSessions implements SiteScopedState {
   SiteLiveSessions({
     required this._lifecycle,
     required this._credentials,
@@ -198,6 +199,7 @@ final class SiteLiveSessions {
     );
   }
 
+  @override
   void forget(String siteUrl) => _sessions.remove(siteUrl)?.retire();
 
   void dispose() {

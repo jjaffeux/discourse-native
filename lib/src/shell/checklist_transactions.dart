@@ -5,12 +5,13 @@ import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/write_failure.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
 import 'checklist_topic_data.dart';
 import 'post_checklist_write.dart';
 
-final class ChecklistTransactions {
+final class ChecklistTransactions implements SiteScopedState {
   ChecklistTransactions({
     required this.togglePostChecklist,
     required this.store,
@@ -90,6 +91,7 @@ final class ChecklistTransactions {
     );
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?._retire();
 
   void dispose() {

@@ -9,11 +9,13 @@ import '../data/do_not_disturb_api.dart';
 import '../data/site_lifecycle.dart';
 import '../data/write_failure.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/do_not_disturb.dart';
 
 typedef DoNotDisturbCommitted = void Function(String siteUrl, DateTime? until);
 
-final class DoNotDisturbController extends FrameSafeNotifier {
+final class DoNotDisturbController extends FrameSafeNotifier
+    implements SiteScopedState {
   DoNotDisturbController({
     required this.api,
     required this.credentials,
@@ -208,6 +210,7 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     final account = _accounts[siteUrl];
     if (account != null) _retireAccount(account);

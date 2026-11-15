@@ -7,6 +7,7 @@ import '../data/badges_api.dart';
 import '../data/site_lifecycle.dart';
 
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/badge.dart';
 import '../models/badge_route.dart';
 import '../models/discourse_instance.dart';
@@ -92,7 +93,7 @@ final class _BadgeAccount {
   }
 }
 
-final class BadgesController extends FrameSafeNotifier {
+final class BadgesController extends FrameSafeNotifier with AccountScopedState {
   BadgesController({
     required this.api,
     required this.credentials,
@@ -257,6 +258,7 @@ final class BadgesController extends FrameSafeNotifier {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     _accounts.remove(siteUrl)?.dispose();
     notifySafely();

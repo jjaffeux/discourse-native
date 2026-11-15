@@ -1,5 +1,6 @@
 import '../data/user_status_reconciler.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/user_status.dart';
 
 /// Statuses reconciled from live deliveries, confirmed writes and fresh reads,
@@ -9,7 +10,8 @@ import '../models/user_status.dart';
 /// status, so this state has its own notifier rather than the shell's: a busy
 /// forum must not redraw the app frame for people nobody is looking at, and
 /// each reader selects only its own user.
-final class UserStatusOverrides extends FrameSafeNotifier {
+final class UserStatusOverrides extends FrameSafeNotifier
+    implements SiteScopedState {
   UserStatusOverrides({this.capacity = defaultCapacity}) : assert(capacity > 0);
 
   /// Overrides kept per site. Reads refresh recency and every notification
@@ -99,6 +101,7 @@ final class UserStatusOverrides extends FrameSafeNotifier {
     if (changed) notifySafely();
   }
 
+  @override
   void forget(String siteUrl) {
     final reconciler = _bySite.remove(siteUrl);
     if (reconciler == null) return;

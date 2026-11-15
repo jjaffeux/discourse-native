@@ -131,6 +131,9 @@ Requirements line with it.
   (ownership, replacement, and shared admission for avatar and emoji caches),
   `foundation/loopback_host.dart` (which hosts may use plaintext development
   transports),
+  `foundation/site_scoped_state.dart` (how a per-forum owner declares itself
+  and is retired on site removal, session rotation, and an in-place account
+  change; `ShellController._siteState` is the one registration list),
   `foundation/elapsed_time.dart` (what a moment ahead of the clock means to a
   time window), `foundation/read_dwell.dart` (how long a reader must stay on
   chat or topic content, and what time away costs),

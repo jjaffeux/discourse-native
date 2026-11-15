@@ -10,6 +10,7 @@ import '../data/site_lifecycle.dart';
 import '../data/user_preferences_api.dart';
 import '../data/write_failure.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 
@@ -80,7 +81,8 @@ final class PreferencesState {
   static const Object _unchanged = Object();
 }
 
-final class PreferencesController extends FrameSafeNotifier {
+final class PreferencesController extends FrameSafeNotifier
+    with AccountScopedState {
   PreferencesController({
     required this.api,
     required this.credentials,
@@ -153,6 +155,7 @@ final class PreferencesController extends FrameSafeNotifier {
         : null;
   }
 
+  @override
   void forget(String siteUrl) {
     final account = _accounts.remove(siteUrl);
     if (account != null && !isDisposed) notifySafely();

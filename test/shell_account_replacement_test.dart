@@ -139,7 +139,7 @@ final class _RecordingModule implements PluginModule {
 
   @override
   PluginDescriptor get descriptor =>
-      PluginDescriptor(id: const PluginId('forget-recorder'));
+      const PluginDescriptor(id: PluginId('forget-recorder'));
 
   @override
   void register(PluginRegistrar registrar) {

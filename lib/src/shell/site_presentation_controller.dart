@@ -5,6 +5,7 @@ import '../data/api_credentials.dart';
 import '../data/request_intent.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_emoji_aliases.dart';
 import '../models/site_appearance.dart';
 import '../models/site_config.dart';
@@ -49,7 +50,8 @@ typedef PersistedSiteAppearanceReader =
 typedef SiteAppearanceLoaded =
     Future<void> Function(String siteUrl, SiteAppearance appearance);
 
-final class SitePresentationController extends FrameSafeNotifier {
+final class SitePresentationController extends FrameSafeNotifier
+    implements SiteScopedState {
   static const Duration defaultPersistedFreshness = Duration(minutes: 5);
 
   SitePresentationController({
@@ -463,6 +465,7 @@ final class SitePresentationController extends FrameSafeNotifier {
     return config != null && config != const SiteConfig.unknown();
   }
 
+  @override
   void forget(String siteUrl) {
     if (isDisposed) return;
     _invalidatedPersistedAppearances.add(siteUrl);

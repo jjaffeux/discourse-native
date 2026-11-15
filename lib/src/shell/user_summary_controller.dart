@@ -6,6 +6,7 @@ import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../data/user_summaries_api.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
 
@@ -49,7 +50,8 @@ final class _SummaryAccount {
   }
 }
 
-final class UserSummaryController extends FrameSafeNotifier {
+final class UserSummaryController extends FrameSafeNotifier
+    with AccountScopedState {
   UserSummaryController({
     required this.api,
     required this.credentials,
@@ -140,6 +142,7 @@ final class UserSummaryController extends FrameSafeNotifier {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     final account = _accounts.remove(siteUrl);
     account?.dispose();

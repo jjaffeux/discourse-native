@@ -1,11 +1,12 @@
 import '../data/current_user_reconciler.dart';
 import '../data/current_user_refresh.dart';
 import '../data/site_lifecycle.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import 'user_status_overrides.dart';
 
-final class CurrentUserDirectory {
+final class CurrentUserDirectory implements SiteScopedState {
   CurrentUserDirectory({
     required this.lifecycle,
     required this.statuses,
@@ -168,6 +169,7 @@ final class CurrentUserDirectory {
     return committed;
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?.retire();
 
   void dispose() {

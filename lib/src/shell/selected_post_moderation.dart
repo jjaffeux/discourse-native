@@ -5,6 +5,7 @@ import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/write_credential.dart';
 import '../data/write_failure.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
 import 'post_mutation_policy.dart';
@@ -95,7 +96,7 @@ final class _SelectedPostsAttempt {
   }
 }
 
-final class SelectedPostModeration {
+final class SelectedPostModeration with AccountScopedState {
   SelectedPostModeration({
     required this.store,
     required this.api,
@@ -118,6 +119,7 @@ final class SelectedPostModeration {
   final Map<_SelectedPostsKey, _SelectedPostsSelection> _selectedPosts = {};
   bool _disposed = false;
 
+  @override
   void forget(String siteUrl) =>
       _selectedPosts.removeWhere((key, _) => key.siteUrl == siteUrl);
 

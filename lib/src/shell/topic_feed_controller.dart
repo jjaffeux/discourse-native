@@ -11,6 +11,7 @@ import '../data/store.dart';
 import '../data/topic_feeds_api.dart';
 
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../foundation/startup_timeline.dart';
 import '../models/discourse_instance.dart';
 import '../models/incoming_topics.dart';
@@ -476,7 +477,8 @@ final class _FeedSession {
 
 typedef TopicFeedReadStamp = ({int bookmarks, int actions});
 
-final class TopicFeedController extends FrameSafeNotifier {
+final class TopicFeedController extends FrameSafeNotifier
+    with AccountScopedState {
   TopicFeedController({
     required this.api,
     required this.credentials,
@@ -819,7 +821,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     IncomingTopics? incoming,
     bool Function(String path)? wherePath,
   }) {
-    if (isDisposed || !lifecycle.owns(instance.url, lease) || !lease.isCurrent) {
+    if (isDisposed ||
+        !lifecycle.owns(instance.url, lease) ||
+        !lease.isCurrent) {
       return Future.value(false);
     }
     final key = (instance.url, lease.session);
@@ -1760,6 +1764,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     return '$path${separator}topic_ids=${ids.join(',')}';
   }
 
+  @override
   void forget(String siteUrl) {
     _retainedRefreshes.removeWhere((key, _) => key.$1 == siteUrl);
     final sessions = _sessions.values

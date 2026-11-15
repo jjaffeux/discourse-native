@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../foundation/elapsed_time.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/sidebar.dart';
 import 'account_request_session.dart';
@@ -9,7 +10,7 @@ import 'sidebar_sections_api.dart';
 import 'site_lifecycle.dart';
 import 'write_failure.dart';
 
-final class CustomSidebarSections {
+final class CustomSidebarSections with AccountScopedState {
   CustomSidebarSections({
     required this._api,
     required this._credentials,
@@ -343,6 +344,7 @@ final class CustomSidebarSections {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     final account = _accounts.remove(siteUrl);
     account?.detach?.call();

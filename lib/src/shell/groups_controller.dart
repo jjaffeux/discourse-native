@@ -11,6 +11,7 @@ import '../data/site_lookup_failure.dart';
 import '../data/write_failure.dart';
 
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/group.dart';
 import 'group_write.dart';
@@ -391,7 +392,7 @@ final class _GroupMutation {
   }
 }
 
-final class GroupsController extends FrameSafeNotifier {
+final class GroupsController extends FrameSafeNotifier with AccountScopedState {
   GroupsController({
     required this.api,
     required this.credentials,
@@ -1903,6 +1904,7 @@ final class GroupsController extends FrameSafeNotifier {
     }
   }
 
+  @override
   void forget(String siteUrl) {
     _directories.removeWhere((key, _) => key.siteUrl == siteUrl);
     _details.removeWhere((key, _) => key.siteUrl == siteUrl);

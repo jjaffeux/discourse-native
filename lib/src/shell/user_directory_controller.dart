@@ -9,6 +9,7 @@ import '../data/site_lifecycle.dart';
 import '../data/user_directory_api.dart';
 
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_directory.dart';
 
@@ -159,7 +160,8 @@ final class _DirectoryAccount {
   }
 }
 
-final class UserDirectoryController extends FrameSafeNotifier {
+final class UserDirectoryController extends FrameSafeNotifier
+    with AccountScopedState {
   UserDirectoryController({
     required this.api,
     required this.credentials,
@@ -509,6 +511,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
       identical(_accounts[siteUrl], account) &&
       identical(account.requests[query], token);
 
+  @override
   void forget(String siteUrl) {
     _accounts.remove(siteUrl)?.dispose();
     notifySafely();

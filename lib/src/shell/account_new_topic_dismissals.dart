@@ -4,6 +4,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../data/topic_feeds_api.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import 'topic_tracking_directory.dart';
@@ -49,7 +50,7 @@ final class DismissNewTopicsCommand {
 
 enum DismissNewTopicsFailure { reconnect, failed }
 
-final class NewTopicDismissals {
+final class NewTopicDismissals with AccountScopedState {
   NewTopicDismissals({
     required this.api,
     required this.credentials,
@@ -98,6 +99,7 @@ final class NewTopicDismissals {
     return account;
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?.retire();
 
   void dispose() {

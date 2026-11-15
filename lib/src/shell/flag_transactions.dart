@@ -5,6 +5,7 @@ import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/write_failure.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
 
@@ -20,7 +21,7 @@ final class FlagSiteContext {
   final int minimumMessageLength;
 }
 
-final class FlagTransactions {
+final class FlagTransactions implements SiteScopedState {
   FlagTransactions({
     required this.store,
     required this.createPostFlag,
@@ -77,6 +78,7 @@ final class FlagTransactions {
     return account;
   }
 
+  @override
   void forget(String siteUrl) => _accounts.remove(siteUrl)?.retire();
 
   void dispose() {
