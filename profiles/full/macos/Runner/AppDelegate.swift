@@ -41,6 +41,11 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     completionHandler([.banner, .list, .sound, .badge])
   }
 
+  override func application(_ application: NSApplication, open urls: [URL]) {
+    urls.forEach { LinkOpens.shared.didOpen($0) }
+    super.application(application, open: urls)
+  }
+
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return true
   }

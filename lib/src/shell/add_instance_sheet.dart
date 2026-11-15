@@ -22,6 +22,7 @@ const Duration addInstanceLookupDebounce = Duration(milliseconds: 750);
 Future<void> showAddInstanceSheet(
   BuildContext context, {
   DiscoverSites? discoverSites,
+  String? initialAddress,
 }) async {
   final title = appL10n.addASite;
   final shell = ShellScope.maybeRead(context);
@@ -36,8 +37,11 @@ Future<void> showAddInstanceSheet(
         initialFocusNode: addressFocus,
         fillAvailableHeight: true,
         surfaceBuilder: (context, child) => AppHomeTheme(child: child),
-        builder: (context) =>
-            _AddInstanceForm(focusNode: addressFocus, discoverSites: source),
+        builder: (context) => _AddInstanceForm(
+          focusNode: addressFocus,
+          discoverSites: source,
+          initialAddress: initialAddress,
+        ),
       );
       return;
     }
@@ -50,7 +54,11 @@ Future<void> showAddInstanceSheet(
           semanticLabel: title,
           children: [
             DDialogHeader(children: [DDialogTitle(child: Text(title))]),
-            _AddInstanceForm(focusNode: addressFocus, discoverSites: source),
+            _AddInstanceForm(
+              focusNode: addressFocus,
+              discoverSites: source,
+              initialAddress: initialAddress,
+            ),
           ],
         ),
       ),
@@ -64,7 +72,12 @@ class _AddInstanceForm extends StatefulWidget {
   const _AddInstanceForm({
     required this.discoverSites,
     required this.focusNode,
+    this.initialAddress,
   });
+
+  /// Shown in the address field as if typed: the site is looked up, and the
+  /// person still chooses whether to add it.
+  final String? initialAddress;
 
   // Own the node until the closing route has actually unmounted. The overlay
   // helpers resolve on pop, before their dismissal animation finishes.
@@ -95,6 +108,15 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
   bool _connecting = false;
   String? _error;
   String? _credentialError;
+
+  @override
+  void initState() {
+    super.initState();
+    final address = widget.initialAddress;
+    if (address == null) return;
+    _field.text = address;
+    _addressChanged(address);
+  }
 
   @override
   void dispose() {

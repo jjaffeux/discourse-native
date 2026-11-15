@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/app_runtime.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/link_open_request.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -823,6 +824,236 @@ void main() {
       }
     },
   );
+
+  group('link open requests', () {
+    String request(String target) =>
+        'discourse://open?url=${Uri.encodeQueryComponent(target)}';
+
+    final connected = instance(
+      'one.example',
+    ).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
+
+    PluginManifest recording(
+      List<String> opened, {
+      Future<bool> Function(String url)? answer,
+    }) => PluginManifest([
+      _Module(
+        _LifecycleProbe(),
+        session: () => PluginSessionContribution(
+          lifecycle: _SessionProbe(),
+          capabilities: [
+            _LinkHandler((url) {
+              opened.add(url);
+              return answer?.call(url) ?? Future.value(true);
+            }),
+          ],
+        ),
+      ),
+    ]);
+
+    test(
+      'requests that launch the app wait for the forums, and the newest wins',
+      () async {
+        final store = _GatedStore();
+        final opened = <String>[];
+        final outcomes = <RequestedLinkOutcome>[];
+        final fixture = _Fixture();
+        final runtime = _runtime(
+          fixture.dependencies(
+            store: store,
+            authenticator: FakeAuthenticator.signedIn([
+              connected,
+            ], site: fixture.api),
+            manifest: recording(opened),
+          ),
+        );
+        final requests = StreamController<String>(sync: true);
+        addTearDown(() async {
+          if (!store.result.isCompleted) store.result.complete([]);
+          runtime.dispose();
+          await requests.close();
+          await _turn();
+        });
+        runtime.listenLinkOpens(requests.stream, present: outcomes.add);
+
+        requests.add(request('https://one.example/t/first/41'));
+        final starting = runtime.start(runtime.controller);
+        await store.started.future;
+        requests.add(request('https://one.example/t/second/42'));
+        requests.add(request('https://one.example/t/newest/43'));
+        await _turn();
+        expect(opened, isEmpty);
+        expect(outcomes, isEmpty);
+
+        store.result.complete([connected]);
+        await starting;
+        await _turn();
+        expect(opened, ['https://one.example/t/newest/43']);
+        expect(outcomes, [isA<RequestedLinkOpened>()]);
+      },
+    );
+
+    test(
+      'a request behind a tap still resolving is delivered after it',
+      () async {
+        final tap = Completer<bool>();
+        final opened = <String>[];
+        final outcomes = <RequestedLinkOutcome>[];
+        final fixture = _Fixture();
+        final runtime = _runtime(
+          fixture.dependencies(
+            store: FakeInstanceStore([connected]),
+            authenticator: FakeAuthenticator.signedIn([
+              connected,
+            ], site: fixture.api),
+            manifest: recording(
+              opened,
+              answer: (url) =>
+                  url.contains('/tapped/') ? tap.future : Future.value(true),
+            ),
+          ),
+        );
+        final taps = StreamController<String>(sync: true);
+        final requests = StreamController<String>(sync: true);
+        addTearDown(() async {
+          if (!tap.isCompleted) tap.complete(false);
+          runtime.dispose();
+          await taps.close();
+          await requests.close();
+          await _turn();
+        });
+        runtime.listenNotificationOpens(taps.stream);
+        runtime.listenLinkOpens(requests.stream, present: outcomes.add);
+        await runtime.start(runtime.controller);
+
+        taps.add('https://one.example/t/tapped/41');
+        await _turn();
+        requests.add(request('https://one.example/t/requested/42'));
+        await _turn();
+        expect(opened, ['https://one.example/t/tapped/41']);
+
+        tap.complete(true);
+        await _turn();
+        expect(opened, [
+          'https://one.example/t/tapped/41',
+          'https://one.example/t/requested/42',
+        ]);
+        expect(outcomes, [isA<RequestedLinkOpened>()]);
+      },
+    );
+
+    test(
+      'every refusal is presented, and a failing presenter blocks nothing',
+      () async {
+        final opened = <String>[];
+        final outcomes = <RequestedLinkOutcome>[];
+        final fixture = _Fixture();
+        final runtime = _runtime(
+          fixture.dependencies(
+            store: FakeInstanceStore([connected]),
+            authenticator: FakeAuthenticator.signedIn([
+              connected,
+            ], site: fixture.api),
+            manifest: recording(opened, answer: (_) => Future.value(false)),
+          ),
+        );
+        final requests = StreamController<String>(sync: true);
+        addTearDown(() async {
+          runtime.dispose();
+          await requests.close();
+          await _turn();
+        });
+        runtime.listenLinkOpens(
+          requests.stream,
+          present: (outcome) {
+            outcomes.add(outcome);
+            if (outcome is RequestedLinkMalformed) throw StateError('toaster');
+          },
+        );
+        await runtime.start(runtime.controller);
+
+        requests.add('discourse://open?url=javascript%3Aalert(1)');
+        await _turn();
+        requests.add(request('https://unknown.example/t/phish/42'));
+        await _turn();
+        requests.add(request('https://one.example/admin/logs'));
+        await _turn();
+
+        expect(outcomes, [
+          isA<RequestedLinkMalformed>(),
+          isA<RequestedLinkUnknownSite>(),
+          isA<RequestedLinkUndecodable>(),
+        ]);
+        expect(opened, ['https://one.example/admin/logs']);
+        expect(runtime.controller.instances, [connected]);
+      },
+    );
+
+    test(
+      'a request still resolving when the shell is replaced is delivered again, and reported once',
+      () async {
+        final retired = Completer<bool>();
+        final opened = <(int, String)>[];
+        final outcomes = <RequestedLinkOutcome>[];
+        var session = 0;
+        final manifest = PluginManifest([
+          _Module(
+            _LifecycleProbe(),
+            session: () {
+              final identity = ++session;
+              return PluginSessionContribution(
+                lifecycle: _SessionProbe(),
+                capabilities: [
+                  _LinkHandler((url) {
+                    opened.add((identity, url));
+                    return identity == 1 ? retired.future : Future.value(true);
+                  }),
+                ],
+              );
+            },
+          ),
+        ]);
+        final fixture = _Fixture();
+        final auth = FakeAuthenticator.signedIn([connected], site: fixture.api);
+        final runtime = _runtime(
+          fixture.dependencies(
+            store: FakeInstanceStore([connected]),
+            authenticator: auth,
+            manifest: manifest,
+          ),
+        );
+        final requests = StreamController<String>(sync: true);
+        addTearDown(() async {
+          if (!retired.isCompleted) retired.complete(false);
+          runtime.dispose();
+          await requests.close();
+          await _turn();
+        });
+        runtime.listenLinkOpens(requests.stream, present: outcomes.add);
+        await runtime.start(runtime.controller);
+        const target = 'https://one.example/t/pending/42';
+
+        requests.add(request(target));
+        await _turn();
+        expect(opened, [(1, target)]);
+        runtime.replace(
+          fixture.dependencies(
+            store: FakeInstanceStore([connected]),
+            authenticator: auth,
+            manifest: manifest,
+          ),
+        );
+        await runtime.start(runtime.controller);
+        await _turn();
+        expect(opened, [(1, target), (2, target)]);
+        expect(outcomes, [isA<RequestedLinkOpened>()]);
+
+        retired.complete(true);
+        await _turn();
+        expect(outcomes, [isA<RequestedLinkOpened>()]);
+      },
+    );
+  });
 }
 
 AppRuntime _runtime(AppRuntimeDependencies dependencies) => AppRuntime(

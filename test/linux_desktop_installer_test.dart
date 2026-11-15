@@ -46,9 +46,12 @@ void main() {
       final exec = (await desktopFile.readAsLines()).singleWhere(
         (line) => line.startsWith('Exec='),
       );
-      expect(exec, 'Exec="${_desktopExec(binary.path)}"');
+      const urlField = ' %u';
+      expect(exec, 'Exec="${_desktopExec(binary.path)}"$urlField');
       expect(
-        _parseSingleDesktopExec(exec.substring('Exec='.length)),
+        _parseSingleDesktopExec(
+          exec.substring('Exec='.length, exec.length - urlField.length),
+        ),
         binary.path,
       );
       try {

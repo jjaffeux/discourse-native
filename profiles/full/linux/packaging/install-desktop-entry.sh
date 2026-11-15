@@ -45,8 +45,8 @@ DESKTOP_FILE="$DATA/applications/$APP_ID.desktop"
 DESKTOP_TMP="$(mktemp "$DATA/applications/.$APP_ID.XXXXXX")"
 trap 'rm -f "$DESKTOP_TMP"' EXIT HUP INT TERM
 while IFS= read -r LINE || [ -n "$LINE" ]; do
-  if [ "$LINE" = 'Exec=@EXEC@' ]; then
-    printf 'Exec="%s"\n' "$DESKTOP_EXEC"
+  if [ "$LINE" = 'Exec=@EXEC@ %u' ]; then
+    printf 'Exec="%s" %%u\n' "$DESKTOP_EXEC"
   else
     printf '%s\n' "$LINE"
   fi

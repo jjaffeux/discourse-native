@@ -18,6 +18,8 @@ import 'data/draft_store.dart';
 import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/instance_store.dart';
+import 'data/link_open_request.dart';
+import 'data/link_opens.dart';
 import 'data/notification_opens.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
@@ -33,10 +35,12 @@ import 'models/site_appearance.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 import 'shell/adaptive_shell.dart';
+import 'shell/add_instance_sheet.dart';
 import 'shell/app_motion.dart';
 import 'shell/app_text_scale.dart';
 import 'shell/component_styleguide_scope.dart';
 import 'shell/content_reading_lane.dart';
+import 'shell/external_link.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
@@ -62,6 +66,7 @@ class DiscourseApp extends StatefulWidget {
     this.pluginManifest = corePluginManifest,
     this.initialRootMode = ShellRootMode.forum,
     this.notificationOpenUrls,
+    this.linkOpenRequests,
     this.openComponentStyleguide,
   }) : assert(
          plugins == null || identical(pluginManifest, corePluginManifest),
@@ -83,6 +88,9 @@ class DiscourseApp extends StatefulWidget {
   final PluginManifest pluginManifest;
   final ShellRootMode initialRootMode;
   final Stream<String>? notificationOpenUrls;
+
+  /// Unparsed `discourse://open` requests; the platform's when null.
+  final Stream<String>? linkOpenRequests;
   final ComponentStyleguideOpener? openComponentStyleguide;
 
   /// How long a quit waits for local state to be written before it goes
@@ -98,6 +106,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late final AppRuntime _runtime;
   late final ActiveUseSignals _activeUseSignals;
   late final PlatformNotificationOpens _platformNotificationOpens;
+  late final PlatformLinkOpens _platformLinkOpens;
 
   ShellController get _controller => _runtime.controller;
 
@@ -185,6 +194,8 @@ class _DiscourseAppState extends State<DiscourseApp>
     _runtime.listenNotificationOpens(
       widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
     );
+    _platformLinkOpens = PlatformLinkOpens();
+    _listenLinkOpens();
     WidgetsBinding.instance.addObserver(this);
     _activeUseSignals = ActiveUseSignals(_runtime.activeUse)..attach();
     _startAfterFirstFrame(_controller);
@@ -201,7 +212,50 @@ class _DiscourseAppState extends State<DiscourseApp>
         widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
       );
     }
+    if (!identical(widget.linkOpenRequests, oldWidget.linkOpenRequests)) {
+      _listenLinkOpens();
+    }
     if (_runtime.replace(_dependencies)) _startAfterFirstFrame(_controller);
+  }
+
+  void _listenLinkOpens() => _runtime.listenLinkOpens(
+    widget.linkOpenRequests ?? _platformLinkOpens.requests,
+    present: _presentRequestedLink,
+  );
+
+  /// A request the shell could not show is never dropped silently: a page the
+  /// app has no screen for goes to the browser, as a tapped link would, and
+  /// anything else is explained. An unknown forum is only ever offered, in the
+  /// same sheet the person would have opened themselves.
+  void _presentRequestedLink(RequestedLinkOutcome outcome) {
+    final context = _navigatorKey.currentContext;
+    if (!mounted || context == null) return;
+    switch (outcome) {
+      case RequestedLinkOpened() || RequestedLinkSuperseded():
+        return;
+      case RequestedLinkUndecodable(:final target):
+        unawaited(openExternalLink(target.toString()));
+      case RequestedLinkMalformed():
+        DToast.show(context, appL10n.requestedLinkMalformed);
+      case RequestedLinkUnknownSite(:final target):
+        DToast.maybeOf(context)?.add(
+          DToastOptions(
+            description: appL10n.requestedLinkUnknownSite(target.host),
+            duration: const Duration(seconds: 8),
+            action: DToastAction(
+              label: appL10n.addASite,
+              dismissOnPressed: true,
+              onPressed: () {
+                final context = _navigatorKey.currentContext;
+                if (!mounted || context == null) return;
+                unawaited(
+                  showAddInstanceSheet(context, initialAddress: target.origin),
+                );
+              },
+            ),
+          ),
+        );
+    }
   }
 
   void _startAfterFirstFrame(ShellController controller) {
@@ -216,6 +270,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     WidgetsBinding.instance.removeObserver(this);
     _activeUseSignals.detach();
     _runtime.dispose();
+    _platformLinkOpens.dispose();
     super.dispose();
   }
 

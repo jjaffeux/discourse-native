@@ -223,7 +223,7 @@ jobs:
           ln -s "../lib/${{ env.PKG }}/${{ env.BINARY_NAME }}" \
                 "$ROOT/usr/bin/${{ env.PKG }}"
 
-          sed "s|^Exec=@EXEC@$|Exec=/usr/bin/${{ env.PKG }}|" \
+          sed "s|^Exec=@EXEC@ %u$|Exec=/usr/bin/${{ env.PKG }} %u|" \
             "linux/packaging/${{ env.PACKAGE_ID }}.desktop" \
             > "$ROOT/usr/share/applications/${{ env.PACKAGE_ID }}.desktop"
           grep -q '^Exec=/usr/bin/' \

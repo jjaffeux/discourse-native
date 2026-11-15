@@ -10,6 +10,7 @@ import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
+import 'data/link_open_request.dart';
 import 'data/platform_draft_store.dart';
 import 'data/platform_push_registration.dart';
 import 'data/platform_web_auth.dart';
@@ -23,7 +24,7 @@ import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 import 'shell/shell_controller.dart';
 
-part 'app_notification_ingress.dart';
+part 'app_url_ingress.dart';
 
 final class AppRuntimeDependencies {
   const AppRuntimeDependencies({
@@ -141,14 +142,14 @@ final class AppRuntime {
   Future<void>? _startup;
   ShellController? _bootstrappedController;
   Future<void>? _appReady;
-  final _notificationIngress = _NotificationIngress();
+  final _urlIngress = _UrlIngress();
 
   ShellController get controller => _controller;
 
   ShellController _createController() => ShellController(
     onLoaded: (controller) {
       if (!_isCurrent(controller)) return;
-      _notificationIngress.ready(controller);
+      _urlIngress.ready(controller);
       unawaited(_startAppReady(controller));
     },
     instanceStore: _store,
@@ -185,7 +186,7 @@ final class AppRuntime {
 
     _replacing = true;
     try {
-      _notificationIngress.unavailable();
+      _urlIngress.unavailable();
       _startup = null;
       _bootstrappedController = null;
       _appReady = null;
@@ -201,7 +202,7 @@ final class AppRuntime {
         _disposed = true;
         _dependencies = previous;
         try {
-          if (retireIngress) _notificationIngress.dispose();
+          if (retireIngress) _urlIngress.dispose();
         } finally {
           _closeServices(
             previousController,
@@ -367,7 +368,16 @@ final class AppRuntime {
       !_disposed && identical(_controller, controller);
 
   void listenNotificationOpens(Stream<String> urls) {
-    _notificationIngress.listen(urls);
+    _urlIngress.listenNotifications(urls);
+  }
+
+  /// [requests] are unparsed `discourse://open` actions from other
+  /// applications. [present] is told what became of each one the shell took.
+  void listenLinkOpens(
+    Stream<String> requests, {
+    required void Function(RequestedLinkOutcome outcome) present,
+  }) {
+    _urlIngress.listenLinks(requests, present);
   }
 
   void observeAppState(String state, {required bool foreground}) {
@@ -391,7 +401,7 @@ final class AppRuntime {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _notificationIngress.dispose();
+    _urlIngress.dispose();
     // The active replacement owns retirement and service cleanup.
     if (_replacing) return;
     final controller = _controller;

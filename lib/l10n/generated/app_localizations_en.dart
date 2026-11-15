@@ -16051,4 +16051,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceLayoutTiled => 'Tiled';
+
+  @override
+  String get requestedLinkMalformed => 'That link can’t be opened here.';
+
+  @override
+  String requestedLinkUnknownSite(String host) {
+    return '$host isn’t one of your sites.';
+  }
 }

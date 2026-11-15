@@ -20896,5 +20896,18 @@
   "voiceLayoutTiled": "Tiled",
   "@voiceLayoutTiled": {
     "description": "Live room layout showing equally sized participant tiles."
+  },
+  "requestedLinkMalformed": "That link can’t be opened here.",
+  "@requestedLinkMalformed": {
+    "description": "Toast shown when another application asked this app to open a link that is not a valid forum page link."
+  },
+  "requestedLinkUnknownSite": "{host} isn’t one of your sites.",
+  "@requestedLinkUnknownSite": {
+    "description": "Toast shown when another application asked this app to open a page on a forum the user has not added. Its action offers to add the site.",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
   }
 }

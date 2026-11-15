@@ -7,10 +7,13 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val pushNotifications = AndroidPushNotifications(this)
+    private val linkOpens = AndroidLinkOpens()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         pushNotifications.attach(flutterEngine.dartExecutor.binaryMessenger)
+        linkOpens.attach(flutterEngine.dartExecutor.binaryMessenger)
+        linkOpens.didOpen(intent)
         pushNotifications.didOpen(intent)
         val credentials = CredentialStorage(applicationContext)
         MethodChannel(
@@ -41,6 +44,7 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        linkOpens.didOpen(intent)
         pushNotifications.didOpen(intent)
     }
 
@@ -54,6 +58,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        linkOpens.detach()
         pushNotifications.detach()
         super.cleanUpFlutterEngine(flutterEngine)
     }
