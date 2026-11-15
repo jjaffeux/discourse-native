@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/site_appearance_fixtures.dart';
 
 const _site = 'https://first.example';
 const _reader = DiscourseUser(id: 7, username: 'reader');
@@ -26,7 +27,9 @@ void main() {
       pluginForgets = [];
       shell = ShellController(
         instanceStore: FakeInstanceStore([
-          instance('first.example').copyWith(user: _reader),
+          instance(
+            'first.example',
+          ).copyWith(user: _reader, appearance: siteAppearance()),
         ]),
         api: api,
         authenticator: FakeAuthenticator()..keys[_site] = 'key',
@@ -97,6 +100,34 @@ void main() {
       );
     });
 
+    test('reads the accepted account\'s own appearance', () async {
+      final requests = api.appearancesRequested.length;
+
+      await replaceAccount();
+
+      expect(api.appearancesRequested.length, greaterThan(requests));
+    });
+
+    test('a pause write the former account left in flight cannot keep its '
+        'pause for the accepted account', () async {
+      final until = DateTime.now().add(const Duration(hours: 1));
+      shell.doNotDisturb.restoreSnapshot(_site, until);
+      expect(shell.doNotDisturb.stateFor(_site).until, isNotNull);
+      api.resumeGate = Completer<void>();
+      final resumed = shell.doNotDisturb.resume(_site);
+      await pumpEventQueue();
+      expect(api.doNotDisturbResumes, [_site]);
+
+      await replaceAccount();
+      api.resumeGate!.completeError(StateError('offline'));
+      await resumed;
+      await pumpEventQueue();
+
+      expect(shell.doNotDisturb.stateFor(_site).until, isNull);
+      expect(shell.doNotDisturb.stateFor(_site).saving, isFalse);
+      expect(shell.currentInstance?.user?.doNotDisturbUntil, isNull);
+    });
+
     test('tells plugins to forget the former account', () async {
       expect(pluginForgets, isEmpty);
 
@@ -120,6 +151,18 @@ final class _ReplacementUserApi extends FakeDiscourseApi {
     String? apiKey,
     String? clientId,
   }) async => TopicList(topics: rows);
+
+  Completer<void>? resumeGate;
+
+  @override
+  Future<void> leaveDoNotDisturb({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    doNotDisturbResumes.add(siteUrl);
+    await resumeGate?.future;
+  }
 
   @override
   Future<DiscourseUser> currentUser({

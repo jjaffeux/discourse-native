@@ -31,6 +31,7 @@ final class CurrentUserDirectory implements SiteScopedState {
     String siteUrl,
     DiscourseUser user, {
     required bool isCurrent,
+    required bool accountReplaced,
   })
   _acceptDoNotDisturbSnapshot;
   final bool Function(
@@ -125,10 +126,12 @@ final class CurrentUserDirectory implements SiteScopedState {
         _canAcceptCurrentUser(siteUrl);
 
     if (!ownsAcceptance()) return null;
+    final held = _instanceAt(siteUrl)?.user;
     final user = _acceptDoNotDisturbSnapshot(
       siteUrl,
       response,
       isCurrent: account!.reconciler.doNotDisturbIsCurrent(ticket),
+      accountReplaced: held != null && !held.isSameAccountAs(response),
     );
     if (!ownsAcceptance()) return null;
     DiscourseUser? committed;

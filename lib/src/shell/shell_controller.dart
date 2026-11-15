@@ -3565,7 +3565,11 @@ class ShellController extends FrameSafeNotifier
           _liveSessions.accountChanged(siteUrl, lease);
           if (!ownsPublication()) return true;
           _taxonomy.bind(siteUrl);
-          if (currentInstance?.url == siteUrl) _resetToInstanceDefault();
+          if (currentInstance?.url == siteUrl) {
+            _resetToInstanceDefault(refreshAppearance: false);
+          }
+          // A warm appearance is the former account's theme choice.
+          unawaited(_presentation.refreshAppearance(siteUrl));
         }
         if (!ownsPublication()) return true;
       }
@@ -3656,11 +3660,15 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     DiscourseUser user, {
     required bool isCurrent,
+    bool accountReplaced = false,
   }) {
+    // The former account's pause, and a write of it still in flight, say
+    // nothing about the accepted account, whose snapshot stands on its own.
+    if (accountReplaced) doNotDisturb.forget(siteUrl);
     final until = doNotDisturb.acceptSnapshot(
       siteUrl,
       user.doNotDisturbUntil,
-      isCurrent: isCurrent,
+      isCurrent: isCurrent || accountReplaced,
     );
     return until == user.doNotDisturbUntil
         ? user
