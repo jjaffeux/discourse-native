@@ -33,6 +33,20 @@ activity.
 `UserProfileController` holds each profile per account session and username,
 so a response for a retired session or a superseded request is dropped.
 
+### Editing your own profile
+
+The Profile tab of Preferences edits what the reader's own profile shows.
+
+- **About me.** The field reads `bio_raw` from `/u/{username}.json` and saves
+  it with the same `PUT /u/{username}.json` the web client sends. It is its
+  own preference section, `about`, so the half-typed text is never sent by the
+  timezone's immediate save, and a bio the site refuses does not hold the
+  timezone back. Nothing is sent until the reader presses **Save**. The site
+  enforces the 3000-character limit and watched words, and its message is
+  shown as it arrives. When `can_change_bio` is false, single sign-on owns the
+  bio and the field is read-only. A saved bio reloads the reader's profile
+  page if one is open.
+
 ## Native image build tools
 
 AVIF stills and animations use the source-built `flutter_libavif` decoder.

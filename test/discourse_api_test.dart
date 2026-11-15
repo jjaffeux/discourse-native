@@ -131,6 +131,39 @@ void main() {
       },
     );
 
+    test('a bio save sends bio_raw alone and reads the stored text', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(
+            jsonEncode({
+              'user': {'bio_raw': 'Stored bio'},
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      const fallback = UserPreferences(
+        username: 'Reader',
+        timezone: 'Europe/Paris',
+        bioRaw: 'Typed bio ',
+      );
+      final result = await api.updateUserPreferences(
+        siteUrl: 'https://forum.example',
+        apiKey: 'key',
+        username: 'Reader',
+        fallback: fallback,
+        values: fallback.payloadFor(PreferenceSection.about),
+      );
+      expect(sent.single.method, 'PUT');
+      expect(sent.single.url.path, '/u/reader.json');
+      expect(jsonDecode(sent.single.body), {'bio_raw': 'Typed bio '});
+      expect(result.bioRaw, 'Stored bio');
+      expect(result.timezone, 'Europe/Paris');
+    });
+
     test(
       'saves the nested core notification schedule and reads server normalization',
       () async {

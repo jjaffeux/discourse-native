@@ -2469,6 +2469,11 @@ class ShellController extends FrameSafeNotifier
         user.username.toLowerCase() != preferences.username.toLowerCase()) {
       return;
     }
+    // A profile page already showing this reader would keep the old bio.
+    if (section == PreferenceSection.about &&
+        userProfile.stateFor(siteUrl, user.username) != null) {
+      unawaited(userProfile.load(instance, user.username, refresh: true));
+    }
     final mirrors = _pluginSession
         .capabilities<PluginUserPreferenceMirror>()
         .toList(growable: false);

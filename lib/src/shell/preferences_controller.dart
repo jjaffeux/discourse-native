@@ -191,6 +191,7 @@ final class PreferencesController extends FrameSafeNotifier
       preferences.canEdit &&
       switch (section) {
         PreferenceSection.tracking => preferences.canChangeTrackingPreferences,
+        PreferenceSection.about => preferences.canChangeBio,
         _ => true,
       };
 

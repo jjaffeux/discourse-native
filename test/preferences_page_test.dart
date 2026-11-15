@@ -8,7 +8,9 @@ import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/models/user_profile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
@@ -159,6 +161,11 @@ Future<void> _pumpPage(
 Finder get _timezoneMenu => find.byKey(const ValueKey('preferences-timezone'));
 Finder get _timezoneInput =>
     find.descendant(of: _timezoneMenu, matching: find.byType(EditableText));
+Finder get _bio => find.byKey(const ValueKey('preferences-bio'));
+Finder get _bioInput =>
+    find.descendant(of: _bio, matching: find.byType(EditableText));
+Finder get _bioSaveFinder => find.byKey(const ValueKey('preferences-bio-save'));
+DButton _bioSave(WidgetTester tester) => tester.widget<DButton>(_bioSaveFinder);
 Future<void> _section(WidgetTester tester, PreferenceSection section) async {
   final tab = find.byKey(ValueKey('preferences-section-${section.keyName}'));
   await tester.ensureVisible(tab);
@@ -358,6 +365,196 @@ void main() {
     );
     semantics.dispose();
   });
+  group('about me', () {
+    testWidgets('shows the loaded bio and saves only when asked', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'I like boats.'),
+      );
+      await _pumpPage(tester, fixture);
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'I like boats.',
+      );
+      expect(_bioSave(tester).onPressed, isNull);
+
+      await tester.enterText(_bioInput, 'I like trains.');
+      await tester.pumpAndSettle();
+      final typed = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(typed.dirty(PreferenceSection.about), isTrue);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
+
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'bio_raw': 'I like trains.',
+      });
+      final saved = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(saved.dirty(PreferenceSection.about), isFalse);
+      expect(saved.confirmed!.bioRaw, 'I like trains.');
+      expect(_bioSave(tester).onPressed, isNull);
+      expect(find.text('About me preferences saved.'), findsOneWidget);
+    });
+
+    testWidgets('a timezone choice leaves the typed bio unsent', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Half a thou');
+      await tester.pumpAndSettle();
+      await tester.enterText(_timezoneInput, 'Europe/Lond');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Europe/London').last);
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'timezone': 'Europe/London',
+      });
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Half a thou',
+      );
+      expect(_bioSave(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('a refused bio keeps the text and names the reason', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        writeFailure: const WriteException(
+          WriteFailure.validation,
+          errors: ['About Me is too long (maximum is 3000 characters)'],
+        ),
+      );
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Far too long');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('About Me is too long (maximum is 3000 characters)'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Far too long',
+      );
+      expect(_bioSave(tester).onPressed, isNotNull);
+      expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
+    });
+
+    testWidgets('the field follows a bio that changed underneath it', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'Before'),
+      );
+      await _pumpPage(tester, fixture);
+      fixture.api.userPreferences = _preferences.copyWith(bioRaw: 'Elsewhere');
+      await fixture.shell.preferences.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        refresh: true,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Elsewhere',
+      );
+      expect(_bioSave(tester).onPressed, isNull);
+    });
+
+    testWidgets('a bio the site owns is read-only and says why', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(
+          bioRaw: 'From the directory',
+          canChangeBio: false,
+        ),
+      );
+      await _pumpPage(tester, fixture);
+
+      expect(tester.widget<DTextarea>(_bio).enabled, isFalse);
+      expect(_bioSave(tester).onPressed, isNull);
+      expect(
+        find.text('This site sets About me from its sign-in provider.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('saving refreshes a profile page already showing the reader', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      final asked = <String>[];
+      fixture.api.userProfileHandler = (siteUrl, username) async {
+        asked.add(username);
+        return UserProfile(card: UserCard(id: 7, username: username));
+      };
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Unopened');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(asked, isEmpty);
+
+      await fixture.shell.userProfile.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        'reader',
+      );
+      await tester.enterText(_bioInput, 'Opened');
+      await tester.pumpAndSettle();
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(asked, ['reader', 'reader']);
+    });
+
+    testWidgets('the field and its save button are named for a screen reader', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Hello');
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(_bioInput),
+        isSemantics(
+          isTextField: true,
+          isMultiline: true,
+          label: 'About me',
+          value: 'Hello',
+        ),
+      );
+      expect(find.bySemanticsLabel('Save About me'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'I like boats.'),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('About me'), findsOneWidget);
+      expect(tester.getSize(_bio).width, lessThanOrEqualTo(320));
+    });
+  });
+
   testWidgets('denied capabilities hide tracking and prevent edits', (
     tester,
   ) async {

@@ -21245,5 +21245,21 @@
   "pushReauthorizationAction": "Sign in again",
   "@pushReauthorizationAction": {
     "description": "Button on the push notification prompt that starts the forum sign-in again."
+  },
+  "aboutMe": "About me",
+  "@aboutMe": {
+    "description": "Label of the bio field in the Profile preferences, and the name of that field in the saved announcement."
+  },
+  "aboutMeDescription": "Shown on your profile. Markdown is supported.",
+  "@aboutMeDescription": {
+    "description": "Help text under the About me label in the Profile preferences."
+  },
+  "aboutMeIsManagedByThisSiteSSignIn": "This site sets About me from its sign-in provider.",
+  "@aboutMeIsManagedByThisSiteSSignIn": {
+    "description": "Help text under the About me label when single sign-on owns the bio and it cannot be edited here."
+  },
+  "saveAboutMe": "Save About me",
+  "@saveAboutMe": {
+    "description": "Accessible name of the button that saves the bio in the Profile preferences."
   }
 }

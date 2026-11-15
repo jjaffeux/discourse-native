@@ -25945,6 +25945,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign in again'**
   String get pushReauthorizationAction;
+
+  /// Label of the bio field in the Profile preferences, and the name of that field in the saved announcement.
+  ///
+  /// In en, this message translates to:
+  /// **'About me'**
+  String get aboutMe;
+
+  /// Help text under the About me label in the Profile preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown on your profile. Markdown is supported.'**
+  String get aboutMeDescription;
+
+  /// Help text under the About me label when single sign-on owns the bio and it cannot be edited here.
+  ///
+  /// In en, this message translates to:
+  /// **'This site sets About me from its sign-in provider.'**
+  String get aboutMeIsManagedByThisSiteSSignIn;
+
+  /// Accessible name of the button that saves the bio in the Profile preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Save About me'**
+  String get saveAboutMe;
 }
 
 class _AppLocalizationsDelegate

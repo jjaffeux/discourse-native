@@ -1619,6 +1619,7 @@ class FakeDiscourseApi
     final failure = writeFailure;
     if (failure != null) throw failure;
     final updated = models.userPreferences({
+      'bio_raw': ?values['bio_raw'],
       'user_option': values,
     }, fallback: fallback);
     userPreferences = updated;

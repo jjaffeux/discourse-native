@@ -12,6 +12,10 @@ final class PreferenceSection {
   const PreferenceSection._core(this.name) : owner = 'core';
 
   static const profile = PreferenceSection._core('profile');
+
+  /// The bio has its own transaction: free text waits for an explicit save,
+  /// while the rest of the profile tab saves each choice as it is made.
+  static const about = PreferenceSection._core('about');
   static const notifications = PreferenceSection._core('notifications');
   static const notificationSchedule = PreferenceSection._core(
     'notificationSchedule',
@@ -45,6 +49,7 @@ final class UserPreferences {
     'sidebar_category_ids',
     'sidebar_tag_names',
     'timezone',
+    'bio_raw',
     'like_notification_frequency',
     'notify_on_linked_posts',
     'new_topic_duration_minutes',
@@ -59,6 +64,7 @@ final class UserPreferences {
     ...coreFields,
     'username',
     'can_edit',
+    'can_change_bio',
     'can_change_tracking_preferences',
     'user_option',
     'sidebar_tags',
@@ -69,6 +75,7 @@ final class UserPreferences {
     this.sidebarTags = const [],
     this.username = '',
     this.timezone = '',
+    this.bioRaw = '',
     this.likeNotificationFrequency = 1,
     this.notifyOnLinkedPosts = true,
     this.notificationSchedule,
@@ -79,6 +86,7 @@ final class UserPreferences {
         BookmarkAutoDeletePreference.clearReminder,
     this.pluginValues = const {},
     this.canEdit = false,
+    this.canChangeBio = true,
     this.canChangeTrackingPreferences = false,
   });
 
@@ -104,6 +112,7 @@ final class UserPreferences {
           : fallback.sidebarTags,
       username: _string(json, 'username', fallback.username),
       timezone: _string(options, 'timezone', fallback.timezone),
+      bioRaw: _string(json, 'bio_raw', fallback.bioRaw),
       notificationSchedule:
           NotificationSchedule.read(json['user_notification_schedule']) ??
           fallback.notificationSchedule,
@@ -142,6 +151,7 @@ final class UserPreferences {
       ),
       pluginValues: Map.unmodifiable(pluginValues ?? fallback.pluginValues),
       canEdit: _boolean(json, 'can_edit', fallback.canEdit),
+      canChangeBio: _boolean(json, 'can_change_bio', fallback.canChangeBio),
       canChangeTrackingPreferences: _boolean(
         json,
         'can_change_tracking_preferences',
@@ -170,6 +180,9 @@ final class UserPreferences {
   final String username;
   final String timezone;
 
+  /// The markdown source of the profile's "About me".
+  final String bioRaw;
+
   final int likeNotificationFrequency;
   final bool notifyOnLinkedPosts;
   final NotificationSchedule? notificationSchedule;
@@ -182,6 +195,10 @@ final class UserPreferences {
   final Map<String, UserPreferenceValues> pluginValues;
 
   final bool canEdit;
+
+  /// False where single sign-on owns the bio; a site that predates the flag
+  /// leaves the bio editable.
+  final bool canChangeBio;
   final bool canChangeTrackingPreferences;
 
   Map<String, Object?> payloadFor(PreferenceSection section) =>
@@ -193,6 +210,7 @@ final class UserPreferences {
           'sidebar_tag_names': [for (final tag in sidebarTags) tag.name],
         },
         PreferenceSection.profile => {'timezone': timezone},
+        PreferenceSection.about => {'bio_raw': bioRaw},
         PreferenceSection.notifications => {
           'like_notification_frequency': likeNotificationFrequency,
           'notify_on_linked_posts': notifyOnLinkedPosts,
@@ -236,6 +254,7 @@ final class UserPreferences {
       notificationLevelWhenReplying: confirmed.notificationLevelWhenReplying,
     ),
     PreferenceSection.profile => copyWith(timezone: confirmed.timezone),
+    PreferenceSection.about => copyWith(bioRaw: confirmed.bioRaw),
     PreferenceSection.interface => copyWith(
       bookmarkAutoDeletePreference: confirmed.bookmarkAutoDeletePreference,
     ),
@@ -252,6 +271,7 @@ final class UserPreferences {
     List<SidebarTag>? sidebarTags,
     String? username,
     String? timezone,
+    String? bioRaw,
     int? likeNotificationFrequency,
     bool? notifyOnLinkedPosts,
     Object? notificationSchedule = _unchanged,
@@ -261,6 +281,7 @@ final class UserPreferences {
     BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
     Map<String, UserPreferenceValues>? pluginValues,
     bool? canEdit,
+    bool? canChangeBio,
     bool? canChangeTrackingPreferences,
   }) => UserPreferences(
     sidebarCategoryIds: List.unmodifiable(
@@ -269,6 +290,7 @@ final class UserPreferences {
     sidebarTags: List.unmodifiable(sidebarTags ?? this.sidebarTags),
     username: username ?? this.username,
     timezone: timezone ?? this.timezone,
+    bioRaw: bioRaw ?? this.bioRaw,
     likeNotificationFrequency:
         likeNotificationFrequency ?? this.likeNotificationFrequency,
     notifyOnLinkedPosts: notifyOnLinkedPosts ?? this.notifyOnLinkedPosts,
@@ -285,6 +307,7 @@ final class UserPreferences {
         bookmarkAutoDeletePreference ?? this.bookmarkAutoDeletePreference,
     pluginValues: Map.unmodifiable(pluginValues ?? this.pluginValues),
     canEdit: canEdit ?? this.canEdit,
+    canChangeBio: canChangeBio ?? this.canChangeBio,
     canChangeTrackingPreferences:
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
   );
@@ -297,6 +320,7 @@ final class UserPreferences {
           listEquals(other.sidebarTags, sidebarTags) &&
           other.username == username &&
           other.timezone == timezone &&
+          other.bioRaw == bioRaw &&
           other.likeNotificationFrequency == likeNotificationFrequency &&
           other.notifyOnLinkedPosts == notifyOnLinkedPosts &&
           other.notificationSchedule == notificationSchedule &&
@@ -307,6 +331,7 @@ final class UserPreferences {
           other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference &&
           mapEquals(other.pluginValues, pluginValues) &&
           other.canEdit == canEdit &&
+          other.canChangeBio == canChangeBio &&
           other.canChangeTrackingPreferences == canChangeTrackingPreferences;
 
   @override
@@ -315,6 +340,7 @@ final class UserPreferences {
     Object.hashAll(sidebarTags),
     username,
     timezone,
+    bioRaw,
     likeNotificationFrequency,
     notifyOnLinkedPosts,
     notificationSchedule,
@@ -326,6 +352,7 @@ final class UserPreferences {
       pluginValues.entries.map((e) => Object.hash(e.key, e.value)),
     ),
     canEdit,
+    canChangeBio,
     canChangeTrackingPreferences,
   );
 

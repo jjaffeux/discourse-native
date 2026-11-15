@@ -16310,4 +16310,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pushReauthorizationAction => 'Sign in again';
+
+  @override
+  String get aboutMe => 'About me';
+
+  @override
+  String get aboutMeDescription =>
+      'Shown on your profile. Markdown is supported.';
+
+  @override
+  String get aboutMeIsManagedByThisSiteSSignIn =>
+      'This site sets About me from its sign-in provider.';
+
+  @override
+  String get saveAboutMe => 'Save About me';
 }
