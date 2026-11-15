@@ -18224,6 +18224,22 @@
   "@aboutLinkOpenFailed": {
     "description": "Error shown in About when the external browser cannot open a link."
   },
+  "aboutCopyErrorLog": "Copy error log",
+  "@aboutCopyErrorLog": {
+    "description": "Button in About that copies the redacted in-memory log of recent app errors to the clipboard."
+  },
+  "aboutErrorLogCopied": "Error log copied. Review it before sharing.",
+  "@aboutErrorLogCopied": {
+    "description": "Confirmation shown in About after the error log was copied to the clipboard."
+  },
+  "aboutErrorLogEmpty": "No errors recorded since the app started.",
+  "@aboutErrorLogEmpty": {
+    "description": "Shown in About when the user asks to copy the error log and it holds nothing."
+  },
+  "aboutErrorLogCopyFailed": "Could not copy the error log. Please try again.",
+  "@aboutErrorLogCopyFailed": {
+    "description": "Error shown in About when the clipboard rejects the error log."
+  },
   "aboutExternalLinkLabel": "{label}, opens in browser",
   "@aboutExternalLinkLabel": {
     "description": "Accessible label for an external link in About.",
