@@ -5669,6 +5669,70 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final pullDown in [false, true]) {
+    _mobileTest(
+      '${pullDown ? 'Pulling down' : 'Swiping back'} to restored Bookmarks reveals its title',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+        const bookmarks = ContentRoute(
+          destination: PageDestination(CorePage.bookmarks),
+          title: 'Bookmarks',
+          icon: DIcons.bookmark,
+        );
+        final topic = ContentRoute.topic(
+          topicId: 7,
+          slug: 'shared',
+          title: 'Shared topic card',
+        );
+        final shell = await pumpMobileShellFixture(
+          tester,
+          forumTabs: _savedMobileVisits([
+            bookmarks,
+            topic,
+          ], place: 'destination/user-bookmarks'),
+        );
+        final title = find.descendant(
+          of: _header,
+          matching: find.text('Bookmarks'),
+        );
+        expect(shell.currentContent?.isTopic, isTrue);
+        expect(title, findsNothing);
+
+        Future<TestGesture> startSwipe() async {
+          final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+          final swipe = await tester.startGesture(
+            pullDown ? tester.getCenter(handle.last) : const Offset(8, 400),
+          );
+          if (pullDown) await swipe.moveBy(const Offset(0, 20));
+          await swipe.moveBy(
+            pullDown ? const Offset(0, 300) : Offset(phone.width * .8, 0),
+            timeStamp: const Duration(milliseconds: 240),
+          );
+          await tester.pump();
+          expect(shell.currentContent?.isTopic, isTrue);
+          expect(title, findsOneWidget);
+          expect(title.hitTestable(), findsNothing);
+          return swipe;
+        }
+
+        final cancelled = await startSwipe();
+        await cancelled.cancel();
+        await tester.pumpAndSettle();
+        expect(title, findsNothing);
+
+        final swipe = await startSwipe();
+        await swipe.up();
+        for (var frame = 0; frame < 32; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(title, findsOneWidget, reason: 'return frame $frame');
+        }
+        expect(shell.currentContent?.isPage(CorePage.bookmarks), isTrue);
+        expect(title.hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   _mobileTest('edge history gestures move content while chrome remains fixed', (
     tester,
   ) async {
