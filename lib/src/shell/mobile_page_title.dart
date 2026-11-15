@@ -105,104 +105,105 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
       valueListenable: widget.header,
       builder: (context, page, _) => ListenableBuilder(
         listenable: page ?? widget.header,
-        builder: (context, _) {
-          final title = page?.titleText;
-          if (page == null || title == null || title.isEmpty) {
-            return _withSwipe(context, const SizedBox.shrink(), ready: false);
-          }
-          _presentations[widget.entry] = (
-            title: title,
-            leading: page.leading,
-            metadata: page.metadata,
-            opacity: page.barOpacity,
-          );
-          while (_presentations.length > 8) {
-            _presentations.remove(_presentations.keys.first);
-          }
-          final opacity = page.barOpacity;
-          final shown = opacity >= .5;
-          // The fade follows every scroll frame, so it must not repaint
-          // the rest of the bar. The gates below hide the action; a
-          // disabled button would dim and rebuild halfway through it.
-          final current = RepaintBoundary(
-            child: IgnorePointer(
-              ignoring: !shown,
-              child: ExcludeSemantics(
-                excluding: !shown,
-                child: ExcludeFocus(
-                  excluding: !shown,
+        builder: (context, _) =>
+            _withSheetPull(context, _currentTitle(context, page)),
+      ),
+    ),
+  );
+
+  Widget? _currentTitle(BuildContext context, DPageHeader? page) {
+    final title = page?.titleText;
+    if (page == null || title == null || title.isEmpty) {
+      return null;
+    }
+    _presentations[widget.entry] = (
+      title: title,
+      leading: page.leading,
+      metadata: page.metadata,
+      opacity: page.barOpacity,
+    );
+    while (_presentations.length > 8) {
+      _presentations.remove(_presentations.keys.first);
+    }
+    final opacity = page.barOpacity;
+    final shown = opacity >= .5;
+    // The fade follows every scroll frame, so it must not repaint
+    // the rest of the bar. The gates below hide the action; a
+    // disabled button would dim and rebuild halfway through it.
+    return RepaintBoundary(
+      child: IgnorePointer(
+        ignoring: !shown,
+        child: ExcludeSemantics(
+          excluding: !shown,
+          child: ExcludeFocus(
+            excluding: !shown,
+            child: Opacity(
+              opacity: opacity,
+              child: DButton(
+                key: const ValueKey('mobile-page-title'),
+                variant: DButtonVariant.inline,
+                density: DButtonDensity.inlineMetadata,
+                foregroundColor: DTokens.of(context).foreground,
+                alignment: AlignmentDirectional.centerStart,
+                semanticLabel: context.l10n.backToTopOf(title),
+                label: _identity(context, title, page.leading, page.metadata),
+                onPressed: () => unawaited(page.scrollToTop()),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _withSheetPull(BuildContext context, Widget? current) {
+    final progress = DSheetDragScope.dismissProgressOf(context);
+    final previous = DPageHeaderHost.previousTitleOf(context);
+    if (progress == null || previous == null) {
+      return _withSwipe(
+        context,
+        current ?? const SizedBox.shrink(),
+        ready: current != null,
+      );
+    }
+    return _withSwipe(
+      context,
+      ValueListenableBuilder<double>(
+        valueListenable: progress,
+        builder: (context, pull, child) => Stack(
+          alignment: AlignmentDirectional.centerStart,
+          children: [
+            if (child != null)
+              IgnorePointer(
+                ignoring: pull >= .5,
+                child: ExcludeSemantics(
+                  excluding: pull >= .5,
+                  child: ExcludeFocus(
+                    excluding: pull >= .5,
+                    child: Opacity(opacity: 1 - pull, child: child),
+                  ),
+                ),
+              ),
+            if (pull > 0)
+              IgnorePointer(
+                child: ExcludeSemantics(
                   child: Opacity(
-                    opacity: opacity,
-                    child: DButton(
-                      key: const ValueKey('mobile-page-title'),
-                      variant: DButtonVariant.inline,
-                      density: DButtonDensity.inlineMetadata,
-                      foregroundColor: DTokens.of(context).foreground,
-                      alignment: AlignmentDirectional.centerStart,
-                      semanticLabel: context.l10n.backToTopOf(title),
-                      label: _identity(
-                        context,
-                        title,
-                        page.leading,
-                        page.metadata,
-                      ),
-                      onPressed: () => unawaited(page.scrollToTop()),
+                    opacity: pull,
+                    child: _identity(
+                      context,
+                      previous.title,
+                      previous.leading,
+                      previous.metadata,
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-          final progress = DSheetDragScope.dismissProgressOf(context);
-          final previous = DPageHeaderHost.previousTitleOf(context);
-          if (progress == null || previous == null) {
-            return _withSwipe(context, current);
-          }
-          return _withSwipe(
-            context,
-            ValueListenableBuilder<double>(
-              valueListenable: progress,
-              builder: (context, pull, child) => Stack(
-                alignment: AlignmentDirectional.centerStart,
-                children: [
-                  IgnorePointer(
-                    ignoring: pull >= .5,
-                    child: ExcludeSemantics(
-                      excluding: pull >= .5,
-                      child: ExcludeFocus(
-                        excluding: pull >= .5,
-                        child: Opacity(opacity: 1 - pull, child: child),
-                      ),
-                    ),
-                  ),
-                  if (pull > 0)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: ExcludeSemantics(
-                          child: Opacity(
-                            opacity: pull,
-                            child: Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: _identity(
-                                context,
-                                previous.title,
-                                previous.leading,
-                                previous.metadata,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              child: current,
-            ),
-          );
-        },
+          ],
+        ),
+        child: current,
       ),
-    ),
-  );
+    );
+  }
 
   Widget _identity(
     BuildContext context,

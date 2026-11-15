@@ -300,7 +300,8 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
 class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     with
         TickerProviderStateMixin,
-        _DSheetKeyboardCoverRefresh<_DSheetAdaptiveMenu> {
+        _DSheetKeyboardCoverRefresh<_DSheetAdaptiveMenu>
+    implements _DSheetDismissMotion {
   static const _duration = Duration(milliseconds: 280);
   static const _curve = Cubic(.32, .72, 0, 1);
   final _surface = GlobalKey();
@@ -434,6 +435,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double _exitVelocity = 0;
   double? _retainedExitHeightOffset;
   double _safeBottom = 0;
+  _DSheetDragScopeState? _dragOwner;
 
   bool get _animate => !MediaQuery.disableAnimationsOf(context);
   double get _keyboardInset => _keyboardInsetAnimation.value;
@@ -448,6 +450,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                     .clamp(0.0, 1.0);
 
   double get _heightOffset => _heightOffsetAt(_offset);
+
+  @override
+  double get _dismissProgress =>
+      ((_offset - _low) / (_swipeExtent * .4)).clamp(0, 1);
 
   double _heightOffsetAt(double offset) => _fullyExpanded
       ? 0
@@ -470,6 +476,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _syncDragHost();
     final route = ModalRoute.of(context);
     if (identical(route, _exit.route)) return;
     _exit.attach(
@@ -505,6 +512,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   @override
   void didUpdateWidget(_DSheetAdaptiveMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _syncDragHost();
     if (!oldWidget.initiallyExpanded && widget.initiallyExpanded) {
       _interacted = true;
       _settle(0);
@@ -512,6 +520,20 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (oldWidget.contentLoading && !widget.contentLoading) {
       _contentLayoutPending = true;
     }
+  }
+
+  void _syncDragHost() {
+    final owner =
+        widget.retained &&
+            (widget.onDismiss != null || widget.onDismissRequested != null) &&
+            TickerMode.valuesOf(context).enabled &&
+            (ModalRoute.isCurrentOf(context) ?? true)
+        ? context.dependOnInheritedWidgetOfExactType<_DSheetDragHost>()?.owner
+        : null;
+    if (identical(_dragOwner, owner)) return;
+    _dragOwner?._detach(this);
+    _dragOwner = owner;
+    owner?._attach(this);
   }
 
   void _keyboardTransition() {
@@ -637,6 +659,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   }
 
   void _travelChanged() {
+    _dragOwner?._reportProgress(this);
     // Translation and backdrop dimming listen directly to travel. Rebuild the
     // content's inherited state only when the handle changes Expand/Collapse.
     final expanded = _travel.value <= 1;
@@ -987,6 +1010,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   @override
   void dispose() {
+    _dragOwner?._detach(this);
     _wheelEnd?.cancel();
     _restScroll.dispose();
     _peekNext?.cancel();

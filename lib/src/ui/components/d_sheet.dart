@@ -1531,7 +1531,8 @@ class _DSheetDismissSimulation extends Simulation {
 /// Connects a stationary [DSheetDragRegion] to the active reading page.
 ///
 /// Wrap the frame containing both the header and its [DSheetViewport]. Only
-/// visible page sheets register; covered routes and retained previews are inert.
+/// visible viewport sheets can report dismissal progress. Page sheets also
+/// let a stationary header drive the drag.
 class DSheetDragScope extends StatefulWidget {
   const DSheetDragScope({super.key, required this.child});
 
@@ -1556,6 +1557,10 @@ class DSheetDragScope extends StatefulWidget {
 
   @override
   State<DSheetDragScope> createState() => _DSheetDragScopeState();
+}
+
+abstract interface class _DSheetDismissMotion {
+  double get _dismissProgress;
 }
 
 class _DSheetDragScopeState extends State<DSheetDragScope> {
@@ -1584,19 +1589,29 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
     super.dispose();
   }
 
-  _DSheetSwipeDismissState? _swipe;
+  _DSheetDismissMotion? _sheet;
   bool _scheduled = false;
 
-  void _attach(_DSheetSwipeDismissState swipe) {
-    if (identical(_swipe, swipe)) return;
-    _swipe = swipe;
+  void _attach(_DSheetDismissMotion sheet) {
+    if (identical(_sheet, sheet)) return;
+    _sheet = sheet;
     _publish();
   }
 
-  void _detach(_DSheetSwipeDismissState swipe) {
-    if (!identical(_swipe, swipe)) return;
-    _swipe = null;
+  void _detach(_DSheetDismissMotion sheet) {
+    if (!identical(_sheet, sheet)) return;
+    _sheet = null;
     _publish();
+  }
+
+  void _reportProgress(_DSheetDismissMotion sheet) {
+    if (!identical(_sheet, sheet)) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      _publish();
+      return;
+    }
+    _pullProgress.value = sheet._dismissProgress;
   }
 
   void _publish() {
@@ -1606,12 +1621,7 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (mounted) {
-        final swipe = _swipe;
-        if (swipe == null) {
-          _pullProgress.value = 0;
-        } else {
-          swipe._syncBackdrop();
-        }
+        _pullProgress.value = _sheet?._dismissProgress ?? 0;
         setState(() {});
       }
     });
@@ -1622,7 +1632,10 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
   Widget build(BuildContext context) => _DSheetPageCorners(
     child: _DSheetDragHost(
       owner: this,
-      swipe: _swipe,
+      swipe: switch (_sheet) {
+        _DSheetSwipeDismissState swipe => swipe,
+        _ => null,
+      },
       barExtent: _barExtent,
       child: widget.child,
     ),
@@ -1843,7 +1856,8 @@ class _DSheetSwipeDismiss extends StatefulWidget {
 enum _DSheetPointerOwner { sheet, content, handle }
 
 class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin
+    implements _DSheetDismissMotion {
   late final _travel = AnimationController.unbounded(vsync: this);
   int? _pointer;
   _DSheetPointerOwner _pointerOwner = _DSheetPointerOwner.sheet;
@@ -1977,13 +1991,13 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
                           geometry.simulation.initialValue);
   }
 
+  @override
+  double get _dismissProgress => (_offset / (_swipeExtent * .4)).clamp(0, 1);
+
   void _syncBackdrop() {
     widget.swipeProgress.value = (_offset / _swipeExtent).clamp(0, 1);
     if (_externalDragEnabled) {
-      _dragOwner?._pullProgress.value = (_offset / (_swipeExtent * .4)).clamp(
-        0,
-        1,
-      );
+      _dragOwner?._reportProgress(this);
     }
   }
 
