@@ -67,10 +67,16 @@ final class MobileNavigation {
     closeSidebar();
     _tab = tab;
     _panelOwner = tab.panelOwner;
+    // A null root is a real visit only when a panel owns it.
+    final first =
+        _panelOwner == null && state.index > 0 && state.visits.first == null
+        ? 1
+        : 0;
     _entries = [
-      for (final visit in state.visits) (id: Object(), content: visit),
+      for (final visit in state.visits.skip(first))
+        (id: Object(), content: visit),
     ];
-    _index = state.index;
+    _index = state.index - first;
     _historyId = Object();
     return true;
   }
@@ -145,9 +151,13 @@ final class MobileNavigation {
     _entries = [..._entries.take(_index), (id: Object(), content: location)];
   }
 
-  void prependAncestors(List<ForumTabLocation?> ancestors) {
+  void prependAncestors(List<ForumTabLocation?> ancestors, {MobileTab? tab}) {
     assert(!canGoBack && !atRoot);
     assert(ancestors.skip(1).every((ancestor) => ancestor != null));
+    if (tab != null) {
+      _tab = tab;
+      _panelOwner = tab.panelOwner;
+    }
     final retained = ancestors.length <= maximumPages
         ? ancestors
         : [

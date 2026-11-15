@@ -78,6 +78,7 @@ final class ContentPageContract {
   }) => switch (route.destination) {
     TopicDestination() =>
       inMessages ? ContentRoute.messages() : ContentRoute.homepage(),
+    PageDestination(page: CorePage.search) => ContentRoute.homepage(),
     GroupDestination(route: final group) when group.isDetail =>
       ContentRoute.group(const GroupRoute.directory()),
     BadgeDestination(route: final badge) when !badge.isDirectory =>

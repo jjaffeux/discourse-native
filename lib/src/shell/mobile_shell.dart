@@ -286,6 +286,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           boundary: widget.boundary,
         );
         final route = presentation.route;
+        final searchOpen = route?.isGlobalSearch == true;
         final pageSheetOpen = presentation.pageSheetOpen;
         final hideDock = presentation.hideDock;
         final preservePageChrome = presentation.preservePageChrome;
@@ -300,6 +301,51 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             : null;
         final previous =
             shell.mobileNavigation.previousLocation?.contentStack.last;
+        final searchOverPanel =
+            searchOpen && previousEntry != null && previous == null;
+        Widget belowSearchHeader(Widget child, {bool inset = true}) => Builder(
+          builder: (context) => Padding(
+            padding: EdgeInsets.only(
+              top: inset ? DSheetDragScope.topBarExtentOf(context) + 6 : 0,
+            ),
+            child: child,
+          ),
+        );
+
+        Widget panelPage(String panel) {
+          final active = panelOwner == panel && panelRoot;
+          final behindSearch = panelOwner == panel && searchOverPanel;
+          return Offstage(
+            offstage: !active && !behindSearch,
+            child: TickerMode(
+              enabled: active,
+              child: ExcludeFocus(
+                excluding: !active,
+                child: ExcludeSemantics(
+                  excluding: !active,
+                  child: IgnorePointer(
+                    ignoring: !active,
+                    child: DPageHeaderHost.exclude(
+                      excluding: !active,
+                      child: belowSearchHeader(
+                        inset: behindSearch,
+                        _panelRoots.putIfAbsent(
+                          (owner, panel),
+                          () => InstanceSidebar(
+                            key: ValueKey(('mobile-panel', panel, owner)),
+                            mobile: true,
+                            panelOwner: panel,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         final previousComposerFold =
             composerVisit != null &&
                 previousEntry != null &&
@@ -349,7 +395,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         ) => _MobileFrame(
           navigationOpen: sidebarOpen,
           raised: !sidebarOpen && pageSheetOpen && route?.isTopic == true,
-          overlaysHeader: !sidebarOpen && route?.isGlobalSearch == true,
+          overlaysHeader: !sidebarOpen && searchOpen,
           key: const ValueKey('mobile-root'),
           // Ancestor Material ink layers also repaint on scroll. Retain the
           // fixed header independently of the moving page and dock.
@@ -557,7 +603,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             // Progress changes the wrapper, not the controls inside it.
             final docks = <bool, Widget>{};
             Widget dockFor(bool hidden) => docks.putIfAbsent(hidden, () {
-              if (route?.isGlobalSearch == true && !sidebarOpen) {
+              if (searchOpen && !sidebarOpen) {
                 return const SizedBox.shrink();
               }
               // A parked draft waits over the bar, which keeps pages
@@ -703,14 +749,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       child: Padding(
                         padding: EdgeInsets.only(
                           top:
-                              route?.isGlobalSearch == true ||
+                              searchOpen ||
                                   pageSheetOpen && route?.isTopic == true
                               ? 0
                               : 6,
                         ),
                         child: ForumMobileSurface(
                           key: const ValueKey('mobile-content-panel'),
-                          sheet: route?.isGlobalSearch == true
+                          sheet: searchOpen
                               ? ForumMobileSheet.page
                               : !pageSheetOpen
                               ? ForumMobileSheet.none
@@ -720,34 +766,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              for (final entry in panels)
-                                Offstage(
-                                  offstage:
-                                      !(panelRoot &&
-                                          panelOwner == entry.owner.value),
-                                  child: TickerMode(
-                                    enabled:
-                                        panelRoot &&
-                                        panelOwner == entry.owner.value,
-                                    child: ExcludeFocus(
-                                      excluding:
-                                          !(panelRoot &&
-                                              panelOwner == entry.owner.value),
-                                      child: _panelRoots.putIfAbsent(
-                                        (owner, entry.owner.value),
-                                        () => InstanceSidebar(
-                                          key: ValueKey((
-                                            'mobile-panel',
-                                            entry.owner.value,
-                                            owner,
-                                          )),
-                                          mobile: true,
-                                          panelOwner: entry.owner.value,
-                                        ),
-                                      ),
-                                    ),
+                              if (searchOpen)
+                                belowSearchHeader(
+                                  const ForumMobileSurface(
+                                    child: SizedBox.expand(),
                                   ),
                                 ),
+                              for (final entry in panels)
+                                panelPage(entry.owner.value),
                               if (!panelRoot) widget.content,
                             ],
                           ),

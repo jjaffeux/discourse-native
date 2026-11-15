@@ -481,6 +481,7 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
 FakeForumTabStore _savedMobileVisits(
   List<ContentRoute> routes, {
   String place = 'topics',
+  bool missingRoot = false,
 }) {
   final tab = ForumTab(
     id: 'saved-tab',
@@ -495,10 +496,11 @@ FakeForumTabStore _savedMobileVisits(
     mobile: MobileNavigationState(
       place: place,
       visits: [
+        if (missingRoot) null,
         for (final route in routes)
           ForumTabLocation(rootDestinationId: route.id, contentStack: [route]),
       ],
-      index: routes.length - 1,
+      index: routes.length - (missingRoot ? 0 : 1),
     ),
   );
   return FakeForumTabStore([
@@ -4243,6 +4245,46 @@ void main() {
     expect(relaunched.currentContent?.id, 'latest');
     expect(tester.takeException(), isNull);
   });
+
+  for (final missingRoot in [false, true]) {
+    _mobileTest(
+      'restored Search returns to Topics with missing root=$missingRoot',
+      (tester) async {
+        final shell = await pumpMobileShellFixture(
+          tester,
+          forumTabs: _savedMobileVisits(
+            [ContentRoute.search()],
+            place: 'messages',
+            missingRoot: missingRoot,
+          ),
+        );
+        expect(shell.currentContent?.isGlobalSearch, isTrue);
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+        );
+        await gesture.moveBy(const Offset(0, 200));
+        await tester.pump();
+        expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
+        expect(shell.currentContent?.isGlobalSearch, isTrue);
+        await gesture.moveBy(const Offset(0, 450));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'latest');
+        expect(_markedPlace(tester), 'Topics');
+        expect(
+          find.byKey(const ValueKey('topic-card-7')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(shell.handleForward(), isTrue);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'latest');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   _mobileTest('a topic restored on its own returns to Topics', (tester) async {
     final topic = ContentRoute.topic(

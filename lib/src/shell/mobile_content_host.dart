@@ -125,6 +125,12 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         : searchIndex > 0
         ? stack[searchIndex - 1]
         : null;
+    final searchPreview =
+        searchOpen &&
+            searchSource != null &&
+            presentation?.usesSheet(searchSource) == true
+        ? DHistoryTransition.previousPageUnderlayOf(context)
+        : null;
     final source = presentation?.retainedListRoute;
     final covered =
         source != null &&
@@ -189,14 +195,20 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           : base,
       livePrevious && !covered ? null : _sourceBodyKey,
       covered ? null : sheetUnderlay,
-      covered || searchOpen ? null : baseEntry,
+      searchOpen
+          ? previousSheetEntry
+          : covered
+          ? null
+          : baseEntry,
     );
     final hidden = covered || searchOpen;
     final basePages = Stack(
       fit: StackFit.expand,
       children: [
         Offstage(
-          offstage: covered,
+          offstage:
+              covered ||
+              searchOpen && (searchSource == null || searchPreview != null),
           child: ExcludeFocus(
             excluding: hidden,
             child: ExcludeSemantics(
@@ -220,7 +232,10 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                                         ) +
                                         6,
                                   ),
-                                  child: primary,
+                                  child: TickerMode(
+                                    enabled: false,
+                                    child: primary,
+                                  ),
                                 )
                               : primary,
                         )
@@ -232,6 +247,7 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         ),
         if (covered && !searchOpen)
           widget.builder(base, null, sheetUnderlay, baseEntry),
+        ?searchPreview,
         if (searchPage != null && !searchBehindSheet)
           Offstage(
             offstage: !searchOpen,
