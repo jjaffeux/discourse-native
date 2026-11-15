@@ -3054,6 +3054,9 @@ void main() {
       'ForumTabAnchor',
       // Local scroll-header preferences, never a server payload.
       'DHeaderTuning',
+      // The chat outbox's own file. It answers null for an entry it cannot
+      // use, which `chat_send_outbox_test.dart` states.
+      'FailedChatSend',
       // Keyboard animation frames arrive from the platform channel.
       '_DSheetKeyboardFrame',
       'ForumTab',

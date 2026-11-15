@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../gifs/gifs_contract.dart';
 import 'chat_api.dart';
@@ -14,6 +17,7 @@ import 'chat_notification_counter.dart';
 import 'chat_plugin.dart';
 import 'chat_preview_contract.dart';
 import 'chat_search_controller.dart';
+import 'chat_send_outbox.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_typing.dart';
@@ -34,7 +38,15 @@ typedef ChatApiFactory = ChatApi Function(PluginApiTransport transport);
 typedef ChatStoreFactory = Store Function(StorePolicy policy);
 
 final class ChatModule implements PluginModule {
-  const ChatModule({this.apiFactory, this.storeFactory, this.clock});
+  const ChatModule({
+    this.apiFactory,
+    this.storeFactory,
+    this.clock,
+    this.sendOutbox,
+  });
+
+  /// Null keeps failed messages in the application support directory.
+  final ChatSendOutbox? sendOutbox;
 
   final ChatApiFactory? apiFactory;
   final ChatStoreFactory? storeFactory;
@@ -110,6 +122,14 @@ final class ChatModule implements PluginModule {
               ),
           onSiteUnreachable: accountEvents.markSiteUnreachable,
           clock: clock,
+          sendOutbox:
+              sendOutbox ??
+              createChatSendOutbox(() async {
+                final support = await getApplicationSupportDirectory();
+                return File(
+                  '${support.path}/plugins/chat/failed-sends-v1.json',
+                );
+              }),
           messageContextFor: (siteUrl) {
             final context = navigation.visibleTopicContext;
             if (context == null || context.siteUrl != siteUrl) return null;

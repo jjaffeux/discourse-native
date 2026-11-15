@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'chat_api.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';
+import 'chat_send_outbox.dart';
 import 'chat_stream_target.dart';
 
 typedef ChatSendCoordinatorFactory =
@@ -126,6 +127,10 @@ abstract interface class ChatSendCoordinator {
 }
 
 /// Default per-stream FIFO implementation used by `ChatController`.
+///
+/// A message that failed without reaching the site is also kept in the
+/// outbox, so it comes back as failed with its retry after a relaunch. It is
+/// only ever sent again by [retryMessage].
 final class DefaultChatSendCoordinator implements ChatSendCoordinator {
   DefaultChatSendCoordinator({
     required ChatApi api,
@@ -133,18 +138,26 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     required ChatSendCoordinatorHost host,
     DateTime Function()? clock,
     OriginCooldown Function()? cooldownFactory,
+    ChatSendOutbox? outbox,
   }) : _api = api,
        _requests = requests,
        _host = host,
        _clock = clock ?? DateTime.now,
-       _cooldownFactory = cooldownFactory ?? OriginCooldown.new;
+       _cooldownFactory = cooldownFactory ?? OriginCooldown.new,
+       _outbox = outbox;
+
+  /// Uploads nothing posted are removed by the site after a grace period, and
+  /// a message this old has lost its moment in the conversation.
+  static const failedSendRetention = Duration(days: 7);
 
   final ChatApi _api;
   final PluginRequestHost _requests;
   final ChatSendCoordinatorHost _host;
   final DateTime Function() _clock;
   final OriginCooldown Function() _cooldownFactory;
+  final ChatSendOutbox? _outbox;
   final Map<String, _RetryChatSend> _retries = {};
+  final Map<String, _ChatSendRestore> _restores = {};
 
   final Map<String, _ChatSendQueue> _queues = {};
   final Map<String, PluginLiveChannelHandle> _trackers = {};
@@ -167,6 +180,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     if (_disposed || (message.raw.trim().isEmpty && message.uploads.isEmpty)) {
       return null;
     }
+    _restore(siteUrl);
     final lease = _requests.capture(siteUrl);
 
     final key = _targetKey(siteUrl, target);
@@ -282,6 +296,10 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     // another POST, and retry never visits composer draft ownership.
     _retries.remove(stagedId);
     retry.cooldown.cancel();
+    // A retry cut short by a kill may have been accepted, so the message
+    // leaves the outbox before it is sent and cannot come back offering to
+    // send again.
+    final released = _persist(siteUrl);
     final key = _targetKey(siteUrl, target);
     final queue = _queues.putIfAbsent(
       key,
@@ -295,6 +313,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       lease: retry.item.lease,
       context: retry.item.context,
       isRetry: true,
+      released: released,
     );
     queue.pending.add(item);
     _schedule(queue);
@@ -323,9 +342,12 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       queue.target,
       item,
       _cooldownFactory(),
+      failedAt: _clock().toUtc(),
+      rateLimited: failure.failure == WriteFailure.rateLimited,
     );
     _retries.remove(stagedId)?.cooldown.cancel();
     _retries[stagedId] = retry;
+    unawaited(_persist(queue.siteUrl));
     final remaining = retry.cooldown.extend(
       failure.retryWait,
       onExpired: () {
@@ -353,12 +375,134 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     );
   }
 
-  void _cancelRetries(bool Function(_RetryChatSend) matches) {
+  /// Answers whether any retry was let go.
+  bool _cancelRetries(bool Function(_RetryChatSend) matches) {
+    var cancelled = false;
     _retries.removeWhere((_, retry) {
       if (!matches(retry)) return false;
       retry.cooldown.cancel();
-      return true;
+      return cancelled = true;
     });
+    return cancelled;
+  }
+
+  static String? _accountOf(DiscourseUser? user) =>
+      user == null || user.username.isEmpty
+      ? null
+      : 'user:${user.username.toLowerCase()}';
+
+  /// Brings back what an earlier session left for this account, once per
+  /// account session. A save issued before that has arrived would overwrite
+  /// it, so [_persist] waits for it.
+  void _restore(String siteUrl) {
+    final outbox = _outbox;
+    if (outbox == null || _disposed || _host.isDisposed()) return;
+    if (_restores[siteUrl]?.lease.isCurrent == true) return;
+    final account = _accountOf(_host.currentUserFor(siteUrl));
+    if (account == null) return;
+    final restore = _ChatSendRestore(_requests.capture(siteUrl), account);
+    if (!restore.lease.isCurrent) return;
+    _restores[siteUrl] = restore;
+    bool isCurrent() =>
+        !_disposed &&
+        !_host.isDisposed() &&
+        restore.lease.isCurrent &&
+        identical(_restores[siteUrl], restore);
+    unawaited(
+      outbox.restore(siteUrl, account).then((held) {
+        if (!isCurrent()) return;
+        restore.complete = true;
+        final expiry = _clock().toUtc().subtract(failedSendRetention);
+        for (final send in held ?? const <FailedChatSend>[]) {
+          if (send.failedAt.isBefore(expiry)) continue;
+          _stageRestored(siteUrl, restore.lease, send);
+          if (!isCurrent()) return;
+        }
+        unawaited(_persist(siteUrl));
+      }),
+    );
+  }
+
+  void _stageRestored(
+    String siteUrl,
+    PluginSiteLease lease,
+    FailedChatSend send,
+  ) {
+    final target = send.target;
+    if (_retries.containsKey(send.stagedId) ||
+        _host.outgoing(siteUrl, target, send.stagedId) != null) {
+      return;
+    }
+    final user = _host.currentUserFor(siteUrl);
+    if (!lease.isCurrent || _accountOf(user) == null) return;
+    final preview = _host.projectPreview(
+      siteUrl,
+      OutgoingChatMessage.text(send.raw, replyTo: send.replyTo),
+    );
+    if (!lease.isCurrent) return;
+    final local = ChatMessage.optimistic(
+      id: _nextLocalMessageId--,
+      channelId: target.channelId,
+      threadId: target.threadId,
+      replyTo: send.replyTo,
+      raw: send.raw,
+      stagedId: send.stagedId,
+      preview: preview,
+      author: ChatMessageAuthor(
+        id: user?.id ?? 0,
+        username: user?.username ?? '',
+        name: user?.name,
+        avatarUrl: user?.avatarUrl,
+        isStaff: user?.staff ?? false,
+      ),
+      createdAt: send.createdAt,
+      uploads: send.uploads,
+    );
+    _host.stage(siteUrl, target, local);
+    if (!lease.isCurrent) return;
+    final failure = send.rateLimited
+        ? const WriteException(WriteFailure.rateLimited)
+        : const WriteException(WriteFailure.unreachable, notSent: true);
+    _host.markFailed(siteUrl, target, send.stagedId, failure);
+    if (!lease.isCurrent || _disposed) return;
+    final topicId = send.contextTopicId;
+    _retries[send.stagedId] = _RetryChatSend(
+      siteUrl,
+      target,
+      _QueuedChatSend(
+        local: local,
+        uploadIds: List.unmodifiable([
+          for (final upload in send.uploads) upload.id,
+        ]),
+        settlement: Completer<ChatSendResult>(),
+        lease: lease,
+        context: topicId == null
+            ? null
+            : (topicId: topicId, postIds: send.contextPostIds),
+      ),
+      _cooldownFactory(),
+      failedAt: send.failedAt,
+      rateLimited: send.rateLimited,
+    );
+    _retainReconciliation(siteUrl, target);
+  }
+
+  /// Answers whether the file agrees with [_retries], which it does at once
+  /// when nothing of this session has reached it yet.
+  Future<bool> _persist(String siteUrl) {
+    final outbox = _outbox;
+    if (outbox == null || _disposed) return Future.value(true);
+    _restore(siteUrl);
+    final restore = _restores[siteUrl];
+    if (restore == null || !restore.lease.isCurrent || !restore.complete) {
+      return Future.value(true);
+    }
+    final sends = boundFailedChatSends([
+      for (final retry in _retries.values)
+        if (retry.siteUrl == siteUrl && retry.item.lease.isCurrent)
+          retry.failedSend,
+    ]);
+    return outbox.save(siteUrl, restore.account, sends.isEmpty ? null : sends);
   }
 
   void _schedule(_ChatSendQueue queue) {
@@ -453,6 +597,13 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
         return;
       }
       if (item.isRetry) {
+        if (!await item.released) {
+          throw const WriteException(WriteFailure.unreachable, notSent: true);
+        }
+        if (!_requestIsCurrent(item.lease, queue, item)) {
+          item.complete(ChatSendResult.cancelled);
+          return;
+        }
         final held = _host.outgoing(siteUrl, target, local.stagedId!);
         if (held == null || held.serverId != null || held.canonicalReceived) {
           item.complete(
@@ -533,6 +684,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       _cancelSubscriptions(siteUrl, forgetTargets: false);
     }
     _trackers[siteUrl] = channels;
+    _restore(siteUrl);
     for (final target in _reconciliationTargets) {
       if (target.siteUrl == siteUrl) {
         _ensureSubscription(target.siteUrl, target.target);
@@ -595,11 +747,12 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
 
   @override
   void releaseReconciliationIfSettled(String siteUrl, ChatStreamTarget target) {
-    _cancelRetries((retry) {
+    final settled = _cancelRetries((retry) {
       if (retry.siteUrl != siteUrl || retry.target != target) return false;
       final held = _host.outgoing(siteUrl, target, retry.item.local.stagedId!);
       return held == null || held.canonicalReceived || held.serverId != null;
     });
+    if (settled) unawaited(_persist(siteUrl));
     if (_host.hasUnsettledMessages(siteUrl, target)) return;
 
     final key = _targetKey(siteUrl, target);
@@ -609,10 +762,11 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
 
   @override
   void cancelChannel(String siteUrl, int channelId) {
-    _cancelRetries(
+    final cancelled = _cancelRetries(
       (retry) =>
           retry.siteUrl == siteUrl && retry.target.channelId == channelId,
     );
+    if (cancelled) unawaited(_persist(siteUrl));
     _cancelQueues(
       (queue) =>
           queue.siteUrl == siteUrl && queue.target.channelId == channelId,
@@ -633,6 +787,9 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
 
   @override
   void forget(String siteUrl) {
+    _restores.remove(siteUrl);
+    // The account that wrote these messages is gone from this site.
+    unawaited(_outbox?.forget(siteUrl));
     _cancelRetries((retry) => retry.siteUrl == siteUrl);
     _cancelQueues((queue) => queue.siteUrl == siteUrl);
     _cancelSubscriptions(siteUrl);
@@ -678,10 +835,12 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     } catch (_) {}
   }
 
+  /// The outbox keeps the failed messages for the next launch.
   @override
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _restores.clear();
     _cancelRetries((_) => true);
     _cancelQueues((_) => true);
     for (final subscription in _subscriptions.values) {
@@ -721,7 +880,11 @@ final class _QueuedChatSend {
     required this.lease,
     required this.context,
     this.isRetry = false,
-  });
+    Future<bool>? released,
+  }) : released = released ?? Future.value(true);
+
+  /// Whether a retried message has left the outbox.
+  final Future<bool> released;
 
   final ChatMessage local;
   final List<int> uploadIds;
@@ -736,9 +899,39 @@ final class _QueuedChatSend {
 }
 
 final class _RetryChatSend {
-  _RetryChatSend(this.siteUrl, this.target, this.item, this.cooldown);
+  _RetryChatSend(
+    this.siteUrl,
+    this.target,
+    this.item,
+    this.cooldown, {
+    required this.failedAt,
+    required this.rateLimited,
+  });
   final String siteUrl;
   final ChatStreamTarget target;
   final _QueuedChatSend item;
   final OriginCooldown cooldown;
+  final DateTime failedAt;
+  final bool rateLimited;
+
+  FailedChatSend get failedSend => FailedChatSend(
+    stagedId: item.local.stagedId!,
+    target: target,
+    raw: item.local.optimisticRaw!,
+    createdAt: item.local.createdAt!,
+    failedAt: failedAt,
+    rateLimited: rateLimited,
+    replyTo: item.local.replyTo,
+    uploads: item.local.uploads,
+    contextTopicId: item.context?.topicId,
+    contextPostIds: item.context?.postIds ?? const [],
+  );
+}
+
+final class _ChatSendRestore {
+  _ChatSendRestore(this.lease, this.account);
+
+  final PluginSiteLease lease;
+  final String account;
+  bool complete = false;
 }
