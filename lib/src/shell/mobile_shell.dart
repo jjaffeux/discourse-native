@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../foundation/icons/d_icons.dart';
 import '../foundation/icons/d_native_icons.dart';
+import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -301,6 +302,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             : null;
         final previous =
             shell.mobileNavigation.previousLocation?.contentStack.last;
+        final bookmarksTitle = instance.isConnected && !widget.boundary
+            ? context.l10n.bookmarks
+            : null;
+        final titleFallback = route?.isPage(CorePage.bookmarks) == true
+            ? bookmarksTitle
+            : null;
+        final previousTitleFallback =
+            bookmarksTitle != null &&
+                previousEntry != null &&
+                previous?.isPage(CorePage.bookmarks) == true
+            ? (entry: previousEntry, title: bookmarksTitle)
+            : null;
         final searchOverPanel =
             searchOpen && previousEntry != null && previous == null;
         Widget belowSearchHeader(Widget child, {bool inset = true}) => Builder(
@@ -507,6 +520,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                           ),
                                           header: titleHeader,
                                           siteUrl: instance.url,
+                                          titleFallback: titleFallback,
+                                          previousTitleFallback:
+                                              previousTitleFallback,
                                         );
                                       },
                                     ),

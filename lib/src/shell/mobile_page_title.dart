@@ -16,12 +16,16 @@ class MobilePageTitle extends StatefulWidget {
     required this.entry,
     required this.history,
     required this.siteUrl,
+    this.titleFallback,
+    this.previousTitleFallback,
   });
 
   final ValueListenable<DPageHeader?> header;
   final String siteUrl;
   final Object entry;
   final Object history;
+  final String? titleFallback;
+  final ({Object entry, String title})? previousTitleFallback;
 
   static const _titleStyle = TextStyle(
     fontSize: DiscourseTypography.lg,
@@ -74,8 +78,15 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
       child: current,
     );
     final swipe = DHistoryTransition.swipeOf(context);
-    final target = _presentations[swipe?.entry];
-    if (swipe == null || target == null) return identity;
+    if (swipe == null) return identity;
+    final target = _presentations[swipe.entry];
+    final fallback = widget.previousTitleFallback;
+    final title =
+        target?.title ??
+        (fallback != null && fallback.entry == swipe.entry
+            ? fallback.title
+            : null);
+    if (title == null) return identity;
     return IgnorePointer(
       child: ExcludeFocus(
         child: ExcludeSemantics(
@@ -84,12 +95,12 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
             children: [
               Opacity(opacity: 1 - swipe.progress, child: identity),
               Opacity(
-                opacity: swipe.progress * target.opacity,
+                opacity: swipe.progress * (target?.opacity ?? 1),
                 child: _identity(
                   context,
-                  target.title,
-                  target.leading,
-                  target.metadata,
+                  title,
+                  target?.leading,
+                  target?.metadata,
                 ),
               ),
             ],
@@ -114,7 +125,10 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
   Widget? _currentTitle(BuildContext context, DPageHeader? page) {
     final title = page?.titleText;
     if (page == null || title == null || title.isEmpty) {
-      return null;
+      final fallback = widget.titleFallback;
+      return fallback == null
+          ? null
+          : ExcludeSemantics(child: _identity(context, fallback, null, null));
     }
     _presentations[widget.entry] = (
       title: title,
@@ -159,7 +173,8 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
   Widget _withSheetPull(BuildContext context, Widget? current) {
     final progress = DSheetDragScope.dismissProgressOf(context);
     final previous = DPageHeaderHost.previousTitleOf(context);
-    if (progress == null || previous == null) {
+    final title = previous?.title ?? widget.previousTitleFallback?.title;
+    if (progress == null || title == null) {
       return _withSwipe(
         context,
         current ?? const SizedBox.shrink(),
@@ -191,9 +206,9 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
                     opacity: pull,
                     child: _identity(
                       context,
-                      previous.title,
-                      previous.leading,
-                      previous.metadata,
+                      title,
+                      previous?.leading,
+                      previous?.metadata,
                     ),
                   ),
                 ),
