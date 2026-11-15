@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import 'data/app_settings_store.dart';
 import 'data/authenticator.dart';
+import 'data/content_snapshot_store.dart';
 import 'data/destination_bookmarks_store.dart';
 import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
@@ -10,6 +11,7 @@ import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
+import 'data/platform_content_snapshot_store.dart';
 import 'data/platform_draft_store.dart';
 import 'data/platform_push_registration.dart';
 import 'data/platform_web_auth.dart';
@@ -33,6 +35,7 @@ final class AppRuntimeDependencies {
     this.appSettingsStore,
     this.forumSettingsStore,
     this.drafts,
+    this.contentSnapshots,
     this.forumTabs,
     this.trackers,
     this.updater,
@@ -50,6 +53,7 @@ final class AppRuntimeDependencies {
   final AppSettingsStore? appSettingsStore;
   final ForumSettingsStore? forumSettingsStore;
   final DraftStore? drafts;
+  final ContentSnapshotStore? contentSnapshots;
   final ForumTabStore? forumTabs;
   final SiteTrackerFactory? trackers;
   final Updater? updater;
@@ -71,6 +75,7 @@ final class AppRuntimeDependencies {
       identical(appSettingsStore, other.appSettingsStore) &&
       identical(forumSettingsStore, other.forumSettingsStore) &&
       identical(drafts, other.drafts) &&
+      identical(contentSnapshots, other.contentSnapshots) &&
       identical(forumTabs, other.forumTabs) &&
       identical(trackers, other.trackers) &&
       identical(updater, other.updater) &&
@@ -107,12 +112,22 @@ final class AppRuntime {
     _forumSettingsStore =
         dependencies.forumSettingsStore ?? ForumSettingsStore();
     _drafts = dependencies.drafts ?? createPlatformDraftStore();
+    _contentSnapshots = _contentSnapshotsFor(dependencies);
     _forumTabs = dependencies.forumTabs ?? ForumTabStore();
     _trackers = dependencies.trackers ?? SiteTracker.new;
     _updater = dependencies.updater ?? const UnsupportedUpdater();
     _updateStore = dependencies.updateStore ?? UpdateStore();
     _controller = _createController()..setForeground(_foreground);
   }
+
+  /// A snapshot keeps what the transport received. An injected API hands over
+  /// models with no response behind them, so it gets a store only when given
+  /// one.
+  static ContentSnapshotStore? _contentSnapshotsFor(
+    AppRuntimeDependencies dependencies,
+  ) =>
+      dependencies.contentSnapshots ??
+      (dependencies.api == null ? createPlatformContentSnapshotStore() : null);
 
   static const Duration exitFlushTimeout = Duration(milliseconds: 1500);
 
@@ -125,6 +140,7 @@ final class AppRuntime {
   late AppSettingsStore _appSettingsStore;
   late ForumSettingsStore _forumSettingsStore;
   late DraftStore _drafts;
+  ContentSnapshotStore? _contentSnapshots;
   late ForumTabStore _forumTabs;
   final _recentDestinations = RecentDestinationsStore();
   final _destinationBookmarks = DestinationBookmarksStore();
@@ -157,6 +173,7 @@ final class AppRuntime {
     appSettingsStore: _appSettingsStore,
     forumSettingsStore: _forumSettingsStore,
     drafts: _drafts,
+    contentSnapshots: _contentSnapshots,
     forumTabs: _forumTabs,
     recentDestinations: _recentDestinations,
     destinationBookmarks: _destinationBookmarks,
@@ -275,6 +292,13 @@ final class AppRuntime {
       }
       if (!identical(_dependencies.drafts, previous.drafts)) {
         _drafts = _dependencies.drafts ?? createPlatformDraftStore();
+      }
+      if (!identical(
+            _dependencies.contentSnapshots,
+            previous.contentSnapshots,
+          ) ||
+          !identical(_dependencies.api, previous.api)) {
+        _contentSnapshots = _contentSnapshotsFor(_dependencies);
       }
       if (!identical(_dependencies.forumTabs, previous.forumTabs)) {
         _forumTabs = _dependencies.forumTabs ?? ForumTabStore();

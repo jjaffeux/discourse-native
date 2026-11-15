@@ -127,7 +127,9 @@ Requirements line with it.
   is serialized and committed), `data/serial_operation_queue.dart` (how reads
   observe already-accepted preference writes), `data/origin_request_gate.dart`
   (how aggregate and per-origin concurrency, bounded backlogs, cooldown
-  policies, leases, and shutdown are coordinated), `data/media_pipeline.dart`
+  policies, leases, and shutdown are coordinated), `data/content_snapshot_store.dart`
+  (what an account's last-seen content is kept as on disk, how much of it,
+  and when it is deleted; see `docs/offline-snapshots.md`), `data/media_pipeline.dart`
   (ownership, replacement, and shared admission for avatar and emoji caches),
   `foundation/loopback_host.dart` (which hosts may use plaintext development
   transports),

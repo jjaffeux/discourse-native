@@ -16,6 +16,7 @@ import 'discourse_transport.dart';
 import 'json_decode.dart';
 import 'site_lookup_failure.dart';
 import 'topic_reads_api.dart';
+import 'wire_body.dart';
 import 'write_failure.dart';
 
 final class DiscourseTopicApi {
@@ -117,6 +118,7 @@ final class DiscourseTopicApi {
         clientId: clientId,
         project: _models.topicList,
         workerProjection: _topicListProjection,
+        wireOwner: (list) => list,
       );
     }
     final body = await _transport.getObject(
@@ -220,6 +222,7 @@ final class DiscourseTopicApi {
       clientId: clientId,
       project: _models.topic,
       workerProjection: _topicProjection,
+      wireOwner: (payload) => payload.detail,
     );
   }
 
@@ -1012,23 +1015,11 @@ final class DiscourseTopicApi {
       String,
     )
     workerProjection,
+    Object Function(T value)? wireOwner,
     String? apiKey,
     String? clientId,
     Future<void>? abortTrigger,
   }) async {
-    final recipe = _models.topicModelRecipe;
-    if (recipe == null) {
-      return project(
-        await _transport.getObject(
-          url,
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          abortTrigger: abortTrigger,
-        ),
-        siteUrl,
-      );
-    }
     final response = await _transport.get(
       url,
       siteUrl: siteUrl,
@@ -1036,8 +1027,17 @@ final class DiscourseTopicApi {
       clientId: clientId,
       abortTrigger: abortTrigger,
     );
+    T retained(T value) {
+      if (wireOwner != null) {
+        WireBody.attach(wireOwner(value), WireBody.of(response));
+      }
+      return value;
+    }
+
+    final recipe = _models.topicModelRecipe;
     final invalidRootMessage = appL10n.expectedAJSONObject;
-    if (response.bodyBytes.length < backgroundJsonDecodeThreshold) {
+    if (recipe == null ||
+        response.bodyBytes.length < backgroundJsonDecodeThreshold) {
       final Map<String, dynamic> body;
       try {
         body = _topicResponseObject(
@@ -1052,7 +1052,7 @@ final class DiscourseTopicApi {
           causeStackTrace: stackTrace,
         );
       }
-      return project(body, siteUrl);
+      return retained(project(body, siteUrl));
     }
     final _TopicModelResult<T> result;
     try {
@@ -1074,7 +1074,7 @@ final class DiscourseTopicApi {
       );
     }
     return switch (result) {
-      _ProjectedTopicModel<T>(:final value) => value,
+      _ProjectedTopicModel<T>(:final value) => retained(value),
       _FailedTopicModel<T>(:final error, :final stackTrace) =>
         Error.throwWithStackTrace(error, stackTrace),
     };
@@ -1110,6 +1110,71 @@ final class DiscourseTopicApi {
       _requirePositiveId(id, 'ids');
     }
   }
+}
+
+/// Reads back a topic list a snapshot kept, through the parser that read it
+/// from the network.
+Future<TopicList> decodeTopicListWire(
+  DiscourseModelCodec models,
+  String wire,
+  String siteUrl,
+) => _decodeTopicModelWire(
+  models,
+  wire,
+  siteUrl,
+  project: models.topicList,
+  workerProjection: _topicListProjection,
+);
+
+Future<TopicPayload> decodeTopicWire(
+  DiscourseModelCodec models,
+  String wire,
+  String siteUrl,
+) => _decodeTopicModelWire(
+  models,
+  wire,
+  siteUrl,
+  project: models.topic,
+  workerProjection: _topicProjection,
+);
+
+Future<T> _decodeTopicModelWire<T>(
+  DiscourseModelCodec models,
+  String wire,
+  String siteUrl, {
+  required T Function(Map<String, dynamic>, String) project,
+  required _TopicModelProjection<T> Function(
+    TopicModelCodecRecipe,
+    String,
+    String,
+    String,
+  )
+  workerProjection,
+}) async {
+  final recipe = models.topicModelRecipe;
+  final invalidRootMessage = appL10n.expectedAJSONObject;
+  if (recipe == null) {
+    return decodeAndProjectJsonText(
+      wire,
+      project: (decoded) =>
+          project(_topicResponseObject(decoded, invalidRootMessage), siteUrl),
+      backgroundThreshold: wire.length + 1,
+    );
+  }
+  final result = await decodeAndProjectJsonText(
+    wire,
+    project: workerProjection(
+      recipe,
+      siteUrl,
+      Intl.getCurrentLocale(),
+      invalidRootMessage,
+    ),
+  );
+  return switch (result) {
+    _ProjectedTopicModel<T>(:final value) => value,
+    _FailedTopicModel<T>(:final error, :final stackTrace) =>
+      Error.throwWithStackTrace(error, stackTrace),
+  };
 }
 
 sealed class _TopicModelResult<T> {

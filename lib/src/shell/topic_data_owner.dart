@@ -20,6 +20,7 @@ import '../models/topic_link.dart';
 import '../plugin_api/topic_reader.dart';
 import 'bookmark_transactions.dart';
 import 'checklist_topic_data.dart';
+import 'content_snapshots.dart';
 import 'topic_prefetch_controller.dart';
 
 typedef TopicDataPosition = ({String slug, int postNumber});
@@ -87,6 +88,7 @@ final class TopicDataOwner with AccountScopedState {
     this.acceptedPost,
     this.ignoredUsernames,
     this.currentUserId,
+    this.snapshots,
   });
 
   final TopicContentApi content;
@@ -112,6 +114,7 @@ final class TopicDataOwner with AccountScopedState {
   final void Function(String siteUrl, int topicId, Post post)? acceptedPost;
   final Set<String> Function(String siteUrl)? ignoredUsernames;
   final int? Function(String siteUrl)? currentUserId;
+  final TopicSnapshots? snapshots;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
   bool _disposed = false;
@@ -169,6 +172,10 @@ final class _TopicState {
   bool refreshPending = false;
   int? refreshPostNumber;
   bool stale = false;
+
+  /// The one question this session puts to the last launch about the topic.
+  Future<void>? hydration;
+  bool hydrated = false;
   Object? newerPage;
   Object? earlierPage;
   Object? summaryRead;
@@ -804,10 +811,14 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     return _readIsCurrent(stamp);
   }
 
+  /// [restored] publishes what the last launch kept: it fills only what this
+  /// session does not hold and leaves the topic stale, so the open that
+  /// follows asks the site as if nothing had been shown.
   TopicDetail? _publishTopic(
     TopicPayload response,
     _ReadStamp stamp, {
     bool positioned = false,
+    bool restored = false,
   }) {
     if (!_readIsCurrent(stamp)) return null;
     final payload = _withoutRemoved(response, stamp.removals);
@@ -818,6 +829,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
       topicId,
       payload.posts,
       stamp,
+      onlyUnloaded: restored,
       restoreRedacted: _owner.usesReader?.call(siteUrl, payload.detail) != true,
     )) {
       return null;
@@ -855,7 +867,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
       }
     }
     if (!_readIsCurrent(stamp)) return null;
-    state.stale = false;
+    state.stale = restored;
     state.acceptedReads++;
     _update<Topic>(topicId, (row) {
       final accepted = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
@@ -1044,6 +1056,12 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
   }) async {
     if (!isCurrent) return;
     final state = _topic(topicId);
+    if (_owner.snapshots != null &&
+        !state.hydrated &&
+        !_store.containsRecord<TopicDetail>(siteUrl, topicId)) {
+      await (state.hydration ??= _hydrate(topicId, state));
+      if (!isCurrent) return;
+    }
     if (postNumber != null) {
       state.positions++;
     }
@@ -1218,6 +1236,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
 
       received = _publishTopic(fetched, stamp, positioned: postNumber != null);
       if (received != null && isCurrent) {
+        _owner.snapshots?.rememberTopic(siteUrl, lease, fetched);
         final custom = _owner.usesReader?.call(siteUrl, received) == true;
         if (!custom) {
           _resolveLastPost(
@@ -1286,6 +1305,34 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     }
   }
 
+  /// Runs at most once per topic and session, before its first open asks the
+  /// site. Anything a request began or published while the file was being
+  /// read is newer than the file, so the answer is then dropped.
+  Future<void> _hydrate(int topicId, _TopicState state) async {
+    try {
+      final payload = await _owner.snapshots!.topic(siteUrl, lease, topicId);
+      if (payload == null || !isCurrent || payload.detail.id != topicId) return;
+      if (state.reading != null ||
+          state.acceptedReads > 0 ||
+          _store.containsRecord<TopicDetail>(siteUrl, topicId)) {
+        return;
+      }
+      final restored = _publishTopic(payload, (
+        notification: null,
+        bookmarks: _bookmarks.revision(topicId),
+        actions: actionEpoch,
+        archive: state.archive,
+        removals: state.removals,
+        streams: state.streams,
+        likes: state.likes,
+        redacted: const {},
+      ), restored: true);
+      if (restored != null) _changed();
+    } finally {
+      state.hydrated = true;
+    }
+  }
+
   Future<void> refresh(int topicId, {String slug = '', int? postNumber}) async {
     if (!isCurrent) return;
     final state = _topic(topicId);
@@ -1329,6 +1376,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
         positioned: postNumber != null,
       );
       if (received != null) {
+        if (isCurrent) _owner.snapshots?.rememberTopic(siteUrl, lease, payload);
         _resolveLastPost(
           topicId,
           postNumber,

@@ -110,6 +110,13 @@ final class PrivateFileDocument<T> {
         return result.value;
       });
 
+  /// Removes the document under the lock an update commits under. A
+  /// transaction admitted earlier therefore finishes first and cannot put the
+  /// document back afterwards.
+  Future<void> delete() => _transact((target) async {
+    if (await target.exists()) await target.delete();
+  });
+
   Future<T> _read(File target) async {
     if (!await target.exists()) return _empty();
     restrictPrivateFile(target);

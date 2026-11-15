@@ -15,6 +15,7 @@ class TopicFeed {
     this.error,
     this.pageError = false,
     this.loaded = false,
+    this.stale = false,
     this.nextPagePath,
     this.canCreateTopic = false,
     this.filterOptions = const [],
@@ -25,10 +26,11 @@ class TopicFeed {
 
   const TopicFeed.failed(String message) : this(error: message, loaded: true);
 
-  TopicFeed.of(TopicList list)
+  TopicFeed.of(TopicList list, {bool stale = false})
     : this(
         topicIds: [for (final topic in list.topics) topic.id],
         loaded: true,
+        stale: stale,
         nextPagePath: list.nextPagePath,
         canCreateTopic: list.canCreateTopic,
         filterOptions: list.filterOptions,
@@ -45,6 +47,7 @@ class TopicFeed {
     bool clearError = false,
     bool? pageError,
     bool? loaded,
+    bool? stale,
     String? nextPagePath,
     bool clearNextPage = false,
     bool? canCreateTopic,
@@ -61,6 +64,7 @@ class TopicFeed {
       error: clearError ? null : (error ?? this.error),
       pageError: clearError ? false : (pageError ?? this.pageError),
       loaded: loaded ?? this.loaded,
+      stale: stale ?? this.stale,
       nextPagePath: clearNextPage ? null : (nextPagePath ?? this.nextPagePath),
       canCreateTopic: canCreateTopic ?? this.canCreateTopic,
       filterOptions: filterOptions ?? this.filterOptions,
@@ -91,6 +95,7 @@ class TopicFeed {
       error: error,
       pageError: pageError,
       loaded: loaded,
+      stale: stale,
       nextPagePath: nextPagePath,
       canCreateTopic: canCreateTopic,
       filterOptions: filterOptions,
@@ -104,6 +109,7 @@ class TopicFeed {
     hiddenRows: _hiddenRows,
     loading: true,
     loaded: loaded,
+    stale: stale,
     nextPagePath: nextPagePath,
     canCreateTopic: canCreateTopic,
     filterOptions: filterOptions,
@@ -117,6 +123,7 @@ class TopicFeed {
     loadingMore: true,
     loadingIncoming: loadingIncoming,
     loaded: loaded,
+    stale: stale,
     nextPagePath: nextPagePath,
     canCreateTopic: canCreateTopic,
     filterOptions: filterOptions,
@@ -131,6 +138,7 @@ class TopicFeed {
     error: message,
     pageError: page,
     loaded: true,
+    stale: stale,
     nextPagePath: nextPagePath,
     canCreateTopic: canCreateTopic,
     filterOptions: filterOptions,
@@ -218,6 +226,11 @@ class TopicFeed {
   bool get hasMore => nextPagePath != null;
 
   final bool loaded;
+
+  /// The rows were read from the last launch's snapshot and no request has
+  /// confirmed them since. Every such feed is being, or has just failed to
+  /// be, revalidated.
+  final bool stale;
   final bool canCreateTopic;
   final List<TopicFilterOption> filterOptions;
 

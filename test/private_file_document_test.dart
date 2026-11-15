@@ -33,6 +33,24 @@ void main() {
       expect(await target.exists(), isFalse);
     });
 
+    test('delete removes the document behind an earlier update', () async {
+      final document = _mapDocument(target.path);
+
+      final updating = document.update<void>((values) {
+        values['secret'] = 'value';
+        return PrivateFileResult.done;
+      });
+      final deleting = document.delete();
+      await Future.wait([updating, deleting]);
+
+      expect(await target.exists(), isFalse);
+      expect(
+        await document.read((values) => PrivateFileResult(Map.of(values))),
+        isEmpty,
+      );
+      await document.delete();
+    });
+
     test(
       'commits data with owner-only directory, file, and lock modes',
       () async {
