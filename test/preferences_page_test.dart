@@ -11,11 +11,13 @@ import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_user.dart';
+import 'package:discourse_native/src/models/user_auth_token.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_profile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
+import 'package:discourse_native/src/shell/composer/upload_picker.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/header_preferences.dart';
 import 'package:discourse_native/src/shell/preference_fields.dart';
@@ -135,6 +137,7 @@ Future<void> _pumpPage(
   bool settle = true,
   ThemeData? theme,
   Future<ComposerUploadFile?> Function()? pickPicture,
+  Future<bool> Function(String url)? openLink,
 }) async {
   tester.view.physicalSize = Size(width, 900);
   tester.view.devicePixelRatio = 1;
@@ -150,12 +153,11 @@ Future<void> _pumpPage(
             body: SizedBox(
               width: width,
               height: 900,
-              child: pickPicture == null
-                  ? const PreferencesPage(siteUrl: _siteUrl)
-                  : PreferencesPage(
-                      siteUrl: _siteUrl,
-                      pickPicture: pickPicture,
-                    ),
+              child: PreferencesPage(
+                siteUrl: _siteUrl,
+                pickPicture: pickPicture ?? pickProfilePicture,
+                openLink: openLink ?? (_) async => false,
+              ),
             ),
           ),
         ),
@@ -254,6 +256,33 @@ DButton _changeEmail(WidgetTester tester) =>
     tester.widget<DButton>(_changeEmailFinder);
 Finder get _emailSent => find.byKey(const ValueKey('preferences-email-sent'));
 Finder get _emailError => find.byKey(const ValueKey('preferences-email-error'));
+
+final _sessions = _preferences.copyWith(
+  authTokens: [
+    UserAuthToken(
+      id: 41,
+      browser: 'Firefox',
+      os: 'macOS',
+      location: 'Paris, France',
+      seenAt: DateTime.now().subtract(const Duration(days: 3)),
+    ),
+    const UserAuthToken(id: 42, browser: 'Safari', device: 'iPhone'),
+  ],
+);
+Finder _session(int id) => find.byKey(ValueKey('preferences-auth-token-$id'));
+Finder _signOut(int id) =>
+    find.byKey(ValueKey('preferences-auth-token-revoke-$id'));
+Finder get _confirmSignOut =>
+    find.byKey(const ValueKey('preferences-auth-token-confirm'));
+Finder _openWebsite(String row) =>
+    find.byKey(ValueKey('preferences-security-open-$row'));
+
+Future<void> _signOutSession(WidgetTester tester, int id) async {
+  await tester.ensureVisible(_signOut(id));
+  await tester.tap(_signOut(id));
+  await tester.pumpAndSettle();
+  await tester.tap(_confirmSignOut);
+}
 
 Finder _removeMuted(String username) => find.descendant(
   of: _mutedChip(username),
@@ -1242,6 +1271,198 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(tester.getSize(_newEmail).width, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('security', () {
+    testWidgets('what needs a browser session opens its own web page', (
+      tester,
+    ) async {
+      final opened = <String>[];
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(
+        tester,
+        fixture,
+        openLink: (url) async {
+          opened.add(url);
+          return true;
+        },
+      );
+      await _section(tester, PreferenceSection.security);
+
+      for (final row in ['password', 'second-factor', 'passkeys']) {
+        await tester.ensureVisible(_openWebsite(row));
+        await tester.tap(_openWebsite(row));
+        await tester.pumpAndSettle();
+      }
+
+      expect(opened, [
+        '$_siteUrl/u/reader/preferences/security',
+        '$_siteUrl/u/reader/preferences/second-factor',
+        '$_siteUrl/u/reader/preferences/security',
+      ]);
+      expect(
+        find.byKey(const ValueKey('preferences-security-link-error')),
+        findsNothing,
+      );
+      expect(find.byType(DInput), findsNothing);
+      expect(find.byType(DInputOTP), findsNothing);
+      expect(fixture.api.authTokenRevocations, isEmpty);
+    });
+
+    testWidgets('a browser that would not open is reported', (tester) async {
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture, openLink: (_) async => false);
+      await _section(tester, PreferenceSection.security);
+
+      await tester.tap(_openWebsite('password'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't open the website."), findsOneWidget);
+    });
+
+    testWidgets('lists the browsers and signs one out after confirming', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+      expect(find.text('Firefox on macOS'), findsOneWidget);
+      expect(find.text('Paris, France · Last seen 3d'), findsOneWidget);
+      expect(find.text('Safari on iPhone'), findsOneWidget);
+
+      await tester.ensureVisible(_signOut(41));
+      await tester.tap(_signOut(41));
+      await tester.pumpAndSettle();
+      expect(find.text('Sign out this browser?'), findsOneWidget);
+      expect(
+        find.text('Firefox on macOS will have to sign in again.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(fixture.api.authTokenRevocations, isEmpty);
+      expect(_session(41), findsOneWidget);
+
+      await _signOutSession(tester, 41);
+      await tester.pumpAndSettle();
+      expect(fixture.api.authTokenRevocations, [
+        (username: 'reader', tokenId: 41),
+      ]);
+      expect(_session(41), findsNothing);
+      expect(_session(42), findsOneWidget);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .confirmed!
+            .authTokens
+            .single
+            .id,
+        42,
+      );
+    });
+
+    testWidgets('every sign-out waits while one is on its way', (tester) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _sessions);
+      fixture.api.authTokenRevokeHandler = (_) => gate.future;
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+      await _signOutSession(tester, 41);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(tester.widget<DButton>(_signOut(41)).loading, isTrue);
+      expect(tester.widget<DButton>(_signOut(41)).onPressed, isNull);
+      expect(tester.widget<DButton>(_signOut(42)).onPressed, isNull);
+      expect(_session(41), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_session(41), findsNothing);
+      expect(tester.widget<DButton>(_signOut(42)).onPressed, isNotNull);
+    });
+
+    testWidgets('a refused sign-out says why and keeps the browser listed', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _sessions);
+      fixture.api.authTokenRevokeHandler = (_) async =>
+          throw const WriteException(
+            WriteFailure.validation,
+            errors: ['That session could not be signed out.'],
+          );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+      await _signOutSession(tester, 41);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('preferences-auth-tokens-error')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('That session could not be signed out.'),
+        findsOneWidget,
+      );
+      expect(_session(41), findsOneWidget);
+    });
+
+    testWidgets('no sessions and the requesting session offer no sign-out', (
+      tester,
+    ) async {
+      final empty = await _fixture();
+      await _pumpPage(tester, empty);
+      await _section(tester, PreferenceSection.security);
+      expect(find.text('No browsers are signed in.'), findsOneWidget);
+      expect(_openWebsite('password'), findsOneWidget);
+
+      final active = await _fixture(
+        preferences: _preferences.copyWith(
+          authTokens: const [
+            UserAuthToken(id: 9, browser: 'Chrome', isActive: true),
+          ],
+        ),
+      );
+      await _pumpPage(tester, active);
+      await _section(tester, PreferenceSection.security);
+      expect(_session(9), findsOneWidget);
+      expect(find.text('Chrome'), findsOneWidget);
+      expect(_signOut(9), findsNothing);
+    });
+
+    testWidgets('its actions are named for a screen reader', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+
+      expect(find.bySemanticsLabel('Open website: Password'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Open website: Two-factor authentication'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Open website: Passkeys'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Sign out Firefox on macOS'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.security);
+      await tester.ensureVisible(_signOut(42));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(_session(41)).right, lessThanOrEqualTo(320));
+      expect(tester.getRect(_signOut(42)).right, lessThanOrEqualTo(320));
     });
   });
 

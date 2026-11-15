@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/user_auth_token.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
@@ -474,6 +475,57 @@ void main() {
       requested.withEmailChangeRequested('new@example.org').unconfirmedEmails,
       ['old-request@example.org', 'new@example.org'],
     );
+  });
+
+  test('reads the browser sessions and drops rows it cannot name', () {
+    final loaded = UserPreferences.fromJson(const {
+      'user_auth_tokens': [
+        {
+          'id': 41,
+          'client_ip': '203.0.113.9',
+          'location': ' Paris, France ',
+          'browser': 'Firefox',
+          'device': 'Mac',
+          'os': 'macOS',
+          'seen_at': '2026-11-14T09:30:00.000Z',
+          'is_active': false,
+        },
+        {'id': '42', 'is_active': true},
+        {'browser': 'No id'},
+        'not a row',
+        null,
+      ],
+    });
+    expect(loaded.authTokens, [
+      UserAuthToken(
+        id: 41,
+        location: 'Paris, France',
+        browser: 'Firefox',
+        device: 'Mac',
+        os: 'macOS',
+        seenAt: DateTime.utc(2026, 11, 14, 9, 30),
+      ),
+      const UserAuthToken(id: 42, isActive: true),
+    ]);
+    expect(() => loaded.authTokens.clear(), throwsUnsupportedError);
+
+    for (final malformed in <Object?>[
+      null,
+      'tokens',
+      3,
+      {'id': 1},
+    ]) {
+      expect(
+        UserPreferences.fromJson({
+          'user_auth_tokens': malformed,
+        }, fallback: loaded).authTokens,
+        loaded.authTokens,
+      );
+    }
+    expect(loaded.withoutAuthToken(41).authTokens.single.id, 42);
+    expect(loaded.withoutAuthToken(7), loaded);
+    expect(loaded.payloadFor(PreferenceSection.security), isEmpty);
+    expect(UserAuthToken.fromJson(const {'id': 'forty-one'}), isNull);
   });
 
   test('writes each section with exact flat web field names', () {

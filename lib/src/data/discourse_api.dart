@@ -861,6 +861,21 @@ class DiscourseApi
   );
 
   @override
+  Future<void> revokeAuthToken({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int tokenId,
+    String? clientId,
+  }) async => _account.revokeAuthToken(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    tokenId: tokenId,
+    clientId: clientId,
+  );
+
+  @override
   Future<void> requestEmailChange({
     required String siteUrl,
     required String apiKey,

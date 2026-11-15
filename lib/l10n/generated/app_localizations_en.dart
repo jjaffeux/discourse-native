@@ -16440,4 +16440,81 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get thisSiteManagesYourEmail =>
       'This site does not let this account change its email here.';
+
+  @override
+  String get security => 'Security';
+
+  @override
+  String get securityPassword => 'Password';
+
+  @override
+  String get securityPasswordDescription =>
+      'Changing a password is confirmed by email in a browser, so it starts on the website.';
+
+  @override
+  String get twoFactorAuthentication => 'Two-factor authentication';
+
+  @override
+  String get twoFactorAuthenticationDescription =>
+      'Authenticator apps, security keys and backup codes are managed on the website, which confirms your password first.';
+
+  @override
+  String get passkeys => 'Passkeys';
+
+  @override
+  String get passkeysDescription =>
+      'Passkeys are added and removed on the website, which confirms it is you first.';
+
+  @override
+  String get openOnTheWebsite => 'Open website';
+
+  @override
+  String openOnTheWebsiteFor(String setting) {
+    return 'Open website: $setting';
+  }
+
+  @override
+  String get couldnTOpenTheWebsite => 'Couldn\'t open the website.';
+
+  @override
+  String get signedInBrowsers => 'Signed-in browsers';
+
+  @override
+  String get signedInBrowsersDescription =>
+      'Browsers signed in to your account. This app is not listed: disconnect it by removing the forum.';
+
+  @override
+  String get noBrowsersAreSignedIn => 'No browsers are signed in.';
+
+  @override
+  String browserOnSystem(String browser, String system) {
+    return '$browser on $system';
+  }
+
+  @override
+  String get unknownBrowser => 'Unknown browser';
+
+  @override
+  String lastSeenAgo(String when) {
+    return 'Last seen $when';
+  }
+
+  @override
+  String get signOutBrowser => 'Sign out';
+
+  @override
+  String signOutBrowserNamed(String name) {
+    return 'Sign out $name';
+  }
+
+  @override
+  String get signOutThisBrowser => 'Sign out this browser?';
+
+  @override
+  String signOutThisBrowserDescription(String name) {
+    return '$name will have to sign in again.';
+  }
+
+  @override
+  String get signingOut => 'Signing out…';
 }

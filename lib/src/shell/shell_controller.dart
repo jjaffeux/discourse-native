@@ -128,6 +128,7 @@ import 'account_destination_bookmarks.dart';
 import 'account_email_transactions.dart';
 import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
+import 'auth_token_transactions.dart';
 import 'badges_controller.dart';
 import 'bookmark_link_resolver.dart';
 import 'bookmark_transactions.dart';
@@ -1002,6 +1003,16 @@ class ShellController extends FrameSafeNotifier
     onRequested: (instance, email) => preferences.confirmOutsideSections(
       instance,
       (current) => current.withEmailChangeRequested(email),
+    ),
+  );
+
+  late final AuthTokenTransactions authTokens = AuthTokenTransactions(
+    api: api.userAuthTokens,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    onRevoked: (instance, tokenId) => preferences.confirmOutsideSections(
+      instance,
+      (current) => current.withoutAuthToken(tokenId),
     ),
   );
 
@@ -7825,6 +7836,7 @@ class ShellController extends FrameSafeNotifier
     ..register(profileAvatar)
     ..register(ignoredUsers)
     ..register(accountEmail)
+    ..register(authTokens)
     ..register(ownAvatars)
     ..register(
       AccountScopedState.step((siteUrl) {
@@ -9014,6 +9026,7 @@ class ShellController extends FrameSafeNotifier
     profileAvatar.dispose();
     ignoredUsers.dispose();
     accountEmail.dispose();
+    authTokens.dispose();
     ownAvatars.dispose();
     topicFeeds.dispose();
     appSettings.dispose();

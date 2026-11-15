@@ -26179,6 +26179,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This site does not let this account change its email here.'**
   String get thisSiteManagesYourEmail;
+
+  /// Title of the Security tab in Preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get security;
+
+  /// Title of the password row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get securityPassword;
+
+  /// Help text of the password row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing a password is confirmed by email in a browser, so it starts on the website.'**
+  String get securityPasswordDescription;
+
+  /// Title of the two-factor row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication'**
+  String get twoFactorAuthentication;
+
+  /// Help text of the two-factor row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticator apps, security keys and backup codes are managed on the website, which confirms your password first.'**
+  String get twoFactorAuthenticationDescription;
+
+  /// Title of the passkeys row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkeys'**
+  String get passkeys;
+
+  /// Help text of the passkeys row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkeys are added and removed on the website, which confirms it is you first.'**
+  String get passkeysDescription;
+
+  /// Button on a Security preferences row that opens the matching web preferences page in the browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open website'**
+  String get openOnTheWebsite;
+
+  /// Accessible name of the Open website button on a Security preferences row.
+  ///
+  /// In en, this message translates to:
+  /// **'Open website: {setting}'**
+  String openOnTheWebsiteFor(String setting);
+
+  /// Error on the Security preferences tab when the browser could not be opened.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t open the website.'**
+  String get couldnTOpenTheWebsite;
+
+  /// Title of the list of browser sessions on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed-in browsers'**
+  String get signedInBrowsers;
+
+  /// Help text under the Signed-in browsers title.
+  ///
+  /// In en, this message translates to:
+  /// **'Browsers signed in to your account. This app is not listed: disconnect it by removing the forum.'**
+  String get signedInBrowsersDescription;
+
+  /// Shown on the Security preferences tab when the account has no browser sessions.
+  ///
+  /// In en, this message translates to:
+  /// **'No browsers are signed in.'**
+  String get noBrowsersAreSignedIn;
+
+  /// Names one browser session, for example Firefox on macOS.
+  ///
+  /// In en, this message translates to:
+  /// **'{browser} on {system}'**
+  String browserOnSystem(String browser, String system);
+
+  /// Names a browser session the site could not identify.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown browser'**
+  String get unknownBrowser;
+
+  /// When a browser session was last used; the placeholder is a relative time such as 3d.
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen {when}'**
+  String lastSeenAgo(String when);
+
+  /// Button beside a browser session that ends it, and the confirming action of its dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get signOutBrowser;
+
+  /// Accessible name of the Sign out button beside one browser session.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out {name}'**
+  String signOutBrowserNamed(String name);
+
+  /// Title of the dialog that confirms ending a browser session.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out this browser?'**
+  String get signOutThisBrowser;
+
+  /// Body of the dialog that confirms ending a browser session.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will have to sign in again.'**
+  String signOutThisBrowserDescription(String name);
+
+  /// Label of the Sign out button while the request is on its way.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing out…'**
+  String get signingOut;
 }
 
 class _AppLocalizationsDelegate

@@ -19,6 +19,7 @@ import 'topic_content_api.dart';
 import 'topic_feeds_api.dart';
 import 'topic_mutations_api.dart';
 import 'topic_reads_api.dart';
+import 'user_auth_tokens_api.dart';
 import 'user_avatar_api.dart';
 import 'user_email_api.dart';
 import 'user_ignores_api.dart';
@@ -48,6 +49,7 @@ export 'topic_content_api.dart';
 export 'topic_feeds_api.dart';
 export 'topic_mutations_api.dart';
 export 'topic_reads_api.dart';
+export 'user_auth_tokens_api.dart';
 export 'user_avatar_api.dart';
 export 'user_email_api.dart';
 export 'user_ignores_api.dart';
@@ -87,6 +89,7 @@ abstract interface class ShellApiCapabilities
         DoNotDisturbApi,
         DraftsApi,
         UserAvatarApi,
+        UserAuthTokensApi,
         UserEmailApi,
         UserIgnoresApi,
         UserProfilesApi,

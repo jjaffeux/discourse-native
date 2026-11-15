@@ -704,6 +704,28 @@ final class DiscourseAccountApi {
     );
   }
 
+  Future<void> revokeAuthToken({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int tokenId,
+    String? clientId,
+  }) async {
+    await _transport.write(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}'
+        '/preferences/revoke-auth-token',
+      ),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      // Core signs every session out when no id is sent. The id is required
+      // here so that can never be asked for by leaving a value out.
+      body: {'token_id': tokenId},
+    );
+  }
+
   Future<void> requestEmailChange({
     required String siteUrl,
     required String apiKey,

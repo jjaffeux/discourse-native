@@ -201,6 +201,32 @@ void main() {
       expect(result.canMuteUsers, isTrue);
     });
 
+    test('a browser session is signed out by its id', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+      addTearDown(api.close);
+
+      await api.revokeAuthToken(
+        siteUrl: 'https://forum.example',
+        apiKey: 'key',
+        username: 'Reader',
+        tokenId: 41,
+      );
+
+      expect(sent.single.method, 'POST');
+      expect(
+        sent.single.url.toString(),
+        'https://forum.example/u/reader/preferences/revoke-auth-token',
+      );
+      expect(jsonDecode(sent.single.body), {'token_id': 41});
+      expect(sent.single.headers['User-Api-Key'], 'key');
+    });
+
     test('an email change is requested for the account, with the address '
         'in the body alone', () async {
       final sent = <http.Request>[];

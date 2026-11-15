@@ -2288,6 +2288,21 @@ class FakeDiscourseApi
     await avatarPickHandler?.call(uploadId);
   }
 
+  final List<({String username, int tokenId})> authTokenRevocations = [];
+  Future<void> Function(int tokenId)? authTokenRevokeHandler;
+
+  @override
+  Future<void> revokeAuthToken({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int tokenId,
+    String? clientId,
+  }) async {
+    authTokenRevocations.add((username: username, tokenId: tokenId));
+    await authTokenRevokeHandler?.call(tokenId);
+  }
+
   final List<({String username, String email})> emailChangeRequests = [];
   Future<void> Function(String email)? emailChangeHandler;
 

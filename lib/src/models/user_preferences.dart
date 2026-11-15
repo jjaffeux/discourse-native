@@ -4,6 +4,7 @@ import 'bookmark.dart';
 import 'json.dart';
 import 'notification_schedule.dart';
 import 'sidebar_tag.dart';
+import 'user_auth_token.dart';
 
 /// Core sections have fixed identities; plugins declare their own namespace.
 @immutable
@@ -32,7 +33,18 @@ final class PreferenceSection {
   /// The account's addresses. A change is requested at once and confirmed by
   /// mail, so this section shows values and has no draft of its own.
   static const email = PreferenceSection._core('email');
-  static const values = [profile, notifications, tracking, interface, users];
+
+  /// Browser sessions, and the way to the web for what needs a password or a
+  /// second factor. It has no draft of its own.
+  static const security = PreferenceSection._core('security');
+  static const values = [
+    profile,
+    notifications,
+    tracking,
+    interface,
+    users,
+    security,
+  ];
 
   final String owner;
   final String name;
@@ -85,6 +97,7 @@ final class UserPreferences {
     'secondary_emails',
     'unconfirmed_emails',
     'can_edit_email',
+    'user_auth_tokens',
     'user_option',
     'sidebar_tags',
   };
@@ -118,6 +131,7 @@ final class UserPreferences {
     this.secondaryEmails = const [],
     this.unconfirmedEmails = const [],
     this.canEditEmail = false,
+    this.authTokens = const [],
   });
 
   factory UserPreferences.fromJson(
@@ -220,6 +234,12 @@ final class UserPreferences {
         fallback.unconfirmedEmails,
       ),
       canEditEmail: _boolean(json, 'can_edit_email', fallback.canEditEmail),
+      authTokens: json['user_auth_tokens'] is List
+          ? List.unmodifiable([
+              for (final token in jsonArray(json['user_auth_tokens']))
+                ?UserAuthToken.fromJson(token),
+            ])
+          : fallback.authTokens,
     );
   }
 
@@ -302,6 +322,9 @@ final class UserPreferences {
   /// address changes off.
   final bool canEditEmail;
 
+  /// The account's browser sessions, which the site sends only to its owner.
+  final List<UserAuthToken> authTokens;
+
   /// What the site holds once it has started or stopped ignoring [username].
   /// Core lifts a mute of the same person in both directions, because a
   /// person has one level: normal, muted or ignored.
@@ -324,6 +347,14 @@ final class UserPreferences {
         (address) => address.toLowerCase() != email.toLowerCase(),
       ),
       email,
+    ],
+  );
+
+  /// What the site holds once it has signed the session [tokenId] out.
+  UserPreferences withoutAuthToken(int tokenId) => copyWith(
+    authTokens: [
+      for (final token in authTokens)
+        if (token.id != tokenId) token,
     ],
   );
 
@@ -429,6 +460,7 @@ final class UserPreferences {
     List<String>? secondaryEmails,
     List<String>? unconfirmedEmails,
     bool? canEditEmail,
+    List<UserAuthToken>? authTokens,
   }) => UserPreferences(
     sidebarCategoryIds: List.unmodifiable(
       sidebarCategoryIds ?? this.sidebarCategoryIds,
@@ -473,6 +505,7 @@ final class UserPreferences {
       unconfirmedEmails ?? this.unconfirmedEmails,
     ),
     canEditEmail: canEditEmail ?? this.canEditEmail,
+    authTokens: List.unmodifiable(authTokens ?? this.authTokens),
   );
 
   @override
@@ -506,7 +539,8 @@ final class UserPreferences {
           other.email == email &&
           listEquals(other.secondaryEmails, secondaryEmails) &&
           listEquals(other.unconfirmedEmails, unconfirmedEmails) &&
-          other.canEditEmail == canEditEmail;
+          other.canEditEmail == canEditEmail &&
+          listEquals(other.authTokens, authTokens);
 
   @override
   int get hashCode => Object.hash(
@@ -540,6 +574,7 @@ final class UserPreferences {
       Object.hashAll(secondaryEmails),
       Object.hashAll(unconfirmedEmails),
       canEditEmail,
+      Object.hashAll(authTokens),
     ),
   );
 

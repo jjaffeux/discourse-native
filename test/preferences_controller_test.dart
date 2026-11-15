@@ -484,6 +484,7 @@ void main() {
             PreferenceSection.tracking,
             PreferenceSection.interface,
             PreferenceSection.users,
+            PreferenceSection.security,
             chatPreferenceSection,
           ],
         );
@@ -541,6 +542,12 @@ void main() {
                 payload: const {'chat_separate_sidebar_mode': 'fullscreen'},
               ),
             };
+
+        // Security shows sessions and links; it has nothing to save.
+        expect(
+          const UserPreferences().payloadFor(PreferenceSection.security),
+          isEmpty,
+        );
 
         for (final MapEntry(key: section, value: testCase) in cases.entries) {
           final api = _PreferencesApi();

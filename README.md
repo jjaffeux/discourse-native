@@ -125,8 +125,29 @@ secret.
   address or `email_editable` is off, the tab shows the address and says it
   cannot be changed here. An address is held in memory for the tab and is not
   logged: `ErrorLog` replaces any address in a captured error with `<email>`.
+- **Security.** The app never asks for a password, a second-factor code, a
+  backup code or a passkey, and never sends one. **Password**, **Two-factor
+  authentication** and **Passkeys** each open the site's own page in the
+  browser: `/u/{username}/preferences/security` or
+  `/u/{username}/preferences/second-factor`. Core manages second factors and
+  passkeys only in a session it has just confirmed with the password
+  (`session_is_trusted?` in `users_controller.rb`), which a user API key
+  cannot have. A password reset is `POST /session/forgot_password`, which the
+  key could send. It still links out, because with code logins enabled core
+  mails a code tied to the browser session that asked
+  (`enqueue_password_reset_for_user` in `session_controller.rb`), and a code
+  asked for by the app could not be redeemed anywhere.
+- **Signed-in browsers.** The same tab lists `user_auth_tokens` from
+  `/u/{username}.json`: browser, system, location and when each session was
+  last seen. The session's IP address is not read. **Sign out** asks for
+  confirmation, then sends that session's id to
+  `POST /u/{username}/preferences/revoke-auth-token`, which core allows for
+  any signed-in owner of the account. The id is always sent, because core
+  signs every session out when it is missing. The app's own access is a user
+  API key, not one of these sessions. It is revoked by removing the forum.
 
-`IgnoredUsersTransactions` and `AccountEmailTransactions` each own their
+`IgnoredUsersTransactions`, `AccountEmailTransactions` and
+`AuthTokenTransactions` each own their
 request per account session and have their own notifier. They compose
 `AccountWrites`, which holds what every immediate
 account write shares: one request at a time per site, because the site
