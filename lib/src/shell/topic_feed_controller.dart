@@ -819,7 +819,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     IncomingTopics? incoming,
     bool Function(String path)? wherePath,
   }) {
-    if (isDisposed || !lifecycle.owns(instance.url, lease) || !lease.isCurrent) {
+    if (isDisposed ||
+        !lifecycle.owns(instance.url, lease) ||
+        !lease.isCurrent) {
       return Future.value(false);
     }
     final key = (instance.url, lease.session);

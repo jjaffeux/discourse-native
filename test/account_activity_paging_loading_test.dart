@@ -287,7 +287,11 @@ void main() {
         expect(find.text('$prefix $pageSize'), findsOneWidget);
         final skeleton = find.byType(DSkeletonRegion);
         if (page == _Page.bookmarks) {
-          await tester.scrollUntilVisible(skeleton, 160, scrollable: scrollable);
+          await tester.scrollUntilVisible(
+            skeleton,
+            160,
+            scrollable: scrollable,
+          );
         }
         expect(skeleton, findsOneWidget);
         expect(find.byType(DSkeleton), findsWidgets);

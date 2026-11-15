@@ -8,7 +8,10 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/data/discourse_site_api.dart': (76, 0),
   'lib/src/data/discourse_composer_api.dart': (77, 0),
   'lib/src/plugins/nested_replies/nested_replies_services.dart': (188, 2),
-  'lib/src/plugins/nested_replies/nested_replies_bulk_controller.dart': (184, 2),
+  'lib/src/plugins/nested_replies/nested_replies_bulk_controller.dart': (
+    184,
+    2,
+  ),
   'lib/src/plugins/policy/policy_email_preferences.dart': (182, 2),
   'lib/src/plugins/voice/voice_room_onebox_data.dart': (3, 0),
   'lib/src/shell/post_mutation_policy.dart': (128, 1),

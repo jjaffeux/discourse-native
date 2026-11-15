@@ -162,7 +162,4 @@ export 'src/theme/code_colors.dart';
 export 'src/theme/discourse_colors.dart';
 export 'src/theme/discourse_typography.dart' show DiscourseTypography;
 export 'src/utils/paging_policy.dart'
-    show
-        ScrollPagingGate,
-        UserScrollGestures,
-        paginationPrefetchDistance;
+    show ScrollPagingGate, UserScrollGestures, paginationPrefetchDistance;

@@ -9,7 +9,10 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/data/instance_store.dart': (42, 0),
   'lib/src/plugins/chat/chat_composer_draft_session.dart': (220, 2),
   'lib/src/plugins/gifs/gif_picker_session_impl.dart': (186, 2),
-  'lib/src/plugins/nested_replies/nested_replies_admin_controller.dart': (184, 2),
+  'lib/src/plugins/nested_replies/nested_replies_admin_controller.dart': (
+    184,
+    2,
+  ),
   'lib/src/shell/header_preferences_controller.dart': (7, 0),
   'lib/src/shell/message_archive_transactions.dart': (133, 1),
   'lib/src/shell/topic_navigation_attempts.dart': (127, 1),
