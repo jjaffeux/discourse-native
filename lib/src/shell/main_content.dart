@@ -69,6 +69,7 @@ import 'topic_view.dart';
 import 'trackpad_history_region.dart';
 import 'user_activity.dart';
 import 'user_menu_button.dart';
+import 'user_profile_page.dart';
 import 'user_summary.dart';
 import 'users_page.dart';
 
@@ -1045,11 +1046,7 @@ class _ContentViewport extends StatelessWidget {
       ),
       MessagesDestination() when !isConnected =>
         const _SignedOutMessagesState(),
-      PageDestination(
-        :final page,
-        :final activityUsername,
-        :final reviewableId,
-      ) =>
+      PageDestination(:final page, :final username, :final reviewableId) =>
         site == null
             ? fallback
             : switch (page) {
@@ -1081,7 +1078,13 @@ class _ContentViewport extends StatelessWidget {
                 CorePage.activity => UserActivityView(
                   key: ObjectKey(route),
                   siteUrl: site,
-                  username: activityUsername,
+                  username: username,
+                  title: route.title,
+                ),
+                CorePage.profile => UserProfilePage(
+                  key: ObjectKey(route),
+                  siteUrl: site,
+                  username: username!,
                   title: route.title,
                 ),
                 CorePage.users => UsersDirectoryHost(siteUrl: site),

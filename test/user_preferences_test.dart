@@ -213,6 +213,92 @@ void main() {
     expect(updated, fallback.copyWith(likeNotificationFrequency: 2));
   });
 
+  test('reads the bio beside the options and keeps it across a partial '
+      'response', () {
+    final loaded = UserPreferences.fromJson(const {
+      'username': 'sam',
+      'bio_raw': 'I like **boats**.',
+      'can_change_bio': false,
+      'user_option': {'bio_raw': 'never read from the options'},
+    });
+    expect(loaded.bioRaw, 'I like **boats**.');
+    expect(loaded.canChangeBio, isFalse);
+
+    final empty = UserPreferences.fromJson(const {'bio_raw': null});
+    expect(empty.bioRaw, '');
+    expect(empty.canChangeBio, isTrue);
+
+    final partial = UserPreferences.fromJson(const {
+      'user_option': {'timezone': 'Europe/Paris'},
+    }, fallback: loaded);
+    expect(partial.bioRaw, 'I like **boats**.');
+    expect(partial.canChangeBio, isFalse);
+    expect(
+      UserPreferences.fromJson(const {'bio_raw': 7}, fallback: loaded).bioRaw,
+      'I like **boats**.',
+    );
+  });
+
+  test('reads what the account may do with its picture', () {
+    final loaded = UserPreferences.fromJson(const {
+      'can_edit_avatar': true,
+      'can_upload_avatar': true,
+      'uploaded_avatar_id': 42,
+    });
+    expect(loaded.canEditAvatar, isTrue);
+    expect(loaded.canUploadAvatar, isTrue);
+    expect(loaded.uploadedAvatarId, 42);
+
+    const none = UserPreferences();
+    expect(none.canEditAvatar, isFalse);
+    expect(none.canUploadAvatar, isFalse);
+    expect(none.uploadedAvatarId, isNull);
+
+    expect(
+      UserPreferences.fromJson(const {
+        'user_option': <String, Object?>{},
+      }, fallback: loaded),
+      loaded,
+    );
+    final letter = UserPreferences.fromJson(const {
+      'uploaded_avatar_id': null,
+      'can_upload_avatar': 'yes',
+    }, fallback: loaded);
+    expect(letter.uploadedAvatarId, isNull);
+    expect(letter.canUploadAvatar, isTrue);
+    expect(loaded.copyWith(uploadedAvatarId: null).uploadedAvatarId, isNull);
+    expect(loaded.copyWith(timezone: 'Etc/UTC').uploadedAvatarId, 42);
+    for (final section in [
+      ...PreferenceSection.values,
+      PreferenceSection.about,
+    ]) {
+      expect(
+        loaded.payloadFor(section).keys.where((key) => key.contains('avatar')),
+        isEmpty,
+      );
+    }
+  });
+
+  test('the bio is its own section, apart from the timezone', () {
+    const confirmed = UserPreferences(timezone: 'Etc/UTC', bioRaw: 'Before');
+    final draft = confirmed.copyWith(timezone: 'Asia/Tokyo', bioRaw: 'After');
+
+    expect(draft.payloadFor(PreferenceSection.about), {'bio_raw': 'After'});
+    expect(draft.payloadFor(PreferenceSection.profile), {
+      'timezone': 'Asia/Tokyo',
+    });
+    expect(
+      draft.withSectionFrom(PreferenceSection.about, confirmed),
+      confirmed.copyWith(timezone: 'Asia/Tokyo'),
+    );
+    expect(
+      draft.withSectionFrom(PreferenceSection.profile, confirmed),
+      confirmed.copyWith(bioRaw: 'After'),
+    );
+    expect(draft == confirmed.copyWith(timezone: 'Asia/Tokyo'), isFalse);
+    expect(UserPreferences.coreFields, contains('bio_raw'));
+  });
+
   test('writes each section with exact flat web field names', () {
     const preferences = UserPreferences(
       timezone: 'Asia/Tokyo',

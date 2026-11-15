@@ -121,7 +121,10 @@ class _UserSummaryViewState extends State<UserSummaryView> {
           );
         }
 
-        final state = controller.userSummary.stateFor(widget.siteUrl);
+        final state = controller.userSummary.stateFor(
+          widget.siteUrl,
+          instance!.user!.username,
+        );
         if (!state.loading && !state.loaded) _scheduleRequest();
         final summary = state.summary;
         if (summary == null) {
@@ -139,7 +142,7 @@ class _UserSummaryViewState extends State<UserSummaryView> {
         }
 
         return _SummaryContent(
-          key: ValueKey((widget.siteUrl, instance!.user!.username)),
+          key: ValueKey((widget.siteUrl, instance.user!.username)),
           instance: instance,
           summary: summary,
           error: state.error,
@@ -153,7 +156,7 @@ class _UserSummaryViewState extends State<UserSummaryView> {
 
 enum _SummaryTab { highlights, connections, reading }
 
-class _SummaryContent extends StatefulWidget {
+class _SummaryContent extends StatelessWidget {
   const _SummaryContent({
     super.key,
     required this.instance,
@@ -170,15 +173,66 @@ class _SummaryContent extends StatefulWidget {
   final Future<void> Function() onRefresh;
 
   @override
-  State<_SummaryContent> createState() => _SummaryContentState();
+  Widget build(BuildContext context) => UserSummarySections(
+    instance: instance,
+    username: instance.user!.username,
+    summary: summary,
+    builder: (context, tabs, panels) => Expanded(
+      child: _SummaryLayout(
+        profile: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ProfileCard(instance: instance, summary: summary),
+            _SummaryProfileMetadata(instance: instance),
+          ],
+        ),
+        controls: tabs,
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (error case final error?)
+              _SummaryErrorBanner(
+                error: error,
+                refreshing: refreshing,
+                onRetry: onRefresh,
+              ),
+            panels,
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
-class _SummaryContentState extends State<_SummaryContent> {
+/// The Highlights, Connections and Reading sections of one person's summary
+/// and the tabs that choose between them. [builder] places the two, so the
+/// tabs can sit in a page header or directly above the sections.
+class UserSummarySections extends StatefulWidget {
+  const UserSummarySections({
+    super.key,
+    required this.instance,
+    required this.username,
+    required this.summary,
+    required this.builder,
+  });
+
+  final DiscourseInstance instance;
+  final String username;
+  final UserSummary summary;
+  final Widget Function(BuildContext context, Widget tabs, Widget panels)
+  builder;
+
+  @override
+  State<UserSummarySections> createState() => _UserSummarySectionsState();
+}
+
+class _UserSummarySectionsState extends State<UserSummarySections> {
   _SummaryTab _tab = _SummaryTab.highlights;
   bool _restored = false;
 
   Object get _storageId =>
-      ('user-summary-tab', widget.instance.url, widget.instance.user!.username);
+      ('user-summary-tab', widget.instance.url, widget.username);
 
   @override
   void didChangeDependencies() {
@@ -200,21 +254,19 @@ class _SummaryContentState extends State<_SummaryContent> {
   }
 
   @override
-  Widget build(BuildContext context) => DTabs<_SummaryTab>.controlled(
-    value: _tab,
-    onChanged: _selectTab,
-    children: [
-      Expanded(
-        child: _SummaryLayout(
-          profile: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ProfileCard(instance: widget.instance, summary: widget.summary),
-              _SummaryProfileMetadata(instance: widget.instance),
-            ],
-          ),
-          controls: DTabList<_SummaryTab>(
+  Widget build(BuildContext context) {
+    final instance = widget.instance;
+    final summary = widget.summary;
+    // The wording addresses the reader only on their own summary.
+    final own =
+        instance.user?.username.toLowerCase() == widget.username.toLowerCase();
+    return DTabs<_SummaryTab>.controlled(
+      value: _tab,
+      onChanged: _selectTab,
+      children: [
+        widget.builder(
+          context,
+          DTabList<_SummaryTab>(
             variant: DTabListVariant.line,
             children: [
               DTabTrigger(
@@ -231,47 +283,151 @@ class _SummaryContentState extends State<_SummaryContent> {
               ),
             ],
           ),
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          Stack(
+            alignment: AlignmentDirectional.topStart,
             children: [
-              if (widget.error case final error?)
-                _SummaryErrorBanner(
-                  error: error,
-                  refreshing: widget.refreshing,
-                  onRetry: widget.onRefresh,
+              DTabPanel(
+                value: _SummaryTab.highlights,
+                child: _Highlights(
+                  instance: instance,
+                  summary: summary,
+                  own: own,
                 ),
-              Stack(
-                alignment: AlignmentDirectional.topStart,
-                children: [
-                  DTabPanel(
-                    value: _SummaryTab.highlights,
-                    child: _Highlights(
-                      instance: widget.instance,
-                      summary: widget.summary,
-                    ),
-                  ),
-                  DTabPanel(
-                    value: _SummaryTab.connections,
-                    child: _Connections(
-                      siteUrl: widget.instance.url,
-                      summary: widget.summary,
-                    ),
-                  ),
-                  DTabPanel(
-                    value: _SummaryTab.reading,
-                    child: _Reading(
-                      instance: widget.instance,
-                      summary: widget.summary,
-                    ),
-                  ),
-                ],
+              ),
+              DTabPanel(
+                value: _SummaryTab.connections,
+                child: _Connections(
+                  siteUrl: instance.url,
+                  summary: summary,
+                  own: own,
+                ),
+              ),
+              DTabPanel(
+                value: _SummaryTab.reading,
+                child: _Reading(
+                  instance: instance,
+                  username: widget.username,
+                  summary: summary,
+                ),
               ),
             ],
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
+}
+
+/// One person's summary as a section of another page's scroll content: it
+/// loads itself and draws its own signed-out, loading and failed states.
+class UserSummaryPanel extends StatefulWidget {
+  const UserSummaryPanel({
+    super.key,
+    required this.siteUrl,
+    required this.username,
+  });
+
+  final String siteUrl;
+  final String username;
+
+  @override
+  State<UserSummaryPanel> createState() => _UserSummaryPanelState();
+}
+
+class _UserSummaryPanelState extends State<UserSummaryPanel> {
+  bool _requestScheduled = false;
+
+  DiscourseInstance? _instance(ShellController controller) => controller
+      .instances
+      .where((instance) => instance.url == widget.siteUrl)
+      .firstOrNull;
+
+  Future<void> _load({bool refresh = false}) async {
+    final controller = ShellScope.read(context);
+    final instance = _instance(controller);
+    if (instance == null) return;
+    await controller.userSummary.load(
+      instance,
+      username: widget.username,
+      refresh: refresh,
+    );
+  }
+
+  // A retired account session drops its summaries while this section is
+  // still mounted, and a load cannot start during the build that notices.
+  void _scheduleRequest() {
+    if (_requestScheduled) return;
+    _requestScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestScheduled = false;
+      if (mounted) unawaited(_load());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    return ListenableBuilder(
+      listenable: controller.userSummary,
+      builder: (context, _) {
+        final instance = _instance(controller);
+        if (instance?.isConnected != true) {
+          return _SummaryMessage(
+            icon: DIcons.user,
+            title: context.l10n.connectThisAccountToSeeItsSummary,
+          );
+        }
+        final state = controller.userSummary.stateFor(
+          widget.siteUrl,
+          widget.username,
+        );
+        if (!state.loading && !state.loaded) _scheduleRequest();
+        final summary = state.summary;
+        if (summary == null) {
+          if (state.error case final error?) {
+            return _SummaryMessage(
+              icon: DIcons.triangleExclamation,
+              title: error,
+              actionLabel: context.l10n.tryAgain,
+              onAction: () => _load(refresh: true),
+            );
+          }
+          return DSkeletonRegion(
+            semanticsLabel: context.l10n.loadingSummary,
+            color: skeletonFill(context),
+            child: const _SectionStack(
+              children: [
+                DSkeleton(height: 76),
+                DSkeleton(height: 320),
+                DSkeleton(height: 320),
+              ],
+            ),
+          );
+        }
+        return UserSummarySections(
+          key: ValueKey((widget.siteUrl, widget.username.toLowerCase())),
+          instance: instance!,
+          username: widget.username,
+          summary: summary,
+          builder: (context, tabs, panels) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (state.error case final error?)
+                _SummaryErrorBanner(
+                  error: error,
+                  refreshing: state.loading,
+                  onRetry: () => _load(refresh: true),
+                ),
+              tabs,
+              const SizedBox(height: DSpacing.lg),
+              panels,
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 // Profile, line tabs and content share the shared reading column.
@@ -530,9 +686,14 @@ class _ProfileFacts extends StatelessWidget {
 }
 
 class _Highlights extends StatelessWidget {
-  const _Highlights({required this.instance, required this.summary});
+  const _Highlights({
+    required this.instance,
+    required this.summary,
+    required this.own,
+  });
   final DiscourseInstance instance;
   final UserSummary summary;
+  final bool own;
 
   @override
   Widget build(BuildContext context) {
@@ -543,10 +704,14 @@ class _Highlights extends StatelessWidget {
         if (summary.canSeeSummaryStats) _HeadlineStats(summary: summary),
         if (summary.topics.isEmpty && summary.replies.isEmpty && !hasBadges)
           _EmptyCard(
-            title: context.l10n.yourStoryStartsWithAConversation,
-            description: context
-                .l10n
-                .asYouReadReplyAndConnectWithPeopleYourHighlightsWill,
+            title: own
+                ? context.l10n.yourStoryStartsWithAConversation
+                : context.l10n.noHighlightsYet,
+            description: own
+                ? context
+                      .l10n
+                      .asYouReadReplyAndConnectWithPeopleYourHighlightsWill
+                : context.l10n.theirTopTopicsRepliesAndBadgesWillAppearHere,
           )
         else ...[
           _SummarySection(
@@ -582,7 +747,9 @@ class _Highlights extends StatelessWidget {
           ),
           if (instance.config.badgesEnabled)
             _SummarySection(
-              title: context.l10n.yourMilestones,
+              title: own
+                  ? context.l10n.yourMilestones
+                  : context.l10n.milestones,
               child: _BadgeRows(badges: summary.badges),
             ),
         ],
@@ -592,9 +759,14 @@ class _Highlights extends StatelessWidget {
 }
 
 class _Connections extends StatelessWidget {
-  const _Connections({required this.siteUrl, required this.summary});
+  const _Connections({
+    required this.siteUrl,
+    required this.summary,
+    required this.own,
+  });
   final String siteUrl;
   final UserSummary summary;
+  final bool own;
 
   @override
   Widget build(BuildContext context) {
@@ -603,8 +775,9 @@ class _Connections extends StatelessWidget {
         summary.mostLikedUsers.isEmpty) {
       return _EmptyCard(
         title: context.l10n.noConnectionsYet,
-        description:
-            context.l10n.thePeopleYouReplyToAndExchangeLikesWithWillAppear,
+        description: own
+            ? context.l10n.thePeopleYouReplyToAndExchangeLikesWithWillAppear
+            : context.l10n.thePeopleTheyReplyToAndExchangeLikesWithWillAppear,
       );
     }
     return _SectionStack(
@@ -644,8 +817,13 @@ class _Connections extends StatelessWidget {
 }
 
 class _Reading extends StatelessWidget {
-  const _Reading({required this.instance, required this.summary});
+  const _Reading({
+    required this.instance,
+    required this.username,
+    required this.summary,
+  });
   final DiscourseInstance instance;
+  final String username;
   final UserSummary summary;
 
   @override
@@ -716,7 +894,7 @@ class _Reading extends StatelessWidget {
             title: context.l10n.topCategories,
             child: _CategoryRows(
               siteUrl: instance.url,
-              username: instance.user!.username,
+              username: username,
               categories: summary.topCategories,
             ),
           ),
@@ -1730,32 +1908,51 @@ class _SummaryState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: SingleChildScrollView(
-      child: DEmpty(
-        children: [
-          DEmptyHeader(
-            children: [
-              DEmptyMedia(child: DIcon(icon, size: 32)),
-              Semantics(
-                liveRegion: icon == DIcons.triangleExclamation,
-                child: DEmptyTitle(title),
-              ),
-            ],
-          ),
-          if (actionLabel case final label?)
-            DEmptyContent(
-              children: [
-                DButton(
-                  label: Text(label),
-                  onPressed: onAction == null
-                      ? null
-                      : () => unawaited(onAction!()),
-                  variant: DButtonVariant.primary,
-                ),
-              ],
-            ),
-        ],
+      child: _SummaryMessage(
+        icon: icon,
+        title: title,
+        actionLabel: actionLabel,
+        onAction: onAction,
       ),
     ),
+  );
+}
+
+class _SummaryMessage extends StatelessWidget {
+  const _SummaryMessage({
+    required this.icon,
+    required this.title,
+    this.actionLabel,
+    this.onAction,
+  });
+  final DIconData icon;
+  final String title;
+  final String? actionLabel;
+  final Future<void> Function()? onAction;
+
+  @override
+  Widget build(BuildContext context) => DEmpty(
+    children: [
+      DEmptyHeader(
+        children: [
+          DEmptyMedia(child: DIcon(icon, size: 32)),
+          Semantics(
+            liveRegion: icon == DIcons.triangleExclamation,
+            child: DEmptyTitle(title),
+          ),
+        ],
+      ),
+      if (actionLabel case final label?)
+        DEmptyContent(
+          children: [
+            DButton(
+              label: Text(label),
+              onPressed: onAction == null ? null : () => unawaited(onAction!()),
+              variant: DButtonVariant.primary,
+            ),
+          ],
+        ),
+    ],
   );
 }
 

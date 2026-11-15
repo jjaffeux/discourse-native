@@ -11625,6 +11625,48 @@
       }
     }
   },
+  "reconnectToSeeThisSummary": "Reconnect to {instanceHost} to see this summary.",
+  "@reconnectToSeeThisSummary": {
+    "description": "Error shown in place of another person's summary when the account has no usable key.",
+    "placeholders": {
+      "instanceHost": {
+        "type": "String"
+      }
+    }
+  },
+  "couldnTLoadThisSummaryFrom": "Couldn''t load this summary from {instanceHost}.",
+  "@couldnTLoadThisSummaryFrom": {
+    "description": "Error shown in place of another person's summary when the request failed.",
+    "placeholders": {
+      "instanceHost": {
+        "type": "String"
+      }
+    }
+  },
+  "userProfileHidden": "This person has hidden their public profile.",
+  "@userProfileHidden": {
+    "description": "Message on a profile page whose owner hid their public profile."
+  },
+  "userProfileMissing": "This profile doesn''t exist or isn''t available to you.",
+  "@userProfileMissing": {
+    "description": "Message on a profile page when the site has no such person."
+  },
+  "noHighlightsYet": "No highlights yet.",
+  "@noHighlightsYet": {
+    "description": "Title of the empty Highlights section on another person's summary."
+  },
+  "theirTopTopicsRepliesAndBadgesWillAppearHere": "Their top topics, replies and badges will appear here.",
+  "@theirTopTopicsRepliesAndBadgesWillAppearHere": {
+    "description": "Description of the empty Highlights section on another person's summary."
+  },
+  "milestones": "Milestones",
+  "@milestones": {
+    "description": "Heading of the badges section on another person's summary."
+  },
+  "thePeopleTheyReplyToAndExchangeLikesWithWillAppear": "The people they reply to and exchange likes with will appear here.",
+  "@thePeopleTheyReplyToAndExchangeLikesWithWillAppear": {
+    "description": "Description of the empty Connections section on another person's summary."
+  },
   "replyingToThisTopic": "Replying to this topic",
   "@replyingToThisTopic": {
     "description": "English UI message used by shell/composer_reply_context.dart. Keep placeholders intact."
@@ -21203,5 +21245,49 @@
   "pushReauthorizationAction": "Sign in again",
   "@pushReauthorizationAction": {
     "description": "Button on the push notification prompt that starts the forum sign-in again."
+  },
+  "aboutMe": "About me",
+  "@aboutMe": {
+    "description": "Label of the bio field in the Profile preferences, and the name of that field in the saved announcement."
+  },
+  "aboutMeDescription": "Shown on your profile. Markdown is supported.",
+  "@aboutMeDescription": {
+    "description": "Help text under the About me label in the Profile preferences."
+  },
+  "aboutMeIsManagedByThisSiteSSignIn": "This site sets About me from its sign-in provider.",
+  "@aboutMeIsManagedByThisSiteSSignIn": {
+    "description": "Help text under the About me label when single sign-on owns the bio and it cannot be edited here."
+  },
+  "saveAboutMe": "Save About me",
+  "@saveAboutMe": {
+    "description": "Accessible name of the button that saves the bio in the Profile preferences."
+  },
+  "profilePicture": "Profile picture",
+  "@profilePicture": {
+    "description": "Title above the reader's avatar in the Profile preferences."
+  },
+  "changePicture": "Change picture",
+  "@changePicture": {
+    "description": "Button that opens the device's image picker to upload a new avatar."
+  },
+  "useDefaultPicture": "Use default",
+  "@useDefaultPicture": {
+    "description": "Button that removes the uploaded avatar and returns to the letter avatar the site draws."
+  },
+  "useTheDefaultPicture": "Use the default picture",
+  "@useTheDefaultPicture": {
+    "description": "Accessible name of the Use default button beside the avatar."
+  },
+  "uploadingPicture": "Uploading…",
+  "@uploadingPicture": {
+    "description": "Label of the Change picture button while the chosen image uploads."
+  },
+  "thisSiteDidnTAcceptThatPicture": "This site didn''t accept that picture.",
+  "@thisSiteDidnTAcceptThatPicture": {
+    "description": "Error under the avatar when the site refuses a picture without giving a reason."
+  },
+  "couldnTOpenAPictureFromThisDevice": "Couldn''t open a picture from this device.",
+  "@couldnTOpenAPictureFromThisDevice": {
+    "description": "Error under the avatar when the device's image picker fails, for example when photo access is denied."
   }
 }

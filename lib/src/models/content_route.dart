@@ -294,15 +294,21 @@ class ContentRoute {
 
   factory ContentRoute.userActivity({String? username, String? displayName}) =>
       ContentRoute(
-        destination: PageDestination(
-          CorePage.activity,
-          activityUsername: username,
-        ),
+        destination: PageDestination(CorePage.activity, username: username),
         title: username == null
             ? appL10n.activity
             : appL10n.personActivity(displayName ?? username),
         icon: DIcons.barsStaggered,
       );
+
+  factory ContentRoute.userProfile({
+    required String username,
+    String? displayName,
+  }) => ContentRoute(
+    destination: PageDestination(CorePage.profile, username: username),
+    title: displayName ?? username,
+    icon: DIcons.user,
+  );
 
   factory ContentRoute.messages({
     String? groupName,

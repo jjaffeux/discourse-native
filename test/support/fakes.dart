@@ -54,6 +54,7 @@ import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/models/user_profile.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
@@ -1015,6 +1016,12 @@ class FakeDiscourseApi
 
   final List<String> cardsRequested = [];
 
+  /// Answers `/u/{username}.json`. Without one, a profile is its entry in
+  /// [cards] and anyone else is a 404.
+  Future<UserProfile> Function(String siteUrl, String username)?
+  userProfileHandler;
+  final List<String> profilesRequested = [];
+
   final List<int> topicsOpened = [];
   final List<int?> topicPostNumbersOpened = [];
   final List<int> topicSummariesOpened = [];
@@ -1612,6 +1619,7 @@ class FakeDiscourseApi
     final failure = writeFailure;
     if (failure != null) throw failure;
     final updated = models.userPreferences({
+      'bio_raw': ?values['bio_raw'],
       'user_option': values,
     }, fallback: fallback);
     userPreferences = updated;
@@ -2246,6 +2254,58 @@ class FakeDiscourseApi
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return card;
+  }
+
+  final List<String> avatarUploads = [];
+  final List<({String username, int? uploadId})> avatarPicks = [];
+  Future<int> Function(ComposerUploadFile file, Future<void> abortTrigger)?
+  avatarUploadHandler;
+  Future<void> Function(int? uploadId)? avatarPickHandler;
+
+  @override
+  Future<int> uploadAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required ComposerUploadFile file,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) async {
+    avatarUploads.add(file.name);
+    return await avatarUploadHandler?.call(file, abortTrigger) ?? 91;
+  }
+
+  @override
+  Future<void> pickAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int? uploadId,
+    String? clientId,
+  }) async {
+    avatarPicks.add((username: username, uploadId: uploadId));
+    await avatarPickHandler?.call(uploadId);
+  }
+
+  @override
+  Future<UserProfile> userProfile({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    profilesRequested.add(username);
+    if (userProfileHandler case final handler?) {
+      return handler(siteUrl, username);
+    }
+    final card = cards[username];
+    if (card == null) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        statusCode: 404,
+      );
+    }
+    return UserProfile(card: card);
   }
 
   @override

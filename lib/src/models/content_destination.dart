@@ -38,12 +38,15 @@ sealed class ContentDestination {
       route.badgeId,
       route.username,
     ),
-    PageDestination(
-      :final page,
-      :final activityUsername,
-      :final reviewableId,
-    ) =>
-      (PageDestination, key, page, activityUsername, reviewableId),
+    // Usernames are case-insensitive: one person is one page however a link
+    // spelled them.
+    PageDestination(:final page, :final username, :final reviewableId) => (
+      PageDestination,
+      key,
+      page,
+      username?.toLowerCase(),
+      reviewableId,
+    ),
     ExtensionDestination() => (ExtensionDestination, key, feedPath),
   };
 
@@ -161,6 +164,7 @@ enum CorePage {
   summary('summary'),
   bookmarks('user-bookmarks'),
   activity('activity'),
+  profile('profile'),
   preferences('preferences'),
   appearance('appearance'),
   forumAbout('forum-about'),
@@ -172,18 +176,25 @@ enum CorePage {
 }
 
 final class PageDestination extends ContentDestination {
-  const PageDestination(this.page, {this.activityUsername, this.reviewableId})
-    : assert(activityUsername == null || page == CorePage.activity),
+  const PageDestination(this.page, {this.username, this.reviewableId})
+    : assert(
+        username == null
+            ? page != CorePage.profile
+            : page == CorePage.activity || page == CorePage.profile,
+      ),
       assert(
         reviewableId == null || (page == CorePage.review && reviewableId > 0),
       );
   final CorePage page;
-  final String? activityUsername;
+
+  /// The person a per-person page is about: required by a profile, optional
+  /// on activity, where its absence means the signed-in reader.
+  final String? username;
 
   /// The queue item a review link names; the queue itself when null.
   final int? reviewableId;
   @override
-  String get key => switch ((activityUsername, reviewableId)) {
+  String get key => switch ((username, reviewableId)) {
     (final username?, _) => '${page.key}-user-${username.toLowerCase()}',
     (_, final id?) => '${page.key}-$id',
     _ => page.key,

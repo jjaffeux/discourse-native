@@ -165,6 +165,7 @@ import 'post_mutation_targets.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
+import 'profile_avatar_transactions.dart';
 import 'profile_write_transactions.dart';
 import 'push_registration_health.dart';
 import 'recent_search_history.dart';
@@ -194,6 +195,7 @@ import 'unread_topic_feed.dart';
 import 'update_controller.dart';
 import 'user_directory_controller.dart';
 import 'user_menu_notifications.dart';
+import 'user_profile_controller.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
@@ -206,6 +208,7 @@ part 'post_commands.dart';
 part 'shell_tab_context.dart';
 part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
+part 'user_profile_navigation.dart';
 part 'workspace_controller.dart';
 
 enum MobilePane { sidebar, content }
@@ -945,6 +948,12 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
   );
 
+  late final UserProfileController userProfile = UserProfileController(
+    api: api.userProfiles,
+    credentials: credentials,
+    lifecycle: lifecycle,
+  );
+
   late final BadgesController badges = BadgesController(
     api: DiscourseBadgesApi(api.pluginTransport),
     credentials: credentials,
@@ -969,6 +978,23 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
     onSaved: _onPreferencesSaved,
   );
+
+  late final ProfileAvatarTransactions profileAvatar =
+      ProfileAvatarTransactions(
+        api: api.userAvatars,
+        credentials: credentials,
+        lifecycle: lifecycle,
+        refreshCurrentUser: (siteUrl, apiKey, lease) =>
+            _currentUsers.refresh(siteUrl, apiKey, lease: lease, force: true),
+        onChanged: (instance, uploadId) {
+          preferences.confirmUploadedAvatar(instance, uploadId);
+          final username = instance.user?.username;
+          if (username != null &&
+              userProfile.stateFor(instance.url, username) != null) {
+            unawaited(userProfile.load(instance, username, refresh: true));
+          }
+        },
+      );
 
   late final TopicFeedController topicFeeds = _createTopicFeedController();
 
@@ -1663,6 +1689,13 @@ class ShellController extends FrameSafeNotifier
         ]);
       case PageLoad.activity:
         await accountActivity.loadUserActivity(instance, refresh: force);
+      case PageLoad.profile:
+        if (route.destination case PageDestination(:final username?)) {
+          await Future.wait([
+            userProfile.load(instance, username, refresh: force),
+            userSummary.load(instance, username: username, refresh: force),
+          ]);
+        }
       case PageLoad.bookmarks:
         await accountActivity.loadBookmarkList(instance, refresh: true);
       case PageLoad.preferences:
@@ -2453,6 +2486,11 @@ class ShellController extends FrameSafeNotifier
         user == null ||
         user.username.toLowerCase() != preferences.username.toLowerCase()) {
       return;
+    }
+    // A profile page already showing this reader would keep the old bio.
+    if (section == PreferenceSection.about &&
+        userProfile.stateFor(siteUrl, user.username) != null) {
+      unawaited(userProfile.load(instance, user.username, refresh: true));
     }
     final mirrors = _pluginSession
         .capabilities<PluginUserPreferenceMirror>()
@@ -7744,10 +7782,12 @@ class ShellController extends FrameSafeNotifier
     ..register(accountActivity)
     ..register(draftList)
     ..register(userSummary)
+    ..register(userProfile)
     ..register(groups)
     ..register(userDirectory)
     ..register(badges)
     ..register(preferences)
+    ..register(profileAvatar)
     ..register(
       AccountScopedState.step((siteUrl) {
         store.forget(siteUrl);
@@ -8927,11 +8967,13 @@ class ShellController extends FrameSafeNotifier
     _previews.dispose();
     draftList.dispose();
     userSummary.dispose();
+    userProfile.dispose();
     groups.dispose();
     userDirectory.dispose();
     badges.dispose();
     preferences.dispose();
     networkRecovery.dispose();
+    profileAvatar.dispose();
     topicFeeds.dispose();
     appSettings.dispose();
     forumSettings.dispose();

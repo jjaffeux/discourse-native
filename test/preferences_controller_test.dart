@@ -619,6 +619,217 @@ void main() {
     );
   });
 
+  group('bio', () {
+    test('a typed bio stays a draft until it is saved on its own', () async {
+      final saved = <(PreferenceSection, String)>[];
+      final api = _PreferencesApi(
+        onUpdate: (call) async => call.fallback.copyWith(bioRaw: 'Stored'),
+      );
+      final controller = _controller(
+        api,
+        onSaved: (_, section, value) => saved.add((section, value.bioRaw)),
+      );
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.about,
+        (current) => current.copyWith(bioRaw: 'Typed '),
+      );
+      final typed = controller.stateFor(_siteUrl)!;
+      expect(typed.dirty(PreferenceSection.about), isTrue);
+      expect(typed.dirty(PreferenceSection.profile), isFalse);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.profile,
+        (current) => current.copyWith(timezone: 'Europe/Paris'),
+      );
+      await controller.saveAutomatically(_accountA, PreferenceSection.profile);
+      expect(api.updates.single.values, {'timezone': 'Europe/Paris'});
+      expect(
+        controller.stateFor(_siteUrl)!.dirty(PreferenceSection.about),
+        isTrue,
+      );
+      expect(controller.stateFor(_siteUrl)!.draft!.bioRaw, 'Typed ');
+
+      expect(await controller.save(_accountA, PreferenceSection.about), isTrue);
+      expect(api.updates.last.values, {'bio_raw': 'Typed '});
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.draft!.bioRaw, 'Stored');
+      expect(state.confirmed!.bioRaw, 'Stored');
+      expect(state.confirmed!.timezone, 'Europe/Paris');
+      expect(state.savedSection, PreferenceSection.about);
+      expect(saved.last, (PreferenceSection.about, 'Stored'));
+    });
+
+    test('a refused bio keeps the typed text and the confirmed one', () async {
+      final saved = <PreferenceSection>[];
+      final api = _PreferencesApi(
+        onUpdate: (_) async => throw const WriteException(
+          WriteFailure.validation,
+          errors: ['About Me is too long (maximum is 3000 characters)'],
+        ),
+      );
+      final controller = _controller(
+        api,
+        onSaved: (_, section, _) => saved.add(section),
+      );
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.about,
+        (current) => current.copyWith(bioRaw: 'Too long'),
+      );
+
+      expect(
+        await controller.save(_accountA, PreferenceSection.about),
+        isFalse,
+      );
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.draft!.bioRaw, 'Too long');
+      expect(state.confirmed!.bioRaw, '');
+      expect(state.dirty(PreferenceSection.about), isTrue);
+      expect(state.error, 'About Me is too long (maximum is 3000 characters)');
+      expect(state.saving, isFalse);
+      expect(saved, isEmpty);
+    });
+
+    test(
+      'text typed while a save is pending survives that save settling',
+      () async {
+        final response = Completer<UserPreferences>();
+        final started = Completer<void>();
+        final saved = <PreferenceSection>[];
+        final api = _PreferencesApi(
+          onUpdate: (_) {
+            started.complete();
+            return response.future;
+          },
+        );
+        final controller = _controller(
+          api,
+          onSaved: (_, section, _) => saved.add(section),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'First'),
+        );
+        final pending = controller.save(_accountA, PreferenceSection.about);
+        await started.future;
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'First and more'),
+        );
+        response.complete(_initial.copyWith(bioRaw: 'First'));
+
+        expect(await pending, isFalse);
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed!.bioRaw, 'First');
+        expect(state.draft!.bioRaw, 'First and more');
+        expect(state.dirty(PreferenceSection.about), isTrue);
+        expect(state.savedSection, isNull);
+        expect(saved, isEmpty);
+      },
+    );
+
+    test('a bio the site owns cannot be edited or saved', () async {
+      final api = _PreferencesApi(
+        onLoad: (_) async => _initial.copyWith(canChangeBio: false),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.about,
+        (current) => current.copyWith(bioRaw: 'Mine'),
+      );
+
+      expect(controller.stateFor(_siteUrl)!.draft!.bioRaw, '');
+      expect(
+        await controller.save(_accountA, PreferenceSection.about),
+        isFalse,
+      );
+      expect(api.updates, isEmpty);
+    });
+  });
+
+  group('picture', () {
+    test(
+      'a confirmed picture keeps unsaved edits and dirties nothing',
+      () async {
+        final controller = _controller(
+          _PreferencesApi(
+            onLoad: (_) async => _initial.copyWith(uploadedAvatarId: 4),
+          ),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Typing'),
+        );
+
+        controller.confirmUploadedAvatar(_accountA, null);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.draft!.uploadedAvatarId, isNull);
+        expect(state.confirmed!.uploadedAvatarId, isNull);
+        expect(state.draft!.bioRaw, 'Typing');
+        expect(state.dirty(PreferenceSection.about), isTrue);
+        expect(state.dirty(PreferenceSection.profile), isFalse);
+      },
+    );
+
+    test(
+      'a read that began before the change cannot bring the old picture back',
+      () async {
+        final refresh = Completer<UserPreferences>();
+        var loads = 0;
+        final controller = _controller(
+          _PreferencesApi(
+            onLoad: (_) => ++loads == 1
+                ? Future.value(_initial.copyWith(uploadedAvatarId: 4))
+                : refresh.future,
+          ),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        final reading = controller.load(_accountA, refresh: true);
+        await pumpEventQueue();
+        controller.confirmUploadedAvatar(_accountA, 9);
+        refresh.complete(_initial.copyWith(uploadedAvatarId: 4));
+        await reading;
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed!.uploadedAvatarId, 9);
+        expect(state.loading, isFalse);
+      },
+    );
+
+    test('another account\'s picture is not recorded on this one', () async {
+      final controller = _controller(_PreferencesApi());
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.confirmUploadedAvatar(_accountB, 9);
+
+      expect(
+        controller.stateFor(_siteUrl)!.confirmed!.uploadedAvatarId,
+        isNull,
+      );
+    });
+  });
+
   group('load admission', () {
     test('a reentrant load joins the original pending result', () async {
       final page = Completer<UserPreferences>();

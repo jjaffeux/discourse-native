@@ -37,6 +37,7 @@ import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
+import '../models/user_profile.dart';
 import '../models/user_summary.dart';
 import 'discourse_account_api.dart';
 import 'discourse_api_contracts.dart';
@@ -811,6 +812,51 @@ class DiscourseApi
     siteUrl: siteUrl,
     username: username,
     apiKey: apiKey,
+    clientId: clientId,
+  );
+
+  @override
+  Future<UserProfile> userProfile({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+    String? clientId,
+  }) async => _account.userProfile(
+    siteUrl: siteUrl,
+    username: username,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
+
+  @override
+  Future<int> uploadAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required ComposerUploadFile file,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) async => (await _composer.uploadComposerImage(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    file: file,
+    onProgress: (_) {},
+    abortTrigger: abortTrigger,
+    uploadType: ComposerUploadType.avatar,
+    clientId: clientId,
+  )).id;
+
+  @override
+  Future<void> pickAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int? uploadId,
+    String? clientId,
+  }) async => _account.pickAvatar(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    uploadId: uploadId,
     clientId: clientId,
   );
 

@@ -8870,6 +8870,38 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String reconnectToSeeThisSummary(String instanceHost) {
+    return 'Reconnect to $instanceHost to see this summary.';
+  }
+
+  @override
+  String couldnTLoadThisSummaryFrom(String instanceHost) {
+    return 'Couldn\'t load this summary from $instanceHost.';
+  }
+
+  @override
+  String get userProfileHidden =>
+      'This person has hidden their public profile.';
+
+  @override
+  String get userProfileMissing =>
+      'This profile doesn\'t exist or isn\'t available to you.';
+
+  @override
+  String get noHighlightsYet => 'No highlights yet.';
+
+  @override
+  String get theirTopTopicsRepliesAndBadgesWillAppearHere =>
+      'Their top topics, replies and badges will appear here.';
+
+  @override
+  String get milestones => 'Milestones';
+
+  @override
+  String get thePeopleTheyReplyToAndExchangeLikesWithWillAppear =>
+      'The people they reply to and exchange likes with will appear here.';
+
+  @override
   String get replyingToThisTopic => 'Replying to this topic';
 
   @override
@@ -16278,4 +16310,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pushReauthorizationAction => 'Sign in again';
+
+  @override
+  String get aboutMe => 'About me';
+
+  @override
+  String get aboutMeDescription =>
+      'Shown on your profile. Markdown is supported.';
+
+  @override
+  String get aboutMeIsManagedByThisSiteSSignIn =>
+      'This site sets About me from its sign-in provider.';
+
+  @override
+  String get saveAboutMe => 'Save About me';
+
+  @override
+  String get profilePicture => 'Profile picture';
+
+  @override
+  String get changePicture => 'Change picture';
+
+  @override
+  String get useDefaultPicture => 'Use default';
+
+  @override
+  String get useTheDefaultPicture => 'Use the default picture';
+
+  @override
+  String get uploadingPicture => 'Uploading…';
+
+  @override
+  String get thisSiteDidnTAcceptThatPicture =>
+      'This site didn\'t accept that picture.';
+
+  @override
+  String get couldnTOpenAPictureFromThisDevice =>
+      'Couldn\'t open a picture from this device.';
 }

@@ -15222,6 +15222,54 @@ abstract class AppLocalizations {
   /// **'Couldn\'\'t load your summary from {instanceHost}.'**
   String couldnTLoadYourSummaryFrom(String instanceHost);
 
+  /// Error shown in place of another person's summary when the account has no usable key.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect to {instanceHost} to see this summary.'**
+  String reconnectToSeeThisSummary(String instanceHost);
+
+  /// Error shown in place of another person's summary when the request failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t load this summary from {instanceHost}.'**
+  String couldnTLoadThisSummaryFrom(String instanceHost);
+
+  /// Message on a profile page whose owner hid their public profile.
+  ///
+  /// In en, this message translates to:
+  /// **'This person has hidden their public profile.'**
+  String get userProfileHidden;
+
+  /// Message on a profile page when the site has no such person.
+  ///
+  /// In en, this message translates to:
+  /// **'This profile doesn\'\'t exist or isn\'\'t available to you.'**
+  String get userProfileMissing;
+
+  /// Title of the empty Highlights section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'No highlights yet.'**
+  String get noHighlightsYet;
+
+  /// Description of the empty Highlights section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Their top topics, replies and badges will appear here.'**
+  String get theirTopTopicsRepliesAndBadgesWillAppearHere;
+
+  /// Heading of the badges section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestones'**
+  String get milestones;
+
+  /// Description of the empty Connections section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'The people they reply to and exchange likes with will appear here.'**
+  String get thePeopleTheyReplyToAndExchangeLikesWithWillAppear;
+
   /// English UI message used by shell/composer_reply_context.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -25897,6 +25945,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign in again'**
   String get pushReauthorizationAction;
+
+  /// Label of the bio field in the Profile preferences, and the name of that field in the saved announcement.
+  ///
+  /// In en, this message translates to:
+  /// **'About me'**
+  String get aboutMe;
+
+  /// Help text under the About me label in the Profile preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown on your profile. Markdown is supported.'**
+  String get aboutMeDescription;
+
+  /// Help text under the About me label when single sign-on owns the bio and it cannot be edited here.
+  ///
+  /// In en, this message translates to:
+  /// **'This site sets About me from its sign-in provider.'**
+  String get aboutMeIsManagedByThisSiteSSignIn;
+
+  /// Accessible name of the button that saves the bio in the Profile preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Save About me'**
+  String get saveAboutMe;
+
+  /// Title above the reader's avatar in the Profile preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile picture'**
+  String get profilePicture;
+
+  /// Button that opens the device's image picker to upload a new avatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Change picture'**
+  String get changePicture;
+
+  /// Button that removes the uploaded avatar and returns to the letter avatar the site draws.
+  ///
+  /// In en, this message translates to:
+  /// **'Use default'**
+  String get useDefaultPicture;
+
+  /// Accessible name of the Use default button beside the avatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the default picture'**
+  String get useTheDefaultPicture;
+
+  /// Label of the Change picture button while the chosen image uploads.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading…'**
+  String get uploadingPicture;
+
+  /// Error under the avatar when the site refuses a picture without giving a reason.
+  ///
+  /// In en, this message translates to:
+  /// **'This site didn\'\'t accept that picture.'**
+  String get thisSiteDidnTAcceptThatPicture;
+
+  /// Error under the avatar when the device's image picker fails, for example when photo access is denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t open a picture from this device.'**
+  String get couldnTOpenAPictureFromThisDevice;
 }
 
 class _AppLocalizationsDelegate

@@ -20,6 +20,7 @@ enum PageLoad {
   drafts,
   summary,
   activity,
+  profile,
   bookmarks,
   preferences,
   extension,
@@ -83,7 +84,10 @@ final class ContentPageContract {
       ContentRoute.group(const GroupRoute.directory()),
     BadgeDestination(route: final badge) when !badge.isDirectory =>
       ContentRoute.badges(const BadgeRoute.directory()),
-    PageDestination(page: CorePage.activity, activityUsername: String()) =>
+    PageDestination(
+      page: CorePage.activity || CorePage.profile,
+      username: String(),
+    ) =>
       ContentRoute(
         destination: const PageDestination(CorePage.users),
         title: appL10n.users,
@@ -230,6 +234,13 @@ final class ContentPageContract {
           ),
           CorePage.activity => const ContentPageContract._(
             refreshLoad: PageLoad.activity,
+            coreUrl: CoreUrlPolicy.direct,
+            header: _ShellHeader.none,
+            allowsTopicCreation: false,
+          ),
+          CorePage.profile => const ContentPageContract._(
+            refreshLoad: PageLoad.profile,
+            coreUrl: CoreUrlPolicy.direct,
             header: _ShellHeader.none,
             allowsTopicCreation: false,
           ),

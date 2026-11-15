@@ -7,6 +7,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart'
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/calendar_day.dart';
 import 'package:discourse_native/src/models/badge.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/user_card.dart';
@@ -414,6 +415,26 @@ void main() {
     );
   }
 
+  testWidgets('mobile View profile closes the card and opens the page', (
+    tester,
+  ) async {
+    final api = await _pumpTarget(tester, platform: TargetPlatform.iOS);
+    final shell = ShellScope.read(tester.element(_target));
+    await _open(tester);
+    api.requests.single.complete(_profile);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View profile'));
+    await tester.pumpAndSettle();
+    expect(_surface, findsNothing);
+    expect(
+      shell.currentContent?.sameDestinationAs(
+        ContentRoute.userProfile(username: _profile.username),
+      ),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
       '${platform.name} card fills the viewport foot with swipe dismissal',
@@ -637,6 +658,7 @@ void main() {
       await tester.pumpAndSettle();
       final context = tester.element(_surface);
       final navigator = Navigator.of(context);
+      final shell = ShellScope.read(context);
 
       await tester.tap(find.text('View profile'));
       final dialog = showDialog<void>(
@@ -644,7 +666,15 @@ void main() {
         builder: (_) => const AlertDialog(title: Text('Newer dialog')),
       );
       await tester.pumpAndSettle();
-      expect(urls, ['$_siteUrl/u/sam']);
+      expect(urls, isEmpty, reason: 'the profile opens in the app');
+      final route = shell.currentContent!;
+      expect(
+        route.destination,
+        isA<PageDestination>()
+            .having((page) => page.page, 'page', CorePage.profile)
+            .having((page) => page.username, 'username', 'sam'),
+      );
+      expect(route.title, 'Sam Example');
       expect(find.text('Newer dialog'), findsOneWidget);
       expect(_surface, findsNothing);
       navigator.pop();

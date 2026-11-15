@@ -8,12 +8,15 @@ import '../foundation/icons/d_icons.dart';
 import '../foundation/icons/d_native_icons.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
+import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
+import 'composer/upload_picker.dart';
 import 'content_reading_lane.dart';
 import 'header_preferences.dart';
 import 'preference_fields.dart';
+import 'preferences_avatar_row.dart';
 import 'preferences_controller.dart';
 import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
@@ -21,9 +24,16 @@ import 'shell_scope.dart';
 import 'skeleton_fill.dart';
 
 class PreferencesPage extends StatefulWidget {
-  const PreferencesPage({super.key, required this.siteUrl});
+  const PreferencesPage({
+    super.key,
+    required this.siteUrl,
+    this.pickPicture = pickProfilePicture,
+  });
 
   final String siteUrl;
+
+  /// Asks the device for one image; null when the reader backs out.
+  final Future<ComposerUploadFile?> Function() pickPicture;
 
   @override
   State<PreferencesPage> createState() => _PreferencesPageState();
@@ -33,6 +43,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
   static String get _forumDefaultTimezoneLabel => appL10n.forumDefault;
   final TextEditingController _timezone = TextEditingController();
   final FocusNode _timezoneFocus = FocusNode();
+  final TextEditingController _bio = TextEditingController();
   late final List<String> _timezoneNames;
   late final List<DComboboxOption<String>> _timezoneEntries;
 
@@ -40,6 +51,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
   PreferencesController? _preferences;
   bool _hydrationScheduled = false;
   PreferenceSection _selectedSection = PreferenceSection.profile;
+  String? _pictureError;
 
   @override
   void initState() {
@@ -72,6 +84,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl == widget.siteUrl) return;
     _timezone.clear();
+    _bio.clear();
+    _pictureError = null;
     _handlePreferencesChanged();
     final shell = _shell;
     if (shell != null) _hydrate(shell);
@@ -153,6 +167,45 @@ class _PreferencesPageState extends State<PreferencesPage> {
       if (ownsView()) _useDeviceTimezone(edit);
     }
 
+    // Free text is held in the draft until the reader saves it.
+    void editBio(String bio) {
+      if (!ownsView()) return;
+      shell.preferences.edit(
+        siteUrl,
+        PreferenceSection.about,
+        (current) => current.copyWith(bioRaw: bio),
+      );
+    }
+
+    Future<void> changePicture() async {
+      if (!ownsView() || instance == null) return;
+      setState(() => _pictureError = null);
+      final ComposerUploadFile? file;
+      try {
+        file = await widget.pickPicture();
+      } catch (_) {
+        if (ownsView()) {
+          setState(
+            () => _pictureError = appL10n.couldnTOpenAPictureFromThisDevice,
+          );
+        }
+        return;
+      }
+      if (file == null || !ownsView()) return;
+      unawaited(shell.profileAvatar.upload(instance, file));
+    }
+
+    void useDefaultPicture() {
+      if (!ownsView() || instance == null) return;
+      setState(() => _pictureError = null);
+      unawaited(shell.profileAvatar.useDefault(instance));
+    }
+
+    void saveBio() {
+      if (!ownsView() || instance == null) return;
+      unawaited(shell.preferences.save(instance, PreferenceSection.about));
+    }
+
     final editable = draft.canEdit;
     final pluginSections = instance?.user == null
         ? const <PluginUserPreferenceSection>[]
@@ -218,6 +271,34 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 pluginSections,
                 edit,
                 useDeviceTimezone,
+                // A reader who may neither upload nor give a picture up has
+                // nothing to do here.
+                draft.canEditAvatar &&
+                        (draft.canUploadAvatar ||
+                            draft.uploadedAvatarId != null)
+                    ? PreferencesAvatarRow(
+                        siteUrl: siteUrl,
+                        canUpload: draft.canUploadAvatar,
+                        hasUploadedPicture: draft.uploadedAvatarId != null,
+                        enabled: editable && instance?.isConnected == true,
+                        pickerError: _pictureError,
+                        onChange: changePicture,
+                        onUseDefault: useDefaultPicture,
+                      )
+                    : null,
+                _BioEditing(
+                  controller: _bio,
+                  enabled: editable && draft.canChangeBio,
+                  managedBySite: !draft.canChangeBio,
+                  saving: state.saving && state.dirty(PreferenceSection.about),
+                  onChanged: editBio,
+                  onSave:
+                      instance?.isConnected == true &&
+                          state.dirty(PreferenceSection.about) &&
+                          !state.saving
+                      ? saveBio
+                      : null,
+                ),
               ),
               const SizedBox(height: 22),
               if (selected == PreferenceSection.interface) ...[
@@ -260,6 +341,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
     List<PluginUserPreferenceSection> pluginSections,
     PluginUserPreferenceEdit onEdit,
     VoidCallback onUseDeviceTimezone,
+    Widget? avatar,
+    _BioEditing bio,
   ) => switch (section) {
     PreferenceSection.profile => _ProfileForm(
       timezone: _timezone,
@@ -273,6 +356,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
         (current) => current.copyWith(timezone: timezone),
       ),
       onUseDeviceTimezone: onUseDeviceTimezone,
+      avatar: avatar,
+      bio: bio,
     ),
     PreferenceSection.notifications => _NotificationsForm(
       preferences: draft,
@@ -340,8 +425,21 @@ class _PreferencesPageState extends State<PreferencesPage> {
   }
 
   void _handlePreferencesChanged() {
-    final value = _preferences?.stateFor(widget.siteUrl)?.draft?.timezone;
-    if (value != null) _synchronizeTimezone(value);
+    final draft = _preferences?.stateFor(widget.siteUrl)?.draft;
+    if (draft == null) return;
+    _synchronizeTimezone(draft.timezone);
+    _synchronizeBio(draft.bioRaw);
+  }
+
+  /// Typing writes the draft before this runs, so the two differ only when
+  /// the draft moved underneath the field: a load, another account, or the
+  /// site's own spelling of a saved bio.
+  void _synchronizeBio(String value) {
+    if (_bio.text == value) return;
+    _bio.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
   }
 
   List<PreferenceSection> _sectionsFor(
@@ -361,6 +459,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     _timezoneFocus.removeListener(_restoreSelectedTimezoneAfterFiltering);
     _timezone.dispose();
     _timezoneFocus.dispose();
+    _bio.dispose();
     super.dispose();
   }
 }
@@ -677,6 +776,8 @@ class _ProfileForm extends StatelessWidget {
     required this.enabled,
     required this.onTimezoneChanged,
     required this.onUseDeviceTimezone,
+    required this.avatar,
+    required this.bio,
   });
 
   final TextEditingController timezone;
@@ -687,11 +788,14 @@ class _ProfileForm extends StatelessWidget {
   final bool enabled;
   final ValueChanged<String> onTimezoneChanged;
   final VoidCallback onUseDeviceTimezone;
+  final Widget? avatar;
+  final _BioEditing bio;
 
   @override
   Widget build(BuildContext context) {
     return PreferenceCard(
       children: [
+        if (avatar case final avatar?) ...[avatar, const SizedBox(height: 18)],
         DField(
           orientation: MediaQuery.textScalerOf(context).scale(14) > 21
               ? DFieldOrientation.vertical
@@ -769,6 +873,50 @@ class _ProfileForm extends StatelessWidget {
             size: DButtonSize.small,
           ),
         ),
+        const SizedBox(height: 18),
+        DField(
+          enabled: bio.enabled,
+          children: [
+            DFieldContent(
+              children: [
+                DFieldLabel(child: Text(context.l10n.aboutMe)),
+                DFieldDescription(
+                  child: Text(
+                    bio.managedBySite
+                        ? context.l10n.aboutMeIsManagedByThisSiteSSignIn
+                        : context.l10n.aboutMeDescription,
+                  ),
+                ),
+              ],
+            ),
+            DFieldControl(
+              label: context.l10n.aboutMe,
+              child: DTextarea(
+                key: const ValueKey('preferences-bio'),
+                controller: bio.controller,
+                enabled: bio.enabled,
+                minLines: 4,
+                maxLines: 12,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: bio.onChanged,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            key: const ValueKey('preferences-bio-save'),
+            label: Text(context.l10n.save),
+            semanticLabel: context.l10n.saveAboutMe,
+            onPressed: bio.enabled ? bio.onSave : null,
+            loading: bio.saving,
+            loadingLabel: Text(context.l10n.saving),
+            variant: DButtonVariant.primary,
+            size: DButtonSize.small,
+          ),
+        ),
       ],
     );
   }
@@ -782,6 +930,28 @@ class _ProfileForm extends StatelessWidget {
       selection: TextSelection.collapsed(offset: label.length),
     );
   }
+}
+
+/// What the profile form needs to edit the bio, whose text lives on the page
+/// so it survives the form rebuilding under it.
+final class _BioEditing {
+  const _BioEditing({
+    required this.controller,
+    required this.enabled,
+    required this.managedBySite,
+    required this.saving,
+    required this.onChanged,
+    required this.onSave,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final bool managedBySite;
+  final bool saving;
+  final ValueChanged<String> onChanged;
+
+  /// Null while there is nothing to save or a write is already pending.
+  final VoidCallback? onSave;
 }
 
 class _InterfaceForm extends StatelessWidget {
@@ -1023,6 +1193,7 @@ String _sectionTitle(
     _pluginSection(section, pluginSections)?.title ??
     switch (section) {
       PreferenceSection.profile => appL10n.profile,
+      PreferenceSection.about => appL10n.aboutMe,
       PreferenceSection.notifications => appL10n.notifications,
       PreferenceSection.tracking => appL10n.tracking,
       PreferenceSection.interface => appL10n.interface,

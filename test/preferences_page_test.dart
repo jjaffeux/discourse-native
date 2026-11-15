@@ -6,14 +6,18 @@ import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/models/user_profile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/header_preferences.dart';
 import 'package:discourse_native/src/shell/preference_fields.dart';
+import 'package:discourse_native/src/shell/preferences_avatar_row.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -126,6 +130,7 @@ Future<void> _pumpPage(
   double width = 680,
   bool settle = true,
   ThemeData? theme,
+  Future<ComposerUploadFile?> Function()? pickPicture,
 }) async {
   tester.view.physicalSize = Size(width, 900);
   tester.view.devicePixelRatio = 1;
@@ -141,7 +146,12 @@ Future<void> _pumpPage(
             body: SizedBox(
               width: width,
               height: 900,
-              child: const PreferencesPage(siteUrl: _siteUrl),
+              child: pickPicture == null
+                  ? const PreferencesPage(siteUrl: _siteUrl)
+                  : PreferencesPage(
+                      siteUrl: _siteUrl,
+                      pickPicture: pickPicture,
+                    ),
             ),
           ),
         ),
@@ -159,6 +169,26 @@ Future<void> _pumpPage(
 Finder get _timezoneMenu => find.byKey(const ValueKey('preferences-timezone'));
 Finder get _timezoneInput =>
     find.descendant(of: _timezoneMenu, matching: find.byType(EditableText));
+Finder get _bio => find.byKey(const ValueKey('preferences-bio'));
+Finder get _bioInput =>
+    find.descendant(of: _bio, matching: find.byType(EditableText));
+Finder get _bioSaveFinder => find.byKey(const ValueKey('preferences-bio-save'));
+DButton _bioSave(WidgetTester tester) => tester.widget<DButton>(_bioSaveFinder);
+final _pictures = _preferences.copyWith(
+  canEditAvatar: true,
+  canUploadAvatar: true,
+);
+Finder get _changePicture =>
+    find.byKey(const ValueKey('preferences-avatar-change'));
+Finder get _defaultPicture =>
+    find.byKey(const ValueKey('preferences-avatar-default'));
+Finder get _pictureError =>
+    find.byKey(const ValueKey('preferences-avatar-error'));
+Future<ComposerUploadFile?> _pickMe() async => ComposerUploadFile(
+  name: 'me.png',
+  length: () async => 3,
+  openRead: () => Stream.value([1, 2, 3]),
+);
 Future<void> _section(WidgetTester tester, PreferenceSection section) async {
   final tab = find.byKey(ValueKey('preferences-section-${section.keyName}'));
   await tester.ensureVisible(tab);
@@ -358,6 +388,397 @@ void main() {
     );
     semantics.dispose();
   });
+  group('about me', () {
+    testWidgets('shows the loaded bio and saves only when asked', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'I like boats.'),
+      );
+      await _pumpPage(tester, fixture);
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'I like boats.',
+      );
+      expect(_bioSave(tester).onPressed, isNull);
+
+      await tester.enterText(_bioInput, 'I like trains.');
+      await tester.pumpAndSettle();
+      final typed = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(typed.dirty(PreferenceSection.about), isTrue);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
+
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'bio_raw': 'I like trains.',
+      });
+      final saved = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(saved.dirty(PreferenceSection.about), isFalse);
+      expect(saved.confirmed!.bioRaw, 'I like trains.');
+      expect(_bioSave(tester).onPressed, isNull);
+      expect(find.text('About me preferences saved.'), findsOneWidget);
+    });
+
+    testWidgets('a timezone choice leaves the typed bio unsent', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Half a thou');
+      await tester.pumpAndSettle();
+      await tester.enterText(_timezoneInput, 'Europe/Lond');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Europe/London').last);
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'timezone': 'Europe/London',
+      });
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Half a thou',
+      );
+      expect(_bioSave(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('a refused bio keeps the text and names the reason', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        writeFailure: const WriteException(
+          WriteFailure.validation,
+          errors: ['About Me is too long (maximum is 3000 characters)'],
+        ),
+      );
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Far too long');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('About Me is too long (maximum is 3000 characters)'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Far too long',
+      );
+      expect(_bioSave(tester).onPressed, isNotNull);
+      expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
+    });
+
+    testWidgets('the field follows a bio that changed underneath it', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'Before'),
+      );
+      await _pumpPage(tester, fixture);
+      fixture.api.userPreferences = _preferences.copyWith(bioRaw: 'Elsewhere');
+      await fixture.shell.preferences.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        refresh: true,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Elsewhere',
+      );
+      expect(_bioSave(tester).onPressed, isNull);
+    });
+
+    testWidgets('a bio the site owns is read-only and says why', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(
+          bioRaw: 'From the directory',
+          canChangeBio: false,
+        ),
+      );
+      await _pumpPage(tester, fixture);
+
+      expect(tester.widget<DTextarea>(_bio).enabled, isFalse);
+      expect(_bioSave(tester).onPressed, isNull);
+      expect(
+        find.text('This site sets About me from its sign-in provider.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('saving refreshes a profile page already showing the reader', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      final asked = <String>[];
+      fixture.api.userProfileHandler = (siteUrl, username) async {
+        asked.add(username);
+        return UserProfile(card: UserCard(id: 7, username: username));
+      };
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Unopened');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(asked, isEmpty);
+
+      await fixture.shell.userProfile.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        'reader',
+      );
+      await tester.enterText(_bioInput, 'Opened');
+      await tester.pumpAndSettle();
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(asked, ['reader', 'reader']);
+    });
+
+    testWidgets('the field and its save button are named for a screen reader', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Hello');
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(_bioInput),
+        isSemantics(
+          isTextField: true,
+          isMultiline: true,
+          label: 'About me',
+          value: 'Hello',
+        ),
+      );
+      expect(find.bySemanticsLabel('Save About me'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'I like boats.'),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('About me'), findsOneWidget);
+      expect(tester.getSize(_bio).width, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('profile picture', () {
+    testWidgets('a chosen image is uploaded, picked and read back', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _pictures);
+      await _pumpPage(tester, fixture, pickPicture: _pickMe);
+      expect(find.byKey(const ValueKey('preferences-avatar')), findsOneWidget);
+      expect(_defaultPicture, findsNothing);
+      await tester.enterText(_bioInput, 'Still typing');
+      await tester.pumpAndSettle();
+      final userReads = fixture.api.currentUserRequests.length;
+
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.avatarUploads, ['me.png']);
+      expect(fixture.api.avatarPicks, [(username: 'reader', uploadId: 91)]);
+      expect(fixture.api.currentUserRequests.length, userReads + 1);
+      expect(_defaultPicture, findsOneWidget);
+      expect(_pictureError, findsNothing);
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Still typing',
+      );
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+    });
+
+    testWidgets('a new picture reloads a profile page already showing it', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _pictures);
+      final asked = <String>[];
+      fixture.api.userProfileHandler = (siteUrl, username) async {
+        asked.add(username);
+        return UserProfile(card: UserCard(id: 7, username: username));
+      };
+      await fixture.shell.userProfile.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        'reader',
+      );
+      await _pumpPage(tester, fixture, pickPicture: _pickMe);
+
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+
+      expect(asked, ['reader', 'reader']);
+    });
+
+    testWidgets('both actions wait while a change is on its way', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _pictures.copyWith(uploadedAvatarId: 4),
+      );
+      final upload = Completer<int>();
+      final pick = Completer<void>();
+      fixture.api
+        ..avatarUploadHandler = ((_, _) => upload.future)
+        ..avatarPickHandler = ((_) => pick.future);
+      await _pumpPage(tester, fixture, pickPicture: _pickMe);
+
+      await tester.tap(_changePicture);
+      await tester.pump();
+      await tester.pump();
+      expect(tester.widget<DButton>(_changePicture).loading, isTrue);
+      expect(tester.widget<DButton>(_changePicture).onPressed, isNull);
+      expect(tester.widget<DButton>(_defaultPicture).onPressed, isNull);
+      expect(find.text('Uploading…'), findsOneWidget);
+
+      upload.complete(12);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Saving…'), findsOneWidget);
+      expect(tester.widget<DButton>(_changePicture).onPressed, isNull);
+
+      pick.complete();
+      await tester.pumpAndSettle();
+      expect(tester.widget<DButton>(_changePicture).loading, isFalse);
+      expect(tester.widget<DButton>(_changePicture).onPressed, isNotNull);
+      expect(tester.widget<DButton>(_defaultPicture).onPressed, isNotNull);
+    });
+
+    testWidgets('a refused image says why and can be tried again', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _pictures);
+      fixture.api.avatarUploadHandler = (_, _) async =>
+          throw const ComposerUploadException(
+            'Sorry, that image is too big.',
+            statusCode: 422,
+          );
+      await _pumpPage(tester, fixture, pickPicture: _pickMe);
+
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(_pictureError),
+        isSemantics(label: 'Sorry, that image is too big.', isLiveRegion: true),
+      );
+      expect(fixture.api.avatarPicks, isEmpty);
+      expect(tester.widget<DButton>(_changePicture).onPressed, isNotNull);
+
+      fixture.api.avatarUploadHandler = null;
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+      expect(_pictureError, findsNothing);
+      expect(fixture.api.avatarPicks, hasLength(1));
+      semantics.dispose();
+    });
+
+    testWidgets('use default returns to the letter avatar', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(
+        preferences: _pictures.copyWith(uploadedAvatarId: 4),
+      );
+      await _pumpPage(tester, fixture);
+      expect(find.bySemanticsLabel('Use the default picture'), findsOneWidget);
+      expect(find.bySemanticsLabel('Change picture'), findsOneWidget);
+
+      await tester.tap(_defaultPicture);
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.avatarUploads, isEmpty);
+      expect(fixture.api.avatarPicks, [(username: 'reader', uploadId: null)]);
+      expect(_defaultPicture, findsNothing);
+      expect(_changePicture, findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('backing out of the picker changes nothing', (tester) async {
+      final fixture = await _fixture(preferences: _pictures);
+      await _pumpPage(tester, fixture, pickPicture: () async => null);
+
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.avatarUploads, isEmpty);
+      expect(_pictureError, findsNothing);
+      expect(tester.widget<DButton>(_changePicture).onPressed, isNotNull);
+    });
+
+    testWidgets('a picker the device refuses is reported', (tester) async {
+      final fixture = await _fixture(preferences: _pictures);
+      await _pumpPage(
+        tester,
+        fixture,
+        pickPicture: () async => throw PlatformException(code: 'denied'),
+      );
+
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text("Couldn't open a picture from this device."),
+        findsOneWidget,
+      );
+      expect(fixture.api.avatarUploads, isEmpty);
+    });
+
+    testWidgets('the row follows what the site allows', (tester) async {
+      for (final (preferences, change, useDefault) in [
+        (_pictures.copyWith(canEditAvatar: false, uploadedAvatarId: 4), 0, 0),
+        (_pictures.copyWith(canUploadAvatar: false), 0, 0),
+        (_pictures.copyWith(canUploadAvatar: false, uploadedAvatarId: 4), 0, 1),
+        (_pictures, 1, 0),
+      ]) {
+        final fixture = await _fixture(preferences: preferences);
+        await _pumpPage(tester, fixture);
+        expect(_changePicture, findsNWidgets(change));
+        expect(_defaultPicture, findsNWidgets(useDefault));
+        expect(
+          find.byType(PreferencesAvatarRow),
+          findsNWidgets(change + useDefault == 0 ? 0 : 1),
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _pictures.copyWith(uploadedAvatarId: 4),
+      );
+      fixture.api.avatarPickHandler = (_) async => throw const WriteException(
+        WriteFailure.validation,
+        errors: ['You are not permitted to change your picture here.'],
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await tester.tap(_defaultPicture);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(_pictureError, findsOneWidget);
+      expect(tester.getRect(_defaultPicture).right, lessThanOrEqualTo(320));
+      expect(tester.getRect(_changePicture).right, lessThanOrEqualTo(320));
+    });
+  });
+
   testWidgets('denied capabilities hide tracking and prevent edits', (
     tester,
   ) async {

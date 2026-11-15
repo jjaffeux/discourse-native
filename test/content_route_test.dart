@@ -2,6 +2,7 @@ import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/list_link.dart';
@@ -315,6 +316,188 @@ void main() {
       );
       expect(ContentRoute.fromJson(custom.toJson()).icon, DIcons.star);
     }
+  });
+
+  group('pages about a person', () {
+    const reader = DiscourseInstance(
+      url: 'https://forum.example/community',
+      title: 'Forum',
+      user: DiscourseUser(username: 'Reader'),
+    );
+    const visitor = DiscourseInstance(
+      url: 'https://forum.example/community',
+      title: 'Forum',
+    );
+    ContentRoute? decode(
+      String path, {
+      DiscourseInstance forum = reader,
+      String? title,
+    }) => ContentRouteCodec.fromUrl(
+      '${forum.url}$path',
+      instance: forum,
+      config: forum.config,
+      defaultTopPeriod: TopPeriod.all,
+      title: title,
+    );
+    PageDestination page(ContentRoute? route) =>
+        route!.destination as PageDestination;
+
+    test('a profile link and its summary spelling open the profile', () {
+      for (final path in ['/u/Sam', '/u/Sam/', '/u/Sam/summary']) {
+        for (final forum in [reader, visitor]) {
+          final route = decode(path, forum: forum, title: 'click here');
+          expect(page(route).page, CorePage.profile, reason: path);
+          expect(page(route).username, 'Sam', reason: path);
+          expect(route!.title, 'Sam', reason: path);
+          expect(route.icon, DIcons.user);
+          expect(route.id, 'profile-user-sam');
+        }
+      }
+      expect(page(decode('/u/s%C3%A9b')).username, 'séb');
+    });
+
+    test('an activity link opens that person\'s activity', () {
+      for (final path in [
+        '/u/sam/activity',
+        '/u/sam/activity/replies',
+        '/u/sam/activity/likes-given',
+      ]) {
+        final route = decode(path);
+        expect(page(route).page, CorePage.activity, reason: path);
+        expect(page(route).username, 'sam', reason: path);
+        expect(route!.title, "sam's activity");
+      }
+      final own = decode('/u/reader/activity/topics');
+      expect(page(own).page, CorePage.activity);
+      expect(page(own).username, isNull);
+      expect(
+        own!.sameDestinationAs(ContentRoute.userActivity()),
+        isTrue,
+        reason: 'the same page the user menu opens',
+      );
+      expect(
+        decode('/u/sam/activity', forum: visitor),
+        isNull,
+        reason: 'the app lists activity only for an account',
+      );
+    });
+
+    test('other pages of a person stay with the browser', () {
+      for (final path in [
+        '/u/sam/preferences',
+        '/u/sam/preferences/account',
+        '/u/sam/badges',
+        '/u/sam/notifications',
+        '/u/sam/messages',
+        '/u/sam/summary/extra',
+        '/u/sam/invited',
+        '/u/sam?filter=x',
+        '/u/sam#bio',
+        '/u/account-created',
+        '/u/admin-login',
+        '/u/${'a' * 101}',
+        '/u/two%20words',
+        '/u/a%2Fb',
+        '/u/tab%09bed',
+        '/u//summary',
+        '/users/sam',
+      ]) {
+        expect(decode(path), isNull, reason: path);
+      }
+    });
+
+    test('the bare path is still the directory', () {
+      final directory = decode('/u');
+      expect(page(directory).page, CorePage.users);
+      expect(page(directory).username, isNull);
+    });
+
+    test('the reader\'s own messages still open the inbox', () {
+      expect(decode('/u/reader/messages')!.isMessages, isTrue);
+    });
+
+    test('a profile survives a saved tab under its own key', () {
+      final route = ContentRoute.userProfile(
+        username: 'Sam',
+        displayName: 'Sam Example',
+      );
+      final saved = route.toJson();
+      expect(saved['page'], 'profile');
+      expect(saved['activity_username'], 'Sam');
+      final restored = ContentRoute.fromJson(saved);
+      expect(restored.sameDestinationAs(route), isTrue);
+      expect(restored.title, 'Sam Example');
+      expect(restored.icon, DIcons.user);
+      expect(page(restored).username, 'Sam');
+      expect(
+        restored.sameDestinationAs(ContentRoute.userProfile(username: 'sam')),
+        isTrue,
+        reason: 'one person, however the link spelled them',
+      );
+      expect(
+        restored.sameDestinationAs(ContentRoute.userActivity(username: 'Sam')),
+        isFalse,
+      );
+    });
+
+    test('saved activity tabs decode as they were written', () {
+      final own = ContentRoute.fromJson(const {
+        'id': 'activity',
+        'title': 'Activity',
+        'icon': 'bars-staggered',
+      });
+      expect(page(own).page, CorePage.activity);
+      expect(page(own).username, isNull);
+      final person = ContentRoute.fromJson(const {
+        'destination_type': 'page',
+        'page': 'activity',
+        'activity_username': 'sam',
+        'id': 'activity-user-sam',
+        'title': "Sam's activity",
+        'icon': 'bars-staggered',
+      });
+      expect(page(person).page, CorePage.activity);
+      expect(page(person).username, 'sam');
+    });
+
+    test('a saved profile must name one valid person', () {
+      Map<String, Object?> saved({Object? username, String page = 'profile'}) =>
+          {
+            'destination_type': 'page',
+            'page': page,
+            'activity_username': ?username,
+            'id': 'profile-user-sam',
+            'title': 'Sam',
+            'icon': 'user',
+          };
+      for (final json in [
+        saved(),
+        saved(username: ''),
+        saved(username: 42),
+        saved(username: 'two words'),
+        saved(username: 'a/b'),
+        saved(username: 'a' * 101),
+        saved(username: 'sam', page: 'summary'),
+        {'id': 'profile', 'title': 'Sam', 'icon': 'user'}
+          ..['destination_type'] = 'page',
+      ]) {
+        expect(
+          () => ContentRoute.fromJson(Map<String, dynamic>.from(json)),
+          throwsFormatException,
+          reason: '$json',
+        );
+      }
+      final legacy = ContentRoute.fromJson(const {
+        'id': 'profile',
+        'title': 'Sam',
+        'icon': 'user',
+      });
+      expect(
+        legacy.destination,
+        isA<ExtensionDestination>(),
+        reason: 'no legacy tab was ever a profile',
+      );
+    });
   });
 
   test('forum About is distinct from application About and persists', () {

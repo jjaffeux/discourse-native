@@ -93,6 +93,10 @@ final class ComposerUploadType {
 
   static const composer = ComposerUploadType('composer');
 
+  /// Core crops this type square and refuses it where the site forbids
+  /// uploaded avatars.
+  static const avatar = ComposerUploadType('avatar');
+
   final String wireName;
 
   @override
