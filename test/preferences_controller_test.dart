@@ -963,7 +963,7 @@ void main() {
     });
 
     test(
-      'prevents a stale refresh from clobbering a newer local edit',
+      'a refresh answered after a newer local edit keeps the edit',
       () async {
         final refresh = Completer<UserPreferences>();
         var loadCount = 0;
@@ -992,8 +992,245 @@ void main() {
         final state = controller.stateFor(_siteUrl)!;
         expect(state.loading, isFalse);
         expect(state.draft?.timezone, 'Europe/Paris');
-        expect(state.confirmed?.timezone, 'Etc/UTC');
+        expect(state.confirmed?.timezone, 'America/New_York');
         expect(state.dirty(PreferenceSection.profile), isTrue);
+      },
+    );
+
+    test(
+      'a refresh keeps an unsaved section and replaces the others',
+      () async {
+        var loadCount = 0;
+        final api = _PreferencesApi(
+          onLoad: (_) async => ++loadCount == 1
+              ? _initial.copyWith(bioRaw: 'First bio')
+              : _initial.copyWith(
+                  bioRaw: 'Edited on the web',
+                  timezone: 'Asia/Tokyo',
+                  likeNotificationFrequency: 3,
+                ),
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Still typing'),
+        );
+        await controller.load(_accountA, refresh: true);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.draft?.bioRaw, 'Still typing');
+        expect(state.confirmed?.bioRaw, 'Edited on the web');
+        expect(state.dirty(PreferenceSection.about), isTrue);
+        expect(state.draft?.timezone, 'Asia/Tokyo');
+        expect(state.draft?.likeNotificationFrequency, 3);
+        expect(state.dirty(PreferenceSection.profile), isFalse);
+        expect(state.dirty(PreferenceSection.notifications), isFalse);
+
+        expect(
+          await controller.save(_accountA, PreferenceSection.about),
+          isTrue,
+        );
+        expect(api.updates.single.values, {'bio_raw': 'Still typing'});
+      },
+    );
+
+    test(
+      'a refresh keeps every kind of section that waits for a save',
+      () async {
+        final schedule = NotificationSchedule(
+          enabled: true,
+          days: [for (var day = 0; day < 7; day++) (start: 480, end: 1020)],
+        );
+        final edits =
+            <PreferenceSection, UserPreferences Function(UserPreferences)>{
+              PreferenceSection.about: (current) =>
+                  current.copyWith(bioRaw: 'Typed'),
+              PreferenceSection.sidebarCategories: (current) =>
+                  current.copyWith(sidebarCategoryIds: [3]),
+              PreferenceSection.sidebarTags: (current) => current.copyWith(
+                sidebarTags: const [
+                  SidebarTag(id: 1, name: 'release', slug: 'release'),
+                ],
+              ),
+              PreferenceSection.notificationSchedule: (current) =>
+                  current.copyWith(notificationSchedule: schedule),
+              chatPreferenceSection: (current) => current.withChatPreferences(
+                separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+              ),
+            };
+        final controller = _controller(_PreferencesApi());
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        edits.forEach(
+          (section, change) => controller.edit(_siteUrl, section, change),
+        );
+        final typed = controller.stateFor(_siteUrl)!.draft!;
+        await controller.load(_accountA, refresh: true);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed, _initial);
+        for (final section in edits.keys) {
+          expect(state.dirty(section), isTrue, reason: section.id);
+          expect(
+            state.draft!.payloadFor(section),
+            typed.payloadFor(section),
+            reason: section.id,
+          );
+        }
+      },
+    );
+
+    test(
+      'a refresh that brings the typed value leaves nothing to save',
+      () async {
+        var loadCount = 0;
+        final controller = _controller(
+          _PreferencesApi(
+            onLoad: (_) async => ++loadCount == 1
+                ? _initial
+                : _initial.copyWith(bioRaw: 'Typed'),
+          ),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Typed'),
+        );
+        await controller.load(_accountA, refresh: true);
+
+        expect(
+          controller.stateFor(_siteUrl)!.dirty(PreferenceSection.about),
+          isFalse,
+        );
+        expect(
+          await controller.save(_accountA, PreferenceSection.about),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'a choice that saves itself and failed is shown as the site holds it',
+      () async {
+        final api = _PreferencesApi(
+          onUpdate: (_) async =>
+              throw const WriteException(WriteFailure.unreachable),
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.profile,
+          (current) => current.copyWith(timezone: 'Europe/Paris'),
+        );
+        await controller.saveAutomatically(
+          _accountA,
+          PreferenceSection.profile,
+        );
+        expect(controller.stateFor(_siteUrl)!.error, isNotNull);
+        expect(controller.stateFor(_siteUrl)!.draft?.timezone, 'Europe/Paris');
+
+        await controller.load(_accountA, refresh: true);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.draft?.timezone, 'Etc/UTC');
+        expect(state.dirty(PreferenceSection.profile), isFalse);
+        expect(state.error, isNull);
+      },
+    );
+
+    test(
+      'a refresh behind a save keeps what was typed after the save began',
+      () async {
+        final written = Completer<UserPreferences>();
+        var loadCount = 0;
+        final api = _PreferencesApi(
+          onLoad: (_) async => ++loadCount == 1
+              ? _initial
+              : _initial.copyWith(bioRaw: 'First', timezone: 'Asia/Tokyo'),
+          onUpdate: (_) => written.future,
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'First'),
+        );
+        final saveTask = controller.save(_accountA, PreferenceSection.about);
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'First and more'),
+        );
+        final refreshTask = controller.load(_accountA, refresh: true);
+        await pumpEventQueue();
+        expect(api.loads, hasLength(1), reason: 'the read waits for the write');
+
+        written.complete(_initial.copyWith(bioRaw: 'First'));
+        expect(await saveTask, isFalse, reason: 'the text moved on meanwhile');
+        await refreshTask;
+
+        expect(api.loads, hasLength(2));
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed?.bioRaw, 'First');
+        expect(state.confirmed?.timezone, 'Asia/Tokyo');
+        expect(state.draft?.bioRaw, 'First and more');
+        expect(state.draft?.timezone, 'Asia/Tokyo');
+        expect(state.dirty(PreferenceSection.about), isTrue);
+        expect(state.loading, isFalse);
+      },
+    );
+
+    test(
+      'a refresh dispatched before a save of typed text is dropped for it',
+      () async {
+        final refresh = Completer<UserPreferences>();
+        final written = Completer<UserPreferences>();
+        var loadCount = 0;
+        final api = _PreferencesApi(
+          onLoad: (_) => ++loadCount == 1
+              ? Future<UserPreferences>.value(_initial)
+              : refresh.future,
+          onUpdate: (_) => written.future,
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Typed'),
+        );
+        final refreshTask = controller.load(_accountA, refresh: true);
+        await pumpEventQueue();
+        final saveTask = controller.save(_accountA, PreferenceSection.about);
+        await pumpEventQueue();
+
+        // Answered from the site's state before the write reached it.
+        refresh.complete(_initial.copyWith(timezone: 'Asia/Tokyo'));
+        await refreshTask;
+        expect(controller.stateFor(_siteUrl)!.draft?.bioRaw, 'Typed');
+        expect(controller.stateFor(_siteUrl)!.confirmed?.timezone, 'Etc/UTC');
+
+        written.complete(_initial.copyWith(bioRaw: 'Typed'));
+        expect(await saveTask, isTrue);
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed?.bioRaw, 'Typed');
+        expect(state.dirty(PreferenceSection.about), isFalse);
       },
     );
 

@@ -51,6 +51,10 @@ The Profile tab of Preferences edits what the reader's own profile shows.
   shown as it arrives. When `can_change_bio` is false, single sign-on owns the
   bio and the field is read-only. A saved bio reloads the reader's profile
   page if one is open.
+- **Refresh.** Reloading Preferences takes the site's values for what the
+  reader has not touched and keeps every section that still waits for its own
+  save, such as a typed bio. A choice that saves itself is unsaved only after
+  its save failed, and a refresh shows what the site holds for it.
 - **Picture.** A change is written at once and is not part of any draft.
   **Change picture** uploads the chosen image to `/uploads.json` with
   `upload_type=avatar`, then sends `PUT /u/{username}/preferences/avatar/pick`

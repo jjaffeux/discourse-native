@@ -540,6 +540,43 @@ void main() {
       expect(asked, ['reader', 'reader']);
     });
 
+    testWidgets('a typed bio survives a refresh that brings other changes', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'I like boats.'),
+      );
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Still typing');
+      await tester.pumpAndSettle();
+
+      fixture.api.userPreferences = _preferences.copyWith(
+        bioRaw: 'Edited on the web',
+        timezone: 'Asia/Tokyo',
+      );
+      await fixture.shell.preferences.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        refresh: true,
+      );
+      await tester.pumpAndSettle();
+
+      final state = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(state.confirmed?.bioRaw, 'Edited on the web');
+      expect(state.draft?.timezone, 'Asia/Tokyo');
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Still typing',
+      );
+      expect(_bioSave(tester).onPressed, isNotNull);
+
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'bio_raw': 'Still typing',
+      });
+    });
+
     testWidgets('the field and its save button are named for a screen reader', (
       tester,
     ) async {
