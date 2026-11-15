@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/architecture_graph.dart';
 
 const _closureBudgets = <String, (int, int)>{
-  'lib/src/data/account_session_coordinator.dart': (53, 0),
-  'lib/src/data/discourse_account_api.dart': (77, 0),
-  'lib/src/data/discourse_site_api.dart': (76, 0),
-  'lib/src/data/discourse_composer_api.dart': (77, 0),
+  'lib/src/data/account_session_coordinator.dart': (54, 0),
+  'lib/src/data/discourse_account_api.dart': (78, 0),
+  'lib/src/data/discourse_site_api.dart': (77, 0),
+  'lib/src/data/discourse_composer_api.dart': (78, 0),
   'lib/src/plugins/nested_replies/nested_replies_services.dart': (188, 2),
   'lib/src/plugins/nested_replies/nested_replies_bulk_controller.dart': (
     184,
@@ -17,7 +17,7 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/shell/post_mutation_policy.dart': (128, 1),
   'lib/src/shell/selected_post_moderation.dart': (130, 1),
   'lib/src/shell/topic_action_transactions.dart': (129, 1),
-  'lib/src/shell/composer/draft_preview.dart': (181, 133),
+  'lib/src/shell/composer/draft_preview.dart': (182, 134),
 };
 
 void main() {

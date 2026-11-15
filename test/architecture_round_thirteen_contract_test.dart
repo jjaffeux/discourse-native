@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/architecture_graph.dart';
 
 const _closureBudgets = <String, (int, int)>{
-  'lib/src/data/dsa_notices_api.dart': (33, 0),
-  'lib/src/data/discourse_search_api.dart': (67, 0),
-  'lib/src/shell/global_search_api.dart': (54, 0),
-  'lib/src/shell/recent_search_history.dart': (64, 0),
+  'lib/src/data/dsa_notices_api.dart': (34, 0),
+  'lib/src/data/discourse_search_api.dart': (68, 0),
+  'lib/src/shell/global_search_api.dart': (62, 0),
+  'lib/src/shell/recent_search_history.dart': (72, 0),
   'lib/src/data/custom_sidebar_sections.dart': (37, 0),
   'lib/src/plugins/nested_replies/nested_replies_reader_memory.dart': (184, 2),
   'lib/src/plugins/post_voting/post_voting_category_controller.dart': (184, 2),

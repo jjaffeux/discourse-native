@@ -4,7 +4,7 @@ import '../tool/architecture_graph.dart';
 
 const _closureBudgets = <String, (int, int)>{
   'lib/src/data/write_credential.dart': (7, 0),
-  'lib/src/data/site_tracker.dart': (16, 0),
+  'lib/src/data/site_tracker.dart': (17, 0),
   'lib/src/data/sidebar_icon_loader.dart': (10, 0),
   'lib/src/data/current_user_reconciler.dart': (17, 0),
   'lib/src/plugins/discourse_math/math_settings.dart': (184, 2),

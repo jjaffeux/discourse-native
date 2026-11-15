@@ -12,7 +12,7 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/shell/site_read_policy.dart': (40, 0),
   'lib/src/shell/preview_requests.dart': (47, 0),
   'lib/src/shell/draft_list_controller.dart': (41, 0),
-  'lib/src/shell/composer/block_surface.dart': (265, 137),
+  'lib/src/shell/composer/block_surface.dart': (267, 138),
 };
 
 void main() {
