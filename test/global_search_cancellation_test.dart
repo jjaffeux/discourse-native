@@ -183,6 +183,61 @@ void main() {
     expect(await unrelated, {'topics': <Object?>[]});
   });
 
+  testWidgets('the newest search starts after stalled credentials time out', (
+    tester,
+  ) async {
+    final client = _SearchClient();
+    final api = DiscourseApi(client: client);
+    addTearDown(api.close);
+    final credentials = _PendingCredentials();
+    final controller = _controller(api, credentials: credentials)
+      ..setScope(GlobalSearchScope.forum);
+    addTearDown(controller.dispose);
+
+    for (final term in ['first', 'second', 'hawk 2026']) {
+      controller.setQuery(term);
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+
+    expect(client.requests, isEmpty);
+    await tester.pump(const Duration(seconds: 31));
+    expect(credentials.reads, hasLength(3));
+    credentials.reads.last.complete('key');
+    await tester.pump();
+    expect(client.requests.single.term, 'hawk 2026');
+    client.requests.single.complete(_result('Newest result'));
+    await tester.pump();
+    expect(controller.results.single.title, 'Newest result');
+  });
+
+  testWidgets('a stalled credential read leaves loading and can retry', (
+    tester,
+  ) async {
+    final client = _SearchClient();
+    final api = DiscourseApi(client: client);
+    addTearDown(api.close);
+    final credentials = _PendingCredentials();
+    final controller = _controller(api, credentials: credentials)
+      ..setScope(GlobalSearchScope.forum)
+      ..setQuery('hawk 2026');
+    addTearDown(controller.dispose);
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(controller.phase, GlobalSearchPhase.loading);
+
+    await tester.pump(const Duration(seconds: 31));
+    expect(controller.phase, GlobalSearchPhase.failed);
+    expect(controller.error, contains('timed out'));
+
+    controller.retry();
+    await tester.pump();
+    credentials.reads.last.complete('key');
+    await tester.pump();
+    expect(client.requests.single.term, 'hawk 2026');
+    client.requests.single.complete(_result('Retried result'));
+    await tester.pump();
+    expect(controller.results.single.title, 'Retried result');
+  });
+
   testWidgets('all core and contributed scope reads share owner cancellation', (
     tester,
   ) async {
@@ -400,10 +455,12 @@ GlobalSearchController _controller(
   bool chat = false,
   SiteLifecycle? lifecycle,
   GlobalSearchApi? searchApi,
+  FakeApiCredentialReader? credentials,
 }) =>
     GlobalSearchController(
       api: searchApi ?? GlobalSearchApi(transport: api),
-      credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+      credentials:
+          credentials ?? (FakeApiCredentialReader()..keys[_site] = 'key'),
       lifecycle: lifecycle ?? SiteLifecycle(),
       debounceDuration: const Duration(milliseconds: 1),
     )..configure(
@@ -414,6 +471,17 @@ GlobalSearchController _controller(
         enabledContributions: {if (chat) 'chat'},
       ),
     );
+
+class _PendingCredentials extends FakeApiCredentialReader {
+  final reads = <Completer<String?>>[];
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    final read = Completer<String?>();
+    reads.add(read);
+    return read.future;
+  }
+}
 
 Map<String, dynamic> _result(String title) => {
   'posts': [

@@ -14,6 +14,7 @@ final class _GlobalSearchExecution {
   final String? Function() currentSite;
   final VoidCallback notify;
   final void Function(GlobalSearchPage) updateCapabilities;
+  static const _searchDeadline = Duration(seconds: 30);
   final _inFlight = <Object, Set<_SearchAttempt>>{};
   _SearchRun? _run;
   Timer? _debounce;
@@ -135,12 +136,12 @@ final class _GlobalSearchExecution {
 
   Future<void> _execute(_SearchAttempt attempt) async {
     final run = attempt.run, request = attempt.request;
-    try {
+    Future<(AccountRequestCredentials, GlobalSearchPage)?> readPage() async {
       final auth = await AccountRequestSession(
         run.site,
         run.lease,
       ).credentials(credentials);
-      if (!_accepts(attempt)) return;
+      if (!_accepts(attempt)) return null;
       final key = auth.apiKey;
       final page = await auth.run(
         () => api.search(
@@ -160,7 +161,14 @@ final class _GlobalSearchExecution {
               : null,
         ),
       );
-      if (!_accepts(attempt)) return;
+      return (auth, page);
+    }
+
+    try {
+      final read = await readPage().timeout(_searchDeadline);
+      if (read == null || !_accepts(attempt)) return;
+      final (auth, page) = read;
+      final key = auth.apiKey;
       if (attempt.append) {
         final all = <GlobalSearchScope, GlobalSearchSection>{
           for (final section in sections) section.scope: section,
@@ -255,6 +263,7 @@ final class _GlobalSearchExecution {
       );
     } catch (exception) {
       if (!_accepts(attempt)) return;
+      if (exception is TimeoutException) attempt.abort.complete();
       error = GlobalSearchApi.failureMessage(exception);
       phase = _hasResults
           ? GlobalSearchPhase.results

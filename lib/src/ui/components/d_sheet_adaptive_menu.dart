@@ -621,6 +621,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (!mounted ||
         frame == null ||
         _exit.geometry != null ||
+        _retainedExitHeightOffset != null ||
         ModalRoute.of(context)?.isCurrent == false ||
         DOverlayRoute.modalCoverCountOf(context).value > 0) {
       return;
@@ -789,7 +790,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   }
 
   void _measure() {
-    if (_exit.geometry != null) return;
+    if (_exit.geometry != null || _retainedExitHeightOffset != null) return;
     final box = _surface.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
     if (_keyboardRise != null && _offset == 0) {
@@ -1054,12 +1055,16 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       return;
     }
     if (widget.retained) {
+      final scope = FocusScope.of(context);
       if (!_animate) {
+        scope.unfocus();
         dismiss();
         return;
       }
       final destination = MediaQuery.sizeOf(context).height;
+      // The native hide can arrive while travel is still animating out.
       _retainedExitHeightOffset = _heightOffset;
+      scope.unfocus();
       unawaited(
         _travel
             .animateWith(

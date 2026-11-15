@@ -476,6 +476,36 @@ void main({bool useDeviceMetrics = false}) {
       );
     }
   }
+  if (_useDeviceMetrics) {
+    testWidgets('swiping Search away dismisses the native keyboard', (
+      tester,
+    ) async {
+      final shell = await _pumpSearch(tester, size: phone);
+      shell.selectMobilePanel('chat');
+      await tester.pumpAndSettle();
+      await _openAndSearch(tester, 'hawk 2026');
+      expect(tester.view.viewInsets.bottom, greaterThan(0));
+      final focus = _editor(tester).focusNode;
+
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, 400),
+      );
+      await tester.pump();
+      expect(focus.hasFocus, isFalse);
+      for (var frame = 0; frame < 30; frame++) {
+        if (tester.view.viewInsets.bottom == 0 &&
+            shell.currentContent?.isGlobalSearch != true) {
+          break;
+        }
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.pumpAndSettle();
+      expect(tester.view.viewInsets.bottom, 0);
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+    });
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     _testPresentation(
       'mobile $platform search surface covers the keyboard without rebuilding results',

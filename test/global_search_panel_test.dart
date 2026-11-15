@@ -200,13 +200,23 @@ void main() {
       tester,
     ) async {
       final api = _PendingPanelApi();
-      final controller = await _pump(tester, api: api, width: 300, height: 180);
+      final controller = await _pump(
+        tester,
+        api: api,
+        width: 300,
+        height: 180,
+        viewport: const Size(320, 640),
+        platform: TargetPlatform.iOS,
+      );
       controller.setScope(scope);
       controller.setQuery('pending');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byType(DSkeletonRegion), findsOneWidget);
       expect(find.byType(DSkeleton), findsWidgets);
+      final loading = tester.getRect(find.byType(DSkeletonRegion));
+      final line = tester.getRect(find.byType(DSkeleton).at(1));
+      expect(line.left - loading.left, closeTo(loading.right - line.right, 1));
       expect(tester.takeException(), isNull);
 
       api.gate.complete(

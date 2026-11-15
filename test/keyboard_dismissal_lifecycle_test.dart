@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/global_search_fixtures.dart';
+import 'support/keyboard_test_harness.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
@@ -70,6 +71,7 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final departure in [
       'outside tap',
+      'swipe',
       'back',
       'early back',
       'sidebar',
@@ -103,6 +105,31 @@ void main() {
           case 'outside tap':
             final sheet = tester.getRect(find.byType(DSheetContent));
             await tester.tapAt(Offset(sheet.center.dx, sheet.top - 4));
+          case 'swipe':
+            tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+            if (platform == TargetPlatform.iOS) {
+              await sendKeyboardFrame(tester, inset: 280);
+            }
+            await tester.pumpAndSettle();
+            final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+            final canceled = await tester.startGesture(
+              tester.getCenter(handle),
+            );
+            await canceled.moveBy(const Offset(0, 20));
+            await canceled.moveBy(const Offset(0, 100));
+            await canceled.cancel();
+            await tester.pumpAndSettle();
+            expect(tester.testTextInput.isVisible, isTrue);
+
+            await tester.drag(handle, const Offset(0, 400));
+            await tester.pump();
+            expect(tester.testTextInput.isVisible, isFalse);
+            if (platform == TargetPlatform.iOS) {
+              await sendKeyboardFrame(tester, inset: 0);
+            }
+            tester.view.resetViewInsets();
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.isGlobalSearch, isNot(true));
           case 'back' || 'early back':
             shell.handleBack();
           case 'sidebar':

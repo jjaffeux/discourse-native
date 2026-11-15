@@ -2776,6 +2776,13 @@ void main() {
     Future<void> settle(WidgetTester tester) =>
         tester.pump(const Duration(milliseconds: 10));
 
+    Future<void> finishSearches(WidgetTester tester, _EngineApi api) async {
+      for (final request in api.pending.where((read) => !read.isCompleted)) {
+        request.complete(const GlobalSearchPage(sections: []));
+      }
+      await tester.pump();
+    }
+
     Future<(_EngineApi, GlobalSearchController)> answered(
       WidgetTester tester, {
       GlobalSearchScope? scope,
@@ -2841,6 +2848,7 @@ void main() {
       controller.retry();
       await settle(tester);
       expect(api.requests, hasLength(3));
+      await finishSearches(tester, api);
     });
 
     testWidgets('is sent again after the search failed', (tester) async {
@@ -2855,6 +2863,7 @@ void main() {
       controller.setQuery('keyboard ');
       await settle(tester);
       expect(api.requests, hasLength(2));
+      await finishSearches(tester, api);
     });
 
     testWidgets('is sent again after one section failed', (tester) async {
@@ -2881,6 +2890,7 @@ void main() {
       controller.setQuery('keyboard ');
       await settle(tester);
       expect(api.requests, hasLength(2));
+      await finishSearches(tester, api);
     });
 
     testWidgets('is sent again once a failed discovery recovers', (
@@ -2905,6 +2915,7 @@ void main() {
       await settle(tester);
       expect(api.requests, hasLength(2));
       expect(api.requests.last.capabilities.unlisted, isFalse);
+      await finishSearches(tester, api);
     });
 
     const ux = GlobalSearchCondition(
@@ -2960,6 +2971,7 @@ void main() {
         change(controller);
         await settle(tester);
         expect(api.requests, hasLength(sent + 1));
+        await finishSearches(tester, api);
       });
     }
 
@@ -2971,6 +2983,7 @@ void main() {
       controller.setOrder('username', ascending: !controller.ascending);
       await settle(tester);
       expect(api.requests, hasLength(2));
+      await finishSearches(tester, api);
     });
 
     testWidgets('is sent after the field was emptied', (tester) async {
@@ -2981,6 +2994,7 @@ void main() {
       controller.setQuery('keyboard');
       await settle(tester);
       expect(api.requests, hasLength(2));
+      await finishSearches(tester, api);
     });
 
     testWidgets('does not outrank the minimum length', (tester) async {

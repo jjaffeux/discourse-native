@@ -1613,10 +1613,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       spacing: 10,
                       children: [
-                        if (showAvatar)
-                          const DSkeleton.circle(diameter: 30)
-                        else
-                          const SizedBox(width: 30),
+                        if (showAvatar) const DSkeleton.circle(diameter: 30),
                         Expanded(
                           child: DItemContent(
                             spacing: 3,
