@@ -725,6 +725,50 @@ void main() {
   );
 
   _mobileTest(
+    'tapping the collapsed tab bar stops a Topics fling and opens it',
+    (tester) async {
+      await pumpMobileShellFixture(
+        tester,
+        topics: [
+          for (var id = 1; id <= 50; id++)
+            Topic(
+              id: id,
+              title: 'Scrollable topic $id',
+              slug: 'scrollable-$id',
+            ),
+        ],
+      );
+      final list = find.byType(TopicListView);
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: list, matching: find.byType(Scrollable)).first,
+          )
+          .position;
+      final reveal = find.byKey(const ValueKey('mobile-dock-reveal'));
+
+      await tester.drag(list, const Offset(0, -160));
+      await tester.pumpAndSettle();
+      expect(reveal.hitTestable(), findsOneWidget);
+      await tester.fling(list, const Offset(0, -240), 2200);
+      await tester.pump(const Duration(milliseconds: 16));
+      final movingOffset = position.pixels;
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(position.pixels, greaterThan(movingOffset));
+
+      await tester.tap(reveal.hitTestable());
+      final scrollingAfterTap = position.isScrollingNotifier.value;
+      await tester.pumpAndSettle();
+      expect(reveal.hitTestable(), findsNothing);
+      expect(
+        find.byKey(const ValueKey('mobile-mode-topics')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(scrollingAfterTap, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest(
     'phone topic filters follow the finger and stay put during pauses',
     (tester) async {
       await pumpMobileShellFixture(
