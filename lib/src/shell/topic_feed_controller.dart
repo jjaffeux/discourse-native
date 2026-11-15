@@ -819,7 +819,9 @@ final class TopicFeedController extends FrameSafeNotifier {
     IncomingTopics? incoming,
     bool Function(String path)? wherePath,
   }) {
-    if (isDisposed || !lifecycle.owns(instance.url, lease) || !lease.isCurrent) {
+    if (isDisposed ||
+        !lifecycle.owns(instance.url, lease) ||
+        !lease.isCurrent) {
       return Future.value(false);
     }
     final key = (instance.url, lease.session);
@@ -895,6 +897,44 @@ final class TopicFeedController extends FrameSafeNotifier {
               (entry.session.feed?.loaded == true &&
                   entry.session.feed?.error == null),
         );
+  }
+
+  /// Asks again for each of [instance]'s feeds whose last load or page ended
+  /// in an error, and for nothing else. Each goes through the ordinary load,
+  /// so a request already in flight is joined rather than doubled and a newer
+  /// one still supersedes it.
+  void reloadFailed({
+    required DiscourseInstance instance,
+    required IncomingTopics? incoming,
+  }) {
+    if (isDisposed) return;
+    final failed = [
+      for (final session in _sessions.values)
+        if (session.key.$1 == instance.url &&
+            session.requestedPath != null &&
+            session.feed?.error != null &&
+            session.feed?.loading != true &&
+            session.feed?.loadingMore != true)
+          session,
+    ];
+    for (final session in failed) {
+      if (!identical(_sessions[session.key], session)) continue;
+      final feed = session.feed;
+      if (feed == null || feed.error == null) continue;
+      if (feed.pageError) {
+        unawaited(loadMore(instance: instance, destinationId: session.key.$2));
+      } else {
+        unawaited(
+          _load(
+            instance: instance,
+            destinationId: session.key.$2,
+            path: session.requestedPath!,
+            incoming: incoming,
+            force: false,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _startLoad(_FeedSession session, _FeedLoad load) {

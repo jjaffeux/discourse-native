@@ -6802,6 +6802,15 @@
       }
     }
   },
+  "canTConnectToRetryingAutomatically": "Can''t connect to {instanceHost}. Retrying automatically.",
+  "@canTConnectToRetryingAutomatically": {
+    "description": "English UI message used by shell/network_status_banner.dart: the notice shown, and announced to assistive technology, while the current site cannot be connected to. Keep placeholders intact.",
+    "placeholders": {
+      "instanceHost": {
+        "type": "String"
+      }
+    }
+  },
   "couldnTReach": "Couldn''t reach {instanceHost}.",
   "@couldnTReach": {
     "description": "English UI message used by shell/account_activity_controller.dart. Keep placeholders intact.",

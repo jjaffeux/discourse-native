@@ -130,6 +130,15 @@ class DiscourseApi
 
   final DiscourseTransport _transport;
 
+  @override
+  OriginReachability get reachability => _transport.coordinator.reachability;
+
+  @override
+  bool isCoolingDown(String siteUrl) {
+    final url = Uri.tryParse(siteUrl);
+    return url != null && _transport.coordinator.isCoolingDown(url);
+  }
+
   late final DiscourseAccountApi _account = DiscourseAccountApi(
     _transport,
     models,

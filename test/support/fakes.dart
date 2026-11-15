@@ -4289,6 +4289,14 @@ class FakeDiscourseApi
   }) async => const {};
 
   @override
+  final OriginReachability reachability = OriginReachability();
+
+  final Set<String> coolingDown = {};
+
+  @override
+  bool isCoolingDown(String siteUrl) => coolingDown.contains(siteUrl);
+
+  @override
   void close() => closeCalls += 1;
 }
 

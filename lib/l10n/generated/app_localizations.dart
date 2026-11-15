@@ -9128,6 +9128,12 @@ abstract class AppLocalizations {
   /// **'Not allowed — try reconnecting to {instanceHost}.'**
   String notAllowedTryReconnectingTo(String instanceHost);
 
+  /// English UI message used by shell/network_status_banner.dart: the notice shown, and announced to assistive technology, while the current site cannot be connected to. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'\'t connect to {instanceHost}. Retrying automatically.'**
+  String canTConnectToRetryingAutomatically(String instanceHost);
+
   /// English UI message used by shell/account_activity_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

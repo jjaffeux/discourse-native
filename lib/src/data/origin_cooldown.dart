@@ -26,6 +26,12 @@ final class OriginCooldown {
     return null;
   }
 
+  /// Whether a cooldown is running, read without retiring an expired wake.
+  bool get isActive {
+    final until = _until;
+    return until != null && until > _clock();
+  }
+
   /// Returns null when [delay] is zero and no longer cooldown is already held.
   Duration? extend(Duration delay, {required void Function() onExpired}) {
     assert(!delay.isNegative);

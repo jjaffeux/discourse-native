@@ -7,6 +7,7 @@ import 'discourse_search_contract.dart';
 import 'do_not_disturb_api.dart';
 import 'drafts_api.dart';
 import 'dsa_notice_contracts.dart';
+import 'origin_reachability.dart';
 import 'plugin_transport.dart';
 import 'post_mutations_api.dart';
 import 'shell_lookup_api.dart';
@@ -31,6 +32,7 @@ export 'do_not_disturb_api.dart';
 export 'drafts_api.dart';
 export 'dsa_notice_contracts.dart';
 export 'failure_text.dart';
+export 'origin_reachability.dart';
 export 'post_mutations_api.dart';
 export 'shell_lookup_api.dart';
 export 'shell_site_api.dart';
@@ -55,6 +57,7 @@ abstract interface class ShellApiCapabilities
     implements
         DiscourseApiLifecycle,
         DiscourseApiModels,
+        SiteReachabilityApi,
         DsaNoticesApi,
         SiteLookupApi,
         PluginApiTransport,
