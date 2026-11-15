@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:discourse_native/discourse_bundled.dart';
-import 'package:discourse_native/src/data/draft_store.dart';
-import 'package:discourse_native/src/data/private_storage.dart';
+import 'package:discourse_native/src/data/platform_draft_store.dart';
+import 'package:discourse_native/src/data/platform_private_storage.dart';
 import 'package:discourse_native_full/main.dart' as app;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -36,12 +36,15 @@ void main() {
     expect(await credentials.read(key), isNull);
 
     const site = 'https://android-smoke.invalid';
-    final drafts = DraftStore();
+    final drafts = createPlatformDraftStore();
     addTearDown(() => drafts.clear(site, key));
     await drafts.write(site, key, 'An unfinished Android reply');
-    expect(await DraftStore().read(site, key), 'An unfinished Android reply');
+    expect(
+      await createPlatformDraftStore().read(site, key),
+      'An unfinished Android reply',
+    );
     await drafts.clear(site, key);
-    expect(await DraftStore().read(site, key), isNull);
+    expect(await createPlatformDraftStore().read(site, key), isNull);
 
     app.main();
     await tester.pumpAndSettle();

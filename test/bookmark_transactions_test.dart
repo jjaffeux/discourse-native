@@ -10,7 +10,6 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
-import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:flutter/foundation.dart';

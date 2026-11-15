@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_controller.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
 import 'package:flutter_test/flutter_test.dart';

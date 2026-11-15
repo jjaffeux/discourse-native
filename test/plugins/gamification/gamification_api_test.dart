@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_api.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';

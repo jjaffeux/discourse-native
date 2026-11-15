@@ -1,6 +1,5 @@
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
-import 'package:discourse_native/src/plugins/discourse_github/oneboxes/issue/block.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time_parser.dart';
