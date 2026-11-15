@@ -20,7 +20,7 @@ import '../models/topic_link.dart';
 import '../plugin_api/topic_reader.dart';
 import 'bookmark_transactions.dart';
 import 'checklist_topic_data.dart';
-import 'content_snapshots.dart';
+import 'content_snapshot_sources.dart';
 import 'topic_prefetch_controller.dart';
 
 typedef TopicDataPosition = ({String slug, int postNumber});

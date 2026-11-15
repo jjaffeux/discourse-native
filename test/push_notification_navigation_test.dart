@@ -586,12 +586,44 @@ void main() {
       'http://user:secret@one.example/t/topic/1',
       'http://one.example:8080/t/topic/1',
       'ftp://one.example/t/topic/1',
-      'https://one.example/u/reader',
+      'https://one.example/u/reader/preferences',
+      'https://elsewhere.example/u/reader',
+      'https://signed-out.example/u/reader',
     ]) {
       expect(await controller.openNotificationUrl(url), isFalse, reason: url);
     }
     expect(controller.currentInstance?.url, 'https://one.example');
     expect(controller.currentContent?.topicId, isNull);
+  });
+
+  test('a push naming a person opens their profile on its forum', () async {
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        _connected('one.example'),
+        _connected('two.example'),
+      ]),
+      api: api,
+      authenticator: _readerKeys(api),
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    expect(
+      await controller.openNotificationUrl('https://two.example/u/sam'),
+      isTrue,
+    );
+
+    expect(controller.currentInstance?.url, 'https://two.example');
+    expect(
+      controller.currentContent?.destination,
+      isA<PageDestination>()
+          .having((page) => page.page, 'page', CorePage.profile)
+          .having((page) => page.username, 'username', 'sam'),
+    );
   });
 
   // Discourse spells a push URL with `http` unless the site forces https,

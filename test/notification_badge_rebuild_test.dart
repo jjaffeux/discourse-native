@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -73,8 +74,10 @@ _Rebuilds _recordRebuilds() {
   return rebuilds;
 }
 
-Future<void> _pumpForums(WidgetTester tester) async {
-  const user = DiscourseUser(id: 7, username: 'reader');
+Future<void> _pumpForums(
+  WidgetTester tester, {
+  DiscourseUser user = const DiscourseUser(id: 7, username: 'reader'),
+}) async {
   await pumpShell(
     tester,
     _isPhone ? const Size(390, 844) : const Size(1440, 844),
@@ -292,6 +295,55 @@ void main() {
     tracker.deliverNotification(_notificationState(unread: 1));
     await _settleLiveMessage(tester);
     expect(badge, findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('a reviewable count redraws only a reviewer\'s Review row', (
+    tester,
+  ) async {
+    await _pumpForums(
+      tester,
+      user: const DiscourseUser(id: 7, username: 'sam', staff: true),
+    );
+    final tracker = _tracker(_selected);
+    final row = find.byWidgetPredicate(
+      (widget) =>
+          widget is SidebarDestinationTile &&
+          widget.destination.id == SidebarDestination.reviewId,
+    );
+    Finder drawn(int count) =>
+        find.descendant(of: row, matching: find.text('$count'));
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(row, findsOneWidget);
+    expect(drawn(0), findsNothing);
+
+    _review(tracker, 1);
+    await _frames(tester);
+    expect(drawn(1), findsOneWidget);
+
+    final outsideRow = <Widget>[];
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      var inRow = row.evaluate().contains(element);
+      var inSidebar = false;
+      element.visitAncestorElements((ancestor) {
+        inRow |= row.evaluate().contains(ancestor);
+        inSidebar |= ancestor.widget is InstanceSidebar;
+        return true;
+      });
+      if (inSidebar && !inRow) outsideRow.add(element.widget);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    _review(tracker, 2);
+    await _frames(tester);
+    expect(drawn(2), findsOneWidget);
+    // Above the tile, only the row's own count listener and badge selector.
+    expect(outsideRow, hasLength(lessThanOrEqualTo(2)));
+
+    _review(tracker, 0);
+    await _frames(tester);
+    expect(drawn(2), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a personal message still reaches its sidebar row', (

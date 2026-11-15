@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../foundation/elapsed_time.dart';
 import 'byte_cache_policy.dart';
 import 'byte_cache_store.dart';
+import 'connection_never_opened.dart';
 import 'http_basic_auth.dart';
 import 'http_transport.dart';
 import 'http_url_safety.dart';

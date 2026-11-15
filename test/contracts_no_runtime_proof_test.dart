@@ -18,6 +18,6 @@ void main() {
     // Exporting the runtime from the contracts barrel again costs about 240
     // libraries, so this leaves room for new plugin libraries.
     expect(invalidated, lessThanOrEqualTo(360));
-    expect(reach, lessThanOrEqualTo(167));
+    expect(reach, lessThanOrEqualTo(169));
   });
 }

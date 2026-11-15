@@ -160,12 +160,13 @@ Listenable _sidebarPanelChanges(BuildContext context) {
 
 /// The counts the core sections draw. The facade never announces totals, so
 /// a row's own badge selector re-reads them when these rebuild the sections.
+/// Unseen reviewables move with every flag on a forum and only the Review row
+/// draws them, so that row follows them itself.
 Object? _sidebarSectionCounts(ShellController shell) {
   final totals = shell.currentTotals;
   return (
     totals?.unreadPersonalMessages,
     totals?.topicTrackingSidebarCount,
-    totals?.unseenReviewables,
     totals?.pluginCounters,
   );
 }
@@ -1727,7 +1728,7 @@ class _SectionState extends State<_Section> {
         }
         // Each row selects its own badge because reading a topic moves
         // tracking up to twice a second and rarely moves any badge with it.
-        return ShellSelector<SidebarBadge>(
+        Widget badgedRow() => ShellSelector<SidebarBadge>(
           key: submenu ? ValueKey(destination.id) : null,
           select: (controller) => controller.sidebarBadgeFor(destination.id),
           builder: (context, badge, _) => SidebarDestinationTile(
@@ -1752,6 +1753,14 @@ class _SectionState extends State<_Section> {
                 : null,
             onTap: () => _selectDestination(destination),
           ),
+        );
+        if (destination.id != SidebarDestination.reviewId) return badgedRow();
+        final shell = ShellScope.read(context);
+        return ListenableBuilder(
+          listenable: shell.accountActivity.totalsSelection(
+            () => shell.currentTotals?.unseenReviewables,
+          ),
+          builder: (context, _) => badgedRow(),
         );
       }
 

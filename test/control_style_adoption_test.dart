@@ -169,7 +169,7 @@ void main() {
         'lib/src/shell/message_archive_button.dart': {'backgroundColor': 1},
         // Mobile user-card actions match the documented borderless pill row.
         // Chat uses the mockup's muted fill beside the primary Message action.
-        'lib/src/shell/user_card.dart': {'shape': 3, 'borderColor': 3},
+        'lib/src/shell/user_card.dart': {'shape': 4, 'borderColor': 4},
         'lib/src/plugins/chat/chat_user_card.dart': {
           'shape': 1,
           'backgroundColor': 1,

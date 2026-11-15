@@ -179,7 +179,7 @@ const _renderObjectBudget = {
   TargetPlatform.macOS: 1097,
   TargetPlatform.iOS: 1191,
 };
-const _elementBudget = {TargetPlatform.macOS: 2831, TargetPlatform.iOS: 3105};
+const _elementBudget = {TargetPlatform.macOS: 2839, TargetPlatform.iOS: 3115};
 
 const _site = 'https://meta.discourse.org';
 const _reader = DiscourseUser(id: 7, username: 'reader');

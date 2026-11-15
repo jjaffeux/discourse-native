@@ -6,7 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
-import 'http_transport.dart';
+import 'connection_never_opened.dart';
 import 'origin_cooldown.dart';
 import 'origin_reachability.dart';
 import 'origin_request_gate.dart';
