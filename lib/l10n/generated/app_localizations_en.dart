@@ -16117,7 +16117,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reviewLoadError => 'The review queue couldn’t be loaded.';
 
   @override
-  String get reviewEmpty => 'There are no items to review.';
+  String get reviewEmpty =>
+      'Flags, queued posts and accounts awaiting approval appear here.';
+
+  @override
+  String get reviewNotPermittedTitle => 'Staff only';
+
+  @override
+  String get reviewEmptyTitle => 'Nothing to review';
+
+  @override
+  String get reviewEmptyFiltered => 'No items match these filters.';
+
+  @override
+  String get reviewClearFilters => 'Clear filters';
+
+  @override
+  String get reviewLoadingMore => 'Loading more review items';
+
+  @override
+  String get reviewLoadingItem => 'Loading review item';
+
+  @override
+  String get reviewOpensInBrowser => 'Opens in your browser';
+
+  @override
+  String reviewReasonCount(String reason, int count) {
+    return '$reason ×$count';
+  }
 
   @override
   String get reviewFilterStatus => 'Status';
@@ -16162,13 +16189,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reviewStatusHandled => 'Reviewed';
 
   @override
-  String get reviewAllTypes => '(all types)';
+  String get reviewAllTypes => 'All types';
 
   @override
-  String get reviewAllCategories => '(all categories)';
+  String get reviewAllCategories => 'All categories';
 
   @override
-  String get reviewPriorityAny => '(any)';
+  String get reviewPriorityAny => 'Any priority';
 
   @override
   String get reviewPriorityLow => 'Low';
@@ -16219,9 +16246,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reviewReasons => 'Reasons';
 
   @override
-  String get reviewNoReasons => 'No reasons were recorded.';
-
-  @override
   String get reviewContentDeleted => 'This post has been deleted.';
 
   @override
@@ -16253,9 +16277,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reviewActions => 'Actions';
-
-  @override
-  String get reviewNoActions => 'There is nothing left to do on this item.';
 
   @override
   String get reviewConfirmDestructive =>

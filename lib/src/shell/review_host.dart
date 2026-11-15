@@ -33,12 +33,14 @@ class ReviewHostState extends State<ReviewHost> {
   Object? _identity;
   final _queueKey = GlobalKey();
   bool _itemOpen = false;
+  ReviewNotice? _announced;
 
   Future<void> refresh() => _controller?.refresh() ?? Future.value();
 
   /// A closed item must not stay the tab's destination: the same link would
   /// then count as already open, and a restored tab would reopen the item.
   void _followSelection() {
+    _announce();
     final open = _controller?.state.selectedId != null;
     final closed = _itemOpen && !open;
     _itemOpen = open;
@@ -51,6 +53,20 @@ class ReviewHostState extends State<ReviewHost> {
         true) {
       shell.replaceCurrentContent(ContentRoute.review());
     }
+  }
+
+  /// A finished action is said once, over whichever screen it left showing:
+  /// the item usually closes with it, so a note on the item would go unread.
+  void _announce() {
+    final notice = _controller?.state.notice;
+    if (notice is! ReviewPerformed || identical(notice, _announced)) return;
+    _announced = notice;
+    if (!mounted) return;
+    DToast.show(
+      context,
+      notice.message ?? context.l10n.reviewPerformed,
+      type: DToastType.success,
+    );
   }
 
   @override
@@ -127,6 +143,7 @@ class ReviewHostState extends State<ReviewHost> {
                 key: _queueKey,
                 state: state,
                 permitted: owner.reviews,
+                siteUrl: widget.siteUrl,
                 categories: [
                   for (final category in shell.topicComposerCategories(
                     widget.siteUrl,
@@ -146,6 +163,7 @@ class ReviewHostState extends State<ReviewHost> {
                 state: state,
                 siteUrl: widget.siteUrl,
                 onBack: controller.close,
+                onRetry: () => unawaited(controller.open(id)),
                 onPerform: (item, action) =>
                     unawaited(controller.perform(item, action)),
                 onOpenInBrowser: () => unawaited(

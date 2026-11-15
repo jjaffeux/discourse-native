@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/review_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -113,6 +114,8 @@ void main() {
     expect(api.reads, containsAll(['/review.json?status=pending']));
     expect(api.reads, contains('/review/77.json'));
 
+    await tester.tap(find.byKey(const ValueKey('review-bundle-77-agree')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Keep post'));
     await tester.pumpAndSettle();
 
@@ -131,7 +134,7 @@ void main() {
     expect(await shell.openNotificationUrl('$siteUrl/review/78'), isTrue);
     await tester.pumpAndSettle();
     expect(find.byType(ReviewItemPage), findsOneWidget);
-    await tester.tap(find.text('Back to queue'));
+    await tester.tap(find.byKey(const ValueKey('review-back')));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'review');
     expect(await shell.openNotificationUrl('$siteUrl/review/78'), isTrue);

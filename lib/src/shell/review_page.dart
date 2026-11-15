@@ -1,15 +1,24 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/icons/d_icons.dart';
+import '../models/json.dart';
 import '../models/reviewable.dart';
-import '../theme/app_theme.dart';
+import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
+import 'account_activity_paging_skeleton.dart';
 import 'adaptive_dialog_action.dart';
+import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'relative_time.dart';
 import 'review_controller.dart';
+import 'skeleton_fill.dart';
+
+part 'review_filter_menu.dart';
+part 'review_item_page.dart';
 
 /// The site's name for a reviewable class. Classes this app has no wording
 /// for, which any plugin can add, are read out of the class name itself.
@@ -95,43 +104,157 @@ String _failureText(ReviewFailure failure, {required bool item}) =>
         item ? appL10n.reviewItemLoadError : appL10n.reviewLoadError,
     };
 
-Widget _notice(ReviewNotice notice) => Padding(
-  padding: const EdgeInsets.symmetric(vertical: 8),
-  child: DAlert(
-    variant: notice is ReviewPerformed
-        ? DAlertVariant.normal
-        : DAlertVariant.destructive,
-    description: DAlertDescription(
-      child: Text(switch (notice) {
-        ReviewPerformed(:final message) => message ?? appL10n.reviewPerformed,
-        ReviewConflict() => appL10n.reviewConflict,
-        ReviewActionFailed(:final message) => message,
-      }),
+DIconData _typeIcon(Reviewable item) => switch (item.kind) {
+  ReviewableKind.flaggedPost => DIcons.flag,
+  ReviewableKind.queuedPost => DIcons.inbox,
+  ReviewableKind.user => DIcons.userPlus,
+  _ => item.type.contains('Chat') ? DIcons.comment : DIcons.fileLines,
+};
+
+TextStyle _metaStyle(BuildContext context) => TextStyle(
+  fontSize: DiscourseTypography.preview,
+  height: DiscourseTypography.lineHeightSmall,
+  color: DTokens.of(context).mutedForeground,
+);
+
+DBadgeVariant _statusVariant(ReviewableStatus status) => switch (status) {
+  ReviewableStatus.rejected ||
+  ReviewableStatus.deleted => DBadgeVariant.destructive,
+  ReviewableStatus.approved => DBadgeVariant.primary,
+  _ => DBadgeVariant.outline,
+};
+
+/// Each distinct reason on an item, with how many times it was raised.
+List<String> _reasonLabels(Reviewable item) {
+  final counts = <String, int>{};
+  for (final score in item.scores) {
+    if (score.title.isEmpty) continue;
+    counts[score.title] = (counts[score.title] ?? 0) + 1;
+  }
+  return [
+    for (final MapEntry(key: reason, value: count) in counts.entries)
+      count > 1 ? appL10n.reviewReasonCount(reason, count) : reason,
+  ];
+}
+
+class _ReviewAvatar extends StatelessWidget {
+  const _ReviewAvatar({
+    required this.person,
+    required this.siteUrl,
+    required this.size,
+    this.username,
+  });
+
+  final ReviewablePerson? person;
+  final String siteUrl;
+  final double size;
+
+  /// The name to draw an initial from when the site sent no person.
+  final String? username;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = person?.username ?? username ?? '';
+    final fallback = DAvatarFallback(
+      child: name.isEmpty
+          ? DIcon(DIcons.user, size: size * .45)
+          : Text(name.characters.first.toUpperCase()),
+    );
+    return DAvatar(
+      dimension: size,
+      border: false,
+      decorative: true,
+      fallback: fallback,
+      child: AvatarImage(
+        url: resolveAvatarUrl(person?.avatarTemplate, siteUrl),
+        size: size,
+        fallback: fallback,
+      ),
+    );
+  }
+}
+
+/// A whole-page message: nothing to show, nothing allowed, or nothing loaded.
+class _ReviewStatePane extends StatelessWidget {
+  const _ReviewStatePane({
+    required this.icon,
+    required this.title,
+    this.body,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final DIconData icon;
+  final String title;
+  final String? body;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+        child: Semantics(
+          container: true,
+          liveRegion: true,
+          child: Center(
+            child: DEmpty(
+              children: [
+                DEmptyHeader(
+                  children: [
+                    DEmptyMedia(
+                      variant: DEmptyMediaVariant.icon,
+                      child: DIcon(icon),
+                    ),
+                    DEmptyTitle(title),
+                    if (body case final body?) DEmptyDescription(body),
+                  ],
+                ),
+                if (actionLabel case final label?)
+                  DEmptyContent(
+                    children: [
+                      DButton(
+                        label: Text(label),
+                        variant: DButtonVariant.outline,
+                        onPressed: onAction,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ),
-  ),
-);
+  );
+}
 
-Widget _alert(String text) => Padding(
-  padding: const EdgeInsets.symmetric(vertical: 8),
-  child: DAlert(
-    variant: DAlertVariant.destructive,
-    description: DAlertDescription(child: Text(text)),
-  ),
-);
-
-Widget _empty(String text) => Padding(
-  padding: const EdgeInsets.symmetric(vertical: 24),
-  child: DEmpty(children: [DEmptyDescription(text)]),
+Widget _retryAlert(String text, VoidCallback? onRetry) => DAlert(
+  variant: DAlertVariant.destructive,
+  icon: const DIcon(DIcons.triangleExclamation),
+  description: DAlertDescription(child: Text(text)),
+  action: onRetry == null
+      ? null
+      : DAlertAction(
+          child: DButton(
+            label: Text(appL10n.tryAgain),
+            variant: DButtonVariant.link,
+            onPressed: onRetry,
+          ),
+        ),
 );
 
 typedef ReviewCategoryOption = ({int id, String name});
 
 /// The filterable queue. State and every effect belong to the caller.
-class ReviewQueuePage extends StatefulWidget {
+class ReviewQueuePage extends StatelessWidget {
   const ReviewQueuePage({
     super.key,
     required this.state,
     required this.permitted,
+    required this.siteUrl,
     required this.onRefresh,
     required this.onFilters,
     required this.onLoadMore,
@@ -141,255 +264,359 @@ class ReviewQueuePage extends StatefulWidget {
 
   final ReviewState state;
   final bool permitted;
+  final String siteUrl;
   final Future<void> Function() onRefresh;
   final ValueChanged<ReviewFilters> onFilters;
   final VoidCallback onLoadMore;
   final ValueChanged<Reviewable> onOpen;
   final List<ReviewCategoryOption> categories;
 
-  @override
-  State<ReviewQueuePage> createState() => _ReviewQueuePageState();
-}
-
-class _ReviewQueuePageState extends State<ReviewQueuePage> {
-  late final _username = TextEditingController(
-    text: widget.state.filters.username,
-  );
-
-  ReviewState get state => widget.state;
   ReviewFilters get filters => state.filters;
 
-  @override
-  void dispose() {
-    _username.dispose();
-    super.dispose();
-  }
-
-  DSelect<T> _select<T>({
-    required String label,
-    required T value,
-    required List<(T, String)> options,
-    required ValueChanged<T> onChanged,
-  }) => DSelect<T>(
-    value: value,
-    semanticLabel: label,
-    entries: [
-      for (final (option, text) in options)
-        DSelectItem(value: option, textValue: text, child: Text(text)),
-    ],
-    onChanged: (selected) {
-      if (selected != null && selected != value) onChanged(selected);
-    },
-  );
-
-  Widget _controls(AppLocalizations l10n) {
-    // The site lists its own types once a page has loaded; until then the
-    // three every site has are offered.
-    final types = {
-      ...state.types.isEmpty
-          ? const [
-              'ReviewableFlaggedPost',
-              'ReviewableQueuedPost',
-              'ReviewableUser',
-            ]
-          : state.types,
-      ?filters.type,
-    };
-    return DControlWrap(
+  Widget _controls(AppLocalizations l10n) => DReferenceTextScale(
+    child: DControlWrap(
       children: [
-        _select<ReviewStatusFilter>(
-          label: l10n.reviewFilterStatus,
+        DSelect<ReviewStatusFilter>.controlled(
+          size: DControlSize.filter,
+          semanticLabel: l10n.reviewFilterStatus,
           value: filters.status,
-          options: [
+          entries: [
             for (final status in ReviewStatusFilter.values)
-              (status, _statusFilterLabel(status)),
+              DSelectOption(
+                value: status,
+                label: _statusFilterLabel(status),
+                child: Text(_statusFilterLabel(status)),
+              ),
           ],
-          onChanged: (status) =>
-              widget.onFilters(filters.copyWith(status: status)),
+          onChanged: (status) {
+            if (status != null && status != filters.status) {
+              onFilters(filters.copyWith(status: status));
+            }
+          },
         ),
-        _select<String>(
-          label: l10n.reviewFilterType,
-          value: filters.type ?? '',
-          options: [
-            ('', l10n.reviewAllTypes),
-            for (final type in types) (type, reviewTypeLabel(type)),
-          ],
-          onChanged: (type) => widget.onFilters(
-            type.isEmpty
-                ? filters.copyWith(clearType: true)
-                : filters.copyWith(type: type),
-          ),
-        ),
-        _select<ReviewPriorityFilter>(
-          label: l10n.reviewFilterPriority,
-          value: filters.priority,
-          options: [
-            for (final priority in ReviewPriorityFilter.values)
-              (priority, _priorityLabel(priority)),
-          ],
-          onChanged: (priority) =>
-              widget.onFilters(filters.copyWith(priority: priority)),
-        ),
-        if (widget.categories.isNotEmpty)
-          _select<int>(
-            label: l10n.reviewFilterCategory,
-            value: filters.categoryId ?? 0,
-            options: [
-              (0, l10n.reviewAllCategories),
-              for (final category in widget.categories)
-                (category.id, category.name),
-            ],
-            onChanged: (id) => widget.onFilters(
-              id == 0
-                  ? filters.copyWith(clearCategory: true)
-                  : filters.copyWith(categoryId: id),
-            ),
-          ),
-        _select<ReviewSortOrder>(
-          label: l10n.reviewFilterOrder,
-          value: filters.sortOrder,
-          options: [
-            for (final order in ReviewSortOrder.values)
-              (order, _orderLabel(order)),
-          ],
-          onChanged: (order) =>
-              widget.onFilters(filters.copyWith(sortOrder: order)),
-        ),
-        SizedBox(
-          width: 180,
-          child: DInput(
-            controller: _username,
-            semanticLabel: l10n.reviewFilterUsername,
-            hintText: l10n.reviewFilterUsername,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (value) =>
-                widget.onFilters(filters.copyWith(username: value.trim())),
-          ),
+        _ReviewFilterMenu(
+          filters: filters,
+          types: state.types,
+          categories: categories,
+          onFilters: onFilters,
         ),
       ],
+    ),
+  );
+
+  Widget _state(AppLocalizations l10n) {
+    final failure = state.failure;
+    if (failure != null) {
+      return _ReviewStatePane(
+        icon: failure == ReviewFailure.forbidden
+            ? DIcons.lock
+            : DIcons.triangleExclamation,
+        title: _failureText(failure, item: false),
+        actionLabel: failure == ReviewFailure.forbidden ? null : l10n.tryAgain,
+        onAction: state.loading ? null : onRefresh,
+      );
+    }
+    final narrowed = filters.narrowing > 0;
+    return _ReviewStatePane(
+      icon: DIcons.circleCheck,
+      title: l10n.reviewEmptyTitle,
+      body: narrowed ? l10n.reviewEmptyFiltered : l10n.reviewEmpty,
+      actionLabel: narrowed ? l10n.reviewClearFilters : null,
+      onAction: () => onFilters(filters.cleared),
+    );
+  }
+
+  Widget _list(BuildContext context, DPageHeaderGeometry header) {
+    final l10n = context.l10n;
+    final failure = state.failure;
+    final items = state.items;
+    return DPageReadingLane(
+      builder: (context, lane) => CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: header.spacer),
+          SliverPadding(
+            padding: EdgeInsets.only(
+              left: lane.leftInset + DSpacing.lg,
+              right: lane.rightInset + DSpacing.lg,
+              bottom: DSpacing.xl + DScrollChrome.bottomInsetOf(context),
+            ),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                if (failure != null && !state.hasMore)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: DSpacing.sm),
+                      child: _retryAlert(
+                        _failureText(failure, item: false),
+                        state.loading ? null : onRefresh,
+                      ),
+                    ),
+                  ),
+                SliverList.separated(
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const DSeparator(space: 1),
+                  itemBuilder: (context, index) => _ReviewRow(
+                    key: ValueKey('review-row-${items[index].id}'),
+                    item: items[index],
+                    siteUrl: siteUrl,
+                    showStatus: filters.status != ReviewStatusFilter.pending,
+                    onOpen: () => onOpen(items[index]),
+                  ),
+                ),
+                if (state.hasMore)
+                  SliverToBoxAdapter(
+                    child: failure != null
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: DSpacing.sm),
+                            child: _retryAlert(
+                              _failureText(failure, item: false),
+                              onLoadMore,
+                            ),
+                          )
+                        : state.loadingMore
+                        ? AccountActivityPagingSkeleton(
+                            semanticsLabel: l10n.reviewLoadingMore,
+                          )
+                        : ScrollPageTrigger(
+                            enabled: true,
+                            onLoad: onLoadMore,
+                            child: const SizedBox(height: 1),
+                          ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final failure = state.failure;
-    return DPageSurface.headed(
-      title: Text(l10n.reviewTitle),
-      controls: widget.permitted ? _controls(l10n) : null,
-      bodyBuilder: (context, header) => DPullToRefresh(
-        onRefresh: widget.permitted && !state.loading ? widget.onRefresh : null,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 28),
-          children: [
-            header.spacer,
-            if (!widget.permitted)
-              _empty(l10n.reviewNotPermitted)
-            else ...[
-              if (state.notice case final notice?) _notice(notice),
-              if (failure != null) ...[
-                _alert(_failureText(failure, item: false)),
-                if (failure != ReviewFailure.forbidden)
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: DButton(
-                      variant: DButtonVariant.outline,
-                      label: Text(l10n.tryAgain),
-                      onPressed: state.loading ? null : widget.onRefresh,
-                    ),
-                  ),
-              ],
-              // The host starts the first read after the first frame, so an
-              // unloaded queue with no failure is one that is loading.
-              if (!state.loaded && failure == null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  child: Center(
-                    child: DSpinner(semanticLabel: l10n.reviewLoading),
-                  ),
-                ),
-              if (state.loaded && state.items.isEmpty && failure == null)
-                _empty(l10n.reviewEmpty),
-              for (final item in state.items)
-                _ReviewRow(
-                  key: ValueKey('review-row-${item.id}'),
-                  item: item,
-                  onOpen: () => widget.onOpen(item),
-                ),
-              if (state.hasMore)
-                ScrollPageTrigger(
-                  enabled: !state.loadingMore && failure == null,
-                  onLoad: widget.onLoadMore,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Center(
-                      child: DButton(
-                        variant: DButtonVariant.outline,
-                        label: Text(l10n.loadMore),
-                        loading: state.loadingMore,
-                        onPressed: state.loadingMore ? null : widget.onLoadMore,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ],
+    if (!permitted) {
+      return DPageSurface.headed(
+        title: Text(l10n.reviewTitle),
+        child: _ReviewStatePane(
+          icon: DIcons.lock,
+          title: l10n.reviewNotPermittedTitle,
+          body: l10n.reviewNotPermitted,
+        ),
+      );
+    }
+    // The host starts the first read after the first frame, so an unloaded
+    // queue with no failure is one that is loading.
+    final loading = !state.loaded && state.failure == null;
+    if (loading) {
+      return DPageSurface.headed(
+        title: Text(l10n.reviewTitle),
+        controls: _controls(l10n),
+        child: const _ReviewQueueSkeleton(),
+      );
+    }
+    if (state.items.isEmpty) {
+      return DPageSurface.headed(
+        title: Text(l10n.reviewTitle),
+        controls: _controls(l10n),
+        child: DPullToRefresh(
+          onRefresh: state.loading ? null : onRefresh,
+          child: _state(l10n),
+        ),
+      );
+    }
+    return DScrollChromePagination(
+      hasMore: state.hasMore,
+      loading: state.loadingMore,
+      child: DPageSurface.headed(
+        title: Text(l10n.reviewTitle),
+        controls: _controls(l10n),
+        bodyBuilder: (context, header) => DPullToRefresh(
+          onRefresh: state.loading ? null : onRefresh,
+          child: _list(context, header),
         ),
       ),
     );
   }
 }
 
+class _ReviewQueueSkeleton extends StatelessWidget {
+  const _ReviewQueueSkeleton();
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    expand: true,
+    semanticsLabel: context.l10n.reviewLoading,
+    color: skeletonFill(context),
+    child: DPageReadingLane(
+      basePadding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
+      builder: (context, lane) => ListView.separated(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: lane.padding,
+        itemCount: 6,
+        separatorBuilder: (_, _) => const DSeparator(space: 1),
+        itemBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: DSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: DSpacing.md,
+            children: [
+              const DSkeleton.circle(diameter: 40),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.sm,
+                  children: [
+                    const DSkeleton(width: 120, height: 8),
+                    FractionallySizedBox(
+                      widthFactor: index.isEven ? .5 : .68,
+                      child: const DSkeleton(height: 12),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: index.isEven ? .82 : .6,
+                      child: const DSkeleton(height: 8),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _ReviewRow extends StatelessWidget {
-  const _ReviewRow({super.key, required this.item, required this.onOpen});
+  const _ReviewRow({
+    super.key,
+    required this.item,
+    required this.siteUrl,
+    required this.showStatus,
+    required this.onOpen,
+  });
 
   final Reviewable item;
+  final String siteUrl;
+
+  /// A pending queue is all one status, so naming it on every row is noise.
+  final bool showStatus;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final created = item.createdAt;
+    return created == null
+        ? _row(context, null)
+        : RelativeTimeBuilder(when: created, builder: _row);
+  }
+
+  Widget _row(BuildContext context, String? age) {
     final l10n = context.l10n;
+    final tokens = DTokens.of(context);
     final summary = reviewItemSummary(item);
-    final author = item.targetCreatedBy?.username;
-    final reasons = {
-      for (final score in item.scores)
-        if (score.title.isNotEmpty) score.title,
-    };
-    final details = [
-      _itemTypeLabel(item),
-      reviewStatusLabel(item.status),
-      if (author != null) l10n.reviewWrittenBy(author),
-      if (item.createdAt case final created?) relativeTime(created),
-    ].join(' · ');
+    final author = item.accountUsername ?? item.targetCreatedBy?.username;
+    final type = _itemTypeLabel(item);
+    final reasons = _reasonLabels(item);
     final excerpt = item.raw?.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return Semantics(
-      container: true,
-      button: true,
-      label: l10n.reviewItemLabel([summary, details, ...reasons].join(', ')),
-      child: ExcludeSemantics(
-        child: DItem(
-          shape: DItemShape.fullWidth,
-          link: true,
-          onPressed: onOpen,
+    final named = author != null && summary != '@$author';
+    final meta = _metaStyle(context);
+    return DItem(
+      shape: DItemShape.fullWidth,
+      gap: DSpacing.md,
+      padding: const EdgeInsets.symmetric(
+        horizontal: DSpacing.xs,
+        vertical: DSpacing.md,
+      ),
+      onPressed: onOpen,
+      semanticLabel: l10n.reviewItemLabel(
+        [
+          summary,
+          type,
+          if (showStatus) reviewStatusLabel(item.status),
+          if (named) l10n.reviewWrittenBy(author),
+          ?age,
+          ...reasons,
+        ].join(', '),
+      ),
+      children: [
+        DItemMedia(
+          variant: DItemMediaVariant.avatar,
+          child: _ReviewAvatar(
+            person: item.targetCreatedBy,
+            username: author,
+            siteUrl: siteUrl,
+            size: DAvatarSize.lg.dimension,
+          ),
+        ),
+        DItemContent(
+          spacing: 3,
           children: [
-            DItemContent(
-              children: [
-                DItemTitle(child: Text(summary)),
-                Text(
-                  details,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.shell.marker,
+            ExcludeSemantics(
+              child: Row(
+                spacing: DSpacing.controlGap,
+                children: [
+                  DIcon(
+                    _typeIcon(item),
+                    size: 11,
+                    color: tokens.mutedForeground,
+                  ),
+                  Expanded(
+                    child: Text(
+                      named ? '$type · $author' : type,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: meta.copyWith(
+                        fontSize: DiscourseTypography.metadata,
+                      ),
+                    ),
+                  ),
+                  if (age != null)
+                    Text(
+                      age,
+                      style: meta.copyWith(
+                        fontSize: DiscourseTypography.metadata,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            DItemTitle(
+              maxLines: 2,
+              child: ExcludeSemantics(
+                child: Text(
+                  summary,
+                  style: const TextStyle(
+                    fontSize: DiscourseTypography.rowTitle,
+                    height: DiscourseTypography.lineHeightRowTitle,
                   ),
                 ),
-                if (excerpt != null && excerpt.isNotEmpty)
-                  DItemDescription(child: Text(excerpt)),
-                if (reasons.isNotEmpty)
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+              ),
+            ),
+            if (excerpt != null && excerpt.isNotEmpty)
+              DItemDescription(
+                child: ExcludeSemantics(
+                  child: Text(
+                    excerpt,
+                    style: meta.copyWith(
+                      height: DiscourseTypography.lineHeightPreview,
+                    ),
+                  ),
+                ),
+              ),
+            if (showStatus || reasons.isNotEmpty)
+              ExcludeSemantics(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: DSpacing.xs),
+                  child: Wrap(
+                    spacing: DSpacing.controlGap,
+                    runSpacing: DSpacing.xs,
                     children: [
+                      if (showStatus)
+                        DBadge(
+                          variant: _statusVariant(item.status),
+                          child: Text(reviewStatusLabel(item.status)),
+                        ),
                       for (final reason in reasons)
                         DBadge(
                           variant: DBadgeVariant.secondary,
@@ -397,298 +624,11 @@ class _ReviewRow extends StatelessWidget {
                         ),
                     ],
                   ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// One item: what it is about, why it is queued, and what can be done.
-class ReviewItemPage extends StatelessWidget {
-  const ReviewItemPage({
-    super.key,
-    required this.state,
-    required this.siteUrl,
-    required this.onBack,
-    required this.onPerform,
-    required this.onOpenInBrowser,
-    this.onViewInContext,
-  });
-
-  final ReviewState state;
-  final String siteUrl;
-  final VoidCallback onBack;
-  final void Function(Reviewable item, ReviewableAction action) onPerform;
-
-  /// Opens this item on the site, where the actions this app cannot carry
-  /// out are performed.
-  final VoidCallback onOpenInBrowser;
-  final ValueChanged<String>? onViewInContext;
-
-  Future<void> _press(
-    BuildContext context,
-    Reviewable item,
-    ReviewableAction action,
-  ) async {
-    final l10n = context.l10n;
-    switch (item.routeFor(action)) {
-      case ReviewableActionRoute.browser:
-        onOpenInBrowser();
-      case ReviewableActionRoute.perform:
-        onPerform(item, action);
-      case ReviewableActionRoute.confirm ||
-          ReviewableActionRoute.confirmDestructive:
-        final destructive =
-            item.routeFor(action) == ReviewableActionRoute.confirmDestructive;
-        final confirmed = await showDiscourseAlertDialog<bool>(
-          context: context,
-          title: Text(action.label),
-          description: Text(
-            action.confirmMessage ??
-                action.description ??
-                l10n.reviewConfirmDestructive,
-          ),
-          cancelLabel: Text(l10n.cancel),
-          actionLabel: Text(action.label),
-          cancelResult: false,
-          actionResult: true,
-          actionVariant: destructive
-              ? DButtonVariant.destructive
-              : DButtonVariant.primary,
-          actionKey: const ValueKey('review-confirm-action'),
-        );
-        if (confirmed == true) onPerform(item, action);
-    }
-  }
-
-  Widget _card(BuildContext context, String? title, List<Widget> children) =>
-      Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 16),
-        child: DCard(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 10,
-              children: [
-                if (title != null)
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ),
-                ...children,
-              ],
-            ),
-          ),
-        ),
-      );
-
-  Widget _field(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    return MergeSemantics(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.shell.marker,
-            ),
-          ),
-          Text(value),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _content(BuildContext context, Reviewable item) {
-    final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final muted = theme.textTheme.bodySmall?.copyWith(
-      color: theme.shell.marker,
-    );
-    final author = item.targetCreatedBy?.username;
-    final heading = item.title ?? item.topicTitle;
-    return [
-      if (heading != null) Text(heading, style: theme.textTheme.titleMedium),
-      Text(
-        [
-          reviewStatusLabel(item.status),
-          if (author != null && item.kind != ReviewableKind.user)
-            l10n.reviewWrittenBy(author),
-          if (item.createdAt case final created?) relativeTime(created),
-        ].join(' · '),
-        style: muted,
-      ),
-      if (item.kind == ReviewableKind.other)
-        Text(l10n.reviewUnsupportedType, style: muted),
-      if (item.targetDeleted) Text(l10n.reviewContentDeleted, style: muted),
-      if (item.kind == ReviewableKind.user) ...[
-        if (item.accountUsername ?? author case final username?)
-          _field(context, l10n.reviewFilterUsername, '@$username'),
-        if (item.accountName case final name?)
-          _field(context, l10n.reviewAccountName, name),
-        if (item.accountEmail case final email?)
-          _field(context, l10n.reviewAccountEmail, email),
-        if (item.rejectReason case final reason?)
-          _field(context, l10n.reviewRejectReason, reason),
-      ],
-      if (item.cooked case final cooked?)
-        CookedHtml(html: cooked, siteUrl: siteUrl)
-      else if (item.raw case final raw?)
-        Text(raw),
-    ];
-  }
-
-  Widget _score(BuildContext context, ReviewableScore score) {
-    final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final status = _scoreStatusLabel(score.status);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 4,
-      children: [
-        MergeSemantics(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (score.title.isNotEmpty)
-                DBadge(
-                  variant: DBadgeVariant.secondary,
-                  child: Text(score.title),
-                ),
-              Text(
-                [
-                  if (score.user case final user?)
-                    l10n.reviewFlaggedBy(user.username),
-                  if (status.isNotEmpty) status,
-                  if (score.createdAt case final created?)
-                    relativeTime(created),
-                ].join(' · '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.shell.marker,
                 ),
               ),
-            ],
-          ),
-        ),
-        if (score.reasonHtml case final reason?)
-          CookedHtml(html: reason, siteUrl: siteUrl, compactParagraphs: true),
-      ],
-    );
-  }
-
-  Widget _action(
-    BuildContext context,
-    Reviewable item,
-    ReviewableAction action,
-  ) {
-    final browser = item.routeFor(action) == ReviewableActionRoute.browser;
-    final sending = state.performing == action.id;
-    return DButton(
-      key: ValueKey('review-action-${action.id}'),
-      variant: action.isDestructive
-          ? DButtonVariant.destructive
-          : DButtonVariant.outline,
-      label: Text(action.label),
-      icon: browser ? const DIcon(DIcons.upRightFromSquare) : null,
-      tooltip: action.description,
-      semanticLabel: browser
-          ? context.l10n.reviewActionInBrowser(action.label)
-          : null,
-      loading: sending,
-      onPressed: state.performing != null
-          ? null
-          : () => _press(context, item, action),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final item = state.selected;
-    final failure = state.selectedFailure;
-    final target = item?.targetUrl;
-    return DPageSurface.headed(
-      title: Text(item == null ? l10n.reviewTitle : _itemTypeLabel(item)),
-      controls: DControlWrap(
-        children: [
-          DButton(
-            variant: DButtonVariant.ghost,
-            icon: const DIcon(DIcons.arrowLeft),
-            label: Text(l10n.reviewBackToQueue),
-            onPressed: onBack,
-          ),
-          if (target != null && onViewInContext != null)
-            DButton(
-              variant: DButtonVariant.outline,
-              label: Text(l10n.reviewViewInContext),
-              onPressed: () => onViewInContext!(target),
-            ),
-          DButton(
-            variant: DButtonVariant.outline,
-            icon: const DIcon(DIcons.upRightFromSquare),
-            label: Text(l10n.reviewOpenInBrowser),
-            onPressed: onOpenInBrowser,
-          ),
-        ],
-      ),
-      bodyBuilder: (context, header) => ListView(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 28),
-        children: [
-          header.spacer,
-          if (state.notice case final notice?) _notice(notice),
-          if (failure != null) _alert(_failureText(failure, item: true)),
-          if (item == null && failure == null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: DSpinner(semanticLabel: l10n.reviewLoading)),
-            ),
-          if (item != null) ...[
-            _card(context, null, _content(context, item)),
-            _card(context, l10n.reviewReasons, [
-              if (item.scores.isEmpty)
-                Text(l10n.reviewNoReasons)
-              else
-                for (final score in item.scores) _score(context, score),
-            ]),
-            _card(context, l10n.reviewActions, [
-              if (item.bundles.every((bundle) => bundle.actions.isEmpty))
-                Text(l10n.reviewNoActions),
-              for (final bundle in item.bundles)
-                if (bundle.actions.isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 6,
-                    children: [
-                      if (bundle.label case final label?
-                          when bundle.actions.length > 1)
-                        Text(
-                          label,
-                          style: Theme.of(context).textTheme.labelMedium,
-                        ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final action in bundle.actions)
-                            _action(context, item, action),
-                        ],
-                      ),
-                    ],
-                  ),
-            ]),
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
