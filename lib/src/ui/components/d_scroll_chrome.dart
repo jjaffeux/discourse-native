@@ -190,11 +190,13 @@ class DScrollChromeController extends ChangeNotifier
     this._animation,
     this._paginationChanged,
     this._footerVisibilityChanged,
+    this._stopPageScroll,
   );
 
   final HeaderMotion _animation;
   final void Function(Object owner) _paginationChanged;
   final VoidCallback _footerVisibilityChanged;
+  final VoidCallback _stopPageScroll;
   final _footerHiders = <Object>{};
 
   /// Hides the floating navigation footer while an owner needs its space.
@@ -229,10 +231,10 @@ class DScrollChromeController extends ChangeNotifier
   /// Opens coupled page headers and the dock without changing the destination.
   void reveal() => _animation.reveal(fresh: true);
 
-  /// Opens the chrome for a control whose purpose is to show the navigation,
-  /// and keeps it open until the reader next scrolls the page: opening it can
-  /// resize an end-only page, which must not count as leaving its end.
+  /// Stops the scroll driving the chrome and opens navigation. Keeps it open
+  /// until the reader scrolls again, even if revealing it resizes an end-only page.
   void revealNavigation() {
+    _stopPageScroll();
     _revealHeld = true;
     reveal();
   }
@@ -324,6 +326,7 @@ class _DScrollChromeState extends State<DScrollChrome>
     _animation,
     _paginationChanged,
     _requestRebuild,
+    _stopPageScroll,
   );
   final _footerFocus = FocusNode(canRequestFocus: false);
   final _footerKey = GlobalKey();
@@ -506,6 +509,16 @@ class _DScrollChromeState extends State<DScrollChrome>
       return true;
     });
     return nested ? null : source;
+  }
+
+  void _stopPageScroll() {
+    final source = _activeSource;
+    if (source == null || !source.mounted) return;
+    final position = source.position;
+    if (position.isScrollingNotifier.value &&
+        position.userScrollDirection != ScrollDirection.idle) {
+      position.jumpTo(position.pixels);
+    }
   }
 
   bool _shortContent(ScrollMetrics metrics) {
