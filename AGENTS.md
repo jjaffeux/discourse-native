@@ -1,5 +1,13 @@
 # Project agent instructions
 
+## Task workflow
+
+- At the start of each new task, pull the latest changes from `origin/main` into local `main`. Use the updated `main` as the base for any new task branch or worktree.
+- When you believe the task is complete, summarize the result and ask the user to choose a next step, unless they already specified one.
+  1. Commit the changes to `main` and push to `origin/main`.
+  2. Deploy to the connected iPhone.
+  3. Describe more changes to make.
+
 ## UI kit usage
 
 - All application UI components must use the project's Native component library (the UI kit), imported through `package:discourse_native/discourse_ui.dart`. This is mandatory for every screen, plugin, toolbar, dialog, picker, menu, and styleguide example. Follow `docs/component-library/conventions.md` and consult the styleguide and catalogue before choosing or implementing UI.
