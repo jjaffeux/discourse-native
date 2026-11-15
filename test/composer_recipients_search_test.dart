@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/keyboard_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
 const _sam = FoundUser(username: 'sam');
@@ -27,6 +28,48 @@ Finder _option(String name) => find.byWidgetPredicate(
 );
 
 void main() {
+  testWidgets('phone recipient sheet eases into its final top edge', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      mobile: true,
+      api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+    );
+    final sheet = find.byType(DSheetContent);
+    double top() => tester.getTopLeft(sheet).dy;
+
+    await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+    await tester.pumpAndSettle();
+    expect(top(), greaterThan(100));
+
+    await sendKeyboardFrame(
+      tester,
+      inset: 320,
+      milliseconds: 383,
+      curve: 7,
+      spring: const {
+        'mass': 1,
+        'stiffness': 555.0265,
+        'damping': 47.118,
+        'velocity': 0,
+      },
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 381));
+    final before = top();
+    await tester.pump(const Duration(milliseconds: 1));
+    final penultimate = top();
+    await tester.pump(const Duration(milliseconds: 1));
+    final settled = top();
+
+    expect(settled, closeTo(8, .01));
+    expect(
+      penultimate - settled,
+      lessThanOrEqualTo(before - penultimate + .05),
+    );
+  });
+
   for (final swipe in [false, true]) {
     testWidgets(
       'phone recipient sheet slides offscreen while the keyboard hides '
