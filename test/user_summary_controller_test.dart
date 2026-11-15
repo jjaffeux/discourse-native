@@ -78,21 +78,30 @@ void main() {
 
       final first = controller.load(_one);
       await pumpEventQueue();
-      expect(controller.stateFor(_oneUrl).loading, isTrue);
+      expect(controller.stateFor(_oneUrl, 'reader-one').loading, isTrue);
       expect(api.requests.single.username, 'reader-one');
       api.requests.single.result.complete(UserSummary(daysVisited: 4));
       await first;
 
-      expect(controller.stateFor(_oneUrl).summary?.daysVisited, 4);
+      expect(
+        controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited,
+        4,
+      );
       final refresh = controller.load(_one, refresh: true);
       await pumpEventQueue();
-      expect(controller.stateFor(_oneUrl).summary?.daysVisited, 4);
-      expect(controller.stateFor(_oneUrl).loading, isTrue);
+      expect(
+        controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited,
+        4,
+      );
+      expect(controller.stateFor(_oneUrl, 'reader-one').loading, isTrue);
       api.requests.last.result.complete(UserSummary(daysVisited: 9));
       await refresh;
 
-      expect(controller.stateFor(_oneUrl).summary?.daysVisited, 9);
-      expect(controller.stateFor(_oneUrl).loading, isFalse);
+      expect(
+        controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited,
+        9,
+      );
+      expect(controller.stateFor(_oneUrl, 'reader-one').loading, isFalse);
     },
   );
 
@@ -113,8 +122,8 @@ void main() {
     api.requests[1].result.complete(UserSummary(daysVisited: 2));
     await Future.wait([one, two]);
 
-    expect(controller.stateFor(_oneUrl).summary?.daysVisited, 1);
-    expect(controller.stateFor(_twoUrl).summary?.daysVisited, 2);
+    expect(controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited, 1);
+    expect(controller.stateFor(_twoUrl, 'reader-two').summary?.daysVisited, 2);
     expect(api.requests.map((request) => request.username), [
       'reader-one',
       'reader-two',
@@ -150,13 +159,70 @@ void main() {
       api.requests.first.result.complete(UserSummary(daysVisited: 99));
       await former;
 
-      expect(controller.stateFor(_oneUrl).summary?.daysVisited, 20);
+      expect(
+        controller.stateFor(_oneUrl, 'replacement').summary?.daysVisited,
+        20,
+      );
+      expect(controller.stateFor(_oneUrl, 'reader-one').summary, isNull);
       expect(api.requests.map((request) => request.username), [
         'reader-one',
         'replacement',
       ]);
     },
   );
+
+  test('one account holds each person\'s summary apart', () async {
+    final api = _GatedSummaryApi();
+    final controller = UserSummaryController(
+      api: api,
+      credentials: _ReadyKeys(),
+      lifecycle: SiteLifecycle(),
+    );
+    addTearDown(controller.dispose);
+
+    final own = controller.load(_one);
+    final other = controller.load(_one, username: 'Sam');
+    await pumpEventQueue();
+    expect(api.requests.map((request) => request.username), [
+      'reader-one',
+      'Sam',
+    ]);
+    api.requests[1].result.complete(UserSummary(daysVisited: 30));
+    await other;
+
+    expect(controller.stateFor(_oneUrl, 'sam').summary?.daysVisited, 30);
+    expect(controller.stateFor(_oneUrl, 'reader-one').loading, isTrue);
+    api.requests[0].result.complete(UserSummary(daysVisited: 4));
+    await own;
+    expect(controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited, 4);
+    expect(controller.stateFor(_oneUrl, 'SAM').summary?.daysVisited, 30);
+  });
+
+  test('a failure names whose summary it was', () async {
+    final api = _GatedSummaryApi();
+    final controller = UserSummaryController(
+      api: api,
+      credentials: _ReadyKeys(),
+      lifecycle: SiteLifecycle(),
+    );
+    addTearDown(controller.dispose);
+
+    final own = controller.load(_one);
+    final other = controller.load(_one, username: 'sam');
+    await pumpEventQueue();
+    api.requests[0].result.completeError(StateError('offline'));
+    api.requests[1].result.completeError(StateError('offline'));
+    await Future.wait([own, other]);
+
+    expect(
+      controller.stateFor(_oneUrl, 'reader-one').error,
+      "Couldn't load your summary from one.example.",
+    );
+    expect(
+      controller.stateFor(_oneUrl, 'sam').error,
+      "Couldn't load this summary from one.example.",
+    );
+  });
 
   test(
     'rotation while credentials are pending sends no stale request',
@@ -178,7 +244,7 @@ void main() {
       await load;
 
       expect(api.requests, isEmpty);
-      expect(controller.stateFor(_oneUrl).summary, isNull);
+      expect(controller.stateFor(_oneUrl, 'reader-one').summary, isNull);
     },
   );
 
@@ -198,15 +264,18 @@ void main() {
       api.requests.single.result.complete(UserSummary(daysVisited: 7));
       await first;
       lifecycle.invalidate(_oneUrl);
-      expect(controller.stateFor(_oneUrl).summary, isNull);
-      expect(controller.stateFor(_oneUrl).loaded, isFalse);
+      expect(controller.stateFor(_oneUrl, 'reader-one').summary, isNull);
+      expect(controller.stateFor(_oneUrl, 'reader-one').loaded, isFalse);
 
       final replacement = controller.load(_one);
       await pumpEventQueue();
       expect(api.requests, hasLength(2));
       api.requests.last.result.complete(UserSummary(daysVisited: 8));
       await replacement;
-      expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
+      expect(
+        controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited,
+        8,
+      );
     },
   );
 
@@ -226,13 +295,13 @@ void main() {
     await pumpEventQueue();
     api.requests.first.result.completeError(StateError('old failure'));
     await former;
-    expect(controller.stateFor(_oneUrl).loading, isTrue);
-    expect(controller.stateFor(_oneUrl).error, isNull);
+    expect(controller.stateFor(_oneUrl, 'reader-one').loading, isTrue);
+    expect(controller.stateFor(_oneUrl, 'reader-one').error, isNull);
     await controller.load(_one);
     expect(api.requests, hasLength(2));
     api.requests.last.result.complete(UserSummary(daysVisited: 8));
     await replacement;
-    expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
+    expect(controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited, 8);
   });
 
   test('an earlier retirement observer can start a successor safely', () async {
@@ -252,16 +321,16 @@ void main() {
     await pumpEventQueue();
     lifecycle.invalidate(_oneUrl);
     await pumpEventQueue();
-    expect(controller.stateFor(_oneUrl).loading, isTrue);
+    expect(controller.stateFor(_oneUrl, 'reader-one').loading, isTrue);
     api.requests.first.result.complete(UserSummary(daysVisited: 99));
     await former;
-    expect(controller.stateFor(_oneUrl).loading, isTrue);
-    expect(controller.stateFor(_oneUrl).summary, isNull);
+    expect(controller.stateFor(_oneUrl, 'reader-one').loading, isTrue);
+    expect(controller.stateFor(_oneUrl, 'reader-one').summary, isNull);
     await controller.load(_one);
     expect(api.requests, hasLength(2));
     api.requests.last.result.complete(UserSummary(daysVisited: 8));
     await successor;
-    expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
+    expect(controller.stateFor(_oneUrl, 'reader-one').summary?.daysVisited, 8);
   });
 
   test('dispose while credentials are pending sends no request', () async {

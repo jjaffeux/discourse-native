@@ -34,22 +34,27 @@ final class UserSummaryState {
       UserSummaryState(summary: summary, loaded: true, error: message);
 }
 
+final class _SummaryEntry {
+  UserSummaryState state = const UserSummaryState();
+  Object? request;
+}
+
 final class _SummaryAccount {
   _SummaryAccount(this.lease);
 
   final SiteLease lease;
-  UserSummaryState state = const UserSummaryState();
-  Object? request;
+  final Map<String, _SummaryEntry> entries = {};
   void Function()? detach;
 
   void dispose() {
     detach?.call();
     detach = null;
-    state = const UserSummaryState();
-    request = null;
+    entries.clear();
   }
 }
 
+/// Summaries by site, then by lowercased username, for the account session
+/// that asked.
 final class UserSummaryController extends FrameSafeNotifier
     with AccountScopedState {
   UserSummaryController({
@@ -83,25 +88,38 @@ final class UserSummaryController extends FrameSafeNotifier
     return account;
   }
 
-  UserSummaryState stateFor(String? siteUrl) => siteUrl == null
+  UserSummaryState stateFor(String? siteUrl, String? username) =>
+      siteUrl == null || username == null
       ? const UserSummaryState()
-      : _accountFor(siteUrl)?.state ?? const UserSummaryState();
+      : _accountFor(siteUrl)?.entries[username.toLowerCase()]?.state ??
+            const UserSummaryState();
 
-  Future<void> load(DiscourseInstance instance, {bool refresh = false}) async {
+  /// Loads [username]'s summary, or the signed-in reader's own without one.
+  Future<void> load(
+    DiscourseInstance instance, {
+    String? username,
+    bool refresh = false,
+  }) async {
     if (isDisposed || !instance.isConnected) return;
     final user = instance.user;
     if (user == null) return;
+    final person = username ?? user.username;
+    final own = person.toLowerCase() == user.username.toLowerCase();
     final siteUrl = instance.url;
     final account = _ensureAccount(siteUrl);
-    final held = account.state;
-    if (account.request != null || (!refresh && held.loaded)) return;
+    final entry = account.entries.putIfAbsent(
+      person.toLowerCase(),
+      _SummaryEntry.new,
+    );
+    final held = entry.state;
+    if (entry.request != null || (!refresh && held.loaded)) return;
 
     final request = Object();
     final lease = account.lease;
-    account.request = request;
-    account.state = held.loadingNow();
+    entry.request = request;
+    entry.state = held.loadingNow();
     notifySafely();
-    if (!_isCurrent(siteUrl, account, request)) return;
+    if (!_isCurrent(siteUrl, account, entry, request)) return;
 
     try {
       final auth = await AccountRequestSession(
@@ -109,36 +127,37 @@ final class UserSummaryController extends FrameSafeNotifier
         lease,
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
-      if (!_isCurrent(siteUrl, account, request)) return;
+      if (!_isCurrent(siteUrl, account, entry, request)) return;
       if (apiKey == null) {
-        _commit(siteUrl, account, request, () {
-          account.state = account.state.withError(
-            appL10n.reconnectToToSeeYourSummary((instance.host).toString()),
+        _commit(siteUrl, account, entry, request, () {
+          entry.state = entry.state.withError(
+            own
+                ? appL10n.reconnectToToSeeYourSummary(instance.host)
+                : appL10n.reconnectToSeeThisSummary(instance.host),
           );
         });
         return;
       }
 
       final summary = await auth.run(
-        () => api.userSummary(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          username: user.username,
-        ),
+        () =>
+            api.userSummary(siteUrl: siteUrl, apiKey: apiKey, username: person),
       );
-      _commit(siteUrl, account, request, () {
-        account.state = account.state.withSummary(summary);
+      _commit(siteUrl, account, entry, request, () {
+        entry.state = entry.state.withSummary(summary);
       });
     } catch (error) {
-      if (!_isCurrent(siteUrl, account, request)) return;
+      if (!_isCurrent(siteUrl, account, entry, request)) return;
 
-      _commit(siteUrl, account, request, () {
-        account.state = account.state.withError(
-          appL10n.couldnTLoadYourSummaryFrom((instance.host).toString()),
+      _commit(siteUrl, account, entry, request, () {
+        entry.state = entry.state.withError(
+          own
+              ? appL10n.couldnTLoadYourSummaryFrom(instance.host)
+              : appL10n.couldnTLoadThisSummaryFrom(instance.host),
         );
       });
     } finally {
-      if (identical(account.request, request)) account.request = null;
+      if (identical(entry.request, request)) entry.request = null;
     }
   }
 
@@ -149,19 +168,25 @@ final class UserSummaryController extends FrameSafeNotifier
     if (account != null) notifySafely();
   }
 
-  bool _isCurrent(String siteUrl, _SummaryAccount account, Object request) =>
+  bool _isCurrent(
+    String siteUrl,
+    _SummaryAccount account,
+    _SummaryEntry entry,
+    Object request,
+  ) =>
       !isDisposed &&
       account.lease.isCurrent &&
       identical(_accounts[siteUrl], account) &&
-      identical(account.request, request);
+      identical(entry.request, request);
 
   void _commit(
     String siteUrl,
     _SummaryAccount account,
+    _SummaryEntry entry,
     Object request,
     VoidCallback mutation,
   ) {
-    if (!_isCurrent(siteUrl, account, request)) return;
+    if (!_isCurrent(siteUrl, account, entry, request)) return;
     account.lease.commit(() {
       mutation();
       notifySafely();
