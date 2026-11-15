@@ -9,6 +9,7 @@ import '../foundation/active_use.dart';
 import '../models/json.dart';
 import '../models/site_appearance.dart';
 import 'account_request_session.dart';
+import 'connection_never_opened.dart';
 import 'discourse_get_sender.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_basic_auth.dart';

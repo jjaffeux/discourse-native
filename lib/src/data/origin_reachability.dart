@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import '../foundation/frame_safe_notifier.dart';
-import 'http_transport.dart';
+import 'connection_never_opened.dart';
 
 /// Whether each origin can currently be connected to, as its own requests
 /// report it.
