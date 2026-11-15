@@ -61,6 +61,9 @@ import UserNotifications
         })
       }
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeLinkOpens") {
+      LinkOpens.shared.attach(to: registrar.messenger())
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "NativePushRegistration"
     ) {

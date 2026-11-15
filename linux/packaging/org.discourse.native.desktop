@@ -4,11 +4,12 @@ Version=1.5
 Name=Discourse
 GenericName=Forum Client
 Comment=Native Discourse client
-Exec=@EXEC@
+Exec=@EXEC@ %u
 Icon=org.discourse.native
 Terminal=false
 Categories=Network;Chat;
 Keywords=discourse;forum;community;
+MimeType=x-scheme-handler/discourse;
 StartupNotify=true
 StartupWMClass=org.discourse.native
 
@@ -20,7 +21,8 @@ StartupWMClass=org.discourse.native
 # APPLICATION_ID (see linux/runner/my_application.cc). If the two disagree the
 # running window shows up as a second, iconless entry in the dock.
 #
-# Deliberately no MimeType=x-scheme-handler/discourse. Nothing in lib/ reads
-# dart_entrypoint_arguments yet, so registering the scheme would mean a browser
-# handing off a discourse:// link opened a second, silent instance. Sign-in does
-# not need it either -- the web view intercepts the redirect in-process.
+# MimeType registers the discourse:// scheme so another application can ask
+# for a forum page with discourse://open?url=<page>, passed as %u. The runner
+# is single-instance: a link opened while the app is running is handed to that
+# instance instead of starting a second one. Sign-in does not depend on this --
+# the web view intercepts its discourse://auth_redirect in-process.

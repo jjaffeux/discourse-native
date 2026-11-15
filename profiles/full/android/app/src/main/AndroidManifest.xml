@@ -42,9 +42,25 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- The app has no URL routes. Without this the embedding would
+                 push the path and query of every opened link as a Flutter
+                 route; link requests reach Dart over their own channel. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Another app or a web page asking for a forum page:
+                 discourse://open?url=<page>. Dart validates the page and only
+                 shows it for a forum the person already added. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="discourse" android:host="open" />
             </intent-filter>
         </activity>
         <activity

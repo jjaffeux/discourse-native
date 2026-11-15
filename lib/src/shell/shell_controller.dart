@@ -40,6 +40,7 @@ import '../data/groups_api.dart';
 import '../data/http_basic_auth.dart';
 import '../data/http_url_safety.dart';
 import '../data/instance_store.dart';
+import '../data/link_open_request.dart';
 import '../data/native_thumbnail_generator.dart';
 import '../data/recent_destinations_store.dart';
 import '../data/request_intent.dart';
@@ -1253,7 +1254,12 @@ class ShellController extends FrameSafeNotifier
     return false;
   }
 
+  /// Counts every URL the platform or a notification asked the shell to open,
+  /// so a link request still resolving can tell that a newer one replaced it.
+  int _servedUrlOpens = 0;
+
   Future<bool> openNotificationUrl(String url) async {
+    _servedUrlOpens++;
     if (isDisposed ||
         !loaded ||
         url.isEmpty ||
@@ -1269,13 +1275,47 @@ class ShellController extends FrameSafeNotifier
     } on UnsafeHttpTransportException {
       return false;
     }
+    return await _openServedUrl(target, requireAccount: true) ==
+        _ServedUrlOpen.opened;
+  }
+
+  /// Opens the page a `discourse://open` request from another application
+  /// names, when a forum the user already added serves it. The request never
+  /// adds a forum, signs in, or fetches anything from a host it names: it
+  /// only selects a route on a forum that is already here.
+  Future<RequestedLinkOutcome> openRequestedLink(String request) async {
+    final opens = ++_servedUrlOpens;
+    if (isDisposed || !loaded) return const RequestedLinkSuperseded();
+    final target = parseLinkOpenRequest(request);
+    if (target == null) return const RequestedLinkMalformed();
+    return switch (await _openServedUrl(
+      target,
+      requireAccount: false,
+      wanted: () => opens == _servedUrlOpens,
+    )) {
+      _ServedUrlOpen.opened => const RequestedLinkOpened(),
+      _ServedUrlOpen.stale => const RequestedLinkSuperseded(),
+      _ServedUrlOpen.unserved => RequestedLinkUnknownSite(target),
+      _ServedUrlOpen.undecodable => RequestedLinkUndecodable(target),
+    };
+  }
+
+  /// A push belongs to an account, so [requireAccount] refuses a forum that
+  /// is signed out; a link to a public page needs only the forum.
+  Future<_ServedUrlOpen> _openServedUrl(
+    Uri target, {
+    required bool requireAccount,
+    bool Function()? wanted,
+  }) async {
+    bool usable(DiscourseInstance? forum) =>
+        forum != null && (!requireAccount || forum.isConnected);
 
     final owner = mostSpecificServingForum(
       _instances,
       target,
       siteUrl: (instance) => instance.url,
     );
-    if (owner == null || !owner.forum.isConnected) return false;
+    if (owner == null || !usable(owner.forum)) return _ServedUrlOpen.unserved;
 
     final ownerUrl = owner.forum.url;
     final lease = lifecycle.capture(ownerUrl);
@@ -1286,24 +1326,25 @@ class ShellController extends FrameSafeNotifier
     );
     if (isDisposed ||
         !lease.isCurrent ||
-        _instanceAt(ownerUrl)?.isConnected != true) {
-      return false;
+        !usable(_instanceAt(ownerUrl)) ||
+        wanted?.call() == false) {
+      return _ServedUrlOpen.stale;
     }
     final currentOwner = mostSpecificServingForum(
       _instances,
       target,
       siteUrl: (instance) => instance.url,
     );
-    if (currentOwner?.forum.url != ownerUrl) {
-      return false;
+    if (currentOwner?.forum.url != ownerUrl) return _ServedUrlOpen.stale;
+    if (!pluginHandled) {
+      final destination = _routeForLink(absolute);
+      if (destination == null ||
+          !_openResolvedCoreLink(destination, _CoreLinkIntent.notification)) {
+        return _ServedUrlOpen.undecodable;
+      }
     }
-    if (pluginHandled) {
-      return _revealNotificationTarget();
-    }
-    final destination = _routeForLink(absolute);
-    return destination != null &&
-        _openResolvedCoreLink(destination, _CoreLinkIntent.notification) &&
-        _revealNotificationTarget();
+    _revealNotificationTarget();
+    return _ServedUrlOpen.opened;
   }
 
   /// Discourse spells the URL a push carries with `http` unless the site

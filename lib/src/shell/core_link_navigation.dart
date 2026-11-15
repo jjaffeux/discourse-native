@@ -2,6 +2,8 @@ part of 'shell_controller.dart';
 
 enum _CoreLinkIntent { ordinary, notification }
 
+enum _ServedUrlOpen { opened, stale, unserved, undecodable }
+
 extension _CoreLinkNavigation on ShellController {
   bool _isCorePageLink(String siteUrl, ContentRoute route) =>
       switch (ContentPageContract.resolve(route).coreUrl) {

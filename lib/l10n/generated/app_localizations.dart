@@ -26305,6 +26305,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Signing out…'**
   String get signingOut;
+
+  /// Toast shown when another application asked this app to open a link that is not a valid forum page link.
+  ///
+  /// In en, this message translates to:
+  /// **'That link can’t be opened here.'**
+  String get requestedLinkMalformed;
+
+  /// Toast shown when another application asked this app to open a page on a forum the user has not added. Its action offers to add the site.
+  ///
+  /// In en, this message translates to:
+  /// **'{host} isn’t one of your sites.'**
+  String requestedLinkUnknownSite(String host);
 }
 
 class _AppLocalizationsDelegate
