@@ -17,7 +17,7 @@ import '../models/discourse_instance.dart';
 import '../models/incoming_topics.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
-import 'content_snapshots.dart';
+import 'content_snapshot_sources.dart';
 
 typedef TopicFeedLoaded =
     void Function(

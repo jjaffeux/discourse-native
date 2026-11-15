@@ -16,6 +16,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
+import 'package:discourse_native/src/shell/content_snapshot_sources.dart';
 import 'package:discourse_native/src/shell/content_snapshots.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_data_owner.dart';
