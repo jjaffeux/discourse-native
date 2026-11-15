@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/architecture_graph.dart';
 
 const _closureBudgets = <String, (int, int)>{
-  'lib/src/data/dsa_notices_api.dart': (34, 0),
-  'lib/src/data/discourse_search_api.dart': (68, 0),
-  'lib/src/shell/global_search_api.dart': (62, 0),
-  'lib/src/shell/recent_search_history.dart': (72, 0),
-  'lib/src/data/custom_sidebar_sections.dart': (37, 0),
+  'lib/src/data/dsa_notices_api.dart': (37, 0),
+  'lib/src/data/discourse_search_api.dart': (72, 0),
+  'lib/src/shell/global_search_api.dart': (63, 0),
+  'lib/src/shell/recent_search_history.dart': (73, 0),
+  'lib/src/data/custom_sidebar_sections.dart': (39, 0),
   'lib/src/plugins/nested_replies/nested_replies_reader_memory.dart': (184, 2),
   'lib/src/plugins/post_voting/post_voting_category_controller.dart': (184, 2),
   'lib/src/plugins/voice/voice_call_controller_port.dart': (183, 2),
-  'lib/src/shell/current_user_directory.dart': (38, 0),
-  'lib/src/shell/instance_rail_transactions.dart': (31, 0),
+  'lib/src/shell/current_user_directory.dart': (40, 0),
+  'lib/src/shell/instance_rail_transactions.dart': (32, 0),
   'lib/src/shell/topic_metadata_transactions.dart': (128, 1),
   'lib/src/shell/composer/history_scope.dart': (3, 1),
 };

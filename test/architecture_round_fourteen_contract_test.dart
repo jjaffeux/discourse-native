@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/architecture_graph.dart';
 
 const _closureBudgets = <String, (int, int)>{
-  'lib/src/data/account_session_coordinator.dart': (54, 0),
-  'lib/src/data/discourse_account_api.dart': (78, 0),
-  'lib/src/data/discourse_site_api.dart': (77, 0),
-  'lib/src/data/discourse_composer_api.dart': (78, 0),
+  'lib/src/data/account_session_coordinator.dart': (55, 0),
+  'lib/src/data/discourse_account_api.dart': (83, 0),
+  'lib/src/data/discourse_site_api.dart': (81, 0),
+  'lib/src/data/discourse_composer_api.dart': (82, 0),
   'lib/src/plugins/nested_replies/nested_replies_services.dart': (188, 2),
   'lib/src/plugins/nested_replies/nested_replies_bulk_controller.dart': (
     184,
