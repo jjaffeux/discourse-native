@@ -829,6 +829,38 @@ class DiscourseApi
   );
 
   @override
+  Future<int> uploadAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required ComposerUploadFile file,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) async => (await _composer.uploadComposerImage(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    file: file,
+    onProgress: (_) {},
+    abortTrigger: abortTrigger,
+    uploadType: ComposerUploadType.avatar,
+    clientId: clientId,
+  )).id;
+
+  @override
+  Future<void> pickAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int? uploadId,
+    String? clientId,
+  }) async => _account.pickAvatar(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    uploadId: uploadId,
+    clientId: clientId,
+  );
+
+  @override
   Future<void> setUserStatus({
     required String siteUrl,
     required String apiKey,

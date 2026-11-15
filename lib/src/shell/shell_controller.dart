@@ -165,6 +165,7 @@ import 'post_mutation_targets.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
+import 'profile_avatar_transactions.dart';
 import 'profile_write_transactions.dart';
 import 'push_registration_health.dart';
 import 'recent_search_history.dart';
@@ -977,6 +978,23 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
     onSaved: _onPreferencesSaved,
   );
+
+  late final ProfileAvatarTransactions profileAvatar =
+      ProfileAvatarTransactions(
+        api: api.userAvatars,
+        credentials: credentials,
+        lifecycle: lifecycle,
+        refreshCurrentUser: (siteUrl, apiKey, lease) =>
+            _currentUsers.refresh(siteUrl, apiKey, lease: lease, force: true),
+        onChanged: (instance, uploadId) {
+          preferences.confirmUploadedAvatar(instance, uploadId);
+          final username = instance.user?.username;
+          if (username != null &&
+              userProfile.stateFor(instance.url, username) != null) {
+            unawaited(userProfile.load(instance, username, refresh: true));
+          }
+        },
+      );
 
   late final TopicFeedController topicFeeds = _createTopicFeedController();
 
@@ -7769,6 +7787,7 @@ class ShellController extends FrameSafeNotifier
     ..register(userDirectory)
     ..register(badges)
     ..register(preferences)
+    ..register(profileAvatar)
     ..register(
       AccountScopedState.step((siteUrl) {
         store.forget(siteUrl);
@@ -8954,6 +8973,7 @@ class ShellController extends FrameSafeNotifier
     badges.dispose();
     preferences.dispose();
     networkRecovery.dispose();
+    profileAvatar.dispose();
     topicFeeds.dispose();
     appSettings.dispose();
     forumSettings.dispose();

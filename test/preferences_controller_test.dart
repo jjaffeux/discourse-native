@@ -761,6 +761,75 @@ void main() {
     });
   });
 
+  group('picture', () {
+    test(
+      'a confirmed picture keeps unsaved edits and dirties nothing',
+      () async {
+        final controller = _controller(
+          _PreferencesApi(
+            onLoad: (_) async => _initial.copyWith(uploadedAvatarId: 4),
+          ),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Typing'),
+        );
+
+        controller.confirmUploadedAvatar(_accountA, null);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.draft!.uploadedAvatarId, isNull);
+        expect(state.confirmed!.uploadedAvatarId, isNull);
+        expect(state.draft!.bioRaw, 'Typing');
+        expect(state.dirty(PreferenceSection.about), isTrue);
+        expect(state.dirty(PreferenceSection.profile), isFalse);
+      },
+    );
+
+    test(
+      'a read that began before the change cannot bring the old picture back',
+      () async {
+        final refresh = Completer<UserPreferences>();
+        var loads = 0;
+        final controller = _controller(
+          _PreferencesApi(
+            onLoad: (_) => ++loads == 1
+                ? Future.value(_initial.copyWith(uploadedAvatarId: 4))
+                : refresh.future,
+          ),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        final reading = controller.load(_accountA, refresh: true);
+        await pumpEventQueue();
+        controller.confirmUploadedAvatar(_accountA, 9);
+        refresh.complete(_initial.copyWith(uploadedAvatarId: 4));
+        await reading;
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed!.uploadedAvatarId, 9);
+        expect(state.loading, isFalse);
+      },
+    );
+
+    test('another account\'s picture is not recorded on this one', () async {
+      final controller = _controller(_PreferencesApi());
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.confirmUploadedAvatar(_accountB, 9);
+
+      expect(
+        controller.stateFor(_siteUrl)!.confirmed!.uploadedAvatarId,
+        isNull,
+      );
+    });
+  });
+
   group('load admission', () {
     test('a reentrant load joins the original pending result', () async {
       final page = Completer<UserPreferences>();

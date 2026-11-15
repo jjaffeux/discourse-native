@@ -25969,6 +25969,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save About me'**
   String get saveAboutMe;
+
+  /// Title above the reader's avatar in the Profile preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile picture'**
+  String get profilePicture;
+
+  /// Button that opens the device's image picker to upload a new avatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Change picture'**
+  String get changePicture;
+
+  /// Button that removes the uploaded avatar and returns to the letter avatar the site draws.
+  ///
+  /// In en, this message translates to:
+  /// **'Use default'**
+  String get useDefaultPicture;
+
+  /// Accessible name of the Use default button beside the avatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the default picture'**
+  String get useTheDefaultPicture;
+
+  /// Label of the Change picture button while the chosen image uploads.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading…'**
+  String get uploadingPicture;
+
+  /// Error under the avatar when the site refuses a picture without giving a reason.
+  ///
+  /// In en, this message translates to:
+  /// **'This site didn\'\'t accept that picture.'**
+  String get thisSiteDidnTAcceptThatPicture;
+
+  /// Error under the avatar when the device's image picker fails, for example when photo access is denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t open a picture from this device.'**
+  String get couldnTOpenAPictureFromThisDevice;
 }
 
 class _AppLocalizationsDelegate

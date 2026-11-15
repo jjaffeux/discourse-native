@@ -6602,6 +6602,150 @@ void _writeGroups() {
     });
   });
 
+  group('profile picture', () {
+    test('an avatar is uploaded as its own type and answers its id', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'id': 73,
+              'original_filename': 'me.png',
+              'url': '/uploads/default/original/me.png',
+              'short_url': 'upload://abc123',
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+
+      final id = await api.uploadAvatar(
+        siteUrl: 'https://forum.example',
+        apiKey: 'the-key',
+        clientId: 'the-client',
+        file: ComposerUploadFile(
+          name: 'me.png',
+          length: () => Future.value(2),
+          openRead: () => Stream.value([1, 2]),
+        ),
+        abortTrigger: Completer<void>().future,
+      );
+
+      expect(id, 73);
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/uploads.json');
+      expect(sent.headers['user-api-key'], 'the-key');
+      expect(sent.headers['user-api-client-id'], 'the-client');
+      final multipart = latin1.decode(sent.bodyBytes);
+      expect(multipart, contains('name="upload_type"\r\n\r\navatar\r\n'));
+      expect(multipart, contains('name="file"; filename="me.png"'));
+    });
+
+    test('a site that forbids uploaded avatars refuses with its message', () {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['Sorry, that image is too big.'],
+            }),
+            422,
+          ),
+        ),
+      );
+      addTearDown(api.close);
+
+      expect(
+        api.uploadAvatar(
+          siteUrl: 'https://forum.example',
+          apiKey: 'the-key',
+          file: ComposerUploadFile(
+            name: 'me.png',
+            length: () => Future.value(2),
+            openRead: () => Stream.value([1, 2]),
+          ),
+          abortTrigger: Completer<void>().future,
+        ),
+        throwsA(
+          isA<ComposerUploadException>().having(
+            (error) => error.displayMessage,
+            'displayMessage',
+            'Sorry, that image is too big.',
+          ),
+        ),
+      );
+    });
+
+    test(
+      'picking sends the upload as custom, or system for the default',
+      () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+        addTearDown(api.close);
+
+        await api.pickAvatar(
+          siteUrl: 'https://forum.example/community',
+          apiKey: 'the-key',
+          clientId: 'the-client',
+          username: 'Reader Name',
+          uploadId: 73,
+        );
+        await api.pickAvatar(
+          siteUrl: 'https://forum.example/community',
+          apiKey: 'the-key',
+          username: 'reader',
+          uploadId: null,
+        );
+
+        expect(sent.map((request) => request.method), ['PUT', 'PUT']);
+        expect(
+          sent.first.url.toString(),
+          'https://forum.example/community/u/reader%20name/preferences/avatar/pick',
+        );
+        expect(sent.first.headers['User-Api-Key'], 'the-key');
+        expect(sent.first.headers['User-Api-Client-Id'], 'the-client');
+        expect(jsonDecode(sent.first.body), {
+          'upload_id': 73,
+          'type': 'custom',
+        });
+        expect(
+          sent.last.url.path,
+          '/community/u/reader/preferences/avatar/pick',
+        );
+        expect(jsonDecode(sent.last.body), {'type': 'system'});
+      },
+    );
+
+    test('a refused pick keeps the status that tells it from an outage', () {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(jsonEncode({'failed': 'FAILED'}), 422),
+        ),
+      );
+      addTearDown(api.close);
+
+      expect(
+        api.pickAvatar(
+          siteUrl: 'https://forum.example',
+          apiKey: 'the-key',
+          username: 'reader',
+          uploadId: 73,
+        ),
+        throwsA(
+          isA<WriteException>()
+              .having((error) => error.statusCode, 'statusCode', 422)
+              .having((error) => error.errors, 'errors', isEmpty),
+        ),
+      );
+    });
+  });
+
   group('composer images', () {
     test(
       'uploads multipart bytes with user API headers and monotonic progress',

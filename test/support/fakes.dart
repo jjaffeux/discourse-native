@@ -2256,6 +2256,36 @@ class FakeDiscourseApi
     return card;
   }
 
+  final List<String> avatarUploads = [];
+  final List<({String username, int? uploadId})> avatarPicks = [];
+  Future<int> Function(ComposerUploadFile file, Future<void> abortTrigger)?
+  avatarUploadHandler;
+  Future<void> Function(int? uploadId)? avatarPickHandler;
+
+  @override
+  Future<int> uploadAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required ComposerUploadFile file,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) async {
+    avatarUploads.add(file.name);
+    return await avatarUploadHandler?.call(file, abortTrigger) ?? 91;
+  }
+
+  @override
+  Future<void> pickAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int? uploadId,
+    String? clientId,
+  }) async {
+    avatarPicks.add((username: username, uploadId: uploadId));
+    await avatarPickHandler?.call(uploadId);
+  }
+
   @override
   Future<UserProfile> userProfile({
     required String siteUrl,

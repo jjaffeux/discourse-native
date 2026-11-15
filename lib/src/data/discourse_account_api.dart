@@ -681,6 +681,29 @@ final class DiscourseAccountApi {
     );
   }
 
+  Future<void> pickAvatar({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int? uploadId,
+    String? clientId,
+  }) async {
+    await _transport.write(
+      Uri.parse(
+        '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}'
+        '/preferences/avatar/pick',
+      ),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      // Core treats a missing type as "system" and ignores an upload with it.
+      body: uploadId == null
+          ? const {'type': 'system'}
+          : {'upload_id': uploadId, 'type': 'custom'},
+    );
+  }
+
   Future<UserDraftPage> userDrafts({
     required String siteUrl,
     required String apiKey,

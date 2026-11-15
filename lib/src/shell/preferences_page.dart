@@ -8,12 +8,15 @@ import '../foundation/icons/d_icons.dart';
 import '../foundation/icons/d_native_icons.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
+import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
+import 'composer/upload_picker.dart';
 import 'content_reading_lane.dart';
 import 'header_preferences.dart';
 import 'preference_fields.dart';
+import 'preferences_avatar_row.dart';
 import 'preferences_controller.dart';
 import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
@@ -21,9 +24,16 @@ import 'shell_scope.dart';
 import 'skeleton_fill.dart';
 
 class PreferencesPage extends StatefulWidget {
-  const PreferencesPage({super.key, required this.siteUrl});
+  const PreferencesPage({
+    super.key,
+    required this.siteUrl,
+    this.pickPicture = pickProfilePicture,
+  });
 
   final String siteUrl;
+
+  /// Asks the device for one image; null when the reader backs out.
+  final Future<ComposerUploadFile?> Function() pickPicture;
 
   @override
   State<PreferencesPage> createState() => _PreferencesPageState();
@@ -41,6 +51,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
   PreferencesController? _preferences;
   bool _hydrationScheduled = false;
   PreferenceSection _selectedSection = PreferenceSection.profile;
+  String? _pictureError;
 
   @override
   void initState() {
@@ -74,6 +85,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     if (oldWidget.siteUrl == widget.siteUrl) return;
     _timezone.clear();
     _bio.clear();
+    _pictureError = null;
     _handlePreferencesChanged();
     final shell = _shell;
     if (shell != null) _hydrate(shell);
@@ -165,6 +177,30 @@ class _PreferencesPageState extends State<PreferencesPage> {
       );
     }
 
+    Future<void> changePicture() async {
+      if (!ownsView() || instance == null) return;
+      setState(() => _pictureError = null);
+      final ComposerUploadFile? file;
+      try {
+        file = await widget.pickPicture();
+      } catch (_) {
+        if (ownsView()) {
+          setState(
+            () => _pictureError = appL10n.couldnTOpenAPictureFromThisDevice,
+          );
+        }
+        return;
+      }
+      if (file == null || !ownsView()) return;
+      unawaited(shell.profileAvatar.upload(instance, file));
+    }
+
+    void useDefaultPicture() {
+      if (!ownsView() || instance == null) return;
+      setState(() => _pictureError = null);
+      unawaited(shell.profileAvatar.useDefault(instance));
+    }
+
     void saveBio() {
       if (!ownsView() || instance == null) return;
       unawaited(shell.preferences.save(instance, PreferenceSection.about));
@@ -235,6 +271,21 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 pluginSections,
                 edit,
                 useDeviceTimezone,
+                // A reader who may neither upload nor give a picture up has
+                // nothing to do here.
+                draft.canEditAvatar &&
+                        (draft.canUploadAvatar ||
+                            draft.uploadedAvatarId != null)
+                    ? PreferencesAvatarRow(
+                        siteUrl: siteUrl,
+                        canUpload: draft.canUploadAvatar,
+                        hasUploadedPicture: draft.uploadedAvatarId != null,
+                        enabled: editable && instance?.isConnected == true,
+                        pickerError: _pictureError,
+                        onChange: changePicture,
+                        onUseDefault: useDefaultPicture,
+                      )
+                    : null,
                 _BioEditing(
                   controller: _bio,
                   enabled: editable && draft.canChangeBio,
@@ -290,6 +341,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     List<PluginUserPreferenceSection> pluginSections,
     PluginUserPreferenceEdit onEdit,
     VoidCallback onUseDeviceTimezone,
+    Widget? avatar,
     _BioEditing bio,
   ) => switch (section) {
     PreferenceSection.profile => _ProfileForm(
@@ -304,6 +356,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         (current) => current.copyWith(timezone: timezone),
       ),
       onUseDeviceTimezone: onUseDeviceTimezone,
+      avatar: avatar,
       bio: bio,
     ),
     PreferenceSection.notifications => _NotificationsForm(
@@ -723,6 +776,7 @@ class _ProfileForm extends StatelessWidget {
     required this.enabled,
     required this.onTimezoneChanged,
     required this.onUseDeviceTimezone,
+    required this.avatar,
     required this.bio,
   });
 
@@ -734,12 +788,14 @@ class _ProfileForm extends StatelessWidget {
   final bool enabled;
   final ValueChanged<String> onTimezoneChanged;
   final VoidCallback onUseDeviceTimezone;
+  final Widget? avatar;
   final _BioEditing bio;
 
   @override
   Widget build(BuildContext context) {
     return PreferenceCard(
       children: [
+        if (avatar case final avatar?) ...[avatar, const SizedBox(height: 18)],
         DField(
           orientation: MediaQuery.textScalerOf(context).scale(14) > 21
               ? DFieldOrientation.vertical

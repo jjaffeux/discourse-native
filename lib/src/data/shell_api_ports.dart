@@ -26,6 +26,7 @@ final class ShellApiPorts {
     required this.bookmarks,
     required this.doNotDisturb,
     required this.drafts,
+    required this.userAvatars,
     required this.userProfiles,
     required this.userSummaries,
     required this.topicFeeds,
@@ -57,6 +58,7 @@ final class ShellApiPorts {
       bookmarks: capabilities,
       doNotDisturb: capabilities,
       drafts: capabilities,
+      userAvatars: capabilities,
       userProfiles: capabilities,
       userSummaries: capabilities,
       topicFeeds: capabilities,
@@ -87,6 +89,7 @@ final class ShellApiPorts {
   final BookmarksWriteApi bookmarks;
   final DoNotDisturbApi doNotDisturb;
   final DraftsApi drafts;
+  final UserAvatarApi userAvatars;
   final UserProfilesApi userProfiles;
   final UserSummariesApi userSummaries;
   final TopicFeedsApi topicFeeds;

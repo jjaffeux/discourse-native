@@ -65,6 +65,9 @@ final class UserPreferences {
     'username',
     'can_edit',
     'can_change_bio',
+    'can_edit_avatar',
+    'can_upload_avatar',
+    'uploaded_avatar_id',
     'can_change_tracking_preferences',
     'user_option',
     'sidebar_tags',
@@ -87,6 +90,9 @@ final class UserPreferences {
     this.pluginValues = const {},
     this.canEdit = false,
     this.canChangeBio = true,
+    this.canEditAvatar = false,
+    this.canUploadAvatar = false,
+    this.uploadedAvatarId,
     this.canChangeTrackingPreferences = false,
   });
 
@@ -152,6 +158,15 @@ final class UserPreferences {
       pluginValues: Map.unmodifiable(pluginValues ?? fallback.pluginValues),
       canEdit: _boolean(json, 'can_edit', fallback.canEdit),
       canChangeBio: _boolean(json, 'can_change_bio', fallback.canChangeBio),
+      canEditAvatar: _boolean(json, 'can_edit_avatar', fallback.canEditAvatar),
+      canUploadAvatar: _boolean(
+        json,
+        'can_upload_avatar',
+        fallback.canUploadAvatar,
+      ),
+      uploadedAvatarId: json.containsKey('uploaded_avatar_id')
+          ? jsonIntOrNull(json['uploaded_avatar_id'])
+          : fallback.uploadedAvatarId,
       canChangeTrackingPreferences: _boolean(
         json,
         'can_change_tracking_preferences',
@@ -199,6 +214,17 @@ final class UserPreferences {
   /// False where single sign-on owns the bio; a site that predates the flag
   /// leaves the bio editable.
   final bool canChangeBio;
+
+  /// False where single sign-on or another login provider owns the picture.
+  final bool canEditAvatar;
+
+  /// Whether this person may pick an image of their own, which the site
+  /// grants by group.
+  final bool canUploadAvatar;
+
+  /// The upload this person's picture is drawn from. Null means the site
+  /// draws its letter avatar.
+  final int? uploadedAvatarId;
   final bool canChangeTrackingPreferences;
 
   Map<String, Object?> payloadFor(PreferenceSection section) =>
@@ -282,6 +308,9 @@ final class UserPreferences {
     Map<String, UserPreferenceValues>? pluginValues,
     bool? canEdit,
     bool? canChangeBio,
+    bool? canEditAvatar,
+    bool? canUploadAvatar,
+    Object? uploadedAvatarId = _unchanged,
     bool? canChangeTrackingPreferences,
   }) => UserPreferences(
     sidebarCategoryIds: List.unmodifiable(
@@ -308,6 +337,11 @@ final class UserPreferences {
     pluginValues: Map.unmodifiable(pluginValues ?? this.pluginValues),
     canEdit: canEdit ?? this.canEdit,
     canChangeBio: canChangeBio ?? this.canChangeBio,
+    canEditAvatar: canEditAvatar ?? this.canEditAvatar,
+    canUploadAvatar: canUploadAvatar ?? this.canUploadAvatar,
+    uploadedAvatarId: identical(uploadedAvatarId, _unchanged)
+        ? this.uploadedAvatarId
+        : uploadedAvatarId as int?,
     canChangeTrackingPreferences:
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
   );
@@ -332,6 +366,9 @@ final class UserPreferences {
           mapEquals(other.pluginValues, pluginValues) &&
           other.canEdit == canEdit &&
           other.canChangeBio == canChangeBio &&
+          other.canEditAvatar == canEditAvatar &&
+          other.canUploadAvatar == canUploadAvatar &&
+          other.uploadedAvatarId == uploadedAvatarId &&
           other.canChangeTrackingPreferences == canChangeTrackingPreferences;
 
   @override
@@ -353,6 +390,9 @@ final class UserPreferences {
     ),
     canEdit,
     canChangeBio,
+    canEditAvatar,
+    canUploadAvatar,
+    uploadedAvatarId,
     canChangeTrackingPreferences,
   );
 

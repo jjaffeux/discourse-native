@@ -46,6 +46,23 @@ The Profile tab of Preferences edits what the reader's own profile shows.
   shown as it arrives. When `can_change_bio` is false, single sign-on owns the
   bio and the field is read-only. A saved bio reloads the reader's profile
   page if one is open.
+- **Picture.** A change is written at once and is not part of any draft.
+  **Change picture** uploads the chosen image to `/uploads.json` with
+  `upload_type=avatar`, then sends `PUT /u/{username}/preferences/avatar/pick`
+  with that `upload_id` and `type=custom`. **Use default** sends the same
+  request with `type=system`, which returns to the letter avatar. Both are
+  ordinary writes under the `write` scope of the user API key. The row shows
+  only what `/u/{username}.json` allows: nothing without `can_edit_avatar`,
+  no upload without `can_upload_avatar`, and **Use default** only while
+  `uploaded_avatar_id` is set. Gravatar, selectable avatars and avatars from a
+  linked account are not offered. After the site accepts a pick the app reads
+  the current user again, so every avatar it draws for the reader is the new
+  one, and reloads the reader's profile page if one is open.
+
+`ProfileAvatarTransactions` owns the two-step write per account session. A
+second change is refused while one is in flight, because the site applies
+picks in arrival order. A retired session aborts its upload and its late
+answer is dropped.
 
 ## Native image build tools
 

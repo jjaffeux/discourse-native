@@ -62,6 +62,21 @@ Future<List<ComposerUploadFile>> _pickComposerLibrary({
   );
 }
 
+/// Picks one image for a profile picture: from the photo library on a phone,
+/// from the file dialog on a desktop. Null when the reader backs out.
+///
+/// The site crops and resizes an avatar itself, so the picker only keeps a
+/// phone photo from travelling at full camera size.
+Future<ComposerUploadFile?> pickProfilePicture() async {
+  final file = await image_picker.ImagePicker().pickImage(
+    source: image_picker.ImageSource.gallery,
+    maxWidth: 1024,
+    maxHeight: 1024,
+    requestFullMetadata: false,
+  );
+  return file == null ? null : _uploadsFromSelection([file]).single;
+}
+
 List<ComposerUploadFile> _uploadsFromSelection(
   Iterable<selector.XFile> files, {
   bool photosAlreadyEncoded = false,

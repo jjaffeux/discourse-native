@@ -16324,4 +16324,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get saveAboutMe => 'Save About me';
+
+  @override
+  String get profilePicture => 'Profile picture';
+
+  @override
+  String get changePicture => 'Change picture';
+
+  @override
+  String get useDefaultPicture => 'Use default';
+
+  @override
+  String get useTheDefaultPicture => 'Use the default picture';
+
+  @override
+  String get uploadingPicture => 'Uploading…';
+
+  @override
+  String get thisSiteDidnTAcceptThatPicture =>
+      'This site didn\'t accept that picture.';
+
+  @override
+  String get couldnTOpenAPictureFromThisDevice =>
+      'Couldn\'t open a picture from this device.';
 }

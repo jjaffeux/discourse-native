@@ -21261,5 +21261,33 @@
   "saveAboutMe": "Save About me",
   "@saveAboutMe": {
     "description": "Accessible name of the button that saves the bio in the Profile preferences."
+  },
+  "profilePicture": "Profile picture",
+  "@profilePicture": {
+    "description": "Title above the reader's avatar in the Profile preferences."
+  },
+  "changePicture": "Change picture",
+  "@changePicture": {
+    "description": "Button that opens the device's image picker to upload a new avatar."
+  },
+  "useDefaultPicture": "Use default",
+  "@useDefaultPicture": {
+    "description": "Button that removes the uploaded avatar and returns to the letter avatar the site draws."
+  },
+  "useTheDefaultPicture": "Use the default picture",
+  "@useTheDefaultPicture": {
+    "description": "Accessible name of the Use default button beside the avatar."
+  },
+  "uploadingPicture": "Uploading…",
+  "@uploadingPicture": {
+    "description": "Label of the Change picture button while the chosen image uploads."
+  },
+  "thisSiteDidnTAcceptThatPicture": "This site didn''t accept that picture.",
+  "@thisSiteDidnTAcceptThatPicture": {
+    "description": "Error under the avatar when the site refuses a picture without giving a reason."
+  },
+  "couldnTOpenAPictureFromThisDevice": "Couldn''t open a picture from this device.",
+  "@couldnTOpenAPictureFromThisDevice": {
+    "description": "Error under the avatar when the device's image picker fails, for example when photo access is denied."
   }
 }

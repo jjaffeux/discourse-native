@@ -239,6 +239,46 @@ void main() {
     );
   });
 
+  test('reads what the account may do with its picture', () {
+    final loaded = UserPreferences.fromJson(const {
+      'can_edit_avatar': true,
+      'can_upload_avatar': true,
+      'uploaded_avatar_id': 42,
+    });
+    expect(loaded.canEditAvatar, isTrue);
+    expect(loaded.canUploadAvatar, isTrue);
+    expect(loaded.uploadedAvatarId, 42);
+
+    const none = UserPreferences();
+    expect(none.canEditAvatar, isFalse);
+    expect(none.canUploadAvatar, isFalse);
+    expect(none.uploadedAvatarId, isNull);
+
+    expect(
+      UserPreferences.fromJson(const {
+        'user_option': <String, Object?>{},
+      }, fallback: loaded),
+      loaded,
+    );
+    final letter = UserPreferences.fromJson(const {
+      'uploaded_avatar_id': null,
+      'can_upload_avatar': 'yes',
+    }, fallback: loaded);
+    expect(letter.uploadedAvatarId, isNull);
+    expect(letter.canUploadAvatar, isTrue);
+    expect(loaded.copyWith(uploadedAvatarId: null).uploadedAvatarId, isNull);
+    expect(loaded.copyWith(timezone: 'Etc/UTC').uploadedAvatarId, 42);
+    for (final section in [
+      ...PreferenceSection.values,
+      PreferenceSection.about,
+    ]) {
+      expect(
+        loaded.payloadFor(section).keys.where((key) => key.contains('avatar')),
+        isEmpty,
+      );
+    }
+  });
+
   test('the bio is its own section, apart from the timezone', () {
     const confirmed = UserPreferences(timezone: 'Etc/UTC', bioRaw: 'Before');
     final draft = confirmed.copyWith(timezone: 'Asia/Tokyo', bioRaw: 'After');
