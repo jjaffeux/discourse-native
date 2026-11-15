@@ -506,24 +506,17 @@ class _MobileCardContent extends StatelessWidget {
         ...PluginScope.of(
           context,
         ).registry.userCardActions(context, siteUrl, card, close),
-      DButton(
-        size: DButtonSize.toolbar,
-        shape: DButtonShape.pill,
-        borderColor: Colors.transparent,
-        label: Text(context.l10n.viewProfile),
-        icon: const DIcon(DIcons.user),
-        onPressed: () {
-          if (lease.isCurrent) {
-            close();
-            shell.openUserProfile(
-              siteUrl,
-              username: card.username,
-              displayName: card.displayName,
-            );
-          }
-        },
-      ),
     ];
+    void openProfile() {
+      if (!lease.isCurrent) return;
+      close();
+      shell.openUserProfile(
+        siteUrl,
+        username: card.username,
+        displayName: card.displayName,
+      );
+    }
+
     final zone = TimezoneEnvironment.instance.location(card.timezone);
     final secondary = Color.lerp(tokens.background, tokens.foreground, .62)!;
     final muted = Color.lerp(tokens.background, tokens.foreground, .50)!;
@@ -576,33 +569,69 @@ class _MobileCardContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (actions.isNotEmpty) ...[
-                LayoutBuilder(
-                  builder: (context, bounds) {
-                    if (MediaQuery.textScalerOf(context).scale(13) > 19) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final action in actions)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: action,
-                            ),
-                        ],
-                      );
-                    }
-                    return Row(
+              LayoutBuilder(
+                builder: (context, bounds) {
+                  final profile = DButton.iconOnly(
+                    size: DButtonSize.toolbar,
+                    shape: DButtonShape.pill,
+                    borderColor: Colors.transparent,
+                    tooltip: context.l10n.viewProfile,
+                    icon: const DIcon(DIcons.user),
+                    onPressed: openProfile,
+                  );
+                  // The profile action stays an icon beside the others: as
+                  // one more label it wraps the row, and as one more stacked
+                  // button it pushes the resting card under the foot.
+                  Widget withProfile(Widget? action) => Row(
+                    children: [
+                      if (action == null)
+                        const Spacer()
+                      else
+                        Expanded(child: action),
+                      const SizedBox(width: 8),
+                      profile,
+                    ],
+                  );
+                  if (MediaQuery.textScalerOf(context).scale(13) > 19) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (var i = 0; i < actions.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 8),
-                          Expanded(child: actions[i]),
-                        ],
+                        // Stacked actions stay one width, so each row keeps
+                        // the gutter the profile icon takes on the last.
+                        for (final action in actions.take(actions.length - 1))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Expanded(child: action),
+                                const SizedBox(width: 8),
+                                Visibility.maintain(
+                                  visible: false,
+                                  child: profile,
+                                ),
+                              ],
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: withProfile(actions.lastOrNull),
+                        ),
                       ],
                     );
-                  },
-                ),
-                const SizedBox(height: 14),
-              ],
+                  }
+                  if (actions.isEmpty) return withProfile(null);
+                  return Row(
+                    children: [
+                      for (final action in actions) ...[
+                        Expanded(child: action),
+                        const SizedBox(width: 8),
+                      ],
+                      profile,
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
               if (card.bioExcerpt case final bio?) ...[
                 CookedHtml(
                   html: bio,
