@@ -441,14 +441,15 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool get _animate => !MediaQuery.disableAnimationsOf(context);
   double get _keyboardInset => _keyboardInsetAnimation.value;
 
-  double get _offset => _exit.geometry == null
-      ? _travel.value
-      : _exit.geometry!.origin +
-            (_room - _exit.geometry!.origin) *
-                (1 -
-                        widget.presentation.animation.value /
-                            _exit.geometry!.animationOrigin)
-                    .clamp(0.0, 1.0);
+  double get _offset {
+    final geometry = _exit.geometry;
+    if (geometry == null) return _travel.value;
+    final progress =
+        1 -
+        widget.presentation.animation.value / geometry.simulation.initialValue;
+    return geometry.origin +
+        geometry.simulation.distance * progress.clamp(0.0, 1.0);
+  }
 
   double get _heightOffset => _heightOffsetAt(_offset);
 
@@ -496,20 +497,33 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _travel.stop();
     _keyboardPlacement.stop();
     _keyboardInsetAnimation.stop();
-    _exit.geometry = (
-      origin: _travel.value,
-      animationOrigin: math.max(.001, widget.presentation.animation.value),
-      curve: _curve.transform(widget.presentation.animation.value),
-      keyboard: _keyboardInset,
-      safeBottom: _safeBottom,
-      heightOffset: _heightOffsetAt(_travel.value),
-    );
-    return _DSheetDismissSimulation(
-      math.max(1, _room - _travel.value),
+    final origin = _travel.value;
+    final animationValue = widget.presentation.animation.value;
+    final viewport = context.findRenderObject();
+    final surface = _surface.currentContext?.findRenderObject();
+    final distance =
+        viewport is RenderBox &&
+            viewport.hasSize &&
+            surface is RenderBox &&
+            surface.hasSize
+        ? viewport.size.height -
+              surface.localToGlobal(Offset.zero, ancestor: viewport).dy
+        : _viewportHeight - origin;
+    final simulation = _DSheetDismissSimulation(
+      math.max(1, distance),
       math.max(0, _exitVelocity),
-      widget.presentation.animation.value,
+      math.max(.001, animationValue),
       duration: _exitVelocity > 0 ? .24 : .18,
     );
+    _exit.geometry = (
+      origin: origin,
+      curve: _curve.transform(animationValue),
+      simulation: simulation,
+      keyboard: _keyboardInset,
+      safeBottom: _safeBottom,
+      heightOffset: _heightOffsetAt(origin),
+    );
+    return simulation;
   }
 
   @override

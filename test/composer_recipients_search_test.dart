@@ -27,6 +27,57 @@ Finder _option(String name) => find.byWidgetPredicate(
 );
 
 void main() {
+  for (final swipe in [false, true]) {
+    testWidgets(
+      'phone recipient sheet slides offscreen while the keyboard hides '
+      '(${swipe ? 'swipe' : 'close button'})',
+      (tester) async {
+        await _pump(
+          tester,
+          mobile: true,
+          api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+        );
+        await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+        tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+
+        final sheet = find.byType(DSheetContent);
+        expect(tester.getTopLeft(sheet).dy, closeTo(8, 1));
+        final double lastGestureTop;
+        if (swipe) {
+          final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+          final gesture = await tester.startGesture(tester.getCenter(handle));
+          await gesture.moveBy(const Offset(0, 40));
+          await gesture.moveBy(const Offset(0, 560));
+          await tester.pump();
+          lastGestureTop = tester.getTopLeft(sheet).dy;
+          await gesture.up();
+        } else {
+          lastGestureTop = tester.getTopLeft(sheet).dy;
+          await tester.tap(find.byTooltip('Close'));
+        }
+        await tester.pump();
+        tester.view.viewInsets = FakeViewPadding.zero;
+
+        var lastTop = lastGestureTop;
+        for (
+          var frame = 0;
+          frame < 80 && sheet.evaluate().isNotEmpty;
+          frame++
+        ) {
+          final top = tester.getTopLeft(sheet).dy;
+          expect(top, greaterThanOrEqualTo(lastTop));
+          lastTop = top;
+          await tester.pump(const Duration(milliseconds: 4));
+        }
+        final screenBottom = tester.view.physicalSize.height;
+        expect(lastTop, greaterThan(screenBottom - 40));
+        expect(sheet, findsNothing);
+      },
+    );
+  }
+
   testWidgets(
     'phone recipient sheet fills the space above the keyboard while loading',
     (tester) async {
