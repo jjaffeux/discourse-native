@@ -1085,15 +1085,18 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     _exitVelocity = velocity;
     dismiss();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted &&
-          widget.presentation.animation.status == AnimationStatus.completed) {
-        _exit.geometry = null;
-        _retainedExitHeightOffset = null;
-        _exitVelocity = null;
-        _settle(_low);
-      }
-    });
+    // A controlled sheet can authorize its pop in a later post-frame callback.
+    unawaited(
+      WidgetsBinding.instance.endOfFrame.then((_) {
+        if (mounted &&
+            widget.presentation.animation.status == AnimationStatus.completed) {
+          _exit.geometry = null;
+          _retainedExitHeightOffset = null;
+          _exitVelocity = null;
+          _settle(_low);
+        }
+      }),
+    );
   }
 
   void _down(PointerDownEvent event) {

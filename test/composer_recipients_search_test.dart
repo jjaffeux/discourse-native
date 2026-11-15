@@ -134,11 +134,15 @@ void main() {
         if (swipe) {
           final handle = find.byKey(const ValueKey('sheet-drag-handle'));
           final gesture = await tester.startGesture(tester.getCenter(handle));
-          await gesture.moveBy(const Offset(0, 40));
-          await gesture.moveBy(const Offset(0, 560));
+          for (var step = 1; step <= 12; step++) {
+            await gesture.moveBy(
+              const Offset(0, 50),
+              timeStamp: Duration(milliseconds: step * 20),
+            );
+          }
           await tester.pump();
           lastGestureTop = tester.getTopLeft(sheet).dy;
-          await gesture.up();
+          await gesture.up(timeStamp: const Duration(milliseconds: 240));
         } else {
           lastGestureTop = tester.getTopLeft(sheet).dy;
           await tester.tap(find.byTooltip('Close'));
@@ -150,6 +154,7 @@ void main() {
         var lastTop = lastGestureTop;
         var lastStep = 0.0;
         var largestStep = 0.0;
+        double? firstStep;
         for (
           var frame = 0;
           frame < 80 && sheet.evaluate().isNotEmpty;
@@ -158,13 +163,20 @@ void main() {
           final top = tester.getTopLeft(sheet).dy;
           expect(top, greaterThanOrEqualTo(lastTop));
           lastStep = top - lastTop;
+          if (lastStep > 0) firstStep ??= lastStep;
           if (lastStep > largestStep) largestStep = lastStep;
           lastTop = top;
           await tester.pump(const Duration(milliseconds: 4));
         }
         final screenBottom = tester.view.physicalSize.height;
         expect(lastTop, greaterThan(screenBottom - 40));
-        if (!swipe) {
+        if (swipe) {
+          expect(
+            firstStep,
+            greaterThan(8),
+            reason: 'the first 4ms of the exit preserve the swipe speed',
+          );
+        } else {
           expect(
             lastStep,
             lessThan(largestStep / 2),
