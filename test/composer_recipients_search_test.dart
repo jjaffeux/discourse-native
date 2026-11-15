@@ -27,6 +27,53 @@ Finder _option(String name) => find.byWidgetPredicate(
 );
 
 void main() {
+  testWidgets(
+    'phone recipient sheet fills the space above the keyboard while loading',
+    (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final defaults = Completer<FoundUsersAndGroups>();
+      final api = _RecipientApi(
+        Completer<FoundUsersAndGroups>(),
+        defaults: defaults,
+      );
+      await _pump(tester, mobile: true, api: api);
+
+      await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      await tester.pumpAndSettle(const Duration(milliseconds: 1));
+
+      final sheet = find.byType(DSheetContent);
+      final emptyMessage = find.text('No users or groups found.');
+      expect(api.terms, isEmpty);
+      expect(emptyMessage, findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      final loadingTop = tester.getTopLeft(sheet).dy;
+      expect(loadingTop, closeTo(8, 1));
+
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+      expect(api.terms, ['']);
+      expect(emptyMessage, findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(tester.getTopLeft(sheet).dy, closeTo(loadingTop, .01));
+
+      defaults.complete(const FoundUsersAndGroups(users: [_sam]));
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(_option('sam'), findsOneWidget);
+      expect(tester.getTopLeft(sheet).dy, closeTo(loadingTop, .01));
+
+      await tester.enterText(_input, 'missing');
+      await tester.pumpAndSettle();
+      expect(emptyMessage, findsOneWidget);
+      expect(tester.getTopLeft(sheet).dy, closeTo(loadingTop, .01));
+    },
+  );
+
   testWidgets('phone recipient results show the user avatar', (tester) async {
     const capture = String.fromEnvironment('RECIPIENT_ROW_CAPTURE');
     if (capture.isNotEmpty) {
@@ -550,9 +597,10 @@ Future<ComposerController> _pump(
 }
 
 class _RecipientApi extends FakeDiscourseApi {
-  _RecipientApi(this.pending, {super.user});
+  _RecipientApi(this.pending, {this.defaults, super.user});
 
   final Completer<FoundUsersAndGroups> pending;
+  final Completer<FoundUsersAndGroups>? defaults;
   final List<String> terms = [];
   final List<String> sites = [];
 
@@ -594,6 +642,7 @@ class _RecipientApi extends FakeDiscourseApi {
     terms.add(term);
     sites.add(siteUrl);
     return switch (term) {
+      '' when defaults != null => defaults!.future,
       'sa' || 'sam' => const FoundUsersAndGroups(users: [_sam]),
       'alice' => pending.future,
       'team' => const FoundUsersAndGroups(groups: [FoundGroup(name: 'team')]),
