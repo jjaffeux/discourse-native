@@ -5534,13 +5534,14 @@ void main() {
     expect(tester.getCenter(handle).dy, greaterThan(start.dy));
     expect(shell.currentContent?.isGlobalSearch, isTrue);
     expect(title, findsOneWidget);
+    expect(tester.getRect(_header).contains(tester.getCenter(title)), isTrue);
 
     await swipe.cancel();
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     expect(title, findsNothing);
 
-    await tester.fling(handle, const Offset(0, 200), 1500);
+    await tester.drag(handle, const Offset(0, 400));
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.inputKey), findsNothing);
