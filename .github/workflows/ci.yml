@@ -215,7 +215,8 @@ jobs:
             profiles/full/build/ios/iphonesimulator/Runner.app
 
   android-video-optimizer:
-    # A disposable host checks the plugin until the app has an Android runner.
+    # The Android application is profiles/full/android. A disposable host
+    # keeps this job to the plugin's own build and unit tests.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

@@ -162,6 +162,9 @@ void main() {
         // Feed overflow and compact navigation retain their existing pill shape.
         'lib/src/shell/topic_feed_menu.dart': {'shape': 2},
         'lib/src/shell/content_navigation_controls.dart': {'shape': 1},
+        // The phone search Cancel action takes the accent colour, as in the
+        // mockup.
+        'lib/src/shell/forum_search.dart': {'foregroundColor': 1},
         // Archive retains the recessed message-action surface.
         'lib/src/shell/message_archive_button.dart': {'backgroundColor': 1},
         // Mobile user-card actions match the documented borderless pill row.
@@ -228,11 +231,8 @@ void main() {
         'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},
         // Topic metadata actions retain the metadata row's text foreground.
         'lib/src/shell/topic_card_metadata.dart': {'foregroundColor': 2},
-        // Chat search/navigation and the local-date sheet use pill controls.
+        // Chat search/navigation uses pill controls.
         'lib/src/plugins/chat/chat_header_button.dart': {'shape': 1},
-        'lib/src/plugins/local_dates/local_date_preview_sheet.dart': {
-          'shape': 1,
-        },
       },
       reason:
           'Use the kit variant and size first. Document a concrete semantic or layout reason before adding an exception.',

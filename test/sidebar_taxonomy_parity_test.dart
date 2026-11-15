@@ -344,8 +344,15 @@ void main() {
     await tester.pumpAndSettle();
     shell.lifecycle.invalidate(_site);
     await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    // Retiring the lease drops its category feed, so the sidebar pulses its
+    // loading skeleton until a next session loads categories; nothing settles.
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('sidebar-loading-skeleton')),
+      findsOneWidget,
+    );
     expect(api.userPreferenceUpdates, isEmpty);
+    expect((await store.load()).single.user!.sidebarCategoryIds, [1, 2, 4]);
   });
 
   testWidgets(

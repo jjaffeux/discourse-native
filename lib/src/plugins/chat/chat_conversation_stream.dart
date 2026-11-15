@@ -253,7 +253,7 @@ final class _ChatConversationStream {
         message.author.id != _controller.currentUserFor(siteUrl)?.id) {
       final now = _controller._clock();
       _recentArrivals.removeWhere(
-        (_, at) => now.difference(at) >= const Duration(seconds: 2),
+        (_, at) => elapsedSince(at, now: now) >= const Duration(seconds: 2),
       );
       _recentArrivals[message.id] = now;
     }

@@ -165,7 +165,10 @@ void main() {
     await drag.moveBy(const Offset(0, 20));
     await drag.moveBy(const Offset(0, 260));
     await tester.pump();
-    expect(TickerMode.valuesOf(element).enabled, isTrue);
+    // A pull reveals the covered source on stage; its tickers stay paused
+    // until the reader is gone.
+    expect(find.byKey(sourceAction), findsOneWidget);
+    expect(TickerMode.valuesOf(element).enabled, isFalse);
     await drag.up();
     await tester.pump();
     update(() => entry = 2);

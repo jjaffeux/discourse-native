@@ -70,6 +70,31 @@ Files:
 - `lib/src/internal/flattener.dart`
 - `test/flattener_span_order_test.dart`
 
+## Whitespace lookahead
+
+A whitespace bit asks for the next non-whitespace bit to choose its style and
+to decide whether it precedes a block. Upstream answers by walking siblings
+each time, which is quadratic in a wide run of inline nodes. When a tree holds
+a level of at least 64 children with at least 64 whitespace bits beneath it,
+the flattener records each whitespace bit's next non-whitespace leaf in one
+reverse pass and reads that answer instead.
+
+The table is built only when every node is a plain core tree, text bit or
+whitespace bit that appears once under its own parent. Any other shape keeps
+the upstream walk. Appending or prepending to any build tree advances a
+generation counter, and a table from an older generation is discarded, so a
+mutation made by custom code during flattening falls back to the upstream walk
+as well. The table lives for one flattening pass and retains no content.
+
+The flattener itself is listed once, under Inline span assembly.
+
+Files:
+
+- `lib/src/core_data.dart`
+- `lib/src/data/build_bits.dart`
+- `lib/src/internal/build_tree_mutation.dart`
+- `test/flattener_lookahead_test.dart`
+
 ## Short asynchronous bodies
 
 `HtmlWidget` with `buildAsync: true` parses a document of at most

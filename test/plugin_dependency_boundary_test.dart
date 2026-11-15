@@ -340,6 +340,7 @@ void main() {
             'lib/discourse_plugin_composer_drafts.dart',
             'lib/discourse_plugin_contracts.dart',
             'lib/discourse_plugin_loading.dart',
+            'lib/discourse_plugin_media_download.dart',
             'lib/discourse_plugin_preferences.dart',
             'lib/discourse_plugin_reader.dart',
             'lib/discourse_plugin_sdk.dart',

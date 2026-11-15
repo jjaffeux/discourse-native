@@ -424,7 +424,10 @@ void main() {
       api.topicFailure = null;
       api.postCount = 3;
       expect(await result.recovery.refresh(), PostProjectionFreshness.fresh);
-      expect(api.reads.last, [1, 2, 3]);
+      expect(api.reads.skip(api.reads.length - 2), [
+        [1, 2],
+        [3],
+      ]);
       expect(shell.store.read<Post>(_site, 3)?.cooked, '<p>fresh 3</p>');
       expect(shell.store.read<Post>(_site, 1)?.cooked, '<p>fresh 1</p>');
       expect(api.writes, 1);

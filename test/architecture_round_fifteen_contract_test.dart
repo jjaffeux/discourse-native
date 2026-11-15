@@ -4,7 +4,7 @@ import '../tool/architecture_graph.dart';
 
 const _closureBudgets = <String, (int, int)>{
   'lib/src/shell/topic_read_controller.dart': (42, 0),
-  'lib/src/data/discourse_topic_api.dart': (77, 0),
+  'lib/src/data/discourse_topic_api.dart': (78, 0),
   'lib/src/shell/topic_feed_controller.dart': (50, 0),
   'lib/src/shell/account_new_topic_dismissals.dart': (53, 0),
   'lib/src/shell/bookmark_transactions.dart': (47, 0),
@@ -17,7 +17,7 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/shell/group_write.dart': (39, 0),
   'lib/src/shell/checklist_transactions.dart': (47, 0),
   'lib/src/shell/post_checklist_write.dart': (41, 0),
-  'lib/src/shell/composer/selection_colors.dart': (203, 133),
+  'lib/src/shell/composer/selection_colors.dart': (204, 134),
 };
 
 void main() {

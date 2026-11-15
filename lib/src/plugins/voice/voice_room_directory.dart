@@ -496,12 +496,11 @@ final class _VoiceRoomDirectory {
     final completion = Completer<void>();
     final teardown = completion.future;
     _subscriptionTeardowns.add(teardown);
-    completion.complete(
-      Future.wait([
-        for (final subscription in subscriptions)
-          controller._cancelSubscription(subscription),
-      ]).whenComplete(() => _subscriptionTeardowns.remove(teardown)),
-    );
+    final Future<void> cancelled = Future.wait([
+      for (final subscription in subscriptions)
+        controller._cancelSubscription(subscription),
+    ]).whenComplete(() => _subscriptionTeardowns.remove(teardown));
+    completion.complete(cancelled);
   }
 
   Future<void> close() {

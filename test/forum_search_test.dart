@@ -213,10 +213,10 @@ void main() {
     });
   });
 
-  for (final (platform, field) in [
-    (TargetPlatform.iOS, 32 * DMenuContentScale.factor),
-    (TargetPlatform.android, 32 * DMenuContentScale.factor),
-    (TargetPlatform.macOS, 30.0),
+  for (final (platform, field, inset, gap) in [
+    (TargetPlatform.iOS, 36.0, 1.0, 6.0),
+    (TargetPlatform.android, 36.0, 1.0, 6.0),
+    (TargetPlatform.macOS, 30.0, 12.0, 12.0),
   ]) {
     testWidgets('the search screen field uses the expected size on $platform', (
       tester,
@@ -243,11 +243,19 @@ void main() {
           matching: find.byType(DInputGroup),
         ),
       );
+      final panel = find.byType(GlobalSearchPanel);
+      // On a phone the field heads the results panel itself.
+      final results = platform == TargetPlatform.macOS
+          ? panel
+          : find
+                .descendant(of: panel, matching: find.byType(DMenuContentScale))
+                .first;
       expect(editor.height, closeTo(field, .01));
+      expect(editor.top - head.top, closeTo(inset, .01));
       expect(
-        tester.getRect(find.byType(GlobalSearchPanel)).top - head.top,
-        closeTo(8 + field + 8, .01),
-        reason: 'what it finds starts 8 under the field',
+        tester.getRect(results).top - editor.bottom,
+        closeTo(gap, .01),
+        reason: 'what it finds starts $gap under the field',
       );
     });
   }

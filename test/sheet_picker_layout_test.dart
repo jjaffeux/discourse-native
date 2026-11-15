@@ -170,6 +170,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.view.viewInsets = const FakeViewPadding(bottom: 900);
       tester.view.padding = const FakeViewPadding(top: 141);
+      await tester.pump();
+      // The phone tag sheet raises once the keyboard's metrics have held.
+      await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
       await capture(tester, tags ? 'tags' : 'categories');
       final sheet = find.byType(DSheetContent);
@@ -190,21 +193,31 @@ void main() {
       expect(row.bottom, lessThanOrEqualTo(544));
       expect(field.left, row.left);
       expect(field.right, row.right);
-      expect(field.height, 36);
+      // The phone tag sheet is a scaled menu: its regular field and spacing
+      // grow by the menu factor, and its backdrop closes it.
+      final scale = tags ? DMenuContentScale.factor : 1.0;
+      expect(
+        field.height,
+        closeTo((tags ? DControlStyle.regularHeight : 36) * scale, .001),
+      );
       expect(
         tester.widget<EditableText>(find.byType(EditableText)).style.fontSize,
-        14,
+        tags ? DiscourseTypography.preview : 14,
       );
       final header = tester.getRect(find.byType(DSheetHeader));
-      expect(field.top - header.bottom, 6);
-      final close = find.byTooltip('Close');
-      final button = tester.widget<DButton>(
-        find.byWidgetPredicate(
-          (widget) => widget is DButton && widget.tooltip == 'Close',
-        ),
-      );
-      expect(button.variant, DButtonVariant.quiet);
-      await tester.tap(close);
+      expect(field.top - header.bottom, closeTo(6 * scale, .001));
+      if (tags) {
+        expect(find.byTooltip('Close'), findsNothing);
+        await tester.tapAt(const Offset(195, 20));
+      } else {
+        final button = tester.widget<DButton>(
+          find.byWidgetPredicate(
+            (widget) => widget is DButton && widget.tooltip == 'Close',
+          ),
+        );
+        expect(button.variant, DButtonVariant.quiet);
+        await tester.tap(find.byTooltip('Close'));
+      }
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
       expect(tester.takeException(), isNull);

@@ -291,21 +291,26 @@ void main() {
       await shell.load();
       await pumpEventQueue();
       expect(api.sessionSites, [firstUrl]);
+      expect(api.sidebarSites, [firstUrl]);
 
       shell.selectInstance(1);
       await pumpEventQueue();
-      expect(api.sidebarSites, [secondUrl]);
+      expect(api.sidebarSites, [firstUrl, secondUrl]);
 
       api.firstTotals.complete(const NotificationTotals());
       firstSession.complete();
       await pumpEventQueue();
       expect(api.sidebarSites, [
+        firstUrl,
         secondUrl,
-      ], reason: 'the late selected-site continuation was cancelled');
+      ], reason: 'the late session response starts no sidebar read');
 
       shell.selectInstance(0);
       await pumpEventQueue();
-      expect(api.sidebarSites, [secondUrl, firstUrl]);
+      expect(api.sidebarSites, [
+        firstUrl,
+        secondUrl,
+      ], reason: 'the overlapped startup read is still a loaded snapshot');
     },
   );
 

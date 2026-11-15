@@ -110,7 +110,7 @@ void main() {
         );
         expect(tester.widget<DInputGroup>(field).borderless, isFalse);
         final fieldBounds = tester.getRect(field);
-        expect(fieldBounds.left, 12);
+        expect(fieldBounds.left, 16);
         expect(fieldBounds.top, greaterThanOrEqualTo(55));
         expect(fieldBounds.height, greaterThanOrEqualTo(36));
         expect(fieldBounds.right, closeTo(width - fieldBounds.left, .01));

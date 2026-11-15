@@ -346,7 +346,10 @@ void main() {
             );
             expect(find.text('+26 more'), findsOneWidget);
             final handle = tester.widget<DecoratedBox>(
-              find.byKey(const ValueKey('sheet-drag-handle')),
+              find.descendant(
+                of: find.byKey(const ValueKey('sheet-drag-handle')),
+                matching: find.byType(DecoratedBox),
+              ),
             );
             expect(
               (handle.decoration as BoxDecoration).color,

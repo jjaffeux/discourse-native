@@ -1927,8 +1927,14 @@ void main() {
 
         controller.lifecycle.invalidate(_readerSite);
         controller.notifyPluginStateChanged();
-        await tester.pumpAndSettle();
+        // Retiring the lease drops its category feed, so the sidebar pulses
+        // its loading skeleton until a next session loads categories.
+        await tester.pump();
 
+        expect(
+          find.byKey(const ValueKey('sidebar-loading-skeleton')),
+          findsOneWidget,
+        );
         expect(controller.currentWorkspace, workspace);
         expect(document.mounted, isFalse);
       },

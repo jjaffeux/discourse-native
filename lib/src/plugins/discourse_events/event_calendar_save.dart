@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:discourse_native/discourse_plugin_media_download.dart';
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:discourse_native/src/foundation/native_media_download_environment.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 

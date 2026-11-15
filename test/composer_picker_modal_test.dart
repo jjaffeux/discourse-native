@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -239,7 +241,12 @@ void main() {
     expect(tagsBounds.top, categoryBounds.top);
     expect(categoryBounds.right, lessThanOrEqualTo(304));
     expect(tagsBounds.width, lessThanOrEqualTo(288));
-    final controlHeight = DControlStyle.height(DControlSize.toolbar);
+    final controlHeight = DControlStyle.height(
+      DControlSize.filter,
+      context: tester.element(
+        find.byKey(const ValueKey('composer-category-action')),
+      ),
+    );
     expect(categoryBounds.height, controlHeight);
     expect(tagsBounds.height, controlHeight);
     for (final action in [
@@ -763,11 +770,22 @@ void main() {
           await tester.pump(const Duration(milliseconds: 400));
 
           final sheet = find.byType(DSheetContent);
-          final gesture = await tester.startGesture(
-            tester.getCenter(find.byType(DSheetTitle)),
+          // The tag picker is a titleless adaptive sheet; its grabber leads.
+          final grip = action == 'composer-add-tag'
+              ? find.descendant(
+                  of: sheet,
+                  matching: find.byKey(const ValueKey('sheet-drag-handle')),
+                )
+              : find.byType(DSheetTitle);
+          // Release while part of the sheet is still on screen, so the exit
+          // that must keep the release velocity is a visible one.
+          final samples = math.min(
+            24,
+            (tester.getSize(sheet).height * .6 / 12).floor(),
           );
+          final gesture = await tester.startGesture(tester.getCenter(grip));
           var elapsed = Duration.zero;
-          for (var sample = 0; sample < 24; sample++) {
+          for (var sample = 0; sample < samples; sample++) {
             elapsed += const Duration(milliseconds: 8);
             await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
             await tester.pump(const Duration(milliseconds: 8));
@@ -816,7 +834,13 @@ void main() {
     expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(DDrawerContent), findsNothing);
     expect(find.byType(Dialog), findsNothing);
-    await tester.drag(find.byType(DSheetTitle), const Offset(0, 300));
+    await tester.drag(
+      find.descendant(
+        of: find.byType(DSheetContent),
+        matching: find.byKey(const ValueKey('sheet-drag-handle')),
+      ),
+      const Offset(0, 300),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsNothing);
     await open(tester, const ValueKey('composer-add-tag'));

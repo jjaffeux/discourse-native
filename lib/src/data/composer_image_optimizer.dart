@@ -52,8 +52,10 @@ class ComposerImageOptimizer {
         aborted.then((_) => null),
       ]);
       lengthRequest.ignore();
+      // The timeout is armed only where the lane awaits the lookup: a file
+      // rejected by its length must not leave a timer behind.
       final directoryLookup = Future.any<Directory?>([
-        Future.sync(_temporaryDirectory).timeout(workerTimeout),
+        Future.sync(_temporaryDirectory),
         aborted.then((_) => null),
       ]);
       directoryLookup.ignore();
@@ -71,7 +73,7 @@ class ComposerImageOptimizer {
           var retained = false;
           try {
             if (cancelled) return original;
-            final root = await directoryLookup;
+            final root = await directoryLookup.timeout(workerTimeout);
             if (root == null || cancelled) return original;
             directory = await root.createTemp('composer-image-');
             final input = File('${directory.path}/source');

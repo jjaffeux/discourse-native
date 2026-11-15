@@ -239,10 +239,10 @@ void main() {
   });
 
   test(
-    'stops a range hydration before dispatching another ID after logout',
+    'stops a range hydration before dispatching another batch after logout',
     () async {
       final site = instance('one.example');
-      final api = _PredicateAwareApi('/latest.json');
+      final api = _PredicateAwareApi('/latest.json', pageSize: 6);
       final store = Store();
       final lifecycle = SiteLifecycle();
       final controller = TopicFeedController(
@@ -264,14 +264,17 @@ void main() {
         instance: site,
         destinationId: 'feed',
         firstRow: 0,
-        lastRow: 1,
+        lastRow: 5,
       );
       await pumpEventQueue();
+      expect(api.hydrated, [1, 2, 3, 4]);
       lifecycle.invalidate(site.url);
       api.hydrationGate!.complete();
       await restoring;
-      expect(api.hydrated, [1]);
-      expect(store.containsRecord<Topic>(site.url, 1), isFalse);
+      expect(api.hydrated, [1, 2, 3, 4]);
+      for (var id = 1; id <= 6; id++) {
+        expect(store.containsRecord<Topic>(site.url, id), isFalse);
+      }
     },
   );
 }
