@@ -43,6 +43,15 @@ class SidebarDestination {
     mobileNavigationLabel: appL10n.dashboardTitle,
   );
 
+  /// Matches the review page's route key, which is how a row finds its page.
+  static const String reviewId = 'review';
+
+  factory SidebarDestination.review() => SidebarDestination(
+    id: reviewId,
+    label: appL10n.reviewTitle,
+    icon: DIcons.flag,
+  );
+
   const SidebarDestination({
     required this.id,
     required this.label,

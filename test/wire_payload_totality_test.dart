@@ -28,6 +28,7 @@ import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/post_revision.dart';
 import 'package:discourse_native/src/models/report.dart';
+import 'package:discourse_native/src/models/reviewable.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
@@ -1857,6 +1858,142 @@ void main() {
             report.identifier.isNotEmpty ||
             report.title.isNotEmpty ||
             report.rows != 1,
+      );
+      probe(
+        'ReviewablePerson',
+        () => ReviewablePerson.tryParse(
+          withFields({'id': loose, 'username': gate('sam'), 'name': loose}),
+        ),
+        (person) => person != null,
+      );
+      probe(
+        'ReviewableScore',
+        () => ReviewableScore.fromJson(
+          withFields({
+            'id': loose,
+            'status': gate(1),
+            'score_type': gate(withFields({'title': 'Spam', 'type': loose})),
+            'user': loose,
+            'user_id': loose,
+            'reason': loose,
+          }),
+        ),
+        (score) =>
+            score.title.isNotEmpty ||
+            score.status != ReviewableScoreStatus.unknown,
+      );
+      probe(
+        'ReviewableAction',
+        () => ReviewableAction.tryParse(
+          withFields({
+            'id': gate('7-post-agree_and_keep'),
+            'server_action': gate('agree_and_keep'),
+            'label': loose,
+            'client_action': loose,
+            'confirm_message': loose,
+            'require_reject_reason': loose,
+          }),
+        ),
+        (action) => action != null,
+      );
+      probe(
+        'ReviewableActionBundle',
+        () => ReviewableActionBundle.fromJson(
+          withFields({
+            'id': loose,
+            'label': loose,
+            'action_ids': loose,
+            'actions': gate([
+              loose,
+              withFields({'id': '7-approve', 'server_action': 'approve'}),
+            ]),
+          }),
+        ),
+        (bundle) => bundle.actions.isNotEmpty,
+      );
+      probe(
+        'ReviewableSideloads',
+        () => ReviewableSideloads.fromJson(
+          withFields({
+            'users': gate([
+              loose,
+              withFields({'id': 4, 'username': 'ann'}),
+            ]),
+            'topics': loose,
+            'score_types': loose,
+            'reviewable_scores': loose,
+            'actions': loose,
+            'bundled_actions': loose,
+            'extras': loose,
+          }),
+        ),
+        (sideloads) => sideloads.users.isNotEmpty,
+      );
+      probe(
+        'Reviewable',
+        () => Reviewable.tryParse(
+          withFields({
+            'id': gate(7),
+            'type': loose,
+            'status': loose,
+            'version': loose,
+            'score': loose,
+            'payload': loose,
+            'topic_id': loose,
+            'reviewable_score_ids': loose,
+            'reviewable_scores': loose,
+            'bundled_action_ids': loose,
+            'bundled_actions': loose,
+            'target_created_by': loose,
+            'target_created_by_id': loose,
+          }),
+          ReviewableSideloads.fromJson(json),
+        ),
+        (item) => item != null,
+      );
+      probe(
+        'ReviewablePage',
+        () => ReviewablePage.fromJson(
+          withFields({
+            'reviewables': gate([
+              loose,
+              withFields({'id': 9, 'version': loose}),
+            ]),
+            'meta': gate(
+              withFields({
+                'load_more_reviewables': loose,
+                'total_rows_reviewables': loose,
+                'reviewable_types': loose,
+              }),
+            ),
+          }),
+        ),
+        (page) => page.items.isNotEmpty,
+      );
+      probe(
+        'ReviewableDetail',
+        () => reviewableFromDetailJson(
+          withFields({
+            'reviewable': gate(withFields({'id': 9})),
+          }),
+        ),
+        (item) => item != null,
+      );
+      probe(
+        'ReviewablePerformResult',
+        () => ReviewablePerformResult.fromJson(
+          withFields({
+            'reviewable_perform_result': gate(
+              withFields({
+                'success': true,
+                'version': loose,
+                'remove_reviewable_ids': gate([loose, 9]),
+                'reviewable_updates': loose,
+              }),
+            ),
+          }),
+        ),
+        (result) => result.success,
       );
       probe(
         'ReportDetails',

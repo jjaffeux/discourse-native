@@ -359,10 +359,14 @@ void main() {
             'Teams',
             'Guidelines',
             'Badges',
+            'Review',
             'Administration',
             'Documentation',
           ],
         );
+        final review = sections.first.moreDestinations[4];
+        expect(review.id, SidebarDestination.reviewId);
+        expect(review.url, isNull);
         expect(
           sections.first.moreDestinations.first.url,
           'https://example.com/forum/about',

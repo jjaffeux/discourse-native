@@ -86,8 +86,19 @@ final class ContentRouteCodec {
                 username.contains(RegExp(r'[\s/\x00-\x1f]')))) {
           throw FormatException(appL10n.invalidContentRoute);
         }
+        final reviewableId = json['reviewable_id'];
+        if (reviewableId != null &&
+            (page != CorePage.review ||
+                reviewableId is! int ||
+                reviewableId <= 0)) {
+          throw FormatException(appL10n.invalidContentRoute);
+        }
         if (page != null) {
-          return PageDestination(page, activityUsername: username as String?);
+          return PageDestination(
+            page,
+            activityUsername: username as String?,
+            reviewableId: reviewableId as int?,
+          );
         }
       case 'extension' when !hasOther:
         return ExtensionDestination(id, sourcePath: feedPath);
@@ -216,6 +227,13 @@ final class ContentRouteCodec {
     )) ...{
       'page': page.key,
       'activity_username': username,
+    },
+    if (route.destination case PageDestination(
+      :final page,
+      reviewableId: final reviewableId?,
+    )) ...{
+      'page': page.key,
+      'reviewable_id': reviewableId,
     },
     'id': route.id,
     'title': route.title,
@@ -405,6 +423,15 @@ final class ContentRouteCodec {
       if (instance.user?.staff == true &&
           (path == '/admin/dashboard' || path == '/admin')) {
         return ContentRoute.dashboard();
+      }
+      if (instance.isConnected) {
+        if (path == '/review') return ContentRoute.review();
+        final item = RegExp(
+          r'^/review/([1-9]\d{0,17})$',
+        ).firstMatch(path ?? '');
+        if (item != null) {
+          return ContentRoute.review(reviewableId: int.parse(item.group(1)!));
+        }
       }
       if (path == '/about') return ContentRoute.forumAbout();
       if (path == '/u' &&

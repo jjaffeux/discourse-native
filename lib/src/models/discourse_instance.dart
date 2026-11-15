@@ -434,9 +434,20 @@ class DiscourseInstance {
             icon: destination.icon,
           ),
         );
+      } else if (value == '/review') {
+        // The review queue is native; the server's row keeps its label and
+        // position, and opens the app's own page.
+        if (user?.reviews == true && seen.add(SidebarDestination.reviewId)) {
+          destinations.add(
+            SidebarDestination(
+              id: SidebarDestination.reviewId,
+              label: destination.label,
+              icon: destination.icon,
+            ),
+          );
+        }
       } else {
         final visible = switch (value) {
-          '/review' => user?.canReview == true,
           '/new-invite' => user?.canInviteToForum == true,
           _ => true,
         };
@@ -448,13 +459,7 @@ class DiscourseInstance {
               icon: destination.icon,
               // Core's built-in links use routes, which include the forum's
               // subfolder. Custom URLs retain the server's exact value.
-              url:
-                  const {
-                    '/about',
-                    '/faq',
-                    '/review',
-                    '/new-invite',
-                  }.contains(value)
+              url: const {'/about', '/faq', '/new-invite'}.contains(value)
                   ? '$url$value'
                   : value,
             ),

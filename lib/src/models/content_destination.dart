@@ -38,12 +38,12 @@ sealed class ContentDestination {
       route.badgeId,
       route.username,
     ),
-    PageDestination(:final page, :final activityUsername) => (
-      PageDestination,
-      key,
-      page,
-      activityUsername,
-    ),
+    PageDestination(
+      :final page,
+      :final activityUsername,
+      :final reviewableId,
+    ) =>
+      (PageDestination, key, page, activityUsername, reviewableId),
     ExtensionDestination() => (ExtensionDestination, key, feedPath),
   };
 
@@ -164,21 +164,30 @@ enum CorePage {
   preferences('preferences'),
   appearance('appearance'),
   forumAbout('forum-about'),
-  dashboard('dashboard');
+  dashboard('dashboard'),
+  review('review');
 
   const CorePage(this.key);
   final String key;
 }
 
 final class PageDestination extends ContentDestination {
-  const PageDestination(this.page, {this.activityUsername})
-    : assert(activityUsername == null || page == CorePage.activity);
+  const PageDestination(this.page, {this.activityUsername, this.reviewableId})
+    : assert(activityUsername == null || page == CorePage.activity),
+      assert(
+        reviewableId == null || (page == CorePage.review && reviewableId > 0),
+      );
   final CorePage page;
   final String? activityUsername;
+
+  /// The queue item a review link names; the queue itself when null.
+  final int? reviewableId;
   @override
-  String get key => activityUsername == null
-      ? page.key
-      : '${page.key}-user-${activityUsername!.toLowerCase()}';
+  String get key => switch ((activityUsername, reviewableId)) {
+    (final username?, _) => '${page.key}-user-${username.toLowerCase()}',
+    (_, final id?) => '${page.key}-$id',
+    _ => page.key,
+  };
 }
 
 /// Opaque plugin identity. The plugin capability owns parsing and authorization.
