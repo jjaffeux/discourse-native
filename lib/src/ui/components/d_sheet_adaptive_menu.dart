@@ -1025,8 +1025,19 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
           widget.presentation.animation.status == AnimationStatus.completed) {
         _exit.geometry = null;
         _retainedExitHeightOffset = null;
-        _exitVelocity = null;
-        _settle(_low);
+        // Controlled picker owners can forward the close a frame or more
+        // later. Their exit keeps the release velocity unless the sheet
+        // settles back first; an exit stops this settle before it completes.
+        if (!_animate) {
+          _exitVelocity = null;
+          _settle(_low);
+          return;
+        }
+        unawaited(
+          _travel.animateTo(_low, duration: _duration, curve: _curve).then((_) {
+            if (mounted && _exit.geometry == null) _exitVelocity = null;
+          }),
+        );
       }
     });
   }
