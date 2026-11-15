@@ -5511,6 +5511,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('pulling Search down reveals the Chat title before release', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await _tapDockTab(tester, 'panel/chat');
+    final title = find.descendant(of: _header, matching: find.text('Chats'));
+    expect(title, findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    addTearDown(tester.view.resetViewInsets);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pumpAndSettle();
+    expect(title, findsNothing);
+
+    final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+    final start = tester.getCenter(handle);
+    final swipe = await tester.startGesture(start);
+    await swipe.moveBy(const Offset(0, 20));
+    await swipe.moveBy(const Offset(0, 100));
+    await tester.pump();
+    expect(tester.getCenter(handle).dy, greaterThan(start.dy));
+    expect(shell.currentContent?.isGlobalSearch, isTrue);
+    expect(title, findsOneWidget);
+
+    await swipe.cancel();
+    await tester.pumpAndSettle();
+    expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+    expect(title, findsNothing);
+
+    await tester.fling(handle, const Offset(0, 200), 1500);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(find.byKey(ForumSearch.inputKey), findsNothing);
+    expect(title.hitTestable(), findsOneWidget);
+  });
+
   _mobileTest('chat retains Browse channels and Browse threads navigation', (
     tester,
   ) async {
