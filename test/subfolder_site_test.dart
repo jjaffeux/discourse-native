@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/group_route.dart';
@@ -14,6 +15,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:discourse_native/src/shell/user_profile_page.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -196,7 +198,7 @@ void main() {
       expect(shell.currentContent?.topicId, 42);
     });
 
-    testWidgets('shows the card of a user found by search in the app', (
+    testWidgets('opens the profile of a user found by search in the app', (
       tester,
     ) async {
       const channel = MethodChannel('plugins.flutter.io/url_launcher');
@@ -235,8 +237,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(launched, isEmpty);
-      expect(api.cardsRequested, ['mira']);
-      expect(find.byKey(const ValueKey('user-card-surface')), findsOneWidget);
+      expect(api.profilesRequested, ['mira']);
+      final shell = ShellScope.read(
+        tester.element(find.byType(UserProfilePage)),
+      );
+      expect(shell.currentInstance?.url, _siteUrl);
+      expect(
+        shell.currentContent?.destination,
+        isA<PageDestination>()
+            .having((page) => page.page, 'page', CorePage.profile)
+            .having((page) => page.username, 'username', 'mira'),
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 

@@ -240,6 +240,8 @@ Future<ShellController> _fixture(
     ),
   );
   api.config = config;
+  const user = DiscourseUser(id: 2, username: 'lee');
+  if (connected) api.accounts['key'] = user;
   final installed = PluginInstaller.install(
     const PluginManifest([boardsModule]),
   );
@@ -248,7 +250,7 @@ Future<ShellController> _fixture(
     instanceStore: FakeInstanceStore([
       instance(
         'meta.discourse.org',
-        user: connected ? const DiscourseUser(id: 2, username: 'lee') : null,
+        user: connected ? user : null,
       ).copyWith(config: config),
     ]),
     api: api,

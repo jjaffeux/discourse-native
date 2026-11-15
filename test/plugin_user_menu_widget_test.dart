@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -225,32 +226,64 @@ void main() {
     expect(dismissals, 1);
   });
 
+  Future<(ShellController, List<String>)> reselectAlpha(
+    WidgetTester tester, {
+    required String host,
+    required String link,
+  }) async {
+    final launched = watchBrowser(tester);
+    final controller = await _pumpUserMenu(
+      tester,
+      PluginManifest([
+        _MenuModule(
+          'alpha',
+          'Alpha activity',
+          _alphaBodyKey,
+          linkWhenActive: link,
+        ),
+      ]),
+      host: host,
+    );
+
+    await tester.ensureVisible(find.byKey(_alphaTabKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(_alphaTabKey));
+    await tester.pump();
+    await tester.tap(find.byKey(_alphaTabKey));
+    await tester.pumpAndSettle();
+    return (controller, launched);
+  }
+
   for (final host in const ['example.com', 'example.com/forum']) {
+    testWidgets('a plugin tab active link opens in the app at $host', (
+      tester,
+    ) async {
+      final (controller, launched) = await reselectAlpha(
+        tester,
+        host: host,
+        link: '/u/reader/activity/alpha',
+      );
+
+      expect(launched, isEmpty);
+      expect(controller.currentInstance?.url, 'https://$host');
+      expect(
+        controller.currentContent?.sameDestinationAs(
+          ContentRoute.userActivity(),
+        ),
+        isTrue,
+      );
+    });
+
     testWidgets('a plugin tab active link stays on the forum at $host', (
       tester,
     ) async {
-      final launched = watchBrowser(tester);
-      await _pumpUserMenu(
+      final (_, launched) = await reselectAlpha(
         tester,
-        const PluginManifest([
-          _MenuModule(
-            'alpha',
-            'Alpha activity',
-            _alphaBodyKey,
-            linkWhenActive: '/u/reader/activity/alpha',
-          ),
-        ]),
         host: host,
+        link: '/u/reader/badges',
       );
 
-      await tester.ensureVisible(find.byKey(_alphaTabKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(_alphaTabKey));
-      await tester.pump();
-      await tester.tap(find.byKey(_alphaTabKey));
-      await tester.pumpAndSettle();
-
-      expect(launched, ['https://$host/u/reader/activity/alpha']);
+      expect(launched, ['https://$host/u/reader/badges']);
     });
   }
 

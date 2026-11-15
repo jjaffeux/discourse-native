@@ -708,14 +708,17 @@ void main() {
         expect(tester.getRect(sheet), opened);
         final openBottom = tester.getRect(results.first).bottom;
         for (var step = 1; step <= 4; step++) {
-          if (step > 1) {
-            tester.view.viewInsets = FakeViewPadding(bottom: step * 60);
-          }
+          // Off the frame's linear curve, so the footer is shown to follow
+          // the inset the view publishes rather than the frame's timing.
+          final keyboard = 45.0 * step;
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: keyboard * tester.view.devicePixelRatio,
+          );
           await tester.pump(const Duration(milliseconds: 50));
           final rect = tester.getRect(sheet);
           expect(
             tester.getRect(results.first).bottom,
-            closeTo(openBottom - (300 * step / 8 - _foot).clamp(0, 300), 2),
+            closeTo(openBottom - (keyboard - _foot).clamp(0, 300), 2),
           );
           expect(rect.left, 0);
           expect(rect.right, phone.width);
