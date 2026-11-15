@@ -415,10 +415,6 @@ const _rejectsOnPurpose = {
       'A directory row without a username cannot be shown or opened.',
   'UserDirectoryItem':
       'An item is only its user, so it refuses whatever the user refuses.',
-  'UserDirectoryPage':
-      'A page holding a row it cannot show is refused whole, as '
-      'user_directory_model_test pins; UserDirectoryController reports it and '
-      'keeps the rows it already held.',
   'VoiceJoinResponse':
       'A join answer without a room, or naming a transport this client cannot '
       'speak, connects nobody; the join fails instead, as voice_models_test '
@@ -1071,7 +1067,11 @@ void main() {
         'PostLikers',
         () => PostLikers.parse(
           withFields({
-            'post_action_users': gate([json, loose]),
+            'post_action_users': gate([
+              {'id': 1, 'username': 'liker'},
+              json,
+              loose,
+            ]),
           }),
           postId: 1,
           siteUrl: site,
@@ -3056,6 +3056,10 @@ void main() {
       'DHeaderTuning',
       // Keyboard animation frames arrive from the platform channel.
       '_DSheetKeyboardFrame',
+      // A whole HTML document decoded on another isolate, which a synchronous
+      // probe cannot drive. site_message_bus_bootstrap_test.dart holds its
+      // malformed-document cases.
+      'SiteMessageBusBootstrap.fromHtml',
       'ForumTab',
       'ForumTabLocation',
       'ForumWorkspace',

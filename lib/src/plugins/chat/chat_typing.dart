@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../models/found_user.dart';
-
 final class ChatTypingApi {
   const ChatTypingApi(this._transport);
 

@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../models/found_user.dart';
 import 'chat_channel.dart';
 import 'chat_deletion_event.dart';
 import 'chat_message.dart';

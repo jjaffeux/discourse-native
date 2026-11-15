@@ -7,7 +7,6 @@ import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../models/found_user.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_channel_list.dart';

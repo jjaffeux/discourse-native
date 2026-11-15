@@ -87,6 +87,7 @@ void main() {
     expect(chat.liveChannelScopes.map((scope) => scope.path), {
       '/chat',
       '/presence/chat',
+      '/presence/chat-reply',
     });
     expect(discourseAi.liveChannelScopes.map((scope) => scope.path), {
       '/discourse-ai',

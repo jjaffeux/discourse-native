@@ -12,7 +12,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-import '../../models/found_user.dart';
 import 'chat_channel.dart';
 import 'chat_channel_header.dart';
 import 'chat_composer.dart';
@@ -2585,7 +2584,7 @@ class _ChatTypingBubble extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: DiscourseTypography.metadata,
                     color: DTokens.of(context).mutedForeground,
                   ),
                 ),

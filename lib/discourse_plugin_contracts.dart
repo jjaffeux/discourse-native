@@ -67,6 +67,7 @@ export 'src/models/discourse_model_codec.dart';
 export 'src/models/discourse_user.dart' show DiscourseUser;
 export 'src/models/emoji_usage.dart';
 export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
+export 'src/models/found_user.dart';
 export 'src/models/group_route.dart' show GroupRoute;
 export 'src/models/homepage_option.dart';
 export 'src/models/json.dart';
