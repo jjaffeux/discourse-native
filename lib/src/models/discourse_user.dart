@@ -14,6 +14,7 @@ class DiscourseUser {
     this.id,
     this.name,
     this.avatarUrl,
+    this.avatarTemplate,
     this.status,
     this.draftCount = 0,
     this.canCreateTopic = false,
@@ -59,6 +60,7 @@ class DiscourseUser {
     id: jsonIntOrNull(json['id']),
     name: json['name'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
+    avatarTemplate: json['avatarTemplate'] as String?,
     status: _storedStatus(json['status']),
     draftCount: jsonInt(json['draftCount']),
     canCreateTopic: json['canCreateTopic'] == true,
@@ -123,6 +125,11 @@ class DiscourseUser {
 
   final String? name;
   final String? avatarUrl;
+
+  /// What [avatarUrl] was resolved from, with its `{size}` placeholder, so a
+  /// picture this account replaces can be recognized at any size. Null in
+  /// older snapshots.
+  final String? avatarTemplate;
   final UserStatus? status;
   final int draftCount;
 
@@ -210,6 +217,7 @@ class DiscourseUser {
       'id': id,
       'name': name,
       'avatarUrl': avatarUrl,
+      'avatarTemplate': avatarTemplate,
       'status': status?.toJson(),
       'draftCount': draftCount,
       'canCreateTopic': canCreateTopic,
@@ -262,6 +270,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -302,6 +311,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -342,6 +352,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -382,6 +393,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -423,6 +435,7 @@ class DiscourseUser {
         id: id,
         name: name,
         avatarUrl: avatarUrl,
+        avatarTemplate: avatarTemplate,
         status: status,
         draftCount: draftCount,
         canCreateTopic: canCreateTopic,
@@ -463,6 +476,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -509,6 +523,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -551,6 +566,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -591,6 +607,7 @@ class DiscourseUser {
     id: id,
     name: name,
     avatarUrl: avatarUrl,
+    avatarTemplate: avatarTemplate,
     status: status,
     draftCount: draftCount,
     canCreateTopic: canCreateTopic,
@@ -633,6 +650,7 @@ class DiscourseUser {
       other.id == id &&
       other.name == name &&
       other.avatarUrl == avatarUrl &&
+      other.avatarTemplate == avatarTemplate &&
       other.status == status &&
       other.draftCount == draftCount &&
       other.canCreateTopic == canCreateTopic &&
@@ -679,6 +697,7 @@ class DiscourseUser {
     id,
     name,
     avatarUrl,
+    avatarTemplate,
     status,
     draftCount,
     canCreateTopic,

@@ -21289,5 +21289,234 @@
   "couldnTOpenAPictureFromThisDevice": "Couldn''t open a picture from this device.",
   "@couldnTOpenAPictureFromThisDevice": {
     "description": "Error under the avatar when the device's image picker fails, for example when photo access is denied."
+  },
+  "mutedUsers": "Muted users",
+  "@mutedUsers": {
+    "description": "Label of the list of muted people in the Users preferences."
+  },
+  "mutedUsersDescription": "You get no notifications or messages from these people. Changes apply when you save.",
+  "@mutedUsersDescription": {
+    "description": "Help text under the Muted users label in the Users preferences."
+  },
+  "thisSiteDoesNotLetThisAccountMuteYet": "This site does not let this account mute people yet.",
+  "@thisSiteDoesNotLetThisAccountMuteYet": {
+    "description": "Help text under the Muted users label when the account's trust level is too low to mute anyone."
+  },
+  "addAUser": "Add a user",
+  "@addAUser": {
+    "description": "Placeholder of the search field that adds a person to the muted or ignored list."
+  },
+  "saveMutedUsers": "Save muted users",
+  "@saveMutedUsers": {
+    "description": "Accessible name of the button that saves the muted list in the Users preferences."
+  },
+  "matchingUsers": "Matching users",
+  "@matchingUsers": {
+    "description": "Accessible name of the list of people a user search in Preferences offers."
+  },
+  "ignoredUsers": "Ignored users",
+  "@ignoredUsers": {
+    "description": "Label of the list of ignored people in the Users preferences."
+  },
+  "ignoredUsersDescription": "Their posts are hidden and you get no notifications or messages from them. Ignoring someone applies at once and ends by itself.",
+  "@ignoredUsersDescription": {
+    "description": "Help text under the Ignored users label in the Users preferences."
+  },
+  "youAreNotIgnoringAnyone": "You are not ignoring anyone.",
+  "@youAreNotIgnoringAnyone": {
+    "description": "Shown in the Users preferences when the ignored list is empty."
+  },
+  "stopIgnoring": "Stop ignoring",
+  "@stopIgnoring": {
+    "description": "Button beside an ignored person in the Users preferences that ends the ignore."
+  },
+  "stopIgnoringUser": "Stop ignoring {username}",
+  "@stopIgnoringUser": {
+    "description": "Accessible name of the Stop ignoring button beside one ignored person.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "ignoreAUser": "Ignore a user",
+  "@ignoreAUser": {
+    "description": "Accessible name and placeholder of the search field that picks a person to ignore."
+  },
+  "ignoreFor": "Ignore for",
+  "@ignoreFor": {
+    "description": "Accessible name of the select that chooses how long an ignore lasts."
+  },
+  "ignoreUser": "Ignore",
+  "@ignoreUser": {
+    "description": "Button that starts ignoring the chosen person for the chosen time."
+  },
+  "ignoreForOneMonth": "For one month",
+  "@ignoreForOneMonth": {
+    "description": "Choice of how long to ignore a person."
+  },
+  "ignoreForThreeMonths": "For three months",
+  "@ignoreForThreeMonths": {
+    "description": "Choice of how long to ignore a person."
+  },
+  "ignoreForSixMonths": "For six months",
+  "@ignoreForSixMonths": {
+    "description": "Choice of how long to ignore a person."
+  },
+  "ignoreForOneYear": "For one year",
+  "@ignoreForOneYear": {
+    "description": "Choice of how long to ignore a person."
+  },
+  "primaryEmail": "Primary email",
+  "@primaryEmail": {
+    "description": "Label of the account's primary address on the Email preferences tab."
+  },
+  "primaryEmailDescription": "Only you and this site''s staff can see it.",
+  "@primaryEmailDescription": {
+    "description": "Help text under the Primary email label."
+  },
+  "secondaryEmails": "Other emails",
+  "@secondaryEmails": {
+    "description": "Label of the account's secondary addresses on the Email preferences tab."
+  },
+  "waitingForConfirmation": "Waiting for confirmation",
+  "@waitingForConfirmation": {
+    "description": "Label of addresses whose confirmation link has not been followed yet, on the Email preferences tab."
+  },
+  "newEmail": "New email",
+  "@newEmail": {
+    "description": "Label and accessible name of the field that takes a new primary address."
+  },
+  "newEmailDescription": "This site sends a confirmation link. Your address changes once you follow it.",
+  "@newEmailDescription": {
+    "description": "Help text under the New email label."
+  },
+  "changeEmail": "Change email",
+  "@changeEmail": {
+    "description": "Button that asks the site to change the account's primary address."
+  },
+  "sendingConfirmation": "Sending…",
+  "@sendingConfirmation": {
+    "description": "Label of the Change email button while the request is on its way."
+  },
+  "confirmationEmailSent": "Check your inbox. Your address changes once you follow the confirmation link.",
+  "@confirmationEmailSent": {
+    "description": "Notice on the Email preferences tab after the site accepted a change request."
+  },
+  "thisSiteManagesYourEmail": "This site does not let this account change its email here.",
+  "@thisSiteManagesYourEmail": {
+    "description": "Shown on the Email preferences tab when single sign-on owns the address or address changes are turned off."
+  },
+  "security": "Security",
+  "@security": {
+    "description": "Title of the Security tab in Preferences."
+  },
+  "securityPassword": "Password",
+  "@securityPassword": {
+    "description": "Title of the password row on the Security preferences tab."
+  },
+  "securityPasswordDescription": "Changing a password is confirmed by email in a browser, so it starts on the website.",
+  "@securityPasswordDescription": {
+    "description": "Help text of the password row on the Security preferences tab."
+  },
+  "twoFactorAuthentication": "Two-factor authentication",
+  "@twoFactorAuthentication": {
+    "description": "Title of the two-factor row on the Security preferences tab."
+  },
+  "twoFactorAuthenticationDescription": "Authenticator apps, security keys and backup codes are managed on the website, which confirms your password first.",
+  "@twoFactorAuthenticationDescription": {
+    "description": "Help text of the two-factor row on the Security preferences tab."
+  },
+  "passkeys": "Passkeys",
+  "@passkeys": {
+    "description": "Title of the passkeys row on the Security preferences tab."
+  },
+  "passkeysDescription": "Passkeys are added and removed on the website, which confirms it is you first.",
+  "@passkeysDescription": {
+    "description": "Help text of the passkeys row on the Security preferences tab."
+  },
+  "openOnTheWebsite": "Open website",
+  "@openOnTheWebsite": {
+    "description": "Button on a Security preferences row that opens the matching web preferences page in the browser."
+  },
+  "openOnTheWebsiteFor": "Open website: {setting}",
+  "@openOnTheWebsiteFor": {
+    "description": "Accessible name of the Open website button on a Security preferences row.",
+    "placeholders": {
+      "setting": {
+        "type": "String"
+      }
+    }
+  },
+  "couldnTOpenTheWebsite": "Couldn''t open the website.",
+  "@couldnTOpenTheWebsite": {
+    "description": "Error on the Security preferences tab when the browser could not be opened."
+  },
+  "signedInBrowsers": "Signed-in browsers",
+  "@signedInBrowsers": {
+    "description": "Title of the list of browser sessions on the Security preferences tab."
+  },
+  "signedInBrowsersDescription": "Browsers signed in to your account. This app is not listed: disconnect it by removing the forum.",
+  "@signedInBrowsersDescription": {
+    "description": "Help text under the Signed-in browsers title."
+  },
+  "noBrowsersAreSignedIn": "No browsers are signed in.",
+  "@noBrowsersAreSignedIn": {
+    "description": "Shown on the Security preferences tab when the account has no browser sessions."
+  },
+  "browserOnSystem": "{browser} on {system}",
+  "@browserOnSystem": {
+    "description": "Names one browser session, for example Firefox on macOS.",
+    "placeholders": {
+      "browser": {
+        "type": "String"
+      },
+      "system": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownBrowser": "Unknown browser",
+  "@unknownBrowser": {
+    "description": "Names a browser session the site could not identify."
+  },
+  "lastSeenAgo": "Last seen {when}",
+  "@lastSeenAgo": {
+    "description": "When a browser session was last used; the placeholder is a relative time such as 3d.",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "signOutBrowser": "Sign out",
+  "@signOutBrowser": {
+    "description": "Button beside a browser session that ends it, and the confirming action of its dialog."
+  },
+  "signOutBrowserNamed": "Sign out {name}",
+  "@signOutBrowserNamed": {
+    "description": "Accessible name of the Sign out button beside one browser session.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "signOutThisBrowser": "Sign out this browser?",
+  "@signOutThisBrowser": {
+    "description": "Title of the dialog that confirms ending a browser session."
+  },
+  "signOutThisBrowserDescription": "{name} will have to sign in again.",
+  "@signOutThisBrowserDescription": {
+    "description": "Body of the dialog that confirms ending a browser session.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "signingOut": "Signing out…",
+  "@signingOut": {
+    "description": "Label of the Sign out button while the request is on its way."
   }
 }

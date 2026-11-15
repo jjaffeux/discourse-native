@@ -1620,6 +1620,8 @@ class FakeDiscourseApi
     if (failure != null) throw failure;
     final updated = models.userPreferences({
       'bio_raw': ?values['bio_raw'],
+      if (values['muted_usernames'] case final String muted)
+        'muted_usernames': muted.isEmpty ? const <String>[] : muted.split(','),
       'user_option': values,
     }, fallback: fallback);
     userPreferences = updated;
@@ -2284,6 +2286,62 @@ class FakeDiscourseApi
   }) async {
     avatarPicks.add((username: username, uploadId: uploadId));
     await avatarPickHandler?.call(uploadId);
+  }
+
+  final List<({String username, int tokenId})> authTokenRevocations = [];
+  Future<void> Function(int tokenId)? authTokenRevokeHandler;
+
+  @override
+  Future<void> revokeAuthToken({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int tokenId,
+    String? clientId,
+  }) async {
+    authTokenRevocations.add((username: username, tokenId: tokenId));
+    await authTokenRevokeHandler?.call(tokenId);
+  }
+
+  final List<({String username, String email})> emailChangeRequests = [];
+  Future<void> Function(String email)? emailChangeHandler;
+
+  @override
+  Future<void> requestEmailChange({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required String email,
+    String? clientId,
+  }) async {
+    emailChangeRequests.add((username: username, email: email));
+    await emailChangeHandler?.call(email);
+  }
+
+  final List<({String username, DateTime? until})> ignoreRequests = [];
+  Future<void> Function(String username, DateTime? until)? ignoreHandler;
+
+  @override
+  Future<void> ignoreUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required DateTime until,
+    String? clientId,
+  }) async {
+    ignoreRequests.add((username: username, until: until));
+    await ignoreHandler?.call(username, until);
+  }
+
+  @override
+  Future<void> stopIgnoringUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    ignoreRequests.add((username: username, until: null));
+    await ignoreHandler?.call(username, null);
   }
 
   @override

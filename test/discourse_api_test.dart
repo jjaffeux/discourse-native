@@ -164,6 +164,197 @@ void main() {
       expect(result.timezone, 'Europe/Paris');
     });
 
+    test('a muted list is one comma-separated field and reads back', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(
+            jsonEncode({
+              'user': {
+                'muted_usernames': ['sam', 'robin'],
+                'can_mute_users': true,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      const draft = UserPreferences(
+        username: 'Reader',
+        mutedUsernames: ['sam', 'robin', 'no-such-person'],
+      );
+      final result = await api.updateUserPreferences(
+        siteUrl: 'https://forum.example',
+        apiKey: 'key',
+        username: 'Reader',
+        fallback: draft,
+        values: draft.payloadFor(PreferenceSection.users),
+      );
+      expect(sent.single.method, 'PUT');
+      expect(sent.single.url.path, '/u/reader.json');
+      expect(jsonDecode(sent.single.body), {
+        'muted_usernames': 'no-such-person,robin,sam',
+      });
+      expect(result.mutedUsernames, ['sam', 'robin']);
+      expect(result.canMuteUsers, isTrue);
+    });
+
+    test('a browser session is signed out by its id', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
+        }),
+      );
+      addTearDown(api.close);
+
+      await api.revokeAuthToken(
+        siteUrl: 'https://forum.example',
+        apiKey: 'key',
+        username: 'Reader',
+        tokenId: 41,
+      );
+
+      expect(sent.single.method, 'POST');
+      expect(
+        sent.single.url.toString(),
+        'https://forum.example/u/reader/preferences/revoke-auth-token',
+      );
+      expect(jsonDecode(sent.single.body), {'token_id': 41});
+      expect(sent.single.headers['User-Api-Key'], 'key');
+    });
+
+    test('an email change is requested for the account, with the address '
+        'in the body alone', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('', 200);
+        }),
+      );
+      addTearDown(api.close);
+
+      await api.requestEmailChange(
+        siteUrl: 'https://forum.example',
+        apiKey: 'key',
+        username: 'Reader',
+        email: 'new@example.org',
+      );
+
+      expect(sent.single.method, 'PUT');
+      expect(
+        sent.single.url.toString(),
+        'https://forum.example/u/reader/preferences/email',
+      );
+      expect(jsonDecode(sent.single.body), {'email': 'new@example.org'});
+      expect(sent.single.headers['User-Api-Key'], 'key');
+    });
+
+    test('a refused email change carries the site reason', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['Email is invalid.'],
+            }),
+            422,
+          ),
+        ),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.requestEmailChange(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'reader',
+          email: 'nope',
+        ),
+        throwsA(
+          isA<WriteException>()
+              .having((error) => error.message, 'message', 'Email is invalid.')
+              .having(
+                (error) => error.toString(),
+                'printed form',
+                isNot(contains('nope')),
+              ),
+        ),
+      );
+    });
+
+    test(
+      'ignoring names the person in the path and sends an end date',
+      () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+        addTearDown(api.close);
+
+        await api.ignoreUser(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'Sam Spade',
+          until: DateTime.parse('2026-12-15T13:00:00+01:00'),
+        );
+        await api.stopIgnoringUser(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'sam',
+        );
+
+        expect(sent.map((request) => request.method), ['PUT', 'PUT']);
+        expect(
+          sent.first.url.toString(),
+          'https://forum.example/u/sam%20spade/notification_level.json',
+        );
+        expect(jsonDecode(sent.first.body), {
+          'notification_level': 'ignore',
+          'expiring_at': '2026-12-15T12:00:00.000Z',
+        });
+        expect(sent.last.url.path, '/u/sam/notification_level.json');
+        expect(jsonDecode(sent.last.body), {'notification_level': 'normal'});
+        expect(sent.first.headers['User-Api-Key'], 'key');
+      },
+    );
+
+    test('a refused ignore carries the site reason', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': ['You cannot ignore that user.'],
+            }),
+            422,
+          ),
+        ),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.ignoreUser(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'sam',
+          until: DateTime.utc(2027),
+        ),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.message,
+            'message',
+            'You cannot ignore that user.',
+          ),
+        ),
+      );
+    });
+
     test(
       'saves the nested core notification schedule and reads server normalization',
       () async {

@@ -27,7 +27,8 @@ import 'topic_list_view.dart';
 import 'topic_title.dart';
 
 /// A person's activity. An [embedded] view builds slivers, for a parent
-/// scroll view that holds it among other content.
+/// scroll view that holds it among other content. [embeddedFilterVariant]
+/// tells its filter apart from a host page's own tabs.
 class UserActivityView extends StatelessWidget {
   const UserActivityView({
     super.key,
@@ -35,6 +36,7 @@ class UserActivityView extends StatelessWidget {
     this.username,
     this.title,
     this.embedded = false,
+    this.embeddedFilterVariant = DTabListVariant.line,
     this.onOpen,
   });
 
@@ -42,6 +44,7 @@ class UserActivityView extends StatelessWidget {
   final String? username;
   final String? title;
   final bool embedded;
+  final DTabListVariant embeddedFilterVariant;
   final ValueChanged<UserActivityItem>? onOpen;
 
   @override
@@ -57,6 +60,7 @@ class UserActivityView extends StatelessWidget {
         username: username,
         title: title,
         embedded: embedded,
+        embeddedFilterVariant: embeddedFilterVariant,
         onOpen: onOpen,
       ),
     ),
@@ -70,6 +74,7 @@ class _UserActivityBody extends StatelessWidget {
     required this.username,
     required this.title,
     required this.embedded,
+    required this.embeddedFilterVariant,
     required this.onOpen,
   });
 
@@ -78,6 +83,7 @@ class _UserActivityBody extends StatelessWidget {
   final String? username;
   final String? title;
   final bool embedded;
+  final DTabListVariant embeddedFilterVariant;
   final ValueChanged<UserActivityItem>? onOpen;
   String get pageTitle => title ?? appL10n.activity;
 
@@ -183,6 +189,7 @@ class _UserActivityBody extends StatelessWidget {
     siteUrl: siteUrl,
     title: pageTitle,
     embedded: embedded,
+    embeddedFilterVariant: embeddedFilterVariant,
     username: username,
     session: controller.lifecycle.capture(siteUrl).session,
     feed: feed,
@@ -221,6 +228,7 @@ class _ActivityList extends StatefulWidget {
     required this.title,
     required this.username,
     required this.embedded,
+    required this.embeddedFilterVariant,
     required this.session,
     required this.feed,
     required this.onRefresh,
@@ -233,6 +241,7 @@ class _ActivityList extends StatefulWidget {
   final String title;
   final String? username;
   final bool embedded;
+  final DTabListVariant embeddedFilterVariant;
   final Object session;
   final UserActivityFeed feed;
   final Future<void> Function() onRefresh;
@@ -446,7 +455,7 @@ class _ActivityListState extends State<_ActivityList> {
               },
               children: [
                 DTabList<_ActivityKind>(
-                  variant: DTabListVariant.line,
+                  variant: widget.embeddedFilterVariant,
                   children: [
                     for (final (kind, label) in [
                       (_ActivityKind.all, appL10n.all),

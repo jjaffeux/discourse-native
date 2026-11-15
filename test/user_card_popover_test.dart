@@ -426,7 +426,7 @@ void main() {
     await _open(tester);
     api.requests.single.complete(_profile);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('View profile'));
+    await tester.tap(find.byTooltip('View profile'));
     await tester.pumpAndSettle();
     expect(_surface, findsNothing);
     expect(

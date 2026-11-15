@@ -4,6 +4,7 @@ import 'bookmark.dart';
 import 'json.dart';
 import 'notification_schedule.dart';
 import 'sidebar_tag.dart';
+import 'user_auth_token.dart';
 
 /// Core sections have fixed identities; plugins declare their own namespace.
 @immutable
@@ -24,7 +25,26 @@ final class PreferenceSection {
   static const sidebarCategories = PreferenceSection._core('sidebarCategories');
   static const sidebarTags = PreferenceSection._core('sidebarTags');
   static const interface = PreferenceSection._core('interface');
-  static const values = [profile, notifications, tracking, interface];
+
+  /// The people this account has muted. Ignoring someone is a separate write
+  /// with its own owner, so it is not part of this section's draft.
+  static const users = PreferenceSection._core('users');
+
+  /// The account's addresses. A change is requested at once and confirmed by
+  /// mail, so this section shows values and has no draft of its own.
+  static const email = PreferenceSection._core('email');
+
+  /// Browser sessions, and the way to the web for what needs a password or a
+  /// second factor. It has no draft of its own.
+  static const security = PreferenceSection._core('security');
+  static const values = [
+    profile,
+    notifications,
+    tracking,
+    interface,
+    users,
+    security,
+  ];
 
   final String owner;
   final String name;
@@ -57,6 +77,7 @@ final class UserPreferences {
     'notification_level_when_replying',
     'bookmark_auto_delete_preference',
     'user_notification_schedule',
+    'muted_usernames',
   };
 
   /// Core response identities are reserved even when they are not editable.
@@ -69,6 +90,14 @@ final class UserPreferences {
     'can_upload_avatar',
     'uploaded_avatar_id',
     'can_change_tracking_preferences',
+    'can_mute_users',
+    'ignored_usernames',
+    'can_ignore_users',
+    'email',
+    'secondary_emails',
+    'unconfirmed_emails',
+    'can_edit_email',
+    'user_auth_tokens',
     'user_option',
     'sidebar_tags',
   };
@@ -94,6 +123,15 @@ final class UserPreferences {
     this.canUploadAvatar = false,
     this.uploadedAvatarId,
     this.canChangeTrackingPreferences = false,
+    this.mutedUsernames = const [],
+    this.canMuteUsers = false,
+    this.ignoredUsernames = const [],
+    this.canIgnoreUsers = false,
+    this.email = '',
+    this.secondaryEmails = const [],
+    this.unconfirmedEmails = const [],
+    this.canEditEmail = false,
+    this.authTokens = const [],
   });
 
   factory UserPreferences.fromJson(
@@ -172,6 +210,36 @@ final class UserPreferences {
         'can_change_tracking_preferences',
         fallback.canChangeTrackingPreferences,
       ),
+      mutedUsernames: _names(json, 'muted_usernames', fallback.mutedUsernames),
+      canMuteUsers: _boolean(json, 'can_mute_users', fallback.canMuteUsers),
+      ignoredUsernames: _names(
+        json,
+        'ignored_usernames',
+        fallback.ignoredUsernames,
+      ),
+      canIgnoreUsers: _boolean(
+        json,
+        'can_ignore_users',
+        fallback.canIgnoreUsers,
+      ),
+      email: _string(json, 'email', fallback.email),
+      secondaryEmails: _names(
+        json,
+        'secondary_emails',
+        fallback.secondaryEmails,
+      ),
+      unconfirmedEmails: _names(
+        json,
+        'unconfirmed_emails',
+        fallback.unconfirmedEmails,
+      ),
+      canEditEmail: _boolean(json, 'can_edit_email', fallback.canEditEmail),
+      authTokens: json['user_auth_tokens'] is List
+          ? List.unmodifiable([
+              for (final token in jsonArray(json['user_auth_tokens']))
+                ?UserAuthToken.fromJson(token),
+            ])
+          : fallback.authTokens,
     );
   }
 
@@ -227,6 +295,69 @@ final class UserPreferences {
   final int? uploadedAvatarId;
   final bool canChangeTrackingPreferences;
 
+  /// The people whose posts and notifications this account has muted, as the
+  /// site spells their usernames.
+  final List<String> mutedUsernames;
+
+  /// False below the trust level the site asks for before anyone may mute.
+  final bool canMuteUsers;
+
+  /// The people this account ignores. It changes one person at a time through
+  /// a write of its own, so no section's payload carries it.
+  final List<String> ignoredUsernames;
+
+  /// Whether the site lets this account ignore anyone, which it grants by
+  /// group.
+  final bool canIgnoreUsers;
+
+  /// The account's primary address, which the site sends only to its owner.
+  /// Personal data: it is shown on the Email tab and written nowhere else.
+  final String email;
+  final List<String> secondaryEmails;
+
+  /// Addresses whose confirmation link has not been followed yet.
+  final List<String> unconfirmedEmails;
+
+  /// False where single sign-on owns the address or the site has turned
+  /// address changes off.
+  final bool canEditEmail;
+
+  /// The account's browser sessions, which the site sends only to its owner.
+  final List<UserAuthToken> authTokens;
+
+  /// What the site holds once it has started or stopped ignoring [username].
+  /// Core lifts a mute of the same person in both directions, because a
+  /// person has one level: normal, muted or ignored.
+  UserPreferences withUserIgnored(String username, {required bool ignored}) {
+    bool other(String name) => name.toLowerCase() != username.toLowerCase();
+    return copyWith(
+      mutedUsernames: mutedUsernames.where(other).toList(),
+      ignoredUsernames: [
+        ...ignoredUsernames.where(other),
+        if (ignored) username,
+      ],
+    );
+  }
+
+  /// What the site holds once it has mailed a confirmation link for [email]:
+  /// the address waits unconfirmed and the primary address is unchanged.
+  UserPreferences withEmailChangeRequested(String email) => copyWith(
+    unconfirmedEmails: [
+      ...unconfirmedEmails.where(
+        (address) => address.toLowerCase() != email.toLowerCase(),
+      ),
+      email,
+    ],
+  );
+
+  /// What the site holds once it has signed the session [tokenId] out.
+  UserPreferences withoutAuthToken(int tokenId) => copyWith(
+    authTokens: [
+      for (final token in authTokens)
+        if (token.id != tokenId) token,
+    ],
+  );
+
   Map<String, Object?> payloadFor(PreferenceSection section) =>
       Map.unmodifiable(switch (section) {
         PreferenceSection.sidebarCategories => {
@@ -253,6 +384,12 @@ final class UserPreferences {
         PreferenceSection.interface => {
           'bookmark_auto_delete_preference':
               bookmarkAutoDeletePreference.wireValue,
+        },
+        // Core takes the whole list as one comma-separated string and mutes
+        // exactly those people. The order carries no meaning, so it is fixed
+        // here and a list put back the way it was is not a change.
+        PreferenceSection.users => {
+          'muted_usernames': ([...mutedUsernames]..sort()).join(','),
         },
         _ => pluginValues[section.id]?.payload ?? const {},
       });
@@ -284,6 +421,9 @@ final class UserPreferences {
     PreferenceSection.interface => copyWith(
       bookmarkAutoDeletePreference: confirmed.bookmarkAutoDeletePreference,
     ),
+    PreferenceSection.users => copyWith(
+      mutedUsernames: confirmed.mutedUsernames,
+    ),
     _ => copyWith(
       pluginValues: {
         ...pluginValues,
@@ -312,6 +452,15 @@ final class UserPreferences {
     bool? canUploadAvatar,
     Object? uploadedAvatarId = _unchanged,
     bool? canChangeTrackingPreferences,
+    List<String>? mutedUsernames,
+    bool? canMuteUsers,
+    List<String>? ignoredUsernames,
+    bool? canIgnoreUsers,
+    String? email,
+    List<String>? secondaryEmails,
+    List<String>? unconfirmedEmails,
+    bool? canEditEmail,
+    List<UserAuthToken>? authTokens,
   }) => UserPreferences(
     sidebarCategoryIds: List.unmodifiable(
       sidebarCategoryIds ?? this.sidebarCategoryIds,
@@ -344,6 +493,19 @@ final class UserPreferences {
         : uploadedAvatarId as int?,
     canChangeTrackingPreferences:
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
+    mutedUsernames: List.unmodifiable(mutedUsernames ?? this.mutedUsernames),
+    canMuteUsers: canMuteUsers ?? this.canMuteUsers,
+    ignoredUsernames: List.unmodifiable(
+      ignoredUsernames ?? this.ignoredUsernames,
+    ),
+    canIgnoreUsers: canIgnoreUsers ?? this.canIgnoreUsers,
+    email: email ?? this.email,
+    secondaryEmails: List.unmodifiable(secondaryEmails ?? this.secondaryEmails),
+    unconfirmedEmails: List.unmodifiable(
+      unconfirmedEmails ?? this.unconfirmedEmails,
+    ),
+    canEditEmail: canEditEmail ?? this.canEditEmail,
+    authTokens: List.unmodifiable(authTokens ?? this.authTokens),
   );
 
   @override
@@ -369,7 +531,16 @@ final class UserPreferences {
           other.canEditAvatar == canEditAvatar &&
           other.canUploadAvatar == canUploadAvatar &&
           other.uploadedAvatarId == uploadedAvatarId &&
-          other.canChangeTrackingPreferences == canChangeTrackingPreferences;
+          other.canChangeTrackingPreferences == canChangeTrackingPreferences &&
+          listEquals(other.mutedUsernames, mutedUsernames) &&
+          other.canMuteUsers == canMuteUsers &&
+          listEquals(other.ignoredUsernames, ignoredUsernames) &&
+          other.canIgnoreUsers == canIgnoreUsers &&
+          other.email == email &&
+          listEquals(other.secondaryEmails, secondaryEmails) &&
+          listEquals(other.unconfirmedEmails, unconfirmedEmails) &&
+          other.canEditEmail == canEditEmail &&
+          listEquals(other.authTokens, authTokens);
 
   @override
   int get hashCode => Object.hash(
@@ -394,6 +565,17 @@ final class UserPreferences {
     canUploadAvatar,
     uploadedAvatarId,
     canChangeTrackingPreferences,
+    Object.hash(
+      Object.hashAll(mutedUsernames),
+      canMuteUsers,
+      Object.hashAll(ignoredUsernames),
+      canIgnoreUsers,
+      email,
+      Object.hashAll(secondaryEmails),
+      Object.hashAll(unconfirmedEmails),
+      canEditEmail,
+      Object.hashAll(authTokens),
+    ),
   );
 
   static const _unchanged = Object();
@@ -401,6 +583,22 @@ final class UserPreferences {
 
 String _string(Map<String, dynamic> json, String key, String fallback) =>
     json[key] is String ? jsonString(json[key]) : fallback;
+
+/// The names or addresses under [key], without blanks or repeats. An absent or
+/// malformed list keeps [fallback], as a write's answer may leave it out.
+List<String> _names(
+  Map<String, dynamic> json,
+  String key,
+  List<String> fallback,
+) {
+  if (json[key] is! List) return fallback;
+  final seen = <String>{};
+  return List.unmodifiable([
+    for (final value in jsonArray(json[key]))
+      if (value is String && value.trim().isNotEmpty && seen.add(value.trim()))
+        value.trim(),
+  ]);
+}
 
 bool _boolean(Map<String, dynamic> json, String key, bool fallback) =>
     json[key] is bool ? json[key] as bool : fallback;

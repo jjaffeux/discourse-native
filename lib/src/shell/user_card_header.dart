@@ -59,7 +59,13 @@ class UserCardHeader extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AvatarOwner(
+    siteUrl: siteUrl,
+    username: card.username,
+    child: _identity(context),
+  );
+
+  Widget _identity(BuildContext context) {
     final theme = Theme.of(context);
     if (mobileSheet) return _mobileIdentity(context);
     // One reading for the whole card: a suspension that lapses between two

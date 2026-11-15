@@ -34,6 +34,7 @@ const _initial = UserPreferences(
   notificationLevelWhenReplying: 2,
   canEdit: true,
   canChangeTrackingPreferences: true,
+  canMuteUsers: true,
 );
 
 typedef _LoadCall = ({
@@ -482,6 +483,8 @@ void main() {
             PreferenceSection.notifications,
             PreferenceSection.tracking,
             PreferenceSection.interface,
+            PreferenceSection.users,
+            PreferenceSection.security,
             chatPreferenceSection,
           ],
         );
@@ -527,6 +530,11 @@ void main() {
                 ),
                 payload: const {'bookmark_auto_delete_preference': 2},
               ),
+              PreferenceSection.users: (
+                change: (current) =>
+                    current.copyWith(mutedUsernames: ['sam', 'robin']),
+                payload: const {'muted_usernames': 'robin,sam'},
+              ),
               chatPreferenceSection: (
                 change: (current) => current.withChatPreferences(
                   separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
@@ -534,6 +542,12 @@ void main() {
                 payload: const {'chat_separate_sidebar_mode': 'fullscreen'},
               ),
             };
+
+        // Security shows sessions and links; it has nothing to save.
+        expect(
+          const UserPreferences().payloadFor(PreferenceSection.security),
+          isEmpty,
+        );
 
         for (final MapEntry(key: section, value: testCase) in cases.entries) {
           final api = _PreferencesApi();
@@ -778,7 +792,10 @@ void main() {
           (current) => current.copyWith(bioRaw: 'Typing'),
         );
 
-        controller.confirmUploadedAvatar(_accountA, null);
+        controller.confirmOutsideSections(
+          _accountA,
+          (current) => current.copyWith(uploadedAvatarId: null),
+        );
 
         final state = controller.stateFor(_siteUrl)!;
         expect(state.draft!.uploadedAvatarId, isNull);
@@ -806,7 +823,10 @@ void main() {
 
         final reading = controller.load(_accountA, refresh: true);
         await pumpEventQueue();
-        controller.confirmUploadedAvatar(_accountA, 9);
+        controller.confirmOutsideSections(
+          _accountA,
+          (current) => current.copyWith(uploadedAvatarId: 9),
+        );
         refresh.complete(_initial.copyWith(uploadedAvatarId: 4));
         await reading;
 
@@ -821,7 +841,10 @@ void main() {
       addTearDown(controller.dispose);
       await _seed(controller);
 
-      controller.confirmUploadedAvatar(_accountB, 9);
+      controller.confirmOutsideSections(
+        _accountB,
+        (current) => current.copyWith(uploadedAvatarId: 9),
+      );
 
       expect(
         controller.stateFor(_siteUrl)!.confirmed!.uploadedAvatarId,
@@ -963,7 +986,7 @@ void main() {
     });
 
     test(
-      'prevents a stale refresh from clobbering a newer local edit',
+      'a refresh answered after a newer local edit keeps the edit',
       () async {
         final refresh = Completer<UserPreferences>();
         var loadCount = 0;
@@ -992,8 +1015,245 @@ void main() {
         final state = controller.stateFor(_siteUrl)!;
         expect(state.loading, isFalse);
         expect(state.draft?.timezone, 'Europe/Paris');
-        expect(state.confirmed?.timezone, 'Etc/UTC');
+        expect(state.confirmed?.timezone, 'America/New_York');
         expect(state.dirty(PreferenceSection.profile), isTrue);
+      },
+    );
+
+    test(
+      'a refresh keeps an unsaved section and replaces the others',
+      () async {
+        var loadCount = 0;
+        final api = _PreferencesApi(
+          onLoad: (_) async => ++loadCount == 1
+              ? _initial.copyWith(bioRaw: 'First bio')
+              : _initial.copyWith(
+                  bioRaw: 'Edited on the web',
+                  timezone: 'Asia/Tokyo',
+                  likeNotificationFrequency: 3,
+                ),
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Still typing'),
+        );
+        await controller.load(_accountA, refresh: true);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.draft?.bioRaw, 'Still typing');
+        expect(state.confirmed?.bioRaw, 'Edited on the web');
+        expect(state.dirty(PreferenceSection.about), isTrue);
+        expect(state.draft?.timezone, 'Asia/Tokyo');
+        expect(state.draft?.likeNotificationFrequency, 3);
+        expect(state.dirty(PreferenceSection.profile), isFalse);
+        expect(state.dirty(PreferenceSection.notifications), isFalse);
+
+        expect(
+          await controller.save(_accountA, PreferenceSection.about),
+          isTrue,
+        );
+        expect(api.updates.single.values, {'bio_raw': 'Still typing'});
+      },
+    );
+
+    test(
+      'a refresh keeps every kind of section that waits for a save',
+      () async {
+        final schedule = NotificationSchedule(
+          enabled: true,
+          days: [for (var day = 0; day < 7; day++) (start: 480, end: 1020)],
+        );
+        final edits =
+            <PreferenceSection, UserPreferences Function(UserPreferences)>{
+              PreferenceSection.about: (current) =>
+                  current.copyWith(bioRaw: 'Typed'),
+              PreferenceSection.sidebarCategories: (current) =>
+                  current.copyWith(sidebarCategoryIds: [3]),
+              PreferenceSection.sidebarTags: (current) => current.copyWith(
+                sidebarTags: const [
+                  SidebarTag(id: 1, name: 'release', slug: 'release'),
+                ],
+              ),
+              PreferenceSection.notificationSchedule: (current) =>
+                  current.copyWith(notificationSchedule: schedule),
+              chatPreferenceSection: (current) => current.withChatPreferences(
+                separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+              ),
+            };
+        final controller = _controller(_PreferencesApi());
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        edits.forEach(
+          (section, change) => controller.edit(_siteUrl, section, change),
+        );
+        final typed = controller.stateFor(_siteUrl)!.draft!;
+        await controller.load(_accountA, refresh: true);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed, _initial);
+        for (final section in edits.keys) {
+          expect(state.dirty(section), isTrue, reason: section.id);
+          expect(
+            state.draft!.payloadFor(section),
+            typed.payloadFor(section),
+            reason: section.id,
+          );
+        }
+      },
+    );
+
+    test(
+      'a refresh that brings the typed value leaves nothing to save',
+      () async {
+        var loadCount = 0;
+        final controller = _controller(
+          _PreferencesApi(
+            onLoad: (_) async => ++loadCount == 1
+                ? _initial
+                : _initial.copyWith(bioRaw: 'Typed'),
+          ),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Typed'),
+        );
+        await controller.load(_accountA, refresh: true);
+
+        expect(
+          controller.stateFor(_siteUrl)!.dirty(PreferenceSection.about),
+          isFalse,
+        );
+        expect(
+          await controller.save(_accountA, PreferenceSection.about),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'a choice that saves itself and failed is shown as the site holds it',
+      () async {
+        final api = _PreferencesApi(
+          onUpdate: (_) async =>
+              throw const WriteException(WriteFailure.unreachable),
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.profile,
+          (current) => current.copyWith(timezone: 'Europe/Paris'),
+        );
+        await controller.saveAutomatically(
+          _accountA,
+          PreferenceSection.profile,
+        );
+        expect(controller.stateFor(_siteUrl)!.error, isNotNull);
+        expect(controller.stateFor(_siteUrl)!.draft?.timezone, 'Europe/Paris');
+
+        await controller.load(_accountA, refresh: true);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.draft?.timezone, 'Etc/UTC');
+        expect(state.dirty(PreferenceSection.profile), isFalse);
+        expect(state.error, isNull);
+      },
+    );
+
+    test(
+      'a refresh behind a save keeps what was typed after the save began',
+      () async {
+        final written = Completer<UserPreferences>();
+        var loadCount = 0;
+        final api = _PreferencesApi(
+          onLoad: (_) async => ++loadCount == 1
+              ? _initial
+              : _initial.copyWith(bioRaw: 'First', timezone: 'Asia/Tokyo'),
+          onUpdate: (_) => written.future,
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'First'),
+        );
+        final saveTask = controller.save(_accountA, PreferenceSection.about);
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'First and more'),
+        );
+        final refreshTask = controller.load(_accountA, refresh: true);
+        await pumpEventQueue();
+        expect(api.loads, hasLength(1), reason: 'the read waits for the write');
+
+        written.complete(_initial.copyWith(bioRaw: 'First'));
+        expect(await saveTask, isFalse, reason: 'the text moved on meanwhile');
+        await refreshTask;
+
+        expect(api.loads, hasLength(2));
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed?.bioRaw, 'First');
+        expect(state.confirmed?.timezone, 'Asia/Tokyo');
+        expect(state.draft?.bioRaw, 'First and more');
+        expect(state.draft?.timezone, 'Asia/Tokyo');
+        expect(state.dirty(PreferenceSection.about), isTrue);
+        expect(state.loading, isFalse);
+      },
+    );
+
+    test(
+      'a refresh dispatched before a save of typed text is dropped for it',
+      () async {
+        final refresh = Completer<UserPreferences>();
+        final written = Completer<UserPreferences>();
+        var loadCount = 0;
+        final api = _PreferencesApi(
+          onLoad: (_) => ++loadCount == 1
+              ? Future<UserPreferences>.value(_initial)
+              : refresh.future,
+          onUpdate: (_) => written.future,
+        );
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        await _seed(controller);
+
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.about,
+          (current) => current.copyWith(bioRaw: 'Typed'),
+        );
+        final refreshTask = controller.load(_accountA, refresh: true);
+        await pumpEventQueue();
+        final saveTask = controller.save(_accountA, PreferenceSection.about);
+        await pumpEventQueue();
+
+        // Answered from the site's state before the write reached it.
+        refresh.complete(_initial.copyWith(timezone: 'Asia/Tokyo'));
+        await refreshTask;
+        expect(controller.stateFor(_siteUrl)!.draft?.bioRaw, 'Typed');
+        expect(controller.stateFor(_siteUrl)!.confirmed?.timezone, 'Etc/UTC');
+
+        written.complete(_initial.copyWith(bioRaw: 'Typed'));
+        expect(await saveTask, isTrue);
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.confirmed?.bioRaw, 'Typed');
+        expect(state.dirty(PreferenceSection.about), isFalse);
       },
     );
 
@@ -1360,6 +1620,228 @@ void main() {
         expect(state.draft?.timezone, 'Europe/Paris');
       },
     );
+  });
+
+  group('muted users', () {
+    const muting = UserPreferences(
+      username: 'alice',
+      canEdit: true,
+      canMuteUsers: true,
+      mutedUsernames: ['sam'],
+    );
+
+    test('an edit waits for its save and sends the whole list', () async {
+      final api = _PreferencesApi(
+        onLoad: (_) async => muting,
+        onUpdate: (call) async =>
+            call.fallback.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      expect(
+        controller.stateFor(_siteUrl)!.dirty(PreferenceSection.users),
+        isTrue,
+      );
+      expect(api.updates, isEmpty);
+
+      expect(await controller.save(_accountA, PreferenceSection.users), isTrue);
+      expect(api.updates.single.values, {'muted_usernames': 'robin,sam'});
+      final saved = controller.stateFor(_siteUrl)!;
+      expect(saved.dirty(PreferenceSection.users), isFalse);
+      expect(saved.confirmed!.mutedUsernames, ['sam', 'robin']);
+      expect(saved.savedSection, PreferenceSection.users);
+    });
+
+    test('putting the list back leaves nothing to save', () async {
+      final api = _PreferencesApi(onLoad: (_) async => muting);
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: const []),
+      );
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam']),
+      );
+
+      expect(
+        controller.stateFor(_siteUrl)!.dirty(PreferenceSection.users),
+        isFalse,
+      );
+      expect(
+        await controller.save(_accountA, PreferenceSection.users),
+        isFalse,
+      );
+      expect(api.updates, isEmpty);
+    });
+
+    test('a refused save keeps the list and names the reason', () async {
+      final api = _PreferencesApi(
+        onLoad: (_) async => muting,
+        onUpdate: (_) async => throw const WriteException(
+          WriteFailure.validation,
+          errors: ['You cannot mute that many people.'],
+        ),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      expect(
+        await controller.save(_accountA, PreferenceSection.users),
+        isFalse,
+      );
+
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.error, 'You cannot mute that many people.');
+      expect(state.draft!.mutedUsernames, ['sam', 'robin']);
+      expect(state.confirmed!.mutedUsernames, ['sam']);
+    });
+
+    test('an account that may not mute cannot edit the list', () async {
+      final api = _PreferencesApi(
+        onLoad: (_) async => muting.copyWith(canMuteUsers: false),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: const []),
+      );
+
+      expect(controller.stateFor(_siteUrl)!.draft!.mutedUsernames, ['sam']);
+      expect(
+        await controller.save(_accountA, PreferenceSection.users),
+        isFalse,
+      );
+    });
+
+    test('a refresh keeps an unsaved list and takes the rest', () async {
+      var loadCount = 0;
+      final api = _PreferencesApi(
+        onLoad: (_) async => ++loadCount == 1
+            ? muting
+            : muting.copyWith(
+                mutedUsernames: ['sam', 'muted-on-the-web'],
+                timezone: 'Asia/Tokyo',
+              ),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin']),
+      );
+      await controller.load(_accountA, refresh: true);
+
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.draft!.mutedUsernames, ['sam', 'robin']);
+      expect(state.confirmed!.mutedUsernames, ['sam', 'muted-on-the-web']);
+      expect(state.draft!.timezone, 'Asia/Tokyo');
+      expect(state.dirty(PreferenceSection.users), isTrue);
+
+      expect(await controller.save(_accountA, PreferenceSection.users), isTrue);
+      expect(api.updates.single.values, {'muted_usernames': 'robin,sam'});
+    });
+  });
+
+  group('writes outside the sections', () {
+    const before = UserPreferences(
+      username: 'alice',
+      canEdit: true,
+      canMuteUsers: true,
+      canIgnoreUsers: true,
+      mutedUsernames: ['sam', 'robin'],
+      ignoredUsernames: ['pat'],
+    );
+
+    test('an ignore is recorded under an unsaved muted list', () async {
+      final api = _PreferencesApi(onLoad: (_) async => before);
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.users,
+        (current) => current.copyWith(mutedUsernames: ['sam', 'robin', 'alex']),
+      );
+
+      controller.confirmOutsideSections(
+        _accountA,
+        (current) => current.withUserIgnored('robin', ignored: true),
+      );
+
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.confirmed!.ignoredUsernames, ['pat', 'robin']);
+      expect(state.confirmed!.mutedUsernames, ['sam']);
+      expect(state.draft!.ignoredUsernames, ['pat', 'robin']);
+      expect(state.draft!.mutedUsernames, ['sam', 'alex']);
+      expect(state.dirty(PreferenceSection.users), isTrue);
+    });
+
+    test('a read that began before the ignore cannot undo it', () async {
+      var loadCount = 0;
+      final refresh = Completer<UserPreferences>();
+      final api = _PreferencesApi(
+        onLoad: (_) => ++loadCount == 1 ? Future.value(before) : refresh.future,
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      final reading = controller.load(_accountA, refresh: true);
+      await pumpEventQueue();
+      controller.confirmOutsideSections(
+        _accountA,
+        (current) => current.withUserIgnored('pat', ignored: false),
+      );
+      refresh.complete(before);
+      await reading;
+
+      expect(
+        controller.stateFor(_siteUrl)!.confirmed!.ignoredUsernames,
+        isEmpty,
+      );
+    });
+
+    test('another account is left alone', () async {
+      final api = _PreferencesApi(onLoad: (_) async => before);
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.confirmOutsideSections(
+        _accountB,
+        (current) => current.withUserIgnored('pat', ignored: false),
+      );
+
+      expect(controller.stateFor(_siteUrl)!.confirmed!.ignoredUsernames, [
+        'pat',
+      ]);
+    });
   });
 
   group('headless disposal', () {

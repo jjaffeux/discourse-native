@@ -39,6 +39,7 @@ import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/topic_link.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
+import 'package:discourse_native/src/models/user_auth_token.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
@@ -1361,6 +1362,11 @@ void main() {
             draft.sequence != 0 ||
             draft.title != null ||
             draft.topicId != null,
+      );
+      probe(
+        'UserAuthToken',
+        () => UserAuthToken.fromJson(gate(withFields({'id': gate(41)}))),
+        (token) => token != null,
       );
       probe(
         'UserPreferences',

@@ -68,6 +68,14 @@ class UserCardTarget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (username.isEmpty) return child;
+    final owned = switch (siteUrl) {
+      final siteUrl? => AvatarOwner(
+        siteUrl: siteUrl,
+        username: username,
+        child: child,
+      ),
+      null => child,
+    };
 
     void open() => unawaited(
       UserCardOpenerScope.maybeOf(
@@ -106,7 +114,7 @@ class UserCardTarget extends StatelessWidget {
           // The button speaks its semantic label and excludes the label's own.
           label: DefaultTextStyle(
             style: DefaultTextStyle.of(context).style,
-            child: child,
+            child: owned,
           ),
         ),
       ),
@@ -193,7 +201,13 @@ class _UserCardHoverContent extends StatelessWidget {
   final String siteUrl;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AvatarOwner(
+    siteUrl: siteUrl,
+    username: card.username,
+    child: _content(context),
+  );
+
+  Widget _content(BuildContext context) {
     final tokens = DTokens.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

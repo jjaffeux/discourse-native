@@ -208,6 +208,7 @@ class _SummaryContent extends StatelessWidget {
 /// The Highlights, Connections and Reading sections of one person's summary
 /// and the tabs that choose between them. [builder] places the two, so the
 /// tabs can sit in a page header or directly above the sections.
+/// [tabVariant] tells them apart from a host page's own tabs.
 class UserSummarySections extends StatefulWidget {
   const UserSummarySections({
     super.key,
@@ -215,11 +216,13 @@ class UserSummarySections extends StatefulWidget {
     required this.username,
     required this.summary,
     required this.builder,
+    this.tabVariant = DTabListVariant.line,
   });
 
   final DiscourseInstance instance;
   final String username;
   final UserSummary summary;
+  final DTabListVariant tabVariant;
   final Widget Function(BuildContext context, Widget tabs, Widget panels)
   builder;
 
@@ -267,7 +270,7 @@ class _UserSummarySectionsState extends State<UserSummarySections> {
         widget.builder(
           context,
           DTabList<_SummaryTab>(
-            variant: DTabListVariant.line,
+            variant: widget.tabVariant,
             children: [
               DTabTrigger(
                 value: _SummaryTab.highlights,
@@ -320,6 +323,8 @@ class _UserSummarySectionsState extends State<UserSummarySections> {
 
 /// One person's summary as a section of another page's scroll content: it
 /// loads itself and draws its own signed-out, loading and failed states.
+/// Its tabs choose within a section the host page already chose with line
+/// tabs, so they are the filled list.
 class UserSummaryPanel extends StatefulWidget {
   const UserSummaryPanel({
     super.key,
@@ -409,6 +414,7 @@ class _UserSummaryPanelState extends State<UserSummaryPanel> {
           instance: instance!,
           username: widget.username,
           summary: summary,
+          tabVariant: DTabListVariant.defaultStyle,
           builder: (context, tabs, panels) => Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

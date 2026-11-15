@@ -125,8 +125,10 @@ import '../plugin_api/topic_reader.dart';
 import '../site_preference_inventory.g.dart';
 import 'account_activity_controller.dart';
 import 'account_destination_bookmarks.dart';
+import 'account_email_transactions.dart';
 import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
+import 'auth_token_transactions.dart';
 import 'badges_controller.dart';
 import 'bookmark_link_resolver.dart';
 import 'bookmark_transactions.dart';
@@ -153,12 +155,14 @@ import 'forum_tab_scope.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'groups_controller.dart';
+import 'ignored_users_transactions.dart';
 import 'instance_rail_transactions.dart';
 import 'message_archive_transactions.dart';
 import 'mobile_navigation.dart';
 import 'network_recovery.dart';
 import 'notification_feed_refresh_owner.dart';
 import 'notification_preference_transactions.dart';
+import 'own_avatar_overrides.dart';
 import 'plugin_background_retention.dart';
 import 'post_mutation_policy.dart';
 import 'post_mutation_targets.dart';
@@ -979,6 +983,39 @@ class ShellController extends FrameSafeNotifier
     onSaved: _onPreferencesSaved,
   );
 
+  late final OwnAvatarOverrides ownAvatars = OwnAvatarOverrides();
+
+  late final IgnoredUsersTransactions ignoredUsers = IgnoredUsersTransactions(
+    api: api.userIgnores,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    onChanged: (instance, username, {required ignored}) =>
+        preferences.confirmOutsideSections(
+          instance,
+          (current) => current.withUserIgnored(username, ignored: ignored),
+        ),
+  );
+
+  late final AccountEmailTransactions accountEmail = AccountEmailTransactions(
+    api: api.userEmails,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    onRequested: (instance, email) => preferences.confirmOutsideSections(
+      instance,
+      (current) => current.withEmailChangeRequested(email),
+    ),
+  );
+
+  late final AuthTokenTransactions authTokens = AuthTokenTransactions(
+    api: api.userAuthTokens,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    onRevoked: (instance, tokenId) => preferences.confirmOutsideSections(
+      instance,
+      (current) => current.withoutAuthToken(tokenId),
+    ),
+  );
+
   late final ProfileAvatarTransactions profileAvatar =
       ProfileAvatarTransactions(
         api: api.userAvatars,
@@ -987,13 +1024,22 @@ class ShellController extends FrameSafeNotifier
         refreshCurrentUser: (siteUrl, apiKey, lease) =>
             _currentUsers.refresh(siteUrl, apiKey, lease: lease, force: true),
         onChanged: (instance, uploadId) {
-          preferences.confirmUploadedAvatar(instance, uploadId);
+          preferences.confirmOutsideSections(
+            instance,
+            (current) => current.copyWith(uploadedAvatarId: uploadId),
+          );
           final username = instance.user?.username;
-          if (username != null &&
-              userProfile.stateFor(instance.url, username) != null) {
+          if (username == null) return;
+          if (userProfile.stateFor(instance.url, username) != null) {
             unawaited(userProfile.load(instance, username, refresh: true));
           }
+          if (userCard(username, siteUrl: instance.url) != null) {
+            unawaited(
+              loadUserCard(username, siteUrl: instance.url, force: true),
+            );
+          }
         },
+        onReplaced: ownAvatars.record,
       );
 
   late final TopicFeedController topicFeeds = _createTopicFeedController();
@@ -7788,6 +7834,10 @@ class ShellController extends FrameSafeNotifier
     ..register(badges)
     ..register(preferences)
     ..register(profileAvatar)
+    ..register(ignoredUsers)
+    ..register(accountEmail)
+    ..register(authTokens)
+    ..register(ownAvatars)
     ..register(
       AccountScopedState.step((siteUrl) {
         store.forget(siteUrl);
@@ -8974,6 +9024,10 @@ class ShellController extends FrameSafeNotifier
     preferences.dispose();
     networkRecovery.dispose();
     profileAvatar.dispose();
+    ignoredUsers.dispose();
+    accountEmail.dispose();
+    authTokens.dispose();
+    ownAvatars.dispose();
     topicFeeds.dispose();
     appSettings.dispose();
     forumSettings.dispose();

@@ -76,9 +76,18 @@ final class _Harness {
       refreshCurrentUser: (siteUrl, apiKey, lease) async {
         refreshes.add(siteUrl);
         await onRefresh?.call();
+        return fresh;
       },
       onChanged: (instance, uploadId) =>
           changes.add((instance.user!.username, uploadId)),
+      onReplaced:
+          (
+            siteUrl,
+            lease, {
+            required username,
+            required previous,
+            required current,
+          }) => replaced.add((username, previous, current)),
     )..addListener(() => states.add(avatars.stateFor(_site)));
     addTearDown(avatars.dispose);
   }
@@ -88,6 +97,8 @@ final class _Harness {
   final lifecycle = SiteLifecycle();
   final refreshes = <String>[];
   final changes = <(String, int?)>[];
+  final replaced = <(String, String?, String?)>[];
+  DiscourseUser? fresh;
   final states = <ProfileAvatarState>[];
   Future<void> Function()? onRefresh;
   late final ProfileAvatarTransactions avatars;
@@ -109,6 +120,53 @@ void main() {
       ProfileAvatarSaving,
       ProfileAvatarIdle,
     ]);
+  });
+
+  test('the read-back says which picture the new one replaced', () async {
+    final h = _Harness()
+      ..fresh = const DiscourseUser(
+        id: 7,
+        username: 'Reader',
+        avatarTemplate: '/user_avatar/avatars.example/reader/{size}/91_2.png',
+      );
+    const before = DiscourseInstance(
+      url: _site,
+      title: 'Avatars',
+      user: DiscourseUser(
+        id: 7,
+        username: 'Reader',
+        avatarTemplate: '/letter_avatar_proxy/v4/letter/r/a587f6/{size}.png',
+      ),
+    );
+
+    expect(await h.avatars.upload(before, _file()), isTrue);
+
+    expect(h.replaced, [
+      (
+        'Reader',
+        '/letter_avatar_proxy/v4/letter/r/a587f6/{size}.png',
+        '/user_avatar/avatars.example/reader/{size}/91_2.png',
+      ),
+    ]);
+  });
+
+  test('a read-back that was dropped replaces nothing', () async {
+    final h = _Harness();
+
+    expect(await h.avatars.upload(_reader, _file()), isTrue);
+
+    expect(h.refreshes, [_site]);
+    expect(h.replaced, isEmpty);
+  });
+
+  test('a read-back for a retired session replaces nothing', () async {
+    final h = _Harness()
+      ..fresh = const DiscourseUser(id: 7, username: 'Reader');
+    h.onRefresh = () async => h.lifecycle.invalidate(_site);
+
+    expect(await h.avatars.upload(_reader, _file()), isFalse);
+
+    expect(h.replaced, isEmpty);
   });
 
   test('the default picture is picked with no upload', () async {

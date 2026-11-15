@@ -14,10 +14,14 @@ import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import 'composer/upload_picker.dart';
 import 'content_reading_lane.dart';
+import 'external_link.dart';
 import 'header_preferences.dart';
 import 'preference_fields.dart';
 import 'preferences_avatar_row.dart';
 import 'preferences_controller.dart';
+import 'preferences_email_section.dart';
+import 'preferences_security_section.dart';
+import 'preferences_users_section.dart';
 import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -28,12 +32,16 @@ class PreferencesPage extends StatefulWidget {
     super.key,
     required this.siteUrl,
     this.pickPicture = pickProfilePicture,
+    this.openLink = openExternalLink,
   });
 
   final String siteUrl;
 
   /// Asks the device for one image; null when the reader backs out.
   final Future<ComposerUploadFile?> Function() pickPicture;
+
+  /// Opens a web page outside the app and answers whether it could.
+  final Future<bool> Function(String url) openLink;
 
   @override
   State<PreferencesPage> createState() => _PreferencesPageState();
@@ -206,6 +214,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
       unawaited(shell.preferences.save(instance, PreferenceSection.about));
     }
 
+    void saveMutedUsers() {
+      if (!ownsView() || instance == null) return;
+      unawaited(shell.preferences.save(instance, PreferenceSection.users));
+    }
+
     final editable = draft.canEdit;
     final pluginSections = instance?.user == null
         ? const <PluginUserPreferenceSection>[]
@@ -299,6 +312,74 @@ class _PreferencesPageState extends State<PreferencesPage> {
                       ? saveBio
                       : null,
                 ),
+                PreferencesUsersSection(
+                  preferences: draft,
+                  enabled: editable && instance?.isConnected == true,
+                  searchUsers: (term) async => ownsView()
+                      ? shell.composerIdentities.searchUsers(
+                          siteUrl: siteUrl,
+                          topicId: null,
+                          term: term,
+                        )
+                      : const [],
+                  muted: MutedUsersEditing(
+                    saving:
+                        state.saving && state.dirty(PreferenceSection.users),
+                    // Held in the draft until the reader saves the list.
+                    onChanged: (usernames) {
+                      if (!ownsView()) return;
+                      shell.preferences.edit(
+                        siteUrl,
+                        PreferenceSection.users,
+                        (current) =>
+                            current.copyWith(mutedUsernames: usernames),
+                      );
+                    },
+                    onSave:
+                        state.dirty(PreferenceSection.users) && !state.saving
+                        ? saveMutedUsers
+                        : null,
+                  ),
+                  ignored: IgnoredUsersEditing(
+                    siteUrl: siteUrl,
+                    transactions: shell.ignoredUsers,
+                    onIgnore: (username, duration) async =>
+                        ownsView() &&
+                        instance != null &&
+                        await shell.ignoredUsers.ignore(
+                          instance,
+                          username,
+                          duration,
+                        ),
+                    onStopIgnoring: (username) {
+                      if (!ownsView() || instance == null) return;
+                      unawaited(
+                        shell.ignoredUsers.stopIgnoring(instance, username),
+                      );
+                    },
+                  ),
+                ),
+                PreferencesEmailSection(
+                  siteUrl: siteUrl,
+                  preferences: draft,
+                  enabled: editable && instance?.isConnected == true,
+                  transactions: shell.accountEmail,
+                  onRequestChange: (email) async =>
+                      ownsView() &&
+                      instance != null &&
+                      await shell.accountEmail.requestChange(instance, email),
+                ),
+                PreferencesSecuritySection(
+                  siteUrl: siteUrl,
+                  preferences: draft,
+                  enabled: instance?.isConnected == true,
+                  transactions: shell.authTokens,
+                  openLink: widget.openLink,
+                  onRevoke: (token) {
+                    if (!ownsView() || instance == null) return;
+                    unawaited(shell.authTokens.revoke(instance, token.id));
+                  },
+                ),
               ),
               const SizedBox(height: 22),
               if (selected == PreferenceSection.interface) ...[
@@ -343,6 +424,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
     VoidCallback onUseDeviceTimezone,
     Widget? avatar,
     _BioEditing bio,
+    Widget users,
+    Widget email,
+    Widget security,
   ) => switch (section) {
     PreferenceSection.profile => _ProfileForm(
       timezone: _timezone,
@@ -369,6 +453,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
       enabled: editable && draft.canChangeTrackingPreferences,
       onChanged: (change) => onEdit(PreferenceSection.tracking, change),
     ),
+    PreferenceSection.users => users,
+    PreferenceSection.email => email,
+    PreferenceSection.security => security,
     PreferenceSection.interface => _InterfaceForm(
       preferences: draft,
       enabled: editable,
@@ -450,6 +537,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
     PreferenceSection.notifications,
     if (preferences.canChangeTrackingPreferences) PreferenceSection.tracking,
     PreferenceSection.interface,
+    PreferenceSection.users,
+    // An account whose address the site neither shows nor lets it change has
+    // nothing on this tab.
+    if (preferences.email.isNotEmpty || preferences.canEditEmail)
+      PreferenceSection.email,
+    PreferenceSection.security,
     for (final plugin in pluginSections) plugin.section,
   ];
 
@@ -1197,5 +1290,8 @@ String _sectionTitle(
       PreferenceSection.notifications => appL10n.notifications,
       PreferenceSection.tracking => appL10n.tracking,
       PreferenceSection.interface => appL10n.interface,
+      PreferenceSection.users => appL10n.users,
+      PreferenceSection.email => appL10n.email,
+      PreferenceSection.security => appL10n.security,
       _ => section.name,
     };

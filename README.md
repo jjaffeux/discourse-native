@@ -18,6 +18,11 @@ activity.
   preferences, badges and another person's messages, opens in the browser. A
   plain click on a `/u/{username}` link still opens the user card first, and
   the card's **View profile** button opens the page.
+- **Layout.** The identity is the page heading, as on the reader's own
+  summary, so the name is shown once. The Summary and Activity line tabs stay
+  below it while the chosen section scrolls, starting at the bio. A section's
+  own choices use the filled tab list, so they do not read as a second row of
+  page tabs.
 - **Endpoints.** The header reads `/u/{username}.json`. Its `user` object is a
   superset of the card's, and adds the full `bio_cooked`, `last_seen_at` and
   `profile_hidden`. The Summary section reads `/u/{username}/summary.json` and
@@ -46,6 +51,10 @@ The Profile tab of Preferences edits what the reader's own profile shows.
   shown as it arrives. When `can_change_bio` is false, single sign-on owns the
   bio and the field is read-only. A saved bio reloads the reader's profile
   page if one is open.
+- **Refresh.** Reloading Preferences takes the site's values for what the
+  reader has not touched and keeps every section that still waits for its own
+  save, such as a typed bio. A choice that saves itself is unsaved only after
+  its save failed, and a refresh shows what the site holds for it.
 - **Picture.** A change is written at once and is not part of any draft.
   **Change picture** uploads the chosen image to `/uploads.json` with
   `upload_type=avatar`, then sends `PUT /u/{username}/preferences/avatar/pick`
@@ -56,13 +65,96 @@ The Profile tab of Preferences edits what the reader's own profile shows.
   no upload without `can_upload_avatar`, and **Use default** only while
   `uploaded_avatar_id` is set. Gravatar, selectable avatars and avatars from a
   linked account are not offered. After the site accepts a pick the app reads
-  the current user again, so every avatar it draws for the reader is the new
-  one, and reloads the reader's profile page if one is open.
+  the current user again, and reloads the reader's profile page and stored
+  user card if it has them.
 
 `ProfileAvatarTransactions` owns the two-step write per account session. A
 second change is refused while one is in flight, because the site applies
 picks in arrival order. A retired session aborts its upload and its late
 answer is dropped.
+
+Posts, cards and messages that were already loaded keep the avatar URL they
+were read with. `OwnAvatarOverrides` records, per site, the avatar templates
+the signed-in account replaced from this app and the template it draws from
+now. `AvatarImage` asks it when an `AvatarOwner` above names whose picture it
+is. `UserCardTarget`, the user card header and the hover preview each set one.
+Only a URL resolved from a replaced template is redrawn, at the size it was
+read at, and only under the reader's own name, because a letter avatar's
+template is shared by everyone with that letter and color. A row read after
+the change is left as the site sent it. The record has its own notifier, so a
+change redraws those avatars and nothing else, and it is dropped when the
+account changes. `DiscourseUser` keeps `avatar_template` for this. An avatar
+drawn outside an `AvatarOwner` shows the old picture until its list reloads.
+
+### Users, email and security preferences
+
+The app signs in with a Discourse user API key. Its `write` scope reaches
+every route (`app/models/user_api_key_scope.rb`), but the key carries no
+browser session. A Preferences tab is native where the action needs only the
+key, and opens the web page where core asks for a confirmed session or a
+secret.
+
+- **Muted users.** The Users tab lists `muted_usernames` from
+  `/u/{username}.json` as removable chips, with a search that adds people
+  through `/u/search/users.json`. The list is the `users` preference section.
+  It waits for **Save**, survives a refresh while unsaved, and is sent whole
+  as one comma-separated `muted_usernames` field of `PUT /u/{username}.json`,
+  which is how core's `UserUpdater` reads it. The search never offers the
+  reader. Without `can_mute_users` the tab says the account may not mute yet.
+- **Ignored users.** Ignoring is not part of that draft. Core takes it one
+  person at a time on `PUT /u/{username}/notification_level.json`, where the
+  username is the person ignored, with `notification_level=ignore` and an
+  `expiring_at` date. **Ignore** sends it at once for the chosen time, and
+  **Stop ignoring** sends `notification_level=normal`. The web client offers
+  calendar shortcuts in the reader's timezone. The app offers eight lengths
+  counted from now, and "forever" is the web client's thousand years, because
+  core has no ignore without an end. Core lifts a mute of the same person in
+  both directions, so the muted list drops them as well. The list and its
+  controls are absent without `can_ignore_users`, which core grants by group
+  (`ignore_allowed_groups`).
+- **Email.** The Email tab shows `email`, `secondary_emails` and
+  `unconfirmed_emails`, which `/u/{username}.json` sends only to the account's
+  owner. **Change email** sends the new address to
+  `PUT /u/{username}/preferences/email`. Core's `users_email#update` asks for
+  a signed-in user and `can_edit_email?` and for no password or confirmed
+  session, because the change itself is confirmed by mail: core sends a link
+  and keeps the old address until it is followed. The app therefore never
+  shows the new address as the primary one. It lists it as waiting for
+  confirmation and says a link was sent. Core's own message is shown when it
+  refuses an address. Without `can_edit_email`, where single sign-on owns the
+  address or `email_editable` is off, the tab shows the address and says it
+  cannot be changed here. An address is held in memory for the tab and is not
+  logged: `ErrorLog` replaces any address in a captured error with `<email>`.
+- **Security.** The app never asks for a password, a second-factor code, a
+  backup code or a passkey, and never sends one. **Password**, **Two-factor
+  authentication** and **Passkeys** each open the site's own page in the
+  browser: `/u/{username}/preferences/security` or
+  `/u/{username}/preferences/second-factor`. Core manages second factors and
+  passkeys only in a session it has just confirmed with the password
+  (`session_is_trusted?` in `users_controller.rb`), which a user API key
+  cannot have. A password reset is `POST /session/forgot_password`, which the
+  key could send. It still links out, because with code logins enabled core
+  mails a code tied to the browser session that asked
+  (`enqueue_password_reset_for_user` in `session_controller.rb`), and a code
+  asked for by the app could not be redeemed anywhere.
+- **Signed-in browsers.** The same tab lists `user_auth_tokens` from
+  `/u/{username}.json`: browser, system, location and when each session was
+  last seen. The session's IP address is not read. **Sign out** asks for
+  confirmation, then sends that session's id to
+  `POST /u/{username}/preferences/revoke-auth-token`, which core allows for
+  any signed-in owner of the account. The id is always sent, because core
+  signs every session out when it is missing. The app's own access is a user
+  API key, not one of these sessions. It is revoked by removing the forum.
+
+`IgnoredUsersTransactions`, `AccountEmailTransactions` and
+`AuthTokenTransactions` each own their
+request per account session and have their own notifier. They compose
+`AccountWrites`, which holds what every immediate
+account write shares: one request at a time per site, because the site
+applies them in arrival order, a state that names what the request is about,
+and an answer dropped when its session retired. An accepted write is recorded
+with `PreferencesController.confirmOutsideSections`, which patches the
+confirmed value and the draft and discards a read that began before it.
 
 ## Native image build tools
 

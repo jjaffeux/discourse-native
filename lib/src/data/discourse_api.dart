@@ -861,6 +861,65 @@ class DiscourseApi
   );
 
   @override
+  Future<void> revokeAuthToken({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required int tokenId,
+    String? clientId,
+  }) async => _account.revokeAuthToken(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    tokenId: tokenId,
+    clientId: clientId,
+  );
+
+  @override
+  Future<void> requestEmailChange({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required String email,
+    String? clientId,
+  }) async => _account.requestEmailChange(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    email: email,
+    clientId: clientId,
+  );
+
+  @override
+  Future<void> ignoreUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required DateTime until,
+    String? clientId,
+  }) async => _account.setUserNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    ignoredUntil: until,
+    clientId: clientId,
+  );
+
+  @override
+  Future<void> stopIgnoringUser({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async => _account.setUserNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    ignoredUntil: null,
+    clientId: clientId,
+  );
+
+  @override
   Future<void> setUserStatus({
     required String siteUrl,
     required String apiKey,

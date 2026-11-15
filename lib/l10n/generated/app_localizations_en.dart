@@ -16347,4 +16347,174 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get couldnTOpenAPictureFromThisDevice =>
       'Couldn\'t open a picture from this device.';
+
+  @override
+  String get mutedUsers => 'Muted users';
+
+  @override
+  String get mutedUsersDescription =>
+      'You get no notifications or messages from these people. Changes apply when you save.';
+
+  @override
+  String get thisSiteDoesNotLetThisAccountMuteYet =>
+      'This site does not let this account mute people yet.';
+
+  @override
+  String get addAUser => 'Add a user';
+
+  @override
+  String get saveMutedUsers => 'Save muted users';
+
+  @override
+  String get matchingUsers => 'Matching users';
+
+  @override
+  String get ignoredUsers => 'Ignored users';
+
+  @override
+  String get ignoredUsersDescription =>
+      'Their posts are hidden and you get no notifications or messages from them. Ignoring someone applies at once and ends by itself.';
+
+  @override
+  String get youAreNotIgnoringAnyone => 'You are not ignoring anyone.';
+
+  @override
+  String get stopIgnoring => 'Stop ignoring';
+
+  @override
+  String stopIgnoringUser(String username) {
+    return 'Stop ignoring $username';
+  }
+
+  @override
+  String get ignoreAUser => 'Ignore a user';
+
+  @override
+  String get ignoreFor => 'Ignore for';
+
+  @override
+  String get ignoreUser => 'Ignore';
+
+  @override
+  String get ignoreForOneMonth => 'For one month';
+
+  @override
+  String get ignoreForThreeMonths => 'For three months';
+
+  @override
+  String get ignoreForSixMonths => 'For six months';
+
+  @override
+  String get ignoreForOneYear => 'For one year';
+
+  @override
+  String get primaryEmail => 'Primary email';
+
+  @override
+  String get primaryEmailDescription =>
+      'Only you and this site\'s staff can see it.';
+
+  @override
+  String get secondaryEmails => 'Other emails';
+
+  @override
+  String get waitingForConfirmation => 'Waiting for confirmation';
+
+  @override
+  String get newEmail => 'New email';
+
+  @override
+  String get newEmailDescription =>
+      'This site sends a confirmation link. Your address changes once you follow it.';
+
+  @override
+  String get changeEmail => 'Change email';
+
+  @override
+  String get sendingConfirmation => 'Sending…';
+
+  @override
+  String get confirmationEmailSent =>
+      'Check your inbox. Your address changes once you follow the confirmation link.';
+
+  @override
+  String get thisSiteManagesYourEmail =>
+      'This site does not let this account change its email here.';
+
+  @override
+  String get security => 'Security';
+
+  @override
+  String get securityPassword => 'Password';
+
+  @override
+  String get securityPasswordDescription =>
+      'Changing a password is confirmed by email in a browser, so it starts on the website.';
+
+  @override
+  String get twoFactorAuthentication => 'Two-factor authentication';
+
+  @override
+  String get twoFactorAuthenticationDescription =>
+      'Authenticator apps, security keys and backup codes are managed on the website, which confirms your password first.';
+
+  @override
+  String get passkeys => 'Passkeys';
+
+  @override
+  String get passkeysDescription =>
+      'Passkeys are added and removed on the website, which confirms it is you first.';
+
+  @override
+  String get openOnTheWebsite => 'Open website';
+
+  @override
+  String openOnTheWebsiteFor(String setting) {
+    return 'Open website: $setting';
+  }
+
+  @override
+  String get couldnTOpenTheWebsite => 'Couldn\'t open the website.';
+
+  @override
+  String get signedInBrowsers => 'Signed-in browsers';
+
+  @override
+  String get signedInBrowsersDescription =>
+      'Browsers signed in to your account. This app is not listed: disconnect it by removing the forum.';
+
+  @override
+  String get noBrowsersAreSignedIn => 'No browsers are signed in.';
+
+  @override
+  String browserOnSystem(String browser, String system) {
+    return '$browser on $system';
+  }
+
+  @override
+  String get unknownBrowser => 'Unknown browser';
+
+  @override
+  String lastSeenAgo(String when) {
+    return 'Last seen $when';
+  }
+
+  @override
+  String get signOutBrowser => 'Sign out';
+
+  @override
+  String signOutBrowserNamed(String name) {
+    return 'Sign out $name';
+  }
+
+  @override
+  String get signOutThisBrowser => 'Sign out this browser?';
+
+  @override
+  String signOutThisBrowserDescription(String name) {
+    return '$name will have to sign in again.';
+  }
+
+  @override
+  String get signingOut => 'Signing out…';
 }

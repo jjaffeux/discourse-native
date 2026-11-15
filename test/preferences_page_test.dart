@@ -3,17 +3,21 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/found_user.dart';
+import 'package:discourse_native/src/models/user_auth_token.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_profile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
+import 'package:discourse_native/src/shell/composer/upload_picker.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/header_preferences.dart';
 import 'package:discourse_native/src/shell/preference_fields.dart';
@@ -84,6 +88,7 @@ Future<_Fixture> _fixture({
   Completer<void>? writeGate,
   WriteException? writeFailure,
   FakeDiscourseApi? apiOverride,
+  Map<String, List<FoundUser>> userSearches = const {},
 }) async {
   var selectedSite = site ?? _chatSite;
   if (!selectedSite.config.plugins.contains(chatSettingsDataKey)) {
@@ -105,6 +110,7 @@ Future<_Fixture> _fixture({
         userPreferencesGate: loadGate,
         userPreferencesWriteGate: writeGate,
         writeFailure: writeFailure,
+        userSearches: userSearches,
       );
   final store = _RecordingInstanceStore([selectedSite]);
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
@@ -131,6 +137,7 @@ Future<void> _pumpPage(
   bool settle = true,
   ThemeData? theme,
   Future<ComposerUploadFile?> Function()? pickPicture,
+  Future<bool> Function(String url)? openLink,
 }) async {
   tester.view.physicalSize = Size(width, 900);
   tester.view.devicePixelRatio = 1;
@@ -146,12 +153,11 @@ Future<void> _pumpPage(
             body: SizedBox(
               width: width,
               height: 900,
-              child: pickPicture == null
-                  ? const PreferencesPage(siteUrl: _siteUrl)
-                  : PreferencesPage(
-                      siteUrl: _siteUrl,
-                      pickPicture: pickPicture,
-                    ),
+              child: PreferencesPage(
+                siteUrl: _siteUrl,
+                pickPicture: pickPicture ?? pickProfilePicture,
+                openLink: openLink ?? (_) async => false,
+              ),
             ),
           ),
         ),
@@ -189,6 +195,123 @@ Future<ComposerUploadFile?> _pickMe() async => ComposerUploadFile(
   length: () async => 3,
   openRead: () => Stream.value([1, 2, 3]),
 );
+final _muting = _preferences.copyWith(
+  canMuteUsers: true,
+  mutedUsernames: ['sam'],
+);
+const _foundPeople = {
+  'ro': [
+    FoundUser(username: 'robin', name: 'Robin Hood'),
+    FoundUser(username: 'Reader', name: 'The reader'),
+    FoundUser(username: 'rory'),
+  ],
+};
+Finder get _mutedUsers => find.byKey(const ValueKey('preferences-muted-users'));
+Finder get _mutedSearch =>
+    find.descendant(of: _mutedUsers, matching: find.byType(EditableText));
+Finder get _mutedSaveFinder =>
+    find.byKey(const ValueKey('preferences-muted-users-save'));
+DButton _mutedSave(WidgetTester tester) =>
+    tester.widget<DButton>(_mutedSaveFinder);
+Finder _mutedChip(String username) => find.descendant(
+  of: _mutedUsers,
+  matching: find.widgetWithText(DComboboxChip<String>, username),
+);
+final _ignoring = _muting.copyWith(
+  canIgnoreUsers: true,
+  ignoredUsernames: ['pat'],
+);
+Finder get _ignorePicker =>
+    find.byKey(const ValueKey('preferences-ignore-user'));
+Finder get _ignoreSearch =>
+    find.descendant(of: _ignorePicker, matching: find.byType(EditableText));
+Finder get _ignoreSubmitFinder =>
+    find.byKey(const ValueKey('preferences-ignore-submit'));
+DButton _ignoreSubmit(WidgetTester tester) =>
+    tester.widget<DButton>(_ignoreSubmitFinder);
+Finder _ignoredRow(String username) =>
+    find.byKey(ValueKey('preferences-ignored-user-$username'));
+Finder _stopIgnoring(String username) =>
+    find.byKey(ValueKey('preferences-stop-ignoring-$username'));
+Finder get _ignoreError =>
+    find.byKey(const ValueKey('preferences-ignored-users-error'));
+
+Future<void> _chooseToIgnore(WidgetTester tester, String username) async {
+  await _searchPeople(tester, _ignoreSearch, 'ro');
+  await tester.tap(find.byKey(ValueKey('ignore-user-$username')));
+  await tester.pumpAndSettle();
+}
+
+final _withEmail = _preferences.copyWith(
+  email: 'reader@example.org',
+  unconfirmedEmails: ['pending@example.org'],
+  canEditEmail: true,
+);
+Finder get _newEmail => find.byKey(const ValueKey('preferences-email-new'));
+Finder get _newEmailInput =>
+    find.descendant(of: _newEmail, matching: find.byType(EditableText));
+Finder get _changeEmailFinder =>
+    find.byKey(const ValueKey('preferences-email-change'));
+DButton _changeEmail(WidgetTester tester) =>
+    tester.widget<DButton>(_changeEmailFinder);
+Finder get _emailSent => find.byKey(const ValueKey('preferences-email-sent'));
+Finder get _emailError => find.byKey(const ValueKey('preferences-email-error'));
+
+final _sessions = _preferences.copyWith(
+  authTokens: [
+    UserAuthToken(
+      id: 41,
+      browser: 'Firefox',
+      os: 'macOS',
+      location: 'Paris, France',
+      seenAt: DateTime.now().subtract(const Duration(days: 3)),
+    ),
+    const UserAuthToken(id: 42, browser: 'Safari', device: 'iPhone'),
+  ],
+);
+Finder _session(int id) => find.byKey(ValueKey('preferences-auth-token-$id'));
+Finder _signOut(int id) =>
+    find.byKey(ValueKey('preferences-auth-token-revoke-$id'));
+Finder get _confirmSignOut =>
+    find.byKey(const ValueKey('preferences-auth-token-confirm'));
+Finder _openWebsite(String row) =>
+    find.byKey(ValueKey('preferences-security-open-$row'));
+
+Future<void> _signOutSession(WidgetTester tester, int id) async {
+  await tester.ensureVisible(_signOut(id));
+  await tester.tap(_signOut(id));
+  await tester.pumpAndSettle();
+  await tester.tap(_confirmSignOut);
+}
+
+Finder _removeMuted(String username) => find.descendant(
+  of: _mutedChip(username),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DIcon && widget.icon == DIcons.xmark,
+  ),
+);
+
+/// The picker's results open over the button below it until dismissed.
+Future<void> _saveMuted(WidgetTester tester) async {
+  await tester.tapAt(const Offset(4, 4));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(_mutedSaveFinder);
+  await tester.tap(_mutedSaveFinder);
+}
+
+/// Types into a user picker and waits out its typing pause.
+Future<void> _searchPeople(
+  WidgetTester tester,
+  Finder input,
+  String term,
+) async {
+  await tester.ensureVisible(input);
+  await tester.tap(input);
+  await tester.enterText(input, term);
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _section(WidgetTester tester, PreferenceSection section) async {
   final tab = find.byKey(ValueKey('preferences-section-${section.keyName}'));
   await tester.ensureVisible(tab);
@@ -540,6 +663,43 @@ void main() {
       expect(asked, ['reader', 'reader']);
     });
 
+    testWidgets('a typed bio survives a refresh that brings other changes', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(bioRaw: 'I like boats.'),
+      );
+      await _pumpPage(tester, fixture);
+      await tester.enterText(_bioInput, 'Still typing');
+      await tester.pumpAndSettle();
+
+      fixture.api.userPreferences = _preferences.copyWith(
+        bioRaw: 'Edited on the web',
+        timezone: 'Asia/Tokyo',
+      );
+      await fixture.shell.preferences.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        refresh: true,
+      );
+      await tester.pumpAndSettle();
+
+      final state = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(state.confirmed?.bioRaw, 'Edited on the web');
+      expect(state.draft?.timezone, 'Asia/Tokyo');
+      expect(
+        tester.widget<EditableText>(_bioInput).controller.text,
+        'Still typing',
+      );
+      expect(_bioSave(tester).onPressed, isNotNull);
+
+      await tester.ensureVisible(_bioSaveFinder);
+      await tester.tap(_bioSaveFinder);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'bio_raw': 'Still typing',
+      });
+    });
+
     testWidgets('the field and its save button are named for a screen reader', (
       tester,
     ) async {
@@ -575,6 +735,734 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('About me'), findsOneWidget);
       expect(tester.getSize(_bio).width, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('muted users', () {
+    testWidgets('shows the muted people and saves an added one when asked', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _muting,
+        userSearches: _foundPeople,
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      expect(_mutedChip('sam'), findsOneWidget);
+      expect(_mutedSave(tester).onPressed, isNull);
+
+      await _searchPeople(tester, _mutedSearch, 'ro');
+      expect(find.text('Robin Hood'), findsOneWidget);
+      expect(find.text('@rory'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('mute-user-Reader')),
+        findsNothing,
+        reason: 'the reader cannot mute themselves',
+      );
+      await tester.tap(find.byKey(const ValueKey('mute-user-robin')));
+      await tester.pumpAndSettle();
+      expect(_mutedChip('robin'), findsOneWidget);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .dirty(PreferenceSection.users),
+        isTrue,
+      );
+
+      await _saveMuted(tester);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'muted_usernames': 'robin,sam',
+      });
+      expect(_mutedSave(tester).onPressed, isNull);
+      expect(find.text('Users preferences saved.'), findsOneWidget);
+    });
+
+    testWidgets('a chip removes its person from the list to save', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _muting);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      await tester.tap(_removeMuted('sam'));
+      await tester.pumpAndSettle();
+      expect(_mutedChip('sam'), findsNothing);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+
+      await _saveMuted(tester);
+      await tester.pumpAndSettle();
+      expect(fixture.api.userPreferenceUpdates.single.values, {
+        'muted_usernames': '',
+      });
+      expect(
+        fixture.shell.preferences.stateFor(_siteUrl)!.confirmed!.mutedUsernames,
+        isEmpty,
+      );
+    });
+
+    testWidgets('an empty list offers the search and nothing to save', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _muting.copyWith(mutedUsernames: const []),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.byType(DComboboxChip<String>), findsNothing);
+      expect(find.text('Add a user'), findsOneWidget);
+      expect(_mutedSave(tester).onPressed, isNull);
+    });
+
+    testWidgets('the save button waits while the list is on its way', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _muting, writeGate: gate);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      await tester.tap(_removeMuted('sam'));
+      await tester.pumpAndSettle();
+      await _saveMuted(tester);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_mutedSave(tester).loading, isTrue);
+      expect(_mutedSave(tester).onPressed, isNull);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_mutedSave(tester).loading, isFalse);
+    });
+
+    testWidgets('a refused list stays as edited and names the reason', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _muting,
+        writeFailure: const WriteException(
+          WriteFailure.validation,
+          errors: ['That list was refused.'],
+        ),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      await tester.tap(_removeMuted('sam'));
+      await tester.pumpAndSettle();
+      await _saveMuted(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('That list was refused.'), findsOneWidget);
+      expect(_mutedChip('sam'), findsNothing);
+      expect(_mutedSave(tester).onPressed, isNotNull);
+      expect(
+        fixture.shell.preferences.stateFor(_siteUrl)!.confirmed!.mutedUsernames,
+        ['sam'],
+      );
+    });
+
+    testWidgets('an account that may not mute is told so', (tester) async {
+      final fixture = await _fixture(
+        preferences: _muting.copyWith(canMuteUsers: false),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(_mutedUsers, findsNothing);
+      expect(_mutedSaveFinder, findsNothing);
+      expect(
+        find.text('This site does not let this account mute people yet.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the list and its save button are named for a screen reader', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _muting);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.bySemanticsLabel('Remove sam'), findsOneWidget);
+      expect(find.bySemanticsLabel('Save muted users'), findsOneWidget);
+      expect(tester.getSemantics(_mutedSearch), isSemantics(isTextField: true));
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _muting.copyWith(
+          mutedUsernames: ['sam', 'a_rather_long_username', 'robin'],
+        ),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.users);
+      await tester.ensureVisible(_mutedSaveFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(_mutedUsers).width, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('ignored users', () {
+    testWidgets('lists the ignored people and stops ignoring one at once', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _ignoring);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      expect(_ignoredRow('pat'), findsOneWidget);
+      expect(find.text('@pat'), findsOneWidget);
+      expect(_ignoreSubmit(tester).onPressed, isNull);
+
+      await tester.ensureVisible(_stopIgnoring('pat'));
+      await tester.tap(_stopIgnoring('pat'));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.ignoreRequests, [(username: 'pat', until: null)]);
+      expect(_ignoredRow('pat'), findsNothing);
+      expect(find.text('You are not ignoring anyone.'), findsOneWidget);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      final state = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(state.confirmed!.ignoredUsernames, isEmpty);
+      expect(state.dirty(PreferenceSection.users), isFalse);
+    });
+
+    testWidgets('a found person is ignored for the chosen time', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _ignoring.copyWith(mutedUsernames: ['sam', 'robin']),
+        userSearches: _foundPeople,
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      expect(_mutedChip('robin'), findsOneWidget);
+
+      await _searchPeople(tester, _ignoreSearch, 'ro');
+      expect(
+        find.byKey(const ValueKey('ignore-user-Reader')),
+        findsNothing,
+        reason: 'the reader cannot ignore themselves',
+      );
+      await tester.tap(find.byKey(const ValueKey('ignore-user-robin')));
+      await tester.pumpAndSettle();
+      expect(fixture.api.ignoreRequests, isEmpty);
+
+      await tester.tap(
+        find.byKey(const ValueKey('preferences-ignore-duration')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('For one year').last);
+      await tester.pumpAndSettle();
+      final before = DateTime.now();
+      await tester.tap(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+
+      final request = fixture.api.ignoreRequests.single;
+      expect(request.username, 'robin');
+      expect(
+        request.until!.difference(before).inDays,
+        inInclusiveRange(364, 365),
+      );
+      expect(_ignoredRow('robin'), findsOneWidget);
+      expect(_ignoredRow('pat'), findsOneWidget);
+      expect(
+        _mutedChip('robin'),
+        findsNothing,
+        reason: 'core lifts the mute of a person it starts ignoring',
+      );
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .dirty(PreferenceSection.users),
+        isFalse,
+      );
+      expect(tester.widget<EditableText>(_ignoreSearch).controller.text, '');
+      expect(_ignoreSubmit(tester).onPressed, isNull);
+    });
+
+    testWidgets('every action waits while a request is on its way', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _ignoring);
+      fixture.api.ignoreHandler = (_, _) => gate.future;
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      await tester.tap(_stopIgnoring('pat'));
+      await tester.pump();
+      await tester.pump();
+      final stop = tester.widget<DButton>(_stopIgnoring('pat'));
+      expect(stop.loading, isTrue);
+      expect(stop.onPressed, isNull);
+      expect(_ignoreSubmit(tester).onPressed, isNull);
+      expect(_ignoredRow('pat'), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_ignoredRow('pat'), findsNothing);
+    });
+
+    testWidgets('a refused ignore says why and changes nothing', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _ignoring,
+        userSearches: _foundPeople,
+      );
+      fixture.api.ignoreHandler = (_, _) async => throw const WriteException(
+        WriteFailure.validation,
+        errors: ['You cannot ignore that user.'],
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+      await _chooseToIgnore(tester, 'robin');
+      await tester.tap(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+
+      expect(_ignoreError, findsOneWidget);
+      expect(find.text('You cannot ignore that user.'), findsOneWidget);
+      expect(_ignoredRow('robin'), findsNothing);
+      expect(_ignoreSubmit(tester).onPressed, isNotNull);
+
+      fixture.api.ignoreHandler = null;
+      await tester.tap(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+      expect(_ignoreError, findsNothing);
+      expect(_ignoredRow('robin'), findsOneWidget);
+    });
+
+    testWidgets('an account that may not ignore is offered nothing', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        preferences: _ignoring.copyWith(canIgnoreUsers: false),
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.text('Ignored users'), findsNothing);
+      expect(_ignorePicker, findsNothing);
+      expect(_ignoredRow('pat'), findsNothing);
+      expect(_mutedUsers, findsOneWidget);
+    });
+
+    testWidgets('its controls are named for a screen reader', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _ignoring);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.users);
+
+      expect(find.bySemanticsLabel('Stop ignoring pat'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Ignore for')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp('Ignore a user')), findsWidgets);
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _ignoring.copyWith(
+          ignoredUsernames: ['pat', 'a_rather_long_username_x'],
+        ),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.users);
+      await tester.ensureVisible(_ignoreSubmitFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(_ignorePicker).width, lessThanOrEqualTo(320));
+      expect(
+        tester.getRect(_ignoredRow('a_rather_long_username_x')).right,
+        lessThanOrEqualTo(320),
+      );
+    });
+  });
+
+  group('email', () {
+    testWidgets('shows the addresses and requests a change by mail', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _withEmail);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      expect(find.text('reader@example.org'), findsOneWidget);
+      expect(find.text('pending@example.org'), findsOneWidget);
+      expect(_changeEmail(tester).onPressed, isNull);
+      expect(_emailSent, findsNothing);
+
+      await tester.enterText(_newEmailInput, 'READER@example.org');
+      await tester.pumpAndSettle();
+      expect(
+        _changeEmail(tester).onPressed,
+        isNull,
+        reason: 'the current address is not a change',
+      );
+
+      await tester.enterText(_newEmailInput, ' new@example.org');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_changeEmailFinder);
+      await tester.tap(_changeEmailFinder);
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.emailChangeRequests, [
+        (username: 'reader', email: 'new@example.org'),
+      ]);
+      expect(_emailSent, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('preferences-email-primary')),
+          matching: find.text('reader@example.org'),
+        ),
+        findsOneWidget,
+        reason: 'the site keeps the old address until the link is followed',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('preferences-email-unconfirmed')),
+          matching: find.text('new@example.org'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.widget<EditableText>(_newEmailInput).controller.text, '');
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      final state = fixture.shell.preferences.stateFor(_siteUrl)!;
+      expect(state.confirmed!.email, 'reader@example.org');
+
+      await tester.enterText(_newEmailInput, 'x');
+      await tester.pumpAndSettle();
+      expect(_emailSent, findsNothing);
+    });
+
+    testWidgets('the field and button wait while a request is on its way', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _withEmail);
+      fixture.api.emailChangeHandler = (_) => gate.future;
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      await tester.enterText(_newEmailInput, 'new@example.org');
+      await tester.pumpAndSettle();
+      await tester.tap(_changeEmailFinder);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_changeEmail(tester).loading, isTrue);
+      expect(_changeEmail(tester).onPressed, isNull);
+      expect(tester.widget<DInput>(_newEmail).enabled, isFalse);
+      expect(_emailSent, findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_emailSent, findsOneWidget);
+    });
+
+    testWidgets('a refused address keeps the text and names the reason', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _withEmail);
+      fixture.api.emailChangeHandler = (_) async => throw const WriteException(
+        WriteFailure.validation,
+        errors: ['Email is invalid.'],
+      );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      await tester.enterText(_newEmailInput, 'nope');
+      await tester.pumpAndSettle();
+      await tester.tap(_changeEmailFinder);
+      await tester.pumpAndSettle();
+
+      expect(_emailError, findsOneWidget);
+      expect(find.text('Email is invalid.'), findsOneWidget);
+      expect(_emailSent, findsNothing);
+      expect(
+        tester.widget<EditableText>(_newEmailInput).controller.text,
+        'nope',
+      );
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .confirmed!
+            .unconfirmedEmails,
+        ['pending@example.org'],
+      );
+
+      await tester.enterText(_newEmailInput, 'nope@example.org');
+      await tester.pumpAndSettle();
+      expect(_emailError, findsNothing);
+    });
+
+    testWidgets(
+      'an address the site owns is shown without a way to change it',
+      (tester) async {
+        final fixture = await _fixture(
+          preferences: _withEmail.copyWith(canEditEmail: false),
+        );
+        await _pumpPage(tester, fixture);
+        await _section(tester, PreferenceSection.email);
+
+        expect(find.text('reader@example.org'), findsOneWidget);
+        expect(_newEmail, findsNothing);
+        expect(_changeEmailFinder, findsNothing);
+        expect(
+          find.byKey(const ValueKey('preferences-email-managed')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('an account with no address to show has no Email tab', (
+      tester,
+    ) async {
+      final fixture = await _fixture();
+      await _pumpPage(tester, fixture);
+
+      expect(
+        find.byKey(const ValueKey('preferences-section-email')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('the field and its button are named for a screen reader', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _withEmail);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.email);
+      await tester.enterText(_newEmailInput, 'new@example.org');
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(_newEmailInput),
+        isSemantics(
+          isTextField: true,
+          label: 'New email',
+          value: 'new@example.org',
+        ),
+      );
+      expect(find.bySemanticsLabel('Change email'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(
+        preferences: _withEmail.copyWith(
+          email: 'a.rather.long.address@a-long-domain.example.org',
+        ),
+      );
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.email);
+      await tester.ensureVisible(_changeEmailFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(_newEmail).width, lessThanOrEqualTo(320));
+    });
+  });
+
+  group('security', () {
+    testWidgets('what needs a browser session opens its own web page', (
+      tester,
+    ) async {
+      final opened = <String>[];
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(
+        tester,
+        fixture,
+        openLink: (url) async {
+          opened.add(url);
+          return true;
+        },
+      );
+      await _section(tester, PreferenceSection.security);
+
+      for (final row in ['password', 'second-factor', 'passkeys']) {
+        await tester.ensureVisible(_openWebsite(row));
+        await tester.tap(_openWebsite(row));
+        await tester.pumpAndSettle();
+      }
+
+      expect(opened, [
+        '$_siteUrl/u/reader/preferences/security',
+        '$_siteUrl/u/reader/preferences/second-factor',
+        '$_siteUrl/u/reader/preferences/security',
+      ]);
+      expect(
+        find.byKey(const ValueKey('preferences-security-link-error')),
+        findsNothing,
+      );
+      expect(find.byType(DInput), findsNothing);
+      expect(find.byType(DInputOTP), findsNothing);
+      expect(fixture.api.authTokenRevocations, isEmpty);
+    });
+
+    testWidgets('a browser that would not open is reported', (tester) async {
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture, openLink: (_) async => false);
+      await _section(tester, PreferenceSection.security);
+
+      await tester.tap(_openWebsite('password'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't open the website."), findsOneWidget);
+    });
+
+    testWidgets('lists the browsers and signs one out after confirming', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+      expect(find.text('Firefox on macOS'), findsOneWidget);
+      expect(find.text('Paris, France · Last seen 3d'), findsOneWidget);
+      expect(find.text('Safari on iPhone'), findsOneWidget);
+
+      await tester.ensureVisible(_signOut(41));
+      await tester.tap(_signOut(41));
+      await tester.pumpAndSettle();
+      expect(find.text('Sign out this browser?'), findsOneWidget);
+      expect(
+        find.text('Firefox on macOS will have to sign in again.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(fixture.api.authTokenRevocations, isEmpty);
+      expect(_session(41), findsOneWidget);
+
+      await _signOutSession(tester, 41);
+      await tester.pumpAndSettle();
+      expect(fixture.api.authTokenRevocations, [
+        (username: 'reader', tokenId: 41),
+      ]);
+      expect(_session(41), findsNothing);
+      expect(_session(42), findsOneWidget);
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .confirmed!
+            .authTokens
+            .single
+            .id,
+        42,
+      );
+    });
+
+    testWidgets('every sign-out waits while one is on its way', (tester) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(preferences: _sessions);
+      fixture.api.authTokenRevokeHandler = (_) => gate.future;
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+      await _signOutSession(tester, 41);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(tester.widget<DButton>(_signOut(41)).loading, isTrue);
+      expect(tester.widget<DButton>(_signOut(41)).onPressed, isNull);
+      expect(tester.widget<DButton>(_signOut(42)).onPressed, isNull);
+      expect(_session(41), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_session(41), findsNothing);
+      expect(tester.widget<DButton>(_signOut(42)).onPressed, isNotNull);
+    });
+
+    testWidgets('a refused sign-out says why and keeps the browser listed', (
+      tester,
+    ) async {
+      final fixture = await _fixture(preferences: _sessions);
+      fixture.api.authTokenRevokeHandler = (_) async =>
+          throw const WriteException(
+            WriteFailure.validation,
+            errors: ['That session could not be signed out.'],
+          );
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+      await _signOutSession(tester, 41);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('preferences-auth-tokens-error')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('That session could not be signed out.'),
+        findsOneWidget,
+      );
+      expect(_session(41), findsOneWidget);
+    });
+
+    testWidgets('no sessions and the requesting session offer no sign-out', (
+      tester,
+    ) async {
+      final empty = await _fixture();
+      await _pumpPage(tester, empty);
+      await _section(tester, PreferenceSection.security);
+      expect(find.text('No browsers are signed in.'), findsOneWidget);
+      expect(_openWebsite('password'), findsOneWidget);
+
+      final active = await _fixture(
+        preferences: _preferences.copyWith(
+          authTokens: const [
+            UserAuthToken(id: 9, browser: 'Chrome', isActive: true),
+          ],
+        ),
+      );
+      await _pumpPage(tester, active);
+      await _section(tester, PreferenceSection.security);
+      expect(_session(9), findsOneWidget);
+      expect(find.text('Chrome'), findsOneWidget);
+      expect(_signOut(9), findsNothing);
+    });
+
+    testWidgets('its actions are named for a screen reader', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.security);
+
+      expect(find.bySemanticsLabel('Open website: Password'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Open website: Two-factor authentication'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Open website: Passkeys'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Sign out Firefox on macOS'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('fits a phone at twice the text size', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final fixture = await _fixture(preferences: _sessions);
+      await _pumpPage(tester, fixture, width: 320);
+      await _section(tester, PreferenceSection.security);
+      await tester.ensureVisible(_signOut(42));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(_session(41)).right, lessThanOrEqualTo(320));
+      expect(tester.getRect(_signOut(42)).right, lessThanOrEqualTo(320));
     });
   });
 
@@ -624,6 +1512,53 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(asked, ['reader', 'reader']);
+    });
+
+    testWidgets('a new picture reaches what was loaded with the old one', (
+      tester,
+    ) async {
+      const letter = '/letter_avatar_proxy/v4/letter/r/a587f6/{size}.png';
+      const uploaded =
+          '/user_avatar/preferences.example/reader/{size}/91_2.png';
+      DiscourseUser reader(String template) => DiscourseUser(
+        id: 7,
+        username: 'reader',
+        timezone: 'Etc/UTC',
+        avatarTemplate: template,
+      );
+      final fixture = await _fixture(
+        site: _site.copyWith(user: reader(letter)),
+        apiOverride: FakeDiscourseApi(
+          models: bundledPluginCodec,
+          user: reader(letter),
+          userPreferences: _pictures,
+          cards: const {'reader': UserCard(id: 7, username: 'reader')},
+        ),
+      );
+      fixture.api.avatarPickHandler = (_) async {
+        fixture.api.accounts['api-key'] = reader(uploaded);
+      };
+      await fixture.shell.loadUserCard('reader', siteUrl: _siteUrl);
+      await _pumpPage(tester, fixture, pickPicture: _pickMe);
+      String? drawn(String username) => fixture.shell.ownAvatars.urlFor(
+        _siteUrl,
+        username,
+        '$_siteUrl${letter.replaceAll('{size}', '90')}',
+      );
+      expect(drawn('reader'), '$_siteUrl${letter.replaceAll('{size}', '90')}');
+      fixture.api.cardsRequested.clear();
+
+      await tester.tap(_changePicture);
+      await tester.pumpAndSettle();
+
+      expect(
+        drawn('reader'),
+        '$_siteUrl${uploaded.replaceAll('{size}', '90')}',
+      );
+      expect(drawn('rival'), '$_siteUrl${letter.replaceAll('{size}', '90')}');
+      expect(fixture.api.cardsRequested, [
+        'reader',
+      ], reason: 'the stored card of the reader is read again');
     });
 
     testWidgets('both actions wait while a change is on its way', (

@@ -21,8 +21,9 @@ and banner text halo. Existing status, staff and suspension meaning stays visibl
 Actions use Native 34px pill buttons. Message opens a draft addressed to the
 card user only when both the card guardian and current reader permit it; Chat
 uses the existing plugin action and request ownership. Own cards offer Edit
-profile. Every card ends its actions with View profile, which opens the native
-profile page. The biography, website/location and user-local clock precede a subtle
+profile. Every card ends its actions with a View profile icon pill, which opens the
+native profile page; it stays an icon so the labelled actions keep one row,
+and at large text it sits beside the last stacked action. The biography, website/location and user-local clock precede a subtle
 separator and inline Last post/Joined/Read time facts. Featured badges use the
 approved Native 26px preset and tier-colored artwork, with the remaining count
 shown after them. Large accessibility text stacks actions and wraps facts.

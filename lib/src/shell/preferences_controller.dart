@@ -146,18 +146,24 @@ final class PreferencesController extends FrameSafeNotifier
         : account.section(section).saveAutomatically(instance);
   }
 
-  /// Records which upload the account's picture is now drawn from, after a
-  /// write made outside any section. Drafts keep their unsaved edits, and a
-  /// read that began before the write cannot bring the old picture back.
-  void confirmUploadedAvatar(DiscourseInstance instance, int? uploadId) {
+  /// Records what a write made outside any section left on the site. Drafts
+  /// keep their unsaved edits, and a read that began before the write cannot
+  /// bring the old value back.
+  ///
+  /// [change] is applied to the confirmed value and to the draft, so it may
+  /// touch only what the write itself changed.
+  void confirmOutsideSections(
+    DiscourseInstance instance,
+    UserPreferences Function(UserPreferences current) change,
+  ) {
     final account = _accountForSave(instance);
     final draft = account?.state.draft;
     final confirmed = account?.state.confirmed;
     if (account == null || draft == null || confirmed == null) return;
     account.writeGeneration++;
     account.state = account.state.copyWith(
-      draft: draft.copyWith(uploadedAvatarId: uploadId),
-      confirmed: confirmed.copyWith(uploadedAvatarId: uploadId),
+      draft: change(draft),
+      confirmed: change(confirmed),
     );
     _notifySession(account);
   }
@@ -208,6 +214,7 @@ final class PreferencesController extends FrameSafeNotifier
       switch (section) {
         PreferenceSection.tracking => preferences.canChangeTrackingPreferences,
         PreferenceSection.about => preferences.canChangeBio,
+        PreferenceSection.users => preferences.canMuteUsers,
         _ => true,
       };
 
@@ -252,7 +259,6 @@ final class _PreferenceAccountSession {
   final PreferencesController owner;
   final String siteUrl;
   PreferencesState state;
-  int editRevision = 0;
   int writeGeneration = 0;
   _PreferenceRead? _read;
   final Map<PreferenceSection, _PreferenceSectionTransaction> _sections = {};
@@ -275,7 +281,6 @@ final class _PreferenceAccountSession {
     }
     final updated = change(draft);
     if (updated == draft) return;
-    editRevision++;
     this.section(section).editRevision++;
     state = state.copyWith(draft: updated, error: null, savedSection: null);
     owner._notifySession(this);
@@ -287,7 +292,6 @@ final class _PreferenceAccountSession {
     if (active != null) return active.completion.future;
     final read = _PreferenceRead(
       owner.lifecycle.capture(siteUrl),
-      editRevision,
       writeGeneration,
     );
     _read = read;
@@ -309,6 +313,25 @@ final class _PreferenceAccountSession {
       state = change();
       owner._notifySession(this);
     });
+  }
+
+  /// The site's [answer] with each edit that still waits for its own save.
+  ///
+  /// A draft changes only through [edit], which opens the section's
+  /// transaction, so the transactions name every section that can differ. A
+  /// section that saves itself is not kept: it differs only after its save
+  /// failed, and the reader is then shown what the site holds.
+  UserPreferences _withUnsavedEdits(UserPreferences answer) {
+    final draft = state.draft;
+    if (draft == null) return answer;
+    var merged = answer;
+    for (final transaction in _sections.values) {
+      if (transaction.savesAutomatically || !state.dirty(transaction.section)) {
+        continue;
+      }
+      merged = merged.withSectionFrom(transaction.section, draft);
+    }
+    return merged;
   }
 
   Future<void> _load(DiscourseInstance instance, _PreferenceRead read) async {
@@ -350,14 +373,13 @@ final class _PreferenceAccountSession {
       );
       if (preferences == null ||
           !_ownsRead(read) ||
-          editRevision != read.editRevision ||
           writeGeneration != read.writeGeneration) {
         return;
       }
       _commitRead(
         read,
         () => state.copyWith(
-          draft: preferences,
+          draft: _withUnsavedEdits(preferences),
           confirmed: preferences,
           loading: false,
           error: preferences.canEdit
@@ -384,10 +406,9 @@ final class _PreferenceAccountSession {
 }
 
 final class _PreferenceRead {
-  _PreferenceRead(this.lease, this.editRevision, this.writeGeneration);
+  _PreferenceRead(this.lease, this.writeGeneration);
 
   final SiteLease lease;
-  final int editRevision;
   final int writeGeneration;
   final Completer<void> completion = Completer<void>();
 }
@@ -398,6 +419,7 @@ final class _PreferenceSectionTransaction {
   final _PreferenceAccountSession account;
   final PreferenceSection section;
   int editRevision = 0;
+  bool savesAutomatically = false;
   _PreferenceWrite? _latestWrite;
   _AutomaticPreferenceSave? _automaticSave;
 
@@ -505,6 +527,7 @@ final class _PreferenceSectionTransaction {
   }
 
   Future<void> saveAutomatically(DiscourseInstance instance) {
+    savesAutomatically = true;
     final lease = account.owner.lifecycle.capture(account.siteUrl);
     final pending = _automaticSave;
     if (pending != null && identical(pending.lease.session, lease.session)) {

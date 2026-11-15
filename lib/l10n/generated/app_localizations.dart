@@ -26011,6 +26011,300 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'\'t open a picture from this device.'**
   String get couldnTOpenAPictureFromThisDevice;
+
+  /// Label of the list of muted people in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted users'**
+  String get mutedUsers;
+
+  /// Help text under the Muted users label in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'You get no notifications or messages from these people. Changes apply when you save.'**
+  String get mutedUsersDescription;
+
+  /// Help text under the Muted users label when the account's trust level is too low to mute anyone.
+  ///
+  /// In en, this message translates to:
+  /// **'This site does not let this account mute people yet.'**
+  String get thisSiteDoesNotLetThisAccountMuteYet;
+
+  /// Placeholder of the search field that adds a person to the muted or ignored list.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a user'**
+  String get addAUser;
+
+  /// Accessible name of the button that saves the muted list in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Save muted users'**
+  String get saveMutedUsers;
+
+  /// Accessible name of the list of people a user search in Preferences offers.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching users'**
+  String get matchingUsers;
+
+  /// Label of the list of ignored people in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignored users'**
+  String get ignoredUsers;
+
+  /// Help text under the Ignored users label in the Users preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Their posts are hidden and you get no notifications or messages from them. Ignoring someone applies at once and ends by itself.'**
+  String get ignoredUsersDescription;
+
+  /// Shown in the Users preferences when the ignored list is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'You are not ignoring anyone.'**
+  String get youAreNotIgnoringAnyone;
+
+  /// Button beside an ignored person in the Users preferences that ends the ignore.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop ignoring'**
+  String get stopIgnoring;
+
+  /// Accessible name of the Stop ignoring button beside one ignored person.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop ignoring {username}'**
+  String stopIgnoringUser(String username);
+
+  /// Accessible name and placeholder of the search field that picks a person to ignore.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore a user'**
+  String get ignoreAUser;
+
+  /// Accessible name of the select that chooses how long an ignore lasts.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore for'**
+  String get ignoreFor;
+
+  /// Button that starts ignoring the chosen person for the chosen time.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore'**
+  String get ignoreUser;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For one month'**
+  String get ignoreForOneMonth;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For three months'**
+  String get ignoreForThreeMonths;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For six months'**
+  String get ignoreForSixMonths;
+
+  /// Choice of how long to ignore a person.
+  ///
+  /// In en, this message translates to:
+  /// **'For one year'**
+  String get ignoreForOneYear;
+
+  /// Label of the account's primary address on the Email preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Primary email'**
+  String get primaryEmail;
+
+  /// Help text under the Primary email label.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you and this site\'\'s staff can see it.'**
+  String get primaryEmailDescription;
+
+  /// Label of the account's secondary addresses on the Email preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Other emails'**
+  String get secondaryEmails;
+
+  /// Label of addresses whose confirmation link has not been followed yet, on the Email preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for confirmation'**
+  String get waitingForConfirmation;
+
+  /// Label and accessible name of the field that takes a new primary address.
+  ///
+  /// In en, this message translates to:
+  /// **'New email'**
+  String get newEmail;
+
+  /// Help text under the New email label.
+  ///
+  /// In en, this message translates to:
+  /// **'This site sends a confirmation link. Your address changes once you follow it.'**
+  String get newEmailDescription;
+
+  /// Button that asks the site to change the account's primary address.
+  ///
+  /// In en, this message translates to:
+  /// **'Change email'**
+  String get changeEmail;
+
+  /// Label of the Change email button while the request is on its way.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get sendingConfirmation;
+
+  /// Notice on the Email preferences tab after the site accepted a change request.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your inbox. Your address changes once you follow the confirmation link.'**
+  String get confirmationEmailSent;
+
+  /// Shown on the Email preferences tab when single sign-on owns the address or address changes are turned off.
+  ///
+  /// In en, this message translates to:
+  /// **'This site does not let this account change its email here.'**
+  String get thisSiteManagesYourEmail;
+
+  /// Title of the Security tab in Preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get security;
+
+  /// Title of the password row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get securityPassword;
+
+  /// Help text of the password row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing a password is confirmed by email in a browser, so it starts on the website.'**
+  String get securityPasswordDescription;
+
+  /// Title of the two-factor row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication'**
+  String get twoFactorAuthentication;
+
+  /// Help text of the two-factor row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticator apps, security keys and backup codes are managed on the website, which confirms your password first.'**
+  String get twoFactorAuthenticationDescription;
+
+  /// Title of the passkeys row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkeys'**
+  String get passkeys;
+
+  /// Help text of the passkeys row on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkeys are added and removed on the website, which confirms it is you first.'**
+  String get passkeysDescription;
+
+  /// Button on a Security preferences row that opens the matching web preferences page in the browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open website'**
+  String get openOnTheWebsite;
+
+  /// Accessible name of the Open website button on a Security preferences row.
+  ///
+  /// In en, this message translates to:
+  /// **'Open website: {setting}'**
+  String openOnTheWebsiteFor(String setting);
+
+  /// Error on the Security preferences tab when the browser could not be opened.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t open the website.'**
+  String get couldnTOpenTheWebsite;
+
+  /// Title of the list of browser sessions on the Security preferences tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed-in browsers'**
+  String get signedInBrowsers;
+
+  /// Help text under the Signed-in browsers title.
+  ///
+  /// In en, this message translates to:
+  /// **'Browsers signed in to your account. This app is not listed: disconnect it by removing the forum.'**
+  String get signedInBrowsersDescription;
+
+  /// Shown on the Security preferences tab when the account has no browser sessions.
+  ///
+  /// In en, this message translates to:
+  /// **'No browsers are signed in.'**
+  String get noBrowsersAreSignedIn;
+
+  /// Names one browser session, for example Firefox on macOS.
+  ///
+  /// In en, this message translates to:
+  /// **'{browser} on {system}'**
+  String browserOnSystem(String browser, String system);
+
+  /// Names a browser session the site could not identify.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown browser'**
+  String get unknownBrowser;
+
+  /// When a browser session was last used; the placeholder is a relative time such as 3d.
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen {when}'**
+  String lastSeenAgo(String when);
+
+  /// Button beside a browser session that ends it, and the confirming action of its dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get signOutBrowser;
+
+  /// Accessible name of the Sign out button beside one browser session.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out {name}'**
+  String signOutBrowserNamed(String name);
+
+  /// Title of the dialog that confirms ending a browser session.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out this browser?'**
+  String get signOutThisBrowser;
+
+  /// Body of the dialog that confirms ending a browser session.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will have to sign in again.'**
+  String signOutThisBrowserDescription(String name);
+
+  /// Label of the Sign out button while the request is on its way.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing out…'**
+  String get signingOut;
 }
 
 class _AppLocalizationsDelegate

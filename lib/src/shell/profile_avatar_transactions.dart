@@ -11,6 +11,7 @@ import '../foundation/frame_safe_notifier.dart';
 import '../foundation/site_scoped_state.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
+import '../models/discourse_user.dart';
 
 /// Where one account's picture change stands.
 sealed class ProfileAvatarState {
@@ -47,8 +48,25 @@ final class ProfileAvatarFailed extends ProfileAvatarState {
 typedef ProfileAvatarChanged =
     void Function(DiscourseInstance instance, int? uploadId);
 
+/// Reads the account back and answers it as accepted, or null when the read
+/// was dropped.
 typedef ProfileAvatarUserRefresh =
-    Future<void> Function(String siteUrl, String apiKey, SiteLease lease);
+    Future<DiscourseUser?> Function(
+      String siteUrl,
+      String apiKey,
+      SiteLease lease,
+    );
+
+/// Told once the account has been read back, with the avatar template it
+/// drew from when the change began and the one it draws from now.
+typedef ProfileAvatarReplaced =
+    void Function(
+      String siteUrl,
+      SiteLease lease, {
+      required String username,
+      required String? previous,
+      required String? current,
+    });
 
 final class _AvatarWrite {
   final Completer<void> abort = Completer<void>();
@@ -85,6 +103,7 @@ final class ProfileAvatarTransactions extends FrameSafeNotifier
     required this.lifecycle,
     required this.refreshCurrentUser,
     this.onChanged,
+    this.onReplaced,
   });
 
   final UserAvatarApi api;
@@ -92,6 +111,7 @@ final class ProfileAvatarTransactions extends FrameSafeNotifier
   final SiteLifecycle lifecycle;
   final ProfileAvatarUserRefresh refreshCurrentUser;
   final ProfileAvatarChanged? onChanged;
+  final ProfileAvatarReplaced? onReplaced;
 
   final Map<String, _AvatarAccount> _accounts = {};
 
@@ -193,10 +213,20 @@ final class ProfileAvatarTransactions extends FrameSafeNotifier
       );
       if (!owns()) return false;
       account.lease.commit(() => onChanged?.call(instance, uploadId));
+      DiscourseUser? fresh;
       try {
-        await refreshCurrentUser(siteUrl, apiKey, account.lease);
+        fresh = await refreshCurrentUser(siteUrl, apiKey, account.lease);
       } catch (_) {
         // The site has the new picture; the next account read shows it.
+      }
+      if (fresh != null && owns()) {
+        onReplaced?.call(
+          siteUrl,
+          account.lease,
+          username: fresh.username,
+          previous: instance.user?.avatarTemplate,
+          current: fresh.avatarTemplate,
+        );
       }
       publish(const ProfileAvatarIdle());
       return owns();

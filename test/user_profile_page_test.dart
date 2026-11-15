@@ -319,7 +319,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _desktopTest('the title is a heading and the sections are reachable', (
+  _desktopTest('one heading names the person and the sections are reachable', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -327,9 +327,11 @@ void main() {
     _open(shell);
     await tester.pumpAndSettle();
 
+    expect(_within(find.text('Sam Example')), findsOneWidget);
     expect(
       find.semantics.byPredicate(
-        (node) => node.flagsCollection.isHeader && node.label == 'Sam Example',
+        (node) =>
+            node.flagsCollection.isHeader && node.label.contains('Sam Example'),
       ),
       findsOne,
     );
@@ -342,7 +344,52 @@ void main() {
       _within(find.bySemanticsLabel('Summary')).first,
     );
     expect(summary.flagsCollection.isSelected, Tristate.isTrue);
+    final highlights = tester.getSemantics(
+      _within(find.bySemanticsLabel('Highlights')).first,
+    );
+    expect(highlights.flagsCollection.isSelected, Tristate.isTrue);
     semantics.dispose();
+  });
+
+  _desktopTest('the section switch stays while the section scrolls', (
+    tester,
+  ) async {
+    final (shell, _) = await _pump(tester);
+    _open(shell);
+    await tester.pumpAndSettle();
+
+    DTabListVariant variantOf(String label) => tester
+        .widget<DTabList<Object?>>(
+          find.ancestor(
+            of: _within(find.text(label)),
+            matching: find.byWidgetPredicate((widget) => widget is DTabList),
+          ),
+        )
+        .variant;
+    expect(variantOf('Summary'), DTabListVariant.line);
+    expect(
+      variantOf('Highlights'),
+      DTabListVariant.defaultStyle,
+      reason: 'a choice inside the section is not drawn as a second page tab',
+    );
+
+    final scroll = _within(find.byType(CustomScrollView));
+    final bio = _within(harness.renderedText('The whole biography'));
+    final switchTop = tester.getTopLeft(_within(find.text('Activity'))).dy;
+    expect(tester.getTopLeft(bio).dy, greaterThan(switchTop));
+
+    final position = tester.state<ScrollableState>(
+      find.descendant(of: scroll, matching: find.byType(Scrollable)).first,
+    );
+    position.position.jumpTo(position.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+
+    expect(position.position.pixels, greaterThan(0));
+    await tester.tap(_within(find.text('Activity')));
+    await tester.pumpAndSettle();
+    expect(_within(find.byType(UserActivityView)), findsOneWidget);
+    expect(variantOf('Replies'), DTabListVariant.defaultStyle);
+    expect(tester.takeException(), isNull);
   });
 
   for (final (size, platform) in [
@@ -357,17 +404,21 @@ void main() {
       _open(shell);
       await tester.pumpAndSettle();
       expect(_within(find.text('@sam')), findsOneWidget);
+      expect(_within(find.text('Sam Example')), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Centred, so the floating page header does not cover the switch.
-      await Scrollable.ensureVisible(
-        tester.element(_within(find.text('Activity'))),
-        alignment: 0.5,
-      );
-      await tester.pumpAndSettle();
       await tester.tap(_within(find.text('Activity')));
       await tester.pumpAndSettle();
-      expect(_within(find.text('A topic Sam started')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        _within(find.text('A topic Sam started')),
+        200,
+        scrollable: find
+            .descendant(
+              of: _within(find.byType(CustomScrollView)),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(platform));
   }

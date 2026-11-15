@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/user_auth_token.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
@@ -297,6 +298,234 @@ void main() {
     );
     expect(draft == confirmed.copyWith(timezone: 'Asia/Tokyo'), isFalse);
     expect(UserPreferences.coreFields, contains('bio_raw'));
+  });
+
+  test('reads the muted list and whether the account may mute', () {
+    final loaded = UserPreferences.fromJson(const {
+      'muted_usernames': ['sam', ' Robin ', 'sam', '', 7, null],
+      'can_mute_users': true,
+    });
+    expect(loaded.mutedUsernames, ['sam', 'Robin']);
+    expect(loaded.canMuteUsers, isTrue);
+    expect(() => loaded.mutedUsernames.add('x'), throwsUnsupportedError);
+
+    for (final malformed in <Object?>[
+      'sam,robin',
+      4,
+      null,
+      {'a': 1},
+    ]) {
+      final kept = UserPreferences.fromJson({
+        'muted_usernames': malformed,
+        'can_mute_users': 'yes',
+      }, fallback: loaded);
+      expect(kept.mutedUsernames, ['sam', 'Robin']);
+      expect(kept.canMuteUsers, isTrue);
+    }
+    expect(
+      UserPreferences.fromJson(const {
+        'muted_usernames': <Object?>[],
+      }, fallback: loaded).mutedUsernames,
+      isEmpty,
+    );
+    expect(const UserPreferences().canMuteUsers, isFalse);
+  });
+
+  test('the muted list is sent whole, as core reads it', () {
+    const confirmed = UserPreferences(
+      timezone: 'Etc/UTC',
+      mutedUsernames: ['sam', 'robin'],
+    );
+    final draft = confirmed.copyWith(
+      timezone: 'Asia/Tokyo',
+      mutedUsernames: ['robin', 'sam', 'alex'],
+    );
+
+    expect(draft.payloadFor(PreferenceSection.users), {
+      'muted_usernames': 'alex,robin,sam',
+    });
+    expect(
+      confirmed
+          .copyWith(mutedUsernames: const [])
+          .payloadFor(PreferenceSection.users),
+      {'muted_usernames': ''},
+    );
+    expect(
+      confirmed
+          .copyWith(mutedUsernames: ['robin', 'sam'])
+          .payloadFor(PreferenceSection.users),
+      confirmed.payloadFor(PreferenceSection.users),
+    );
+    expect(
+      draft.withSectionFrom(PreferenceSection.users, confirmed),
+      confirmed.copyWith(timezone: 'Asia/Tokyo'),
+    );
+    expect(
+      draft.withSectionFrom(PreferenceSection.profile, confirmed),
+      confirmed.copyWith(mutedUsernames: ['robin', 'sam', 'alex']),
+    );
+    expect(draft == confirmed.copyWith(timezone: 'Asia/Tokyo'), isFalse);
+    expect(UserPreferences.coreFields, contains('muted_usernames'));
+  });
+
+  test('reads the ignored list, which no section sends', () {
+    final loaded = UserPreferences.fromJson(const {
+      'ignored_usernames': ['pat', 'pat', 3],
+      'can_ignore_users': true,
+      'muted_usernames': ['sam'],
+    });
+    expect(loaded.ignoredUsernames, ['pat']);
+    expect(loaded.canIgnoreUsers, isTrue);
+    expect(
+      UserPreferences.fromJson(const {
+        'ignored_usernames': 'pat',
+        'can_ignore_users': 1,
+      }, fallback: loaded),
+      loaded,
+    );
+    expect(const UserPreferences().canIgnoreUsers, isFalse);
+    for (final section in [
+      ...PreferenceSection.values,
+      PreferenceSection.about,
+    ]) {
+      expect(
+        loaded.payloadFor(section).keys.where((key) => key.contains('ignore')),
+        isEmpty,
+      );
+    }
+    expect(
+      loaded
+          .copyWith(ignoredUsernames: const [])
+          .withSectionFrom(PreferenceSection.users, loaded)
+          .ignoredUsernames,
+      isEmpty,
+    );
+  });
+
+  test('ignoring or releasing a person lifts their mute', () {
+    const before = UserPreferences(
+      mutedUsernames: ['sam', 'Robin'],
+      ignoredUsernames: ['pat'],
+    );
+
+    final ignored = before.withUserIgnored('robin', ignored: true);
+    expect(ignored.ignoredUsernames, ['pat', 'robin']);
+    expect(ignored.mutedUsernames, ['sam']);
+    expect(ignored.withUserIgnored('robin', ignored: true).ignoredUsernames, [
+      'pat',
+      'robin',
+    ]);
+
+    final released = ignored.withUserIgnored('PAT', ignored: false);
+    expect(released.ignoredUsernames, ['robin']);
+    expect(before.withUserIgnored('sam', ignored: false).mutedUsernames, [
+      'Robin',
+    ]);
+  });
+
+  test('reads the addresses, which no section sends', () {
+    final loaded = UserPreferences.fromJson(const {
+      'email': 'reader@example.org',
+      'secondary_emails': ['second@example.org'],
+      'unconfirmed_emails': ['new@example.org', 'new@example.org', 9],
+      'can_edit_email': true,
+    });
+    expect(loaded.email, 'reader@example.org');
+    expect(loaded.secondaryEmails, ['second@example.org']);
+    expect(loaded.unconfirmedEmails, ['new@example.org']);
+    expect(loaded.canEditEmail, isTrue);
+
+    final partial = UserPreferences.fromJson(const {
+      'email': 4,
+      'secondary_emails': 'second@example.org',
+      'unconfirmed_emails': null,
+      'can_edit_email': 'true',
+    }, fallback: loaded);
+    expect(partial, loaded);
+    const empty = UserPreferences();
+    expect(empty.email, isEmpty);
+    expect(empty.canEditEmail, isFalse);
+
+    for (final section in [
+      ...PreferenceSection.values,
+      PreferenceSection.about,
+      PreferenceSection.email,
+    ]) {
+      expect(
+        loaded.payloadFor(section).keys.where((key) => key.contains('email')),
+        isEmpty,
+      );
+    }
+    expect(loaded.payloadFor(PreferenceSection.email), isEmpty);
+  });
+
+  test('a requested address waits unconfirmed beside the primary one', () {
+    const before = UserPreferences(
+      email: 'reader@example.org',
+      unconfirmedEmails: ['old-request@example.org'],
+    );
+
+    final requested = before.withEmailChangeRequested('New@example.org');
+    expect(requested.email, 'reader@example.org');
+    expect(requested.unconfirmedEmails, [
+      'old-request@example.org',
+      'New@example.org',
+    ]);
+    expect(
+      requested.withEmailChangeRequested('new@example.org').unconfirmedEmails,
+      ['old-request@example.org', 'new@example.org'],
+    );
+  });
+
+  test('reads the browser sessions and drops rows it cannot name', () {
+    final loaded = UserPreferences.fromJson(const {
+      'user_auth_tokens': [
+        {
+          'id': 41,
+          'client_ip': '203.0.113.9',
+          'location': ' Paris, France ',
+          'browser': 'Firefox',
+          'device': 'Mac',
+          'os': 'macOS',
+          'seen_at': '2026-11-14T09:30:00.000Z',
+          'is_active': false,
+        },
+        {'id': '42', 'is_active': true},
+        {'browser': 'No id'},
+        'not a row',
+        null,
+      ],
+    });
+    expect(loaded.authTokens, [
+      UserAuthToken(
+        id: 41,
+        location: 'Paris, France',
+        browser: 'Firefox',
+        device: 'Mac',
+        os: 'macOS',
+        seenAt: DateTime.utc(2026, 11, 14, 9, 30),
+      ),
+      const UserAuthToken(id: 42, isActive: true),
+    ]);
+    expect(() => loaded.authTokens.clear(), throwsUnsupportedError);
+
+    for (final malformed in <Object?>[
+      null,
+      'tokens',
+      3,
+      {'id': 1},
+    ]) {
+      expect(
+        UserPreferences.fromJson({
+          'user_auth_tokens': malformed,
+        }, fallback: loaded).authTokens,
+        loaded.authTokens,
+      );
+    }
+    expect(loaded.withoutAuthToken(41).authTokens.single.id, 42);
+    expect(loaded.withoutAuthToken(7), loaded);
+    expect(loaded.payloadFor(PreferenceSection.security), isEmpty);
+    expect(UserAuthToken.fromJson(const {'id': 'forty-one'}), isNull);
   });
 
   test('writes each section with exact flat web field names', () {
