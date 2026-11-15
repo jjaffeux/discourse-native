@@ -438,7 +438,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Latest post'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-progress-sheet')), findsNothing);
+      expect(find.text('Latest post'), findsNothing);
       expect(shell.currentContent?.postNumber, 4);
       expect(
         find.descendant(

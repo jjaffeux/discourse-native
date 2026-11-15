@@ -18,6 +18,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/site_url.dart';
+import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -1851,21 +1852,7 @@ void main() {
               tester.view.physicalSize = Size(800, height);
               await tester.pumpAndSettle();
               if (navigation == 'progress') {
-                await tester.tap(
-                  find.byKey(const ValueKey('topic-progress-button')),
-                );
-                await tester.pumpAndSettle();
-                final slider = tester.widget<DMultiSlider>(
-                  find.byKey(const ValueKey('topic-progress-slider')),
-                );
-                slider.onChanged!(const [137]);
-                await tester.pump();
-                slider.onChangeEnd!(const [137]);
-                await tester.pumpAndSettle();
-                expect(
-                  find.byKey(const ValueKey('topic-progress-sheet')),
-                  findsNothing,
-                );
+                expect(await controller.jumpToCurrentTopicIndex(137), isTrue);
               } else {
                 expect(
                   await controller.openNotificationUrl(
@@ -1997,8 +1984,6 @@ void main() {
           await tester.pumpWidget(_topicView(controller));
           await tester.pumpAndSettle();
           await tester.pump(const Duration(seconds: 1));
-          final mobile =
-              debugDefaultTargetPlatformOverride == TargetPlatform.iOS;
           await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
           await tester.pumpAndSettle();
           api.topicReadsRecorded.clear();
@@ -2012,7 +1997,7 @@ void main() {
 
           final gesture = await tester.startGesture(
             at(1),
-            kind: mobile ? PointerDeviceKind.touch : PointerDeviceKind.mouse,
+            kind: PointerDeviceKind.mouse,
           );
           await tester.pump();
           await gesture.moveTo(at(20));
@@ -2044,15 +2029,10 @@ void main() {
             isNot(contains(20)),
           );
           expect(tester.takeException(), isNull);
-          if (!mobile) {
-            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-            await tester.pumpAndSettle();
-          }
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
         },
-        variant: const TargetPlatformVariant({
-          TargetPlatform.macOS,
-          TargetPlatform.iOS,
-        }),
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
       );
 
       testWidgets(
@@ -3345,36 +3325,42 @@ void main() {
           expect(tester.takeException(), isNull);
           await tester.tap(progress);
           await tester.pumpAndSettle();
-          expect(
-            find.byKey(const ValueKey('topic-progress-selection')),
-            findsOneWidget,
-          );
-          expect(
-            tester
-                .widget<Text>(
-                  find.byKey(const ValueKey('topic-progress-selection')),
-                )
-                .textSpan!
-                .toPlainText(),
-            '5188 / 5188',
-          );
-          expect(
-            tester
-                .getSemantics(
-                  find.byKey(const ValueKey('topic-progress-selection')),
-                )
-                .getSemanticsData()
-                .label,
-            'Post 5188 of 5188',
-          );
-          expect(
-            tester
-                .widget<DMultiSlider>(
-                  find.byKey(const ValueKey('topic-progress-slider')),
-                )
-                .max,
-            5188,
-          );
+          if (defaultTargetPlatform == TargetPlatform.macOS) {
+            expect(
+              find.byKey(const ValueKey('topic-progress-selection')),
+              findsOneWidget,
+            );
+            expect(
+              tester
+                  .widget<Text>(
+                    find.byKey(const ValueKey('topic-progress-selection')),
+                  )
+                  .textSpan!
+                  .toPlainText(),
+              '5188 / 5188',
+            );
+            expect(
+              tester
+                  .getSemantics(
+                    find.byKey(const ValueKey('topic-progress-selection')),
+                  )
+                  .getSemanticsData()
+                  .label,
+              'Post 5188 of 5188',
+            );
+            expect(
+              tester
+                  .widget<DMultiSlider>(
+                    find.byKey(const ValueKey('topic-progress-slider')),
+                  )
+                  .max,
+              5188,
+            );
+          } else {
+            expect(find.byType(TopicProgressPanel), findsNothing);
+            expect(find.widgetWithText(DButton, 'Latest post'), findsOneWidget);
+            expect(find.widgetWithText(DButton, 'First post'), findsOneWidget);
+          }
           expect(tester.takeException(), isNull);
           semantics.dispose();
         },
@@ -3384,7 +3370,7 @@ void main() {
         }),
       );
 
-      testWidgets('opens a stream-position navigator', (tester) async {
+      testWidgets('opens floating post jumps', (tester) async {
         final site = instance('meta.example');
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final controller = _controller(site, api);
@@ -3411,14 +3397,7 @@ void main() {
         await tester.tap(progress);
         await tester.pumpAndSettle();
 
-        expect(
-          find.byKey(const ValueKey('topic-progress-sheet')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('topic-progress-slider')),
-          findsOneWidget,
-        );
+        expect(find.byType(TopicProgressPanel), findsNothing);
         expect(find.text('First post'), findsOneWidget);
         expect(find.text('Latest post'), findsOneWidget);
         final actions = ['First post', 'Latest post']
@@ -3434,17 +3413,15 @@ void main() {
         }
         expect(
           actions.map((action) => tester.widget<DButton>(action).variant),
-          [DButtonVariant.ghost, DButtonVariant.ghost],
+          [DButtonVariant.outline, DButtonVariant.outline],
         );
 
         await tester.tap(find.text('Latest post'));
         await tester.pumpAndSettle();
 
         expect(controller.currentContent?.postNumber, 30);
-        expect(
-          find.byKey(const ValueKey('topic-progress-slider')),
-          findsNothing,
-        );
+        expect(find.text('Latest post'), findsNothing);
+        expect(find.text('First post'), findsNothing);
       });
     });
   });

@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,6 +33,23 @@ Future<void> _capture(WidgetTester tester, String name) async {
     image.dispose();
     scene.dispose();
   });
+}
+
+Future<void> _loadCaptureFonts(WidgetTester tester) async {
+  if (const bool.fromEnvironment('captureTopicProgressMotion')) {
+    await tester.runAsync(() async {
+      final manifest =
+          jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
+      for (final entry in manifest.cast<Map<String, dynamic>>()) {
+        final loader = FontLoader(entry['family'] as String);
+        for (final face
+            in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+          loader.addFont(rootBundle.load(face['asset'] as String));
+        }
+        await loader.load();
+      }
+    });
+  }
 }
 
 void main() {
@@ -109,9 +127,116 @@ void main() {
     expect(find.text('3 / 3'), findsOneWidget);
     await tester.tap(_progress);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-progress-author')), findsOneWidget);
+    expect(find.widgetWithText(DButton, 'First post'), findsOneWidget);
+    expect(find.widgetWithText(DButton, 'Latest post'), findsOneWidget);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'mobile scrollbar moves the reader and dismisses on release',
+    (tester) async {
+      await _loadCaptureFonts(tester);
+      final shell = await fixture.pumpMobileShellFixture(
+        tester,
+        topic: topicPayload(
+          id: 7,
+          title: 'A long discussion',
+          canCreatePost: true,
+          posts: [
+            for (var id = 1; id <= 80; id++)
+              Post(
+                id: id,
+                postNumber: id,
+                username: 'reader',
+                cooked: '<p>Post $id discusses reading and navigation.</p>',
+              ),
+          ],
+        ),
+      );
+      if (const bool.fromEnvironment('captureTopicProgressMotion')) {
+        await shell.forumSettings.setShared(
+          shell.forumSettings.shared.copyWith(
+            font: ForumFont.lato,
+            interfaceFont: ForumFont.lato,
+          ),
+        );
+      }
+      shell.openTopic(
+        const Topic(id: 7, title: 'A long discussion', slug: 'topic-7'),
+      );
+      await tester.pumpAndSettle();
+      final position = topicPostList(tester).controller!.position;
+      final bar = find.byWidgetPredicate(
+        (widget) =>
+            widget is DScrollBar &&
+            widget.variant == DScrollBarVariant.scrubber,
+      );
+      final first = find.widgetWithText(DButton, 'First post');
+      final latest = find.widgetWithText(DButton, 'Latest post');
+      await tester.tap(_progress);
+      await tester.pumpAndSettle();
+      expect(first.hitTestable(), findsOneWidget);
+      expect(latest.hitTestable(), findsOneWidget);
+      expect(find.byType(TopicProgressPanel), findsNothing);
+      expect(
+        tester.getRect(latest).bottom,
+        lessThan(tester.getRect(_progress).top),
+      );
+
+      final viewport = tester.getRect(bar);
+      final start = Offset(viewport.right - 11, viewport.center.dy);
+      final origin = position.pixels;
+      final drag = await tester.startGesture(start);
+      await tester.pump();
+      expect(position.pixels, origin);
+
+      await drag.moveBy(const Offset(0, 60));
+      await tester.pump(const Duration(milliseconds: 16));
+      final afterDown = position.pixels;
+      expect(afterDown, greaterThan(origin + 120));
+      expect(first, findsOneWidget);
+      await drag.moveBy(const Offset(-30, -24));
+      await tester.pump(const Duration(milliseconds: 16));
+      final afterReverse = position.pixels;
+      expect(afterReverse, lessThan(afterDown));
+      expect(afterReverse, greaterThan(origin));
+      expect(latest, findsOneWidget);
+
+      await drag.up();
+      await tester.pump();
+      expect(first, findsNothing);
+      expect(latest, findsNothing);
+      expect(tester.widget<DScrollBar>(bar).showScrollbar, isFalse);
+      await tester.pumpAndSettle();
+      expect(position.pixels, closeTo(afterReverse, 1));
+      await _capture(
+        tester,
+        '${Theme.of(tester.element(_progress)).platform.name}-released',
+      );
+
+      await tester.tap(_progress);
+      await tester.pumpAndSettle();
+      await _capture(
+        tester,
+        '${Theme.of(tester.element(_progress)).platform.name}-scrollbar-open',
+      );
+      await tester.tap(latest);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.postNumber, 80);
+      expect(latest, findsNothing);
+      await tester.tap(_progress);
+      await tester.pumpAndSettle();
+      await tester.tap(first);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.postNumber, 1);
+      expect(first, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   for (final foot in [0.0, 34.0]) {
     for (final reduced in [false, true]) {
@@ -126,21 +251,7 @@ void main() {
         tester.view.viewPadding = FakeViewPadding(top: 44, bottom: foot);
         addTearDown(tester.view.resetPadding);
         addTearDown(tester.view.resetViewPadding);
-        if (const bool.fromEnvironment('captureTopicProgressMotion')) {
-          await tester.runAsync(() async {
-            final manifest =
-                jsonDecode(await rootBundle.loadString('FontManifest.json'))
-                    as List;
-            for (final entry in manifest.cast<Map<String, dynamic>>()) {
-              final loader = FontLoader(entry['family'] as String);
-              for (final face
-                  in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
-                loader.addFont(rootBundle.load(face['asset'] as String));
-              }
-              await loader.load();
-            }
-          });
-        }
+        await _loadCaptureFonts(tester);
         final shell = await fixture.pumpMobileShellFixture(
           tester,
           topic: topicPayload(

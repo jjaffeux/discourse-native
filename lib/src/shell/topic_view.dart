@@ -286,6 +286,7 @@ class _TopicViewState extends State<TopicView>
   final _topicControlsHeight = ValueNotifier<double?>(null);
   final _moreTopicsCovered = FrameSafeValueNotifier(false);
   final _topicControlsCovered = FrameSafeValueNotifier(false);
+  final _mobileProgressOpen = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
   int? _openingPostId;
   VoidCallback? _releaseHistoryReveal;
@@ -429,6 +430,7 @@ class _TopicViewState extends State<TopicView>
     if (_tickerEnabled == tickerEnabled) return;
     _tickerEnabled = tickerEnabled;
     _viewport.setTickerEnabled(tickerEnabled);
+    if (!tickerEnabled) _dismissMobileProgress();
     // Showing a retained reader lays nothing out, and another reader may have
     // published what is on screen while this one was hidden.
     if (tickerEnabled) _scheduleLook();
@@ -459,6 +461,7 @@ class _TopicViewState extends State<TopicView>
       ),
     );
     if (!changed) return;
+    _dismissMobileProgress();
     if (previousIdentity?.$1 != snapshot.siteUrl ||
         previousIdentity?.$2 != snapshot.topicId ||
         previousTabId != _viewport.binding?.tabId ||
@@ -582,6 +585,7 @@ class _TopicViewState extends State<TopicView>
     _warmCacheIdentity.dispose();
     _moreTopicsCovered.dispose();
     _topicControlsCovered.dispose();
+    _mobileProgressOpen.dispose();
     _topicControlsHeight.dispose();
     _interaction.dispose();
     _keyboardFocus.dispose();
@@ -1400,12 +1404,71 @@ class _TopicViewState extends State<TopicView>
       siteUrl: snapshot.siteUrl,
       isConnected: widget.isConnected,
       viewport: _viewportState,
-      scrubViewport: _viewport,
       controlsCovered: _topicControlsCovered,
+      progressOpen: _mobileProgressOpen,
       totalPosts: totalPosts,
       canReply: widget.canReply,
       controller: controller,
       onReplyPressed: controller.openReply,
+    );
+  }
+
+  void _dismissMobileProgress() => _mobileProgressOpen.value = false;
+
+  Widget _buildMobileProgressJumps({
+    required BuildContext context,
+    required ShellController controller,
+    required int total,
+  }) {
+    final binding = _viewport.binding!;
+    final tokens = DTokens.of(context);
+    final l10n = context.l10n;
+    final bottom = controller.mobileNavigationEnabled
+        ? TopicCornerControls.bottomClearanceOf(
+                context,
+                TopicProgressButton.floatingHeightOf(context),
+              ) +
+              DSpacing.sm
+        : DSpacing.sm;
+
+    void jump(int index) {
+      _dismissMobileProgress();
+      if (_viewport.isCurrent(binding) &&
+          controller.activeTabId == binding.tabId) {
+        unawaited(controller.jumpToCurrentTopicIndex(index));
+      }
+    }
+
+    return PositionedDirectional(
+      bottom: bottom,
+      start: DSpacing.sm,
+      end: DSpacing.sm,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _mobileProgressOpen,
+        builder: (context, open, child) =>
+            open ? child! : const SizedBox.shrink(),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: DSpacing.controlGap,
+          runSpacing: DSpacing.controlGap,
+          children: [
+            for (final first in [true, false])
+              DButton(
+                variant: DButtonVariant.outline,
+                size: DButtonSize.floating,
+                shape: DButtonShape.pill,
+                backgroundColor: tokens.panelBackground,
+                foregroundColor: tokens.primary,
+                icon: RotatedBox(
+                  quarterTurns: first ? 0 : 2,
+                  child: const DIcon(DIcons.arrowUp),
+                ),
+                label: Text(first ? l10n.firstPost : l10n.latestPost),
+                onPressed: () => jump(first ? 1 : total),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2110,11 +2173,29 @@ class _TopicViewState extends State<TopicView>
           scrollController: _scroll!,
           onStart: () => _interaction.jumpToBoundary(end: false),
           onEnd: () => _interaction.jumpToBoundary(end: true),
-          child: DScrollBar(
-            controller: _scroll,
-            thumbVisibility: false,
-            child: postStreamContent,
-          ),
+          child: context.isTouch
+              ? ValueListenableBuilder<bool>(
+                  valueListenable: _mobileProgressOpen,
+                  builder: (context, open, child) => DScrollBar(
+                    controller: _scroll,
+                    variant: DScrollBarVariant.scrubber,
+                    showScrollbar: open,
+                    cornerExtent: controller.mobileNavigationEnabled
+                        ? TopicCornerControls.bottomClearanceOf(
+                            context,
+                            TopicProgressButton.floatingHeightOf(context),
+                          )
+                        : 0,
+                    onDragEnd: _dismissMobileProgress,
+                    child: child!,
+                  ),
+                  child: postStreamContent,
+                )
+              : DScrollBar(
+                  controller: _scroll,
+                  thumbVisibility: false,
+                  child: postStreamContent,
+                ),
         ),
       );
     }
@@ -2174,13 +2255,20 @@ class _TopicViewState extends State<TopicView>
                                     keepTopicListOpen: widget.keepTopicListOpen,
                                   ),
                                 if (snapshot.progressTotal > 1)
-                                  TopicProgressPopover(
-                                    controller: controller,
-                                    position: position,
-                                    total: snapshot.progressTotal,
-                                    floating: true,
-                                    viewport: _viewport,
-                                  ),
+                                  context.isTouch
+                                      ? _MobileTopicProgressButton(
+                                          open: _mobileProgressOpen,
+                                          position: position,
+                                          total: snapshot.progressTotal,
+                                          floating: true,
+                                        )
+                                      : TopicProgressPopover(
+                                          controller: controller,
+                                          position: position,
+                                          total: snapshot.progressTotal,
+                                          floating: true,
+                                          viewport: _viewport,
+                                        ),
                               ],
                             ),
                           ),
@@ -2190,6 +2278,15 @@ class _TopicViewState extends State<TopicView>
                   ),
                 ),
               ),
+            ),
+          if (context.isTouch &&
+              !waitingForPosition &&
+              _openingPostId == null &&
+              snapshot.progressTotal > 1)
+            _buildMobileProgressJumps(
+              context: context,
+              controller: controller,
+              total: snapshot.progressTotal,
             ),
         ],
         footer: (controller.mobileNavigationEnabled || !context.isTouch)
@@ -2298,8 +2395,8 @@ class _TopicViewState extends State<TopicView>
 class _TopicBottomBar extends StatelessWidget {
   const _TopicBottomBar({
     required this.viewport,
-    required this.scrubViewport,
     required this.controlsCovered,
+    required this.progressOpen,
     required this.totalPosts,
     required this.canReply,
     required this.controller,
@@ -2314,8 +2411,8 @@ class _TopicBottomBar extends StatelessWidget {
   /// Only the progress control listens: the reading position changes with
   /// every post scrolled past, and the other controls never depend on it.
   final TopicViewportListenable viewport;
-  final TopicScrubViewport scrubViewport;
   final ValueListenable<bool> controlsCovered;
+  final FrameSafeValueNotifier<bool> progressOpen;
   final int totalPosts;
   final bool canReply;
   final ShellController controller;
@@ -2427,11 +2524,10 @@ class _TopicBottomBar extends StatelessWidget {
                           alignment: AlignmentDirectional.centerEnd,
                           child: Padding(
                             padding: const EdgeInsetsDirectional.only(start: 8),
-                            child: TopicProgressPopover(
-                              controller: controller,
+                            child: _MobileTopicProgressButton(
+                              open: progressOpen,
                               position: position,
                               total: totalPosts,
-                              viewport: scrubViewport,
                             ),
                           ),
                         );
@@ -2446,6 +2542,32 @@ class _TopicBottomBar extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MobileTopicProgressButton extends StatelessWidget {
+  const _MobileTopicProgressButton({
+    required this.open,
+    required this.position,
+    required this.total,
+    this.floating = false,
+  });
+
+  final FrameSafeValueNotifier<bool> open;
+  final int position;
+  final int total;
+  final bool floating;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: open,
+    builder: (context, expanded, _) => TopicProgressButton(
+      expanded: expanded,
+      position: position,
+      total: total,
+      floating: floating,
+      onPressed: () => open.value = !open.value,
+    ),
+  );
 }
 
 class _TopicPostSelectionToolbar extends StatelessWidget {

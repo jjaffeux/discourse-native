@@ -111,58 +111,16 @@ class TopicProgressPopover extends StatefulWidget {
 
 class _TopicProgressPopoverState extends State<TopicProgressPopover> {
   final _popover = DPopoverController();
-  final _sheet = DSheetController<void>();
   int _session = 0;
 
   @override
   void dispose() {
     _popover.dispose();
-    _sheet.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (context.isTouch) {
-      return DSheet<void>(
-        controller: _sheet,
-        onOpenChanged: (details) {
-          if (details.open) setState(() => _session++);
-        },
-        content: DSheetContent(
-          key: const ValueKey('topic-progress-sheet'),
-          variant: DSheetVariant.menu,
-          side: DSheetSide.bottom,
-          inset: true,
-          showCloseButton: false,
-          semanticLabel: context.l10n.postNavigation,
-          topBottomMaxHeightFactor: .9,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-              child: _TopicProgressEditor(
-                key: ValueKey(_session),
-                controller: widget.controller,
-                position: widget.position,
-                total: widget.total < 1 ? 1 : widget.total,
-                isOpen: () => _sheet.isOpen,
-                onJumpCommitted: _sheet.close,
-                viewport: widget.viewport,
-              ),
-            ),
-          ],
-        ),
-        trigger: DSheetTrigger(
-          builder: (context, open) => TopicProgressButton(
-            position: widget.position,
-            total: widget.total,
-            expanded: _sheet.isOpen,
-            onPressed: open,
-            floating: widget.floating,
-          ),
-        ),
-      );
-    }
     return DPopover(
       controller: _popover,
       onOpenChange: (open, _) {
@@ -291,7 +249,6 @@ class _TopicProgressEditor extends StatefulWidget {
     required this.total,
     super.key,
     required this.isOpen,
-    this.onJumpCommitted,
     this.viewport,
   });
 
@@ -299,7 +256,6 @@ class _TopicProgressEditor extends StatefulWidget {
   final int position;
   final int total;
   final bool Function() isOpen;
-  final VoidCallback? onJumpCommitted;
   final TopicScrubViewport? viewport;
 
   @override
@@ -418,8 +374,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
 
   Future<void> _jump(int position) async {
     // Reading stays off until the release has landed. Waiting for its post
-    // can outlast a read dwell, and the sheet may close in the meantime, and
-    // neither may credit the place the drag happened to stop.
+    // can outlast a read dwell, which must not credit an intermediate post.
     final drag = _drag;
     _drag = null;
     drag?.stop();
@@ -434,7 +389,6 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       _error = null;
     });
     final navigation = widget.controller.jumpToCurrentTopicIndex(target);
-    widget.onJumpCommitted?.call();
     final opened = await navigation;
     drag?.end();
     if (!mounted ||
