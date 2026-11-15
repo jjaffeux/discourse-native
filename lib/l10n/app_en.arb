@@ -11625,6 +11625,48 @@
       }
     }
   },
+  "reconnectToSeeThisSummary": "Reconnect to {instanceHost} to see this summary.",
+  "@reconnectToSeeThisSummary": {
+    "description": "Error shown in place of another person's summary when the account has no usable key.",
+    "placeholders": {
+      "instanceHost": {
+        "type": "String"
+      }
+    }
+  },
+  "couldnTLoadThisSummaryFrom": "Couldn''t load this summary from {instanceHost}.",
+  "@couldnTLoadThisSummaryFrom": {
+    "description": "Error shown in place of another person's summary when the request failed.",
+    "placeholders": {
+      "instanceHost": {
+        "type": "String"
+      }
+    }
+  },
+  "userProfileHidden": "This person has hidden their public profile.",
+  "@userProfileHidden": {
+    "description": "Message on a profile page whose owner hid their public profile."
+  },
+  "userProfileMissing": "This profile doesn''t exist or isn''t available to you.",
+  "@userProfileMissing": {
+    "description": "Message on a profile page when the site has no such person."
+  },
+  "noHighlightsYet": "No highlights yet.",
+  "@noHighlightsYet": {
+    "description": "Title of the empty Highlights section on another person's summary."
+  },
+  "theirTopTopicsRepliesAndBadgesWillAppearHere": "Their top topics, replies and badges will appear here.",
+  "@theirTopTopicsRepliesAndBadgesWillAppearHere": {
+    "description": "Description of the empty Highlights section on another person's summary."
+  },
+  "milestones": "Milestones",
+  "@milestones": {
+    "description": "Heading of the badges section on another person's summary."
+  },
+  "thePeopleTheyReplyToAndExchangeLikesWithWillAppear": "The people they reply to and exchange likes with will appear here.",
+  "@thePeopleTheyReplyToAndExchangeLikesWithWillAppear": {
+    "description": "Description of the empty Connections section on another person's summary."
+  },
   "replyingToThisTopic": "Replying to this topic",
   "@replyingToThisTopic": {
     "description": "English UI message used by shell/composer_reply_context.dart. Keep placeholders intact."

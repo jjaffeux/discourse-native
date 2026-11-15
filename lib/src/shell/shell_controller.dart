@@ -194,6 +194,7 @@ import 'unread_topic_feed.dart';
 import 'update_controller.dart';
 import 'user_directory_controller.dart';
 import 'user_menu_notifications.dart';
+import 'user_profile_controller.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
@@ -941,6 +942,12 @@ class ShellController extends FrameSafeNotifier
 
   late final UserSummaryController userSummary = UserSummaryController(
     api: api.userSummaries,
+    credentials: credentials,
+    lifecycle: lifecycle,
+  );
+
+  late final UserProfileController userProfile = UserProfileController(
+    api: api.userProfiles,
     credentials: credentials,
     lifecycle: lifecycle,
   );
@@ -8927,6 +8934,7 @@ class ShellController extends FrameSafeNotifier
     _previews.dispose();
     draftList.dispose();
     userSummary.dispose();
+    userProfile.dispose();
     groups.dispose();
     userDirectory.dispose();
     badges.dispose();

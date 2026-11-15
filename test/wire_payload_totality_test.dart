@@ -44,6 +44,7 @@ import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/models/user_profile.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/assign/assign_data.dart';
@@ -1301,6 +1302,23 @@ void main() {
             card.id != null ||
             card.name != null ||
             card.title != null,
+      );
+      probe(
+        'UserProfile',
+        () => UserProfile.fromJson(
+          withFields({
+            'username': loose,
+            'bio_cooked': loose,
+            'last_seen_at': loose,
+            'profile_hidden': loose,
+          }),
+          site,
+        ),
+        (profile) =>
+            profile.card.username.isNotEmpty ||
+            profile.bioCooked != null ||
+            profile.lastSeenAt != null ||
+            profile.hidden,
       );
       probe(
         'UserCardBadge',

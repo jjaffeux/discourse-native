@@ -20,6 +20,7 @@ import 'topic_feeds_api.dart';
 import 'topic_mutations_api.dart';
 import 'topic_reads_api.dart';
 import 'user_preferences_api.dart';
+import 'user_profiles_api.dart';
 import 'user_summaries_api.dart';
 
 export 'account_activity_api.dart';
@@ -45,6 +46,7 @@ export 'topic_feeds_api.dart';
 export 'topic_mutations_api.dart';
 export 'topic_reads_api.dart';
 export 'user_preferences_api.dart';
+export 'user_profiles_api.dart';
 export 'user_summaries_api.dart';
 export 'write_failure.dart';
 
@@ -78,6 +80,7 @@ abstract interface class ShellApiCapabilities
         BookmarksWriteApi,
         DoNotDisturbApi,
         DraftsApi,
+        UserProfilesApi,
         UserSummariesApi,
         TopicFeedsApi,
         TopicReadsApi,

@@ -412,4 +412,57 @@ void main() {
     expect(card.title, isNull);
     expect(card.avatarUrl, isNull);
   });
+
+  test('a profile reads the user object and its side-loaded badges', () async {
+    final keys = <String?>[];
+    final api = DiscourseApi(
+      client: serving((request) {
+        keys.add(request.headers['User-Api-Key']);
+        return switch (request.url.path) {
+          '/u/sam%20i.json' => {
+            'user': {
+              'id': 1,
+              'username': 'sam i',
+              'bio_excerpt': 'Short',
+              'bio_cooked': '<p>Long</p>',
+              'last_seen_at': '2026-11-15T05:05:37.571Z',
+              'featured_user_badges': [9],
+            },
+            'user_badges': [
+              {'id': 9, 'badge_id': 3},
+            ],
+            'badges': [
+              {'id': 3, 'name': 'Regular'},
+            ],
+          },
+          '/u/hidden.json' => {
+            'user': {'id': 2, 'username': 'hidden', 'profile_hidden': true},
+          },
+          '/u/broken.json' => {'user': 'not an object'},
+          _ => throw StateError('Unexpected request: ${request.url}'),
+        };
+      }),
+    );
+
+    final profile = await api.userProfile(siteUrl: siteUrl, username: 'sam i');
+    final hidden = await api.userProfile(
+      siteUrl: siteUrl,
+      username: 'hidden',
+      apiKey: 'key',
+    );
+
+    expect(keys, [null, 'key']);
+    expect(profile.card.username, 'sam i');
+    expect(profile.card.bioExcerpt, 'Short');
+    expect(profile.bioCooked, '<p>Long</p>');
+    expect(profile.lastSeenAt, DateTime.utc(2026, 11, 15, 5, 5, 37, 571));
+    expect(profile.card.featuredBadges.single.name, 'Regular');
+    expect(profile.hidden, isFalse);
+    expect(hidden.hidden, isTrue);
+    expect(hidden.bioCooked, isNull);
+    await expectLater(
+      api.userProfile(siteUrl: siteUrl, username: 'broken'),
+      throwsA(isA<SiteLookupException>()),
+    );
+  });
 }

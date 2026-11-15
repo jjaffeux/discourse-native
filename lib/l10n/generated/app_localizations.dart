@@ -15222,6 +15222,54 @@ abstract class AppLocalizations {
   /// **'Couldn\'\'t load your summary from {instanceHost}.'**
   String couldnTLoadYourSummaryFrom(String instanceHost);
 
+  /// Error shown in place of another person's summary when the account has no usable key.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect to {instanceHost} to see this summary.'**
+  String reconnectToSeeThisSummary(String instanceHost);
+
+  /// Error shown in place of another person's summary when the request failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t load this summary from {instanceHost}.'**
+  String couldnTLoadThisSummaryFrom(String instanceHost);
+
+  /// Message on a profile page whose owner hid their public profile.
+  ///
+  /// In en, this message translates to:
+  /// **'This person has hidden their public profile.'**
+  String get userProfileHidden;
+
+  /// Message on a profile page when the site has no such person.
+  ///
+  /// In en, this message translates to:
+  /// **'This profile doesn\'\'t exist or isn\'\'t available to you.'**
+  String get userProfileMissing;
+
+  /// Title of the empty Highlights section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'No highlights yet.'**
+  String get noHighlightsYet;
+
+  /// Description of the empty Highlights section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Their top topics, replies and badges will appear here.'**
+  String get theirTopTopicsRepliesAndBadgesWillAppearHere;
+
+  /// Heading of the badges section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestones'**
+  String get milestones;
+
+  /// Description of the empty Connections section on another person's summary.
+  ///
+  /// In en, this message translates to:
+  /// **'The people they reply to and exchange likes with will appear here.'**
+  String get thePeopleTheyReplyToAndExchangeLikesWithWillAppear;
+
   /// English UI message used by shell/composer_reply_context.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

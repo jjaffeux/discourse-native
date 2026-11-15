@@ -54,6 +54,7 @@ import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/models/user_profile.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
@@ -1014,6 +1015,12 @@ class FakeDiscourseApi
   final Map<String, UserCard> cards;
 
   final List<String> cardsRequested = [];
+
+  /// Answers `/u/{username}.json`. Without one, a profile is its entry in
+  /// [cards] and anyone else is a 404.
+  Future<UserProfile> Function(String siteUrl, String username)?
+  userProfileHandler;
+  final List<String> profilesRequested = [];
 
   final List<int> topicsOpened = [];
   final List<int?> topicPostNumbersOpened = [];
@@ -2246,6 +2253,28 @@ class FakeDiscourseApi
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
     return card;
+  }
+
+  @override
+  Future<UserProfile> userProfile({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    profilesRequested.add(username);
+    if (userProfileHandler case final handler?) {
+      return handler(siteUrl, username);
+    }
+    final card = cards[username];
+    if (card == null) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        statusCode: 404,
+      );
+    }
+    return UserProfile(card: card);
   }
 
   @override

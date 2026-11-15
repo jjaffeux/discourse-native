@@ -17,6 +17,7 @@ import '../models/user_activity.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
+import '../models/user_profile.dart';
 import '../models/user_summary.dart';
 import 'discourse_transport.dart';
 import 'json_decode.dart';
@@ -544,6 +545,34 @@ final class DiscourseAccountApi {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
     return _models.userCard(user, siteUrl, payload: body);
+  }
+
+  Future<UserProfile> userProfile({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final body = await _transport.getObject(
+      Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+
+    final user = switch (body['user']) {
+      final Map<String, dynamic> user => user,
+      _ => null,
+    };
+    if (user == null) {
+      throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
+    }
+    return UserProfile.fromJson(
+      user,
+      siteUrl,
+      extensions: _models.extensions,
+      payload: body,
+    );
   }
 
   Future<void> setUserStatus({
