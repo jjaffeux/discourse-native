@@ -78,12 +78,10 @@ final class ContentRouteCodec {
             .where((page) => page.key == (json['page'] ?? id))
             .firstOrNull;
         final username = json['activity_username'];
-        if (username != null &&
-            (page != CorePage.activity ||
-                username is! String ||
-                username.isEmpty ||
-                username.length > 100 ||
-                username.contains(RegExp(r'[\s/\x00-\x1f]')))) {
+        if (username == null
+            ? page == CorePage.profile
+            : (page != CorePage.activity && page != CorePage.profile) ||
+                  !_isUsername(username)) {
           throw FormatException(appL10n.invalidContentRoute);
         }
         final reviewableId = json['reviewable_id'];
@@ -177,7 +175,9 @@ final class ContentRouteCodec {
       return ContentRoute.topicList(TopicListMode.latest).destination;
     }
     for (final page in CorePage.values) {
-      if (id == page.key) return PageDestination(page);
+      if (id == page.key && page != CorePage.profile) {
+        return PageDestination(page);
+      }
     }
     final mode = TopicListMode.values
         .where((mode) => id == mode.routeId && feedPath == mode.feedPath)
@@ -418,6 +418,7 @@ final class ContentRouteCodec {
     if (_ownMessagesRoute(instance, target) case final messages?) {
       return messages;
     }
+    if (_personRoute(instance, target) case final person?) return person;
     final path = instance.pathWithin(target);
     if (!target.hasQuery && !target.hasFragment) {
       if (instance.user?.staff == true &&
@@ -592,5 +593,43 @@ final class ContentRouteCodec {
     };
     if (mode == null || (group != null && !mode.supportsGroup)) return null;
     return ContentRoute.messages(groupName: group, mode: mode);
+  }
+
+  static bool _isUsername(Object? value) =>
+      value is String &&
+      value.isNotEmpty &&
+      value.length <= 100 &&
+      !value.contains(RegExp(r'[\s/\x00-\x1f]'));
+
+  /// Pages the web serves under `/u/` at the depth of a profile that are not
+  /// a person.
+  static const _notPeople = {'account-created', 'admin-login'};
+
+  /// A person's profile, spelled `/u/{name}` or `/u/{name}/summary`, or their
+  /// activity under `/u/{name}/activity`, whose filters the activity page
+  /// chooses for itself. Null — the browser — for every other page of a
+  /// person, and for activity without an account, which the app cannot list.
+  static ContentRoute? _personRoute(DiscourseInstance instance, Uri target) {
+    if (target.hasQuery || target.hasFragment) return null;
+    final within = DiscourseInstance.pathSegmentsWithin(instance.url, target);
+    if (within == null) return null;
+    final segments = [...within];
+    while (segments.isNotEmpty && segments.last.isEmpty) {
+      segments.removeLast();
+    }
+    final user = instance.user;
+    return switch (segments) {
+      ['u', final name] || ['u', final name, 'summary']
+          when _isUsername(name) && !_notPeople.contains(name) =>
+        ContentRoute.userProfile(username: name),
+      ['u', final name, 'activity', ...]
+          when _isUsername(name) && user != null =>
+        ContentRoute.userActivity(
+          username: name.toLowerCase() == user.username.toLowerCase()
+              ? null
+              : name,
+        ),
+      _ => null,
+    };
   }
 }

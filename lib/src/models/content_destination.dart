@@ -38,11 +38,13 @@ sealed class ContentDestination {
       route.badgeId,
       route.username,
     ),
+    // Usernames are case-insensitive: one person is one page however a link
+    // spelled them.
     PageDestination(:final page, :final username, :final reviewableId) => (
       PageDestination,
       key,
       page,
-      username,
+      username?.toLowerCase(),
       reviewableId,
     ),
     ExtensionDestination() => (ExtensionDestination, key, feedPath),
@@ -162,6 +164,7 @@ enum CorePage {
   summary('summary'),
   bookmarks('user-bookmarks'),
   activity('activity'),
+  profile('profile'),
   preferences('preferences'),
   appearance('appearance'),
   forumAbout('forum-about'),
@@ -174,13 +177,18 @@ enum CorePage {
 
 final class PageDestination extends ContentDestination {
   const PageDestination(this.page, {this.username, this.reviewableId})
-    : assert(username == null || page == CorePage.activity),
+    : assert(
+        username == null
+            ? page != CorePage.profile
+            : page == CorePage.activity || page == CorePage.profile,
+      ),
       assert(
         reviewableId == null || (page == CorePage.review && reviewableId > 0),
       );
   final CorePage page;
 
-  /// The person a per-person page is about.
+  /// The person a per-person page is about: required by a profile, optional
+  /// on activity, where its absence means the signed-in reader.
   final String? username;
 
   /// The queue item a review link names; the queue itself when null.

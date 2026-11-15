@@ -4385,6 +4385,7 @@ void main() {
     (ContentRoute.group(GroupRoute.detail('staff')), 'groups'),
     (ContentRoute.badges(BadgeRoute.detail(1)), 'badges'),
     (ContentRoute.userActivity(username: 'sam'), 'users'),
+    (ContentRoute.userProfile(username: 'sam'), 'users'),
     (ContentRoute.list(ListLink.parse('/c/support')!), 'all-categories'),
     (ContentRoute.list(ListLink.parse('/tag/roadmap')!), 'all-tags'),
     for (final id in ['chat-c-10-info-members', 'chat-c-10-threads'])

@@ -301,6 +301,15 @@ class ContentRoute {
         icon: DIcons.barsStaggered,
       );
 
+  factory ContentRoute.userProfile({
+    required String username,
+    String? displayName,
+  }) => ContentRoute(
+    destination: PageDestination(CorePage.profile, username: username),
+    title: displayName ?? username,
+    icon: DIcons.user,
+  );
+
   factory ContentRoute.messages({
     String? groupName,
     MessageListMode mode = MessageListMode.inbox,

@@ -5,7 +5,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-import '../foundation/calendar_day.dart';
 import '../foundation/clock_time.dart';
 import '../foundation/count_label.dart';
 import '../foundation/icons/d_icons.dart';
@@ -24,6 +23,7 @@ import 'server_image.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_activity.dart';
+import 'user_card_details.dart';
 import 'user_card_header.dart';
 import 'user_card_target.dart';
 import 'user_menu_message.dart';
@@ -298,17 +298,6 @@ class _CardContent extends StatelessWidget {
     final pluginMetadata = PluginScope.of(
       context,
     ).registry.userCardMetadata(context, siteUrl, card, close);
-    final profileAction = SizedBox(
-      width: double.infinity,
-      child: DButton(
-        label: Text(context.l10n.viewProfile),
-        onPressed: () {
-          close();
-          unawaited(openExternalLink('$siteUrl${card.path}'));
-        },
-        icon: const DIcon(DIcons.upRightFromSquare),
-      ),
-    );
     final shell = ShellScope.read(context);
     final currentUser = shell.currentUserFor(siteUrl);
     final ownCard =
@@ -318,6 +307,21 @@ class _CardContent extends StatelessWidget {
             : card.username.toLowerCase() ==
                   currentUser.username.toLowerCase());
     final lease = shell.lifecycle.capture(siteUrl);
+    final profileAction = SizedBox(
+      width: double.infinity,
+      child: DButton(
+        label: Text(context.l10n.viewProfile),
+        onPressed: () {
+          if (!lease.isCurrent) return;
+          close();
+          shell.openUserProfile(
+            siteUrl,
+            username: card.username,
+            displayName: card.displayName,
+          );
+        },
+      ),
+    );
     final actions = [
       if (ownCard)
         DButton(
@@ -363,13 +367,14 @@ class _CardContent extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     if (card.website case final website?)
-                      _CardDetail(
+                      UserCardDetail(
                         icon: const DIcon(DIcons.globe, size: 16),
-                        label: card.websiteName ?? _websiteLabel(website),
+                        label:
+                            card.websiteName ?? userCardWebsiteLabel(website),
                         onTap: () => unawaited(openExternalLink(website)),
                       ),
                     if (card.location case final location?)
-                      _CardDetail(
+                      UserCardDetail(
                         icon: const DIcon(DIcons.locationDot, size: 16),
                         label: location,
                       ),
@@ -385,17 +390,17 @@ class _CardContent extends StatelessWidget {
                   runSpacing: 4,
                   children: [
                     if (card.lastPostedAt case final last?)
-                      _Metadata(
+                      UserCardMetadata(
                         label: context.l10n.lastPost,
-                        value: _month(last),
+                        value: userCardMonth(last),
                       ),
                     if (card.createdAt case final joined?)
-                      _Metadata(
+                      UserCardMetadata(
                         label: context.l10n.joined,
-                        value: _month(joined),
+                        value: userCardMonth(joined),
                       ),
                     if (card.timeRead > 0)
-                      _Metadata(
+                      UserCardMetadata(
                         label: context.l10n.timeRead,
                         value: durationLabel(card.timeRead).short,
                       ),
@@ -436,19 +441,6 @@ class _CardContent extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  static String _month(DateTime when) {
-    final day = calendarDay(when)!;
-    return '${shortMonthName(day.month)} ${day.year}';
-  }
-
-  static String _websiteLabel(String website) {
-    final uri = Uri.tryParse(website);
-    if (uri?.host case final String host when host.isNotEmpty) {
-      return '${host.startsWith('www.') ? host.substring(4) : host}${uri!.path == '/' ? '' : uri.path}';
-    }
-    return website;
   }
 }
 
@@ -618,11 +610,10 @@ class _MobileCardContent extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     if (card.website case final website?)
-                      _CardDetail(
+                      UserCardDetail(
                         icon: const DIcon(DIcons.globe, size: 11),
                         label:
-                            card.websiteName ??
-                            _CardContent._websiteLabel(website),
+                            card.websiteName ?? userCardWebsiteLabel(website),
                         onTap: () => unawaited(openExternalLink(website)),
                       ),
                     if (card.location case final location?)
@@ -654,7 +645,7 @@ class _MobileCardContent extends StatelessWidget {
                             stat(context.l10n.lastPost, label),
                       ),
                     if (card.createdAt case final created?)
-                      stat(context.l10n.joined, _CardContent._month(created)),
+                      stat(context.l10n.joined, userCardMonth(created)),
                     if (card.timeRead > 0)
                       stat(
                         context.l10n.userCardReadTime,
@@ -746,80 +737,6 @@ class _CardActions extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _Metadata extends StatelessWidget {
-  const _Metadata({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: '$label ',
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              TextSpan(text: value),
-            ],
-          ),
-          style: theme.textTheme.bodySmall,
-        ),
-      ],
-    );
-  }
-}
-
-class _CardDetail extends StatelessWidget {
-  const _CardDetail({required this.icon, required this.label, this.onTap});
-
-  final Widget icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurface;
-    final child = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconTheme(
-          data: IconThemeData(color: color),
-          child: icon,
-        ),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              decoration: onTap == null ? null : TextDecoration.underline,
-            ),
-          ),
-        ),
-      ],
-    );
-    if (onTap == null) return child;
-    return DItem(
-      fitContent: true,
-      size: DItemSize.artwork,
-      highlightOnInteraction: false,
-      link: true,
-      onPressed: onTap!,
-      semanticLabel: label,
-      children: [ExcludeSemantics(child: child)],
     );
   }
 }

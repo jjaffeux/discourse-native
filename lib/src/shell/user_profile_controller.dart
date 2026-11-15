@@ -7,6 +7,7 @@ import '../data/site_lifecycle.dart';
 import '../data/site_lookup_failure.dart';
 import '../data/user_profiles_api.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/site_scoped_state.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_profile.dart';
 
@@ -66,7 +67,8 @@ final class _ProfileAccount {
 
 /// Profiles by site, then by lowercased username, for the account session
 /// that asked: a profile's contents depend on who is reading it.
-final class UserProfileController extends FrameSafeNotifier {
+final class UserProfileController extends FrameSafeNotifier
+    with AccountScopedState {
   UserProfileController({
     required this.api,
     required this.credentials,
@@ -164,6 +166,13 @@ final class UserProfileController extends FrameSafeNotifier {
     } finally {
       if (identical(entry.request, request)) entry.request = null;
     }
+  }
+
+  @override
+  void forget(String siteUrl) {
+    final account = _accounts.remove(siteUrl);
+    account?.dispose();
+    if (account != null) notifySafely();
   }
 
   static bool _showsProfile(UserProfileState? state) =>

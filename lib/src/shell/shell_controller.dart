@@ -207,6 +207,7 @@ part 'post_commands.dart';
 part 'shell_tab_context.dart';
 part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
+part 'user_profile_navigation.dart';
 part 'workspace_controller.dart';
 
 enum MobilePane { sidebar, content }
@@ -1670,6 +1671,13 @@ class ShellController extends FrameSafeNotifier
         ]);
       case PageLoad.activity:
         await accountActivity.loadUserActivity(instance, refresh: force);
+      case PageLoad.profile:
+        if (route.destination case PageDestination(:final username?)) {
+          await Future.wait([
+            userProfile.load(instance, username, refresh: force),
+            userSummary.load(instance, username: username, refresh: force),
+          ]);
+        }
       case PageLoad.bookmarks:
         await accountActivity.loadBookmarkList(instance, refresh: true);
       case PageLoad.preferences:
@@ -7751,6 +7759,7 @@ class ShellController extends FrameSafeNotifier
     ..register(accountActivity)
     ..register(draftList)
     ..register(userSummary)
+    ..register(userProfile)
     ..register(groups)
     ..register(userDirectory)
     ..register(badges)

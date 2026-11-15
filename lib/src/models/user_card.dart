@@ -140,8 +140,6 @@ class UserCard with Storable<UserCard> {
 
   String get displayName => name ?? username;
 
-  String get path => '/u/$username';
-
   @override
   Object get storeId => username.toLowerCase();
 

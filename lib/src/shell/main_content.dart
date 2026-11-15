@@ -69,6 +69,7 @@ import 'topic_view.dart';
 import 'trackpad_history_region.dart';
 import 'user_activity.dart';
 import 'user_menu_button.dart';
+import 'user_profile_page.dart';
 import 'user_summary.dart';
 import 'users_page.dart';
 
@@ -1078,6 +1079,12 @@ class _ContentViewport extends StatelessWidget {
                   key: ObjectKey(route),
                   siteUrl: site,
                   username: username,
+                  title: route.title,
+                ),
+                CorePage.profile => UserProfilePage(
+                  key: ObjectKey(route),
+                  siteUrl: site,
+                  username: username!,
                   title: route.title,
                 ),
                 CorePage.users => UsersDirectoryHost(siteUrl: site),
