@@ -469,8 +469,12 @@ void main() {
         ),
         isFalse,
       );
-      final remaining = permit.expiresAt.difference(DateTime.now());
-      await Future<void>.delayed(remaining + const Duration(milliseconds: 1));
+      await Future<void>.delayed(permit.expiresAt.difference(DateTime.now()));
+      // A timer can fire a fraction of a millisecond before the wall clock
+      // reaches the instant it was armed for.
+      while (DateTime.now().isBefore(permit.expiresAt)) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
 
       expect(
         (await controller.restoreAssignment(permit)).kind,

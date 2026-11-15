@@ -349,7 +349,7 @@ void main() {
       of: field,
       matching: find.byType(DInputGroup),
     );
-    expect(filteredEmpty.bottom, closeTo(838, .1));
+    expect(filteredEmpty.bottom, closeTo(844, .1));
     expect(tester.getRect(fieldGroup).top - filteredEmpty.top, closeTo(24, .1));
     final emptyMessage = find.text('No results for “tag:sourdough zzzzzz”');
     final tagChip = find.descendant(
@@ -361,7 +361,7 @@ void main() {
     expect(find.text('Clear conditions'), findsNothing);
     expect(scopes, findsNothing);
     expect(tagChip, findsOneWidget);
-    expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
+    expect(tester.getRect(tagChip).bottom, closeTo(825, .1));
     expect(
       filteredEmpty.height,
       lessThan(tester.view.physicalSize.height * .4),
@@ -394,7 +394,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
     expect(emptyMessage, findsOneWidget);
     expect(tester.getRect(surface).top, closeTo(filteredResults.top, .01));
-    expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
+    expect(tester.getRect(tagChip).bottom, closeTo(825, .1));
     await _verifySearchLabelAndCapture(
       tester,
       'filtered-retained',
@@ -410,7 +410,7 @@ void main() {
     expect(find.text('No results for “order:latest zzzzzz”'), findsOneWidget);
     expect(scopes.hitTestable(), findsOneWidget);
     expect(tester.getRect(tagChip).left, closeTo(16, .1));
-    expect(tester.getRect(tagChip).bottom, closeTo(819, .1));
+    expect(tester.getRect(tagChip).bottom, closeTo(825, .1));
     await _verifySearchLabelAndCapture(
       tester,
       'ordered',

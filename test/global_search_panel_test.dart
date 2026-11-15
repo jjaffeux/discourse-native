@@ -543,9 +543,8 @@ void main() {
           final state = tester.state<GlobalSearchPanelState>(
             find.byType(GlobalSearchPanel),
           );
-          expect(offered, findsNothing);
-          expect(state.handleKey(LogicalKeyboardKey.arrowRight), isTrue);
-          await tester.pumpAndSettle();
+          // A phone offers its filters unfolded as soon as search opens.
+          expect(_key('global-search-filters-fold'), findsNothing);
           final mounted = offered.evaluate().length;
           debugPrint(
             'Search opening: $mounted/${controller.availableFilters.length} filter rows mounted',

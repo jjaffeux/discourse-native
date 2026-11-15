@@ -281,6 +281,11 @@ void main() {
 
       expect(controller.results.single.title, 'First page');
       expect(controller.hasMore, isTrue);
+      expect(client.rowLookups.map((url) => '${url.path}?${url.query}'), [
+        scope == GlobalSearchScope.messages
+            ? '/t/42.json?'
+            : '/filter.json?q=topic%3A42',
+      ]);
 
       controller.loadMore();
       await tester.pump();
@@ -422,8 +427,17 @@ Map<String, dynamic> _result(String title) => {
 class _SearchClient extends http.BaseClient {
   final requests = <_SearchRequest>[];
 
+  /// Poster-stack reads that follow a page of post hits; answered with no
+  /// rows so the search page stands as the server returned it.
+  final rowLookups = <Uri>[];
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request.url.path == '/filter.json' ||
+        request.url.path.startsWith('/t/')) {
+      rowLookups.add(request.url);
+      return http.StreamedResponse(Stream.value(utf8.encode('{}')), 200);
+    }
     if (request.url.path == '/site/settings.json') {
       return http.StreamedResponse(
         Stream.value(

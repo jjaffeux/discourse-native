@@ -138,42 +138,47 @@ void main() {
         await open(tester, TopicTagSelector);
         await tester.pumpAndSettle();
         final input = find.byType(EditableText);
+        final sheet = find.byType(DSheetContent);
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
-        expect(
-          tester.getSize(find.byType(DSheetContent)).height,
-          greaterThan(700),
-        );
-        expect(
-          tester.getTopLeft(find.byType(DSheetContent)).dy,
-          closeTo(844 * .11, .1),
-        );
+        expect(tester.getBottomLeft(sheet).dy, 844);
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        // The phone tag sheet raises once the keyboard's metrics have held.
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
-        expect(
-          tester.getTopLeft(find.byType(DSheetContent)).dy,
-          closeTo(844 * .11, .1),
-        );
-        expect(tester.getBottomLeft(find.byType(DSheetContent)).dy, 844);
+        expect(tester.getBottomLeft(sheet).dy, 844);
         expect(
           tester.getRect(find.byType(DComboboxList<TopicTag>)).bottom,
           lessThanOrEqualTo(544),
         );
         expect(tester.getRect(input).bottom, lessThanOrEqualTo(544));
-        for (final expected in [
-          [design],
-          <TopicTag>[],
-        ]) {
+        final footer = find.byType(DSheetFooter);
+        for (var round = 0; round < 2; round++) {
           await tester.tap(tagOption('design'));
           await tester.pumpAndSettle();
-          expect(selected, expected);
-          expect(find.byType(DSheetContent), findsOneWidget);
+          expect(selected, [design]);
+          expect(sheet, findsOneWidget);
+          // A picked tag leaves the results for a removable chip at the foot.
+          expect(tagOption('design'), findsNothing);
+          expect(
+            find.descendant(of: footer, matching: find.text('design')),
+            findsOneWidget,
+          );
+          expect(tester.getRect(footer).bottom, lessThanOrEqualTo(544));
           expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
           expect(tester.testTextInput.isVisible, isTrue);
           expect(tester.getBottomLeft(tagOption('mobile')).dy, lessThan(544));
+          await tester.tap(find.bySemanticsLabel('Remove design'));
+          await tester.pumpAndSettle();
+          expect(selected, isEmpty);
+          expect(sheet, findsOneWidget);
+          expect(tagOption('design'), findsOneWidget);
+          expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+          expect(tester.testTextInput.isVisible, isTrue);
         }
-        await tester.tap(find.byTooltip('Close'));
+        await tester.tapAt(const Offset(195, 20));
         await tester.pumpAndSettle();
-        expect(find.byType(DSheetContent), findsNothing);
+        expect(sheet, findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -644,7 +649,10 @@ void main() {
             ? tagOption('design')
             : find.byKey(const ValueKey(('category-selector-option', 1)));
         expect(option, findsOneWidget);
-        if (platform == TargetPlatform.iOS) {
+        if (platform == TargetPlatform.iOS && tags) {
+          // The phone tag sheet has no Close button; its backdrop closes it.
+          await tester.tapAt(const Offset(195, 20));
+        } else if (platform == TargetPlatform.iOS) {
           await tester.tap(find.byTooltip('Close'));
         } else {
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);

@@ -3868,7 +3868,7 @@ void main() {
   });
 
   _mobileTest(
-    'Topics is titled by its feed and Filters flows with the other filters',
+    'Topics is titled by its feed and leaves advanced Filters to Search',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       final title = find.byKey(const ValueKey('mobile-page-title'));
@@ -3877,22 +3877,17 @@ void main() {
       final filters = find.byWidgetPredicate(
         (widget) => widget is TopicListFilterMenu && widget.filterKey == null,
       );
-      void expectFiltersFollowTags() {
-        final tag = tester.getRect(tags);
-        final filter = tester.getRect(filters);
-        expect(
-          filter.top > tag.top ||
-              (filter.top == tag.top && filter.left > tag.right),
-          isTrue,
-          reason: 'Filters at $filter must follow Tags at $tag',
-        );
+      // Advanced filters live in the phone Search sheet, not beside Tags.
+      void expectFiltersInSearchOnly() {
+        expect(tags, findsOneWidget);
+        expect(filters, findsNothing);
       }
 
       expect(
         find.descendant(of: title, matching: find.text('Latest topics')),
         findsOneWidget,
       );
-      expectFiltersFollowTags();
+      expectFiltersInSearchOnly();
 
       await shell.selectTopicListMode(TopicListMode.newActivity);
       await tester.pumpAndSettle();
@@ -3922,8 +3917,8 @@ void main() {
         bell.top,
         tester.getRect(find.byKey(const ValueKey('topic-list-feed-menu'))).top,
       );
-      expectFiltersFollowTags();
-      expect(tester.getRect(filters).right, lessThan(bell.left));
+      expectFiltersInSearchOnly();
+      expect(tester.getRect(tags).right, lessThan(bell.left));
       expect(tester.takeException(), isNull);
     },
   );
@@ -5203,26 +5198,32 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(profileSheet, findsNothing);
-      expect(find.byType(InstanceRail), findsNothing);
+      // Dismissing the profile sheet returns to the sidebar it stacked over.
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(find.byType(InstanceRail), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
       await tester.pumpAndSettle();
       expect(find.text('Remove forum'), findsNothing);
+      await _toggleNavigation(tester);
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
+      expect(find.byType(InstanceRail), findsNothing);
       await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsOneWidget);
       expect(_bar, findsNothing);
       expect(shell.currentContent?.isGlobalSearch, isTrue);
       expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-      final fullHeight = tester
-          .getSize(find.byKey(ForumSearch.panelKey))
-          .height;
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
+      // The content-sized sheet rises behind the keyboard and keeps its
+      // Search panel, field included, above it.
+      expect(tester.getRect(find.byType(DSheetContent)).bottom, 844);
       expect(
-        tester.getSize(find.byKey(ForumSearch.panelKey)).height,
-        lessThan(fullHeight),
+        tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,
+        closeTo(844 - 300, .01),
       );
       expect(tester.takeException(), isNull);
       tester.view.resetViewInsets();

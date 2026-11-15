@@ -121,115 +121,106 @@ void main() {
       });
 
       for (final pendingBatch in [1, 2]) {
-        test(
-          'stops after batch $pendingBatch completes for a replaced account',
-          () async {
-            final (:controller, :api, authenticator: _) = await _fixture();
-            final response = api.holdRefresh(pendingBatch);
-            final writing = _write(controller, action);
-            await api.waitForRefreshes(pendingBatch);
-            expect(_writtenIds(api, action), [_selectedIds]);
-            _expectLocks(controller, true);
-            _expectPosts(controller, 'initial');
+        test('discards its page wave when batch $pendingBatch completes for a '
+            'replaced account', () async {
+          final (:controller, :api, authenticator: _) = await _fixture();
+          final response = api.holdRefresh(pendingBatch);
+          final writing = _write(controller, action);
+          await api.waitForRefreshes(3);
+          expect(_writtenIds(api, action), [_selectedIds]);
+          _expectLocks(controller, true);
+          _expectPosts(controller, 'initial');
 
-            await controller.disconnectCurrentInstance();
-            await controller.connectCurrentInstance();
-            await controller.loadTopic(_topicId, 'topic');
-            expect(controller.currentInstance?.user?.id, 8);
-            _selectPosts(controller);
-            final replacementTopic = controller.store.read<TopicDetail>(
-              _siteUrl,
-              _topicId,
-            );
-            final replacementPosts = [
-              for (var id = 1; id <= 42; id++)
-                controller.store.read<Post>(_siteUrl, id),
-            ];
+          await controller.disconnectCurrentInstance();
+          await controller.connectCurrentInstance();
+          await controller.loadTopic(_topicId, 'topic');
+          expect(controller.currentInstance?.user?.id, 8);
+          _selectPosts(controller);
+          final replacementTopic = controller.store.read<TopicDetail>(
+            _siteUrl,
+            _topicId,
+          );
+          final replacementPosts = [
+            for (var id = 1; id <= 42; id++)
+              controller.store.read<Post>(_siteUrl, id),
+          ];
 
-            // The replacement account can write the same topic and post IDs
-            // while the old account's transport is still pending.
-            final replacementGate = api.deleteGate = Completer<void>();
-            final replacementWrite = controller.deleteSelectedTopicPosts(
-              _siteUrl,
-              _topicId,
-            );
-            await api.deleteStarted.future;
-            _expectLocks(controller, true);
+          // The replacement account can write the same topic and post IDs
+          // while the old account's transport is still pending.
+          final replacementGate = api.deleteGate = Completer<void>();
+          final replacementWrite = controller.deleteSelectedTopicPosts(
+            _siteUrl,
+            _topicId,
+          );
+          await api.deleteStarted.future;
+          _expectLocks(controller, true);
 
-            response.complete(_refreshed(api.refreshes.last.ids));
-            await writing;
+          response.complete(_refreshed(api.refreshes[pendingBatch - 1].ids));
+          await writing;
 
-            expect(api.refreshes, hasLength(pendingBatch));
+          expect(api.refreshes, hasLength(3));
+          expect(
+            api.refreshes.map((request) => request.apiKey),
+            everyElement(_originalKey),
+          );
+          expect(
+            controller.store.read<TopicDetail>(_siteUrl, _topicId),
+            same(replacementTopic),
+          );
+          for (var id = 1; id <= 42; id++) {
             expect(
-              api.refreshes.map((request) => request.apiKey),
-              everyElement(_originalKey),
+              controller.store.read<Post>(_siteUrl, id),
+              same(replacementPosts[id - 1]),
             );
-            expect(
-              controller.store.read<TopicDetail>(_siteUrl, _topicId),
-              same(replacementTopic),
-            );
-            for (var id = 1; id <= 42; id++) {
-              expect(
-                controller.store.read<Post>(_siteUrl, id),
-                same(replacementPosts[id - 1]),
-              );
-            }
-            expect(
-              controller.selectedTopicPostIds(_siteUrl, _topicId),
-              _selectedIds.toSet(),
-            );
-            _expectLocks(controller, true);
+          }
+          expect(
+            controller.selectedTopicPostIds(_siteUrl, _topicId),
+            _selectedIds.toSet(),
+          );
+          _expectLocks(controller, true);
 
-            replacementGate.complete();
-            expect(
-              await replacementWrite,
-              isA<PostMutationAccepted>().having(
-                (r) => r.projection,
-                'projection',
-                PostProjectionFreshness.fresh,
-              ),
-            );
-            expect(api.refreshes, hasLength(pendingBatch + 3));
-            expect(
-              api.refreshes.skip(pendingBatch).map((request) => request.apiKey),
-              everyElement('api-key'),
-            );
-            _expectLocks(controller, false);
-          },
-        );
+          replacementGate.complete();
+          expect(
+            await replacementWrite,
+            isA<PostMutationAccepted>().having(
+              (r) => r.projection,
+              'projection',
+              PostProjectionFreshness.fresh,
+            ),
+          );
+          expect(api.refreshes, hasLength(6));
+          expect(
+            api.refreshes.skip(3).map((request) => request.apiKey),
+            everyElement('api-key'),
+          );
+          _expectLocks(controller, false);
+        });
 
-        test(
-          'stops after batch $pendingBatch completes following disposal',
-          () async {
-            final (:controller, :api, authenticator: _) = await _fixture();
-            final response = api.holdRefresh(pendingBatch);
-            final writing = _write(controller, action);
-            await api.waitForRefreshes(pendingBatch);
-            expect(_writtenIds(api, action), [_selectedIds]);
-            _expectPosts(controller, 'initial');
-            final postGeneration = controller.store.generationOf<Post>(
-              _siteUrl,
-            );
-            final topicGeneration = controller.store.generationOf<TopicDetail>(
-              _siteUrl,
-            );
+        test('discards its page wave when batch $pendingBatch completes '
+            'following disposal', () async {
+          final (:controller, :api, authenticator: _) = await _fixture();
+          final response = api.holdRefresh(pendingBatch);
+          final writing = _write(controller, action);
+          await api.waitForRefreshes(3);
+          expect(_writtenIds(api, action), [_selectedIds]);
+          _expectPosts(controller, 'initial');
+          final postGeneration = controller.store.generationOf<Post>(_siteUrl);
+          final topicGeneration = controller.store.generationOf<TopicDetail>(
+            _siteUrl,
+          );
 
-            response.complete(_refreshed(api.refreshes.last.ids));
-            controller.dispose();
-            await writing;
+          response.complete(_refreshed(api.refreshes[pendingBatch - 1].ids));
+          controller.dispose();
+          await writing;
 
-            expect(api.refreshes, hasLength(pendingBatch));
-            expect(
-              controller.store.generationOf<Post>(_siteUrl),
-              postGeneration,
-            );
-            expect(
-              controller.store.generationOf<TopicDetail>(_siteUrl),
-              topicGeneration,
-            );
-            _expectPosts(controller, 'initial');
-          },
-        );
+          expect(api.refreshes, hasLength(3));
+          expect(controller.store.generationOf<Post>(_siteUrl), postGeneration);
+          expect(
+            controller.store.generationOf<TopicDetail>(_siteUrl),
+            topicGeneration,
+          );
+          _expectPosts(controller, 'initial');
+        });
       }
 
       test(
@@ -351,7 +342,7 @@ void main() {
       final (:controller, :api, authenticator: _) = await _fixture();
       final response = api.holdRefresh(2);
       final writing = controller.deleteSelectedTopicPosts(_siteUrl, _topicId);
-      await api.waitForRefreshes(2);
+      await api.waitForRefreshes(3);
       _expectPosts(controller, 'initial');
       if (obsolete) await controller.disconnectCurrentInstance();
       final postGeneration = controller.store.generationOf<Post>(_siteUrl);
@@ -372,7 +363,7 @@ void main() {
         ),
       );
       expect(api.bulkDeleted, [_selectedIds]);
-      expect(api.refreshes, hasLength(2));
+      expect(api.refreshes, hasLength(3));
       expect(controller.store.generationOf<Post>(_siteUrl), postGeneration);
       expect(
         controller.store.generationOf<TopicDetail>(_siteUrl),
@@ -422,7 +413,7 @@ void main() {
       api.deleteFailure = const WriteException(WriteFailure.unreachable);
       final failed = api.holdRefresh(2);
       final writing = controller.deleteSelectedTopicPosts(_siteUrl, _topicId);
-      await api.waitForRefreshes(2);
+      await api.waitForRefreshes(3);
       failed.completeError(StateError('Second batch unavailable'));
       final outcome = await writing as PostMutationUncertain;
       expect(outcome.projection, PostProjectionFreshness.stale);
@@ -440,7 +431,7 @@ void main() {
       );
       expect(api.bulkDeleted, hasLength(1));
       expect(await outcome.recovery.refresh(), PostProjectionFreshness.fresh);
-      expect(api.refreshes.skip(2).map((r) => r.ids), [
+      expect(api.refreshes.skip(3).map((r) => r.ids), [
         _selectedIds.sublist(0, 20),
         _selectedIds.sublist(20, 40),
         [41],

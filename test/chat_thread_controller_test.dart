@@ -770,7 +770,7 @@ void main() {
         subject.chat.streamFor(site, target).error,
         'You no longer have access to this channel.',
       );
-      expect(api.callOrder, ['detail']);
+      expect(api.callOrder, ['detail', 'messages']);
     },
   );
 
@@ -1922,11 +1922,13 @@ void main() {
   );
 
   test(
-    'opening a thread waits for detail, stores its cursor, then targets messages',
+    'opening a thread overlaps detail with targeted messages and subscribes at '
+    'the detail cursor',
     () async {
       final api = _AdversarialThreadApi(
         detail: threadDetail(messageBusLastId: 701),
         holdDetail: true,
+        holdMessages: true,
         pages: {
           'thread-9-22~target~21': threadPage(
             [20, 21, 22],
@@ -1947,15 +1949,21 @@ void main() {
         targetMessageId: 21,
       );
       await api.detailStarted!.future;
+      await api.messagesStarted!.future;
 
-      expect(api.callOrder, ['detail']);
-      expect(api.chatThreadMessagesRequested, isEmpty);
+      expect(api.callOrder, ['detail', 'messages']);
       expect(
         tracker.pluginChannelCallbacks['/chat/9/thread/22'],
         anyOf(isNull, isEmpty),
       );
 
       api.detailGate!.complete();
+      await pumpEventQueue();
+      expect(tracker.pluginChannelCallbacks['/chat/9/thread/22'], isNotEmpty);
+      expect(tracker.pluginChannelLastIds['/chat/9/thread/22'], 701);
+      expect(subject.chat.streamFor(site, target).messageIds, isEmpty);
+
+      api.messagesGate!.complete();
       await opening;
 
       expect(api.callOrder, ['detail', 'messages']);
@@ -2918,6 +2926,7 @@ void main() {
     () async {
       final api = _AdversarialThreadApi(
         detail: threadDetail(),
+        holdDetail: true,
         holdMessages: true,
         pages: {
           'thread-9-22~target~20': threadPage(
@@ -2938,6 +2947,9 @@ void main() {
         targetMessageId: 20,
       );
       await api.messagesStarted!.future;
+      api.detailGate!.complete();
+      await pumpEventQueue();
+      expect(tracker.pluginChannelCallbacks['/chat/9/thread/22'], isNotEmpty);
       final event = threadSentEvent(30);
       tracker.deliverPluginMessage('/chat/9/thread/22', event);
       api.messagesGate!.complete();

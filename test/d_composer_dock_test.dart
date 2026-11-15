@@ -128,6 +128,25 @@ void main() {
           focus.unfocus();
           await tester.pumpAndSettle();
           expect(navigation.hitTestable(), findsOneWidget);
+          // After blur the composer stays open until the transcript scrolls.
+          expect(tester.widget<DInputGroup>(composer).compact, isFalse);
+          if (compactBeforeFocus) {
+            // Revealing the chrome releases the held composer; hiding it
+            // again folds the composer as it was before focus. The chrome
+            // holds its state briefly before a reversal.
+            for (final delta in [-160.0, 160.0]) {
+              await tester.pump(const Duration(milliseconds: 450));
+              await tester.sendEventToBinding(
+                PointerScrollEvent(
+                  position: tester.getCenter(
+                    find.byKey(const ValueKey('messages')),
+                  ),
+                  scrollDelta: Offset(0, delta),
+                ),
+              );
+              await tester.pumpAndSettle();
+            }
+          }
           expect(
             tester.widget<DInputGroup>(composer).compact,
             compactBeforeFocus,
@@ -248,19 +267,12 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         expect(navigationTop(), lessThan(844));
-        expect(tester.widget<DInputGroup>(composer).compact, folded);
-        if (folded) {
-          expect(
-            tester.getRect(composer).left,
-            greaterThan(focusedComposer.left),
-          );
-          expect(
-            tester.getRect(composer).right,
-            lessThan(focusedComposer.right),
-          );
-        } else {
-          expect(tester.getRect(composer).bottom, lessThan(844 - 280 - 6));
-        }
+        // After blur the composer stays open until the transcript scrolls,
+        // even where it was folded before focus.
+        expect(tester.widget<DInputGroup>(composer).compact, isFalse);
+        expect(tester.getRect(composer).left, focusedComposer.left);
+        expect(tester.getRect(composer).right, focusedComposer.right);
+        expect(tester.getRect(composer).bottom, lessThan(844 - 280 - 6));
 
         // A retraction as an iPhone reports it, one sample every 50ms.
         var composerBottom = tester.getRect(composer).bottom;
@@ -273,6 +285,22 @@ void main() {
         }
         await tester.pumpAndSettle();
         expect(navigationTop(), restingNavigationTop);
+        if (folded) {
+          expect(tester.widget<DInputGroup>(composer).compact, isFalse);
+          for (final delta in [-160.0, 160.0]) {
+            await tester.pump(const Duration(milliseconds: 450));
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: tester.getCenter(
+                  find.byKey(const ValueKey('messages')),
+                ),
+                scrollDelta: Offset(0, delta),
+              ),
+            );
+            await tester.pumpAndSettle();
+          }
+          expect(navigationTop(), restingNavigationTop);
+        }
         expect(tester.getRect(composer), restingComposer);
         expect(tester.takeException(), isNull);
       },

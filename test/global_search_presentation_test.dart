@@ -251,6 +251,9 @@ void main({bool useDeviceMetrics = false}) {
             siteUrl: globalSearchFixtureSite,
             capabilities: capabilities,
           );
+          // Taxonomy retires with the old lease, and the session that
+          // replaces it reloads categories before the sidebar can settle.
+          await shell.loadCategories(globalSearchFixtureSite);
           expect(shell.globalSearch.results, isEmpty);
         }
         panel.onOpen(result);

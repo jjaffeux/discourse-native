@@ -1497,6 +1497,7 @@ class _SnapshotHarnessState extends State<_SnapshotHarness> {
                   onDismiss: () => visit(entry - 1),
                   underlay: DHistoryTransition.previousPageUnderlayOf(context),
                   content: DSheetContent(
+                    side: DSheetSide.bottom,
                     variant: DSheetVariant.page,
                     showCloseButton: false,
                     children: [Expanded(child: Text('Visit $entry'))],
