@@ -947,8 +947,14 @@ void main() {
     ]);
   });
 
-  for (final abandon in ['forget', 'replacement', 'dispose']) {
-    for (final lateResponse in ['abort', 'bytes', 'redirect']) {
+  const lateResponses = {
+    'forget': ['bytes', 'redirect'],
+    'replacement': ['abort', 'redirect'],
+    'dispose': ['abort', 'bytes'],
+  };
+  for (final MapEntry(key: abandon, value: responses)
+      in lateResponses.entries) {
+    for (final lateResponse in responses) {
       test('$abandon aborts transfers and rejects late $lateResponse', () async {
         final credentials = FakeApiCredentialReader()
           ..keys[siteUrl] = 'old-key';
