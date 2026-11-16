@@ -1690,6 +1690,7 @@ void main() {
         await useScreen(tester, const Size(800, 600));
         await pumpGallery(tester);
 
+        expect(find.text('1920×1080 234 KB'), findsOneWidget);
         expect(barText('screenshot.png'), findsOneWidget);
         expect(barText('of 1'), findsNothing);
         expect(find.byType(DImageThumbnail), findsNothing);
@@ -1984,17 +1985,6 @@ void main() {
         await pumpGallery(tester, platform: TargetPlatform.iOS);
 
         expect(tester.getRect(find.byType(PageView)).bottom, 700 - 34);
-      });
-
-      testWidgets('the size details stay in a caption without the filename', (
-        tester,
-      ) async {
-        await useScreen(tester, const Size(800, 600));
-        await pumpGallery(tester);
-
-        expect(find.text('1920×1080 234 KB'), findsOneWidget);
-        // One match in the whole gallery: the caption no longer repeats it.
-        expect(barText('screenshot.png'), findsOneWidget);
       });
 
       testWidgets('offers each thumbnail to assistive technology', (
