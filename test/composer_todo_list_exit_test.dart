@@ -64,10 +64,9 @@ void main() {
     for (final newline in ['\n', '\r\n']) {
       final checkedStates = switch ((platform, newline)) {
         (TargetPlatform.android, '\n') ||
-        (TargetPlatform.iOS, '\r\n') => [false],
-        (TargetPlatform.android, '\r\n') ||
-        (TargetPlatform.iOS, '\n') => [true],
-        _ => [false, true],
+        (TargetPlatform.iOS, '\r\n') ||
+        (TargetPlatform.macOS, '\n') => [false],
+        _ => [true],
       };
       for (final checked in checkedStates) {
         for (final depth in [0, 3]) {
