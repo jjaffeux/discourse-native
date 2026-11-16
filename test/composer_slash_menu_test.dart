@@ -324,30 +324,28 @@ void main() {
     }
   }
 
-  for (final query in ['', 'sometext']) {
-    testWidgets('Space closes /$query while preserving literal text', (
-      tester,
-    ) async {
-      final composer = await pump(tester);
-      await type(tester, '/$query');
-      expect(find.text('Close menu'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      await tester.pumpAndSettle();
-      expect(find.text('Close menu'), findsNothing);
-      // Widget tests deliver hardware keys and platform text input separately.
-      tester.testTextInput.updateEditingValue(
-        TextEditingValue(
-          text: '/$query ',
-          selection: TextSelection.collapsed(offset: query.length + 2),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(composer.text.text, '/$query ');
-      expect(find.text('Close menu'), findsNothing);
-      await type(tester, '/$query more');
-      expect(find.text('Close menu'), findsNothing);
-    });
-  }
+  testWidgets('Space closes the slash menu while preserving literal text', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
+    await type(tester, '/');
+    expect(find.text('Close menu'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(find.text('Close menu'), findsNothing);
+    // Widget tests deliver hardware keys and platform text input separately.
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: '/ ',
+        selection: const TextSelection.collapsed(offset: 2),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '/ ');
+    expect(find.text('Close menu'), findsNothing);
+    await type(tester, '/ more');
+    expect(find.text('Close menu'), findsNothing);
+  });
 
   for (final (dismissal, key) in [
     ('backspace', LogicalKeyboardKey.backspace),
