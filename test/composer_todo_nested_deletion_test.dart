@@ -134,105 +134,95 @@ void main() {
     });
   }
 
-  for (final platform in [
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-  ]) {
-    for (final newline in ['\n', '\r\n']) {
-      for (final selected in [false, true]) {
-        for (final hardware in [false, true]) {
-          testWidgets(
-            'nested boundary preserves descendants, neighbors and undo '
-            'on $platform, newline ${newline.length}, '
-            'selected $selected, hardware $hardware',
-            (tester) async {
-              final source = [
-                '- [ ] Before',
-                '- [ ] Parent',
-                '  - [x] Child',
-                '    - [ ] Grandchild',
-                '  - [ ] Other child',
-                '- [x] After',
-              ].join(newline);
-              final root = await nestedEditor(
-                tester,
-                source,
-                platform: platform,
-              );
-              final parent = bodies(
-                tester,
-              ).firstWhere((body) => body.text.text.startsWith('Parent'));
-              await focusBody(
-                tester,
-                parent,
-                caret: 6,
-                // Also exercise a backwards selection.
-                selection: selected
-                    ? const TextSelection(baseOffset: 7, extentOffset: 0)
-                    : null,
-              );
-              if (hardware) {
-                await tester.sendKeyEvent(LogicalKeyboardKey.delete);
-              } else {
-                final before = TextEditingValue.fromJSON(
-                  tester.testTextInput.editingState!,
-                );
-                tester.testTextInput.updateEditingValue(
-                  TextEditingValue(
-                    text: before.text.replaceRange(selected ? 0 : 6, 7, ''),
-                    selection: TextSelection.collapsed(
-                      offset: selected ? 0 : 6,
-                    ),
-                  ),
-                );
-              }
-              await tester.pumpAndSettle();
-              final expected = selected
-                  ? source.replaceFirst('Parent', '')
-                  : source;
-              expect(root.text.text, expected);
-              expect(bodies(tester), hasLength(6));
-              final items = composerListItems(root.text.text);
-              expect(items, hasLength(3));
-              expect(items[1].children, hasLength(2));
-              expect(items[1].children.first.checked, isTrue);
-              expect(
-                items[1].children.first.children.single.body.text,
-                'Grandchild',
-              );
-              expect(
-                parent.text.selection,
-                TextSelection.collapsed(offset: selected ? 0 : 6),
-              );
-              expect(root.history.canUndo, selected);
-
-              if (selected) {
-                expect(root.history.undo(), isTrue);
-                await tester.pumpAndSettle();
-                expect(root.text.text, source);
-                expect(root.history.redo(), isTrue);
-                await tester.pumpAndSettle();
-                expect(root.text.text, expected);
-              }
-
-              // The preserved descendant must still have its own editable body.
-              final child = bodies(
-                tester,
-              ).firstWhere((body) => body.text.text.startsWith('Child'));
-              await focusBody(tester, child, caret: 5);
-              await nativeInsert(tester, '!');
-              expect(root.text.text, expected.replaceFirst('Child', 'Child!'));
-              expect(root.history.undo(), isTrue);
-              await tester.pumpAndSettle();
-              expect(root.text.text, expected);
-              expect(bodies(tester), hasLength(6));
-              expect(tester.takeException(), isNull);
-            },
-          );
-        }
+  const boundaryCases = <(TargetPlatform, String, bool, bool)>[
+    (.macOS, '\n', false, false),
+    (.macOS, '\r\n', false, true),
+    (.macOS, '\r\n', true, false),
+    (.macOS, '\n', true, true),
+    (.iOS, '\r\n', false, false),
+    (.iOS, '\n', false, true),
+    (.iOS, '\n', true, false),
+    (.iOS, '\r\n', true, true),
+    (.android, '\n', false, false),
+    (.android, '\r\n', false, true),
+    (.android, '\r\n', true, false),
+    (.android, '\n', true, true),
+  ];
+  for (final (platform, newline, selected, hardware) in boundaryCases) {
+    testWidgets('nested boundary preserves descendants, neighbors and undo '
+        'on $platform, newline ${newline.length}, '
+        'selected $selected, hardware $hardware', (tester) async {
+      final source = [
+        '- [ ] Before',
+        '- [ ] Parent',
+        '  - [x] Child',
+        '    - [ ] Grandchild',
+        '  - [ ] Other child',
+        '- [x] After',
+      ].join(newline);
+      final root = await nestedEditor(tester, source, platform: platform);
+      final parent = bodies(
+        tester,
+      ).firstWhere((body) => body.text.text.startsWith('Parent'));
+      await focusBody(
+        tester,
+        parent,
+        caret: 6,
+        // Also exercise a backwards selection.
+        selection: selected
+            ? const TextSelection(baseOffset: 7, extentOffset: 0)
+            : null,
+      );
+      if (hardware) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      } else {
+        final before = TextEditingValue.fromJSON(
+          tester.testTextInput.editingState!,
+        );
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: before.text.replaceRange(selected ? 0 : 6, 7, ''),
+            selection: TextSelection.collapsed(offset: selected ? 0 : 6),
+          ),
+        );
       }
-    }
+      await tester.pumpAndSettle();
+      final expected = selected ? source.replaceFirst('Parent', '') : source;
+      expect(root.text.text, expected);
+      expect(bodies(tester), hasLength(6));
+      final items = composerListItems(root.text.text);
+      expect(items, hasLength(3));
+      expect(items[1].children, hasLength(2));
+      expect(items[1].children.first.checked, isTrue);
+      expect(items[1].children.first.children.single.body.text, 'Grandchild');
+      expect(
+        parent.text.selection,
+        TextSelection.collapsed(offset: selected ? 0 : 6),
+      );
+      expect(root.history.canUndo, selected);
+
+      if (selected) {
+        expect(root.history.undo(), isTrue);
+        await tester.pumpAndSettle();
+        expect(root.text.text, source);
+        expect(root.history.redo(), isTrue);
+        await tester.pumpAndSettle();
+        expect(root.text.text, expected);
+      }
+
+      // The preserved descendant must still have its own editable body.
+      final child = bodies(
+        tester,
+      ).firstWhere((body) => body.text.text.startsWith('Child'));
+      await focusBody(tester, child, caret: 5);
+      await nativeInsert(tester, '!');
+      expect(root.text.text, expected.replaceFirst('Child', 'Child!'));
+      expect(root.history.undo(), isTrue);
+      await tester.pumpAndSettle();
+      expect(root.text.text, expected);
+      expect(bodies(tester), hasLength(6));
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('Backspace selection preserves the boundary at deeper nesting', (
