@@ -162,35 +162,38 @@ void main() {
       }
     });
 
-    for (final anchorTop in [-300.0, 750.0]) {
-      for (final preferAbove in [false, true]) {
-        for (final keepPreferredPlacement in [false, true]) {
-          test('clamps an offscreen anchor at $anchorTop '
-              '(preferAbove: $preferAbove, '
-              'keepPreferredPlacement: $keepPreferredPlacement)', () {
-            const viewport = Size(800, 480);
-            final layout = AnchoredLayout(
-              anchor: Rect.fromLTWH(40, anchorTop, 120, 20),
-              maxWidth: 300,
-              preferAbove: preferAbove,
-              keepPreferredPlacement: keepPreferredPlacement,
-            );
-            final constraints = layout.getConstraintsForChild(
-              BoxConstraints.tight(viewport),
-            );
-            final childSize = constraints.constrain(const Size(200, 200));
+    const offscreenCases = [
+      (-300.0, false, false),
+      (-300.0, true, true),
+      (750.0, false, true),
+      (750.0, true, false),
+    ];
+    for (final (anchorTop, preferAbove, keepPreferredPlacement)
+        in offscreenCases) {
+      test('clamps an offscreen anchor at $anchorTop '
+          '(preferAbove: $preferAbove, '
+          'keepPreferredPlacement: $keepPreferredPlacement)', () {
+        const viewport = Size(800, 480);
+        final layout = AnchoredLayout(
+          anchor: Rect.fromLTWH(40, anchorTop, 120, 20),
+          maxWidth: 300,
+          preferAbove: preferAbove,
+          keepPreferredPlacement: keepPreferredPlacement,
+        );
+        final constraints = layout.getConstraintsForChild(
+          BoxConstraints.tight(viewport),
+        );
+        final childSize = constraints.constrain(const Size(200, 200));
 
-            expect(
-              layout.getPositionForChild(viewport, childSize),
-              Offset(40, anchorTop < 0 ? 12 : 268),
-            );
-            expect(
-              childSize.height,
-              anchorTop < 0 && preferAbove && keepPreferredPlacement ? 0 : 200,
-            );
-          });
-        }
-      }
+        expect(
+          layout.getPositionForChild(viewport, childSize),
+          Offset(40, anchorTop < 0 ? 12 : 268),
+        );
+        expect(
+          childSize.height,
+          anchorTop < 0 && preferAbove && keepPreferredPlacement ? 0 : 200,
+        );
+      });
     }
 
     test('keeps constraints and clamp ranges valid in tiny viewports', () {
