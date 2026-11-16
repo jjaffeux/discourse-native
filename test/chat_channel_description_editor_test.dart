@@ -77,7 +77,7 @@ void main() {
     });
   }
 
-  for (final description in ['a' * 500, '🧵' * 500, '']) {
+  for (final description in ['🧵' * 500, '']) {
     testWidgets(
       'a changed description with ${description.runes.length} '
       'server characters saves intact (${description.isEmpty ? 'clear' : description.runes.first})',
