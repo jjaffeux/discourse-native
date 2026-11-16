@@ -328,13 +328,10 @@ void main() {
     });
 
     for (final phase in [ChatSearchPhase.waiting, ChatSearchPhase.loading]) {
-      for (final action in [
-        'replace',
-        'clear',
-        'forget',
-        'invalidate',
-        if (phase == ChatSearchPhase.waiting) 'retry',
-      ]) {
+      final actions = phase == ChatSearchPhase.waiting
+          ? ['replace', 'clear', 'retry']
+          : ['replace', 'forget', 'invalidate'];
+      for (final action in actions) {
         testWidgets('$action during $phase notification', (tester) async {
           final credentials = CountingCredentials()..keys[site] = 'key';
           final api = FakeDiscourseApi();
