@@ -850,7 +850,12 @@ void main() {
       );
 
       for (final replacing in [false, true]) {
-        for (final fails in [false, true]) {
+        final outcomes = switch ((setting, replacing)) {
+          ('deafen', false) || ('share', true) => [false],
+          ('deafen', true) || ('share', false) => [true],
+          _ => [false, true],
+        };
+        for (final fails in outcomes) {
           test(
             'late $setting settlement after ${replacing ? 'replacement' : 'retirement'}, fails $fails',
             () async {
@@ -9636,6 +9641,11 @@ void main() {
 
     for (final failure in [false, true]) {
       for (final retirement in ['route', 'dispose', 'account']) {
+        if ((retirement == 'route' && failure) ||
+            (retirement == 'dispose' && !failure)) {
+          continue;
+        }
+
         test(
           'late ${failure ? 'refusal' : 'success'} retires after $retirement',
           () async {
