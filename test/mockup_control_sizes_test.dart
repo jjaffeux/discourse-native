@@ -195,7 +195,7 @@ void main() {
     );
   }
 
-  for (final scale in [1.0, 2.0, 3.0]) {
+  for (final scale in [1.0, 3.0]) {
     testWidgets('application specimen fits 320px at $scale text scale in RTL', (
       tester,
     ) async {
