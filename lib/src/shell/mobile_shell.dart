@@ -32,6 +32,7 @@ import 'mobile_place_order_controller.dart';
 import 'mobile_presentation.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'user_menu.dart';
 import 'user_menu_button.dart';
@@ -319,7 +320,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         Widget belowSearchHeader(Widget child, {bool inset = true}) => Builder(
           builder: (context) => Padding(
             padding: EdgeInsets.only(
-              top: inset ? DSheetDragScope.topBarExtentOf(context) + 6 : 0,
+              top: inset
+                  ? DSheetDragScope.topBarExtentOf(context) + mobilePageTopGap
+                  : 0,
             ),
             child: child,
           ),
@@ -768,7 +771,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                               searchOpen ||
                                   pageSheetOpen && route?.isTopic == true
                               ? 0
-                              : 6,
+                              : mobilePageTopGap,
                         ),
                         child: ForumMobileSurface(
                           key: const ValueKey('mobile-content-panel'),
@@ -1435,7 +1438,8 @@ class _MobileFrameLayout extends MultiChildLayoutDelegate {
     report(header.height * (1 - navigationProgress));
     final top = navigationOpen || overlaysHeader
         ? 0.0
-        : (raised ? 8.0 : header.height) * (1 - navigationProgress);
+        : (raised ? mobileRaisedPageTop : header.height) *
+              (1 - navigationProgress);
     layoutChild(
       _MobileFrameSlot.page,
       BoxConstraints.tight(Size(size.width, math.max(0, size.height - top))),

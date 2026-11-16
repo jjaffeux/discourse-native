@@ -225,7 +225,8 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                           ? Padding(
                               padding: EdgeInsets.only(
                                 top:
-                                    DSheetDragScope.topBarExtentOf(context) + 6,
+                                    DSheetDragScope.topBarExtentOf(context) +
+                                    mobilePageTopGap,
                               ),
                               child: TickerMode(enabled: false, child: primary),
                             )
@@ -263,6 +264,15 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         ? DHistoryTransition.previousPageUnderlayOf(context)
         : null;
     final useLiveUnderlay = retainPreviousSheet && previousSheetPreview == null;
+    // The topic rises over the bar. A hidden live page still needs its original
+    // viewport behind the snapshot so its scroll bounds stay the same.
+    final retainedTopInset =
+        previousSheetPreview != null && currentRoute?.isTopic == true
+        ? (DSheetDragScope.topBarExtentOf(context) +
+                  mobilePageTopGap -
+                  mobileRaisedPageTop)
+              .clamp(0.0, double.infinity)
+        : 0.0;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -275,7 +285,10 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                 excluding: retainPreviousSheet,
                 child: DPageHeaderHost.exclude(
                   excluding: retainPreviousSheet,
-                  child: basePages,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: retainedTopInset),
+                    child: basePages,
+                  ),
                 ),
               ),
             ),

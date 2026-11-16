@@ -10,6 +10,9 @@ const double workspaceEdgeInset = 6;
 const double shellHeaderHeight = 52;
 const double readerHeaderHeight = 44;
 
+const double mobilePageTopGap = 6;
+const double mobileRaisedPageTop = 8;
+
 /// The desktop title bar's chrome row, including its vertical control insets.
 const double shellTitleBarHeight = 49;
 

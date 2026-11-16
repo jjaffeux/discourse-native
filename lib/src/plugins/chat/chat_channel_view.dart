@@ -1675,8 +1675,27 @@ class _StreamState extends State<ChatMessageStream>
       _shell?.removeListener(_readDwell.sync);
       _shell = shell..addListener(_readDwell.sync);
     }
+    final wasTickerEnabled = _tickerEnabled;
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
     _readDwell.sync();
+    if (wasTickerEnabled && !_tickerEnabled && context.isTouch) {
+      // TickerMode only mutes a fling. Stop it while covered so elapsed time
+      // behind the sheet cannot move the transcript when it is revealed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _tickerEnabled || !_scroll.hasClients) return;
+        final position = _scroll.position;
+        if (!position.hasContentDimensions ||
+            !position.isScrollingNotifier.value) {
+          return;
+        }
+        position.jumpTo(
+          position.pixels.clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          ),
+        );
+      });
+    }
   }
 
   @override

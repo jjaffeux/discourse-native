@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -35,6 +36,13 @@ final _handle = find.byKey(const ValueKey('sheet-drag-handle'));
 final _sheet = find.byType(DSheetContent);
 final _header = find.byKey(const ValueKey('mobile-header'));
 final _dock = find.byKey(const ValueKey('mobile-bottom-bar'));
+final _channelScroll = find.descendant(
+  of: find.descendant(
+    of: find.byType(ChatChannelView),
+    matching: find.byType(DMessageScrollerViewport),
+  ),
+  matching: find.byType(Scrollable),
+);
 const _platforms = TargetPlatformVariant({
   TargetPlatform.iOS,
   TargetPlatform.android,
@@ -590,15 +598,9 @@ void main() {
     final shell = await _fixture(tester);
     shell.openChatChannel(10);
     await tester.pumpAndSettle();
-    final transcript = find
-        .descendant(
-          of: find.byType(ChatChannelView),
-          matching: find.byType(Scrollable),
-        )
-        .first;
     double channelOffset() =>
-        tester.state<ScrollableState>(transcript).position.pixels;
-    await tester.drag(transcript, const Offset(0, 360));
+        tester.state<ScrollableState>(_channelScroll).position.pixels;
+    await tester.drag(_channelScroll, const Offset(0, 360));
     await tester.pumpAndSettle();
     final before = channelOffset();
     expect(before, greaterThan(100));
@@ -620,6 +622,58 @@ void main() {
     expect(channelOffset(), closeTo(before, 1));
     await tester.pumpAndSettle();
     expect(channelOffset(), closeTo(before, 1));
+  }, variant: _platforms);
+
+  testWidgets('dismissing a thread leaves the covered channel at rest', (
+    tester,
+  ) async {
+    final shell = await _fixture(tester);
+    shell.openChatChannel(10);
+    await tester.pumpAndSettle();
+    final position = tester.state<ScrollableState>(_channelScroll).position;
+    await tester.fling(_channelScroll, const Offset(0, 180), 1500);
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(position.isScrollingNotifier.value, isTrue);
+
+    shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatThreadView), findsOneWidget);
+    final coveredOffset = position.pixels;
+    await _dismiss(tester);
+
+    expect(find.byType(ChatThreadView), findsNothing);
+    expect(
+      tester.state<ScrollableState>(_channelScroll).position.pixels,
+      closeTo(coveredOffset, .01),
+    );
+  }, variant: _platforms);
+
+  testWidgets('dismissing a topic keeps the channel at its oldest message', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+    final shell = await _fixture(tester);
+    shell.openChatChannel(10);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pumpAndSettle();
+    final position = tester.state<ScrollableState>(_channelScroll).position;
+    expect(position.pixels, greaterThan(100));
+    expect(position.extentAfter, closeTo(0, .01));
+    final channelVisit = shell.mobileNavigation.entryId;
+
+    shell.openTopic(const Topic(id: 7, title: 'Shared topic', slug: 'shared'));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 7);
+    await _dismiss(tester);
+
+    expect(shell.mobileNavigation.entryId, same(channelVisit));
+    expect(
+      tester.state<ScrollableState>(_channelScroll).position.extentAfter,
+      closeTo(0, .01),
+    );
   }, variant: _platforms);
 
   testWidgets('a thread swipe transitions to the channel folded dock', (
