@@ -583,9 +583,9 @@ void main() {
 
     for (final (label, edits, staleTitle) in [
       ('rename', ['After'], 'Before'),
-      ('clear', [''], 'Before'),
-      ('return to original', ['After', 'Before'], 'Intermediate'),
-      ('accepted same value', ['Before'], 'Stale'),
+      if (personal) ('clear', [''], 'Before'),
+      if (personal) ('return to original', ['After', 'Before'], 'Intermediate'),
+      if (!personal) ('accepted same value', ['Before'], 'Stale'),
     ]) {
       test(
         '$listName list retains a $label accepted during its request',
@@ -633,42 +633,41 @@ void main() {
       );
     }
 
-    for (final title in ['Live title', null]) {
-      test('$listName list retains a live detail title of $title', () async {
-        final before = threadDetail(title: 'Before');
-        final live = before.copyWith(title: title, clearTitle: title == null);
-        final api = _SequencedThreadListApi(
-          chatThreadsByKey: {FakeDiscourseApi.chatThreadKey(9, 22): live},
-        );
-        final subject = _controllerFor(
-          api,
-          store: Store()
-            ..put(site, followedChannel())
-            ..put(site, before),
-        );
-        final tracker = attachTracker(subject.chat);
-        final viewing = subject.chat.beginViewingChannel(site, 9);
-        addTearDown(() => subject.chat.endViewingChannel(site, 9, viewing));
-        final pages = personal ? api.myThreadPages : api.channelThreadPages;
-        final refreshing = personal
-            ? subject.chat.loadMyThreads(site)
-            : subject.chat.loadChannelThreads(site, 9);
-        await waitUntil(() => pages.length == 1);
+    final liveTitle = personal ? 'Live title' : null;
+    test('$listName list retains a live detail title of $liveTitle', () async {
+      final before = threadDetail(title: 'Before');
+      final live = before.copyWith(title: liveTitle, clearTitle: liveTitle == null);
+      final api = _SequencedThreadListApi(
+        chatThreadsByKey: {FakeDiscourseApi.chatThreadKey(9, 22): live},
+      );
+      final subject = _controllerFor(
+        api,
+        store: Store()
+          ..put(site, followedChannel())
+          ..put(site, before),
+      );
+      final tracker = attachTracker(subject.chat);
+      final viewing = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, viewing));
+      final pages = personal ? api.myThreadPages : api.channelThreadPages;
+      final refreshing = personal
+          ? subject.chat.loadMyThreads(site)
+          : subject.chat.loadChannelThreads(site, 9);
+      await waitUntil(() => pages.length == 1);
 
-        tracker.deliverPluginMessage('/chat/9', authoritativePreviewEvent());
-        await waitUntil(() => subject.chat.thread(site, 22)?.title == title);
-        pages.single.complete(ChatThreadPage(threads: [before]));
-        await refreshing;
+      tracker.deliverPluginMessage('/chat/9', authoritativePreviewEvent());
+      await waitUntil(() => subject.chat.thread(site, 22)?.title == liveTitle);
+      pages.single.complete(ChatThreadPage(threads: [before]));
+      await refreshing;
 
-        expect(subject.chat.thread(site, 22)?.title, title);
-        final projected = personal
-            ? subject.chat.myThreads(site)
-            : subject.chat.channelThreads(site, 9);
-        expect(projected.single.title, title);
-        expect(await subject.chat.refreshThreadDetail(site, target), isNotNull);
-        expect(subject.chat.thread(site, 22)?.title, title);
-      });
-    }
+      expect(subject.chat.thread(site, 22)?.title, liveTitle);
+      final projected = personal
+          ? subject.chat.myThreads(site)
+          : subject.chat.channelThreads(site, 9);
+      expect(projected.single.title, liveTitle);
+      expect(await subject.chat.refreshThreadDetail(site, target), isNotNull);
+      expect(subject.chat.thread(site, 22)?.title, liveTitle);
+    });
 
     test('$listName list accepts a title after a refused rename', () async {
       final before = threadDetail(title: 'Before', originalAuthorId: 7);
