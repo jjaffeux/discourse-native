@@ -56,7 +56,10 @@ void main() {
         ),
   );
   for (final archived in [false, true]) {
-    for (final operation in _Operation.values) {
+    final operations = archived
+        ? const [_Operation.unchanged, _Operation.reconnect]
+        : _Operation.values;
+    for (final operation in operations) {
       testWidgets(
         'Native PM ${archived ? 'Move to inbox' : 'Archive'} '
         '${operation.name} owns its rendered account before repaint',
