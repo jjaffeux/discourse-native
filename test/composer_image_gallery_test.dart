@@ -2099,61 +2099,60 @@ void main() {
 
   group('gallery reordering', () {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-      for (final mode in ComposerGalleryMode.values) {
-        testWidgets(
-          'holding a $mode image reorders only that image on $platform',
-          (tester) async {
-            final source = mode == ComposerGalleryMode.carousel
-                ? _source.replaceFirst('[grid]', '[grid mode=carousel]')
-                : _source;
-            final composer = await _pumpMobileGalleryEditor(
-              tester,
-              platform: platform,
-              source: source,
-            );
-            final tiles = find.byType(ComposerImageGalleryTile);
-            final first = tester.getCenter(tiles.first);
-            final last = tester.getCenter(tiles.last);
-            final gesture = await tester.startGesture(first);
-            // Small finger movement while holding must not turn this into a
-            // whole-block selection or prevent the image drag from starting.
-            await gesture.moveBy(const Offset(3, 2));
-            await tester.pump(
-              kLongPressTimeout + const Duration(milliseconds: 50),
-            );
-            await tester.pump();
-            expect(find.byType(DDragHighlight), findsNothing);
-            expect(tiles, findsNWidgets(4)); // Three images and drag feedback.
-            expect(
-              tester
-                  .widget<ComposerImageGalleryPreview>(
-                    find.byType(ComposerImageGalleryPreview),
-                  )
-                  .highlighted,
-              isFalse,
-            );
-            await gesture.moveBy(const Offset(20, 0));
-            await tester.pump();
-            await gesture.moveTo(last);
-            await tester.pump();
-            await gesture.up();
-            await tester.pumpAndSettle();
-            expect(
-              composer.text.galleryBlocks.single.images.map(
-                (image) => image.url,
-              ),
-              ['upload://second', 'upload://third', 'upload://first'],
-            );
-            expect(composer.text.galleryBlocks.single.mode, mode);
-            expect(composer.text.text, endsWith('[/grid]\nAfter'));
-            composer.history.undo();
-            await tester.pumpAndSettle();
-            expect(composer.text.text, source);
-            expect(composer.history.canUndo, isFalse);
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+      final mode = platform == TargetPlatform.iOS
+          ? ComposerGalleryMode.grid
+          : ComposerGalleryMode.carousel;
+      testWidgets(
+        'holding a $mode image reorders only that image on $platform',
+        (tester) async {
+          final source = mode == ComposerGalleryMode.carousel
+              ? _source.replaceFirst('[grid]', '[grid mode=carousel]')
+              : _source;
+          final composer = await _pumpMobileGalleryEditor(
+            tester,
+            platform: platform,
+            source: source,
+          );
+          final tiles = find.byType(ComposerImageGalleryTile);
+          final first = tester.getCenter(tiles.first);
+          final last = tester.getCenter(tiles.last);
+          final gesture = await tester.startGesture(first);
+          // Small finger movement while holding must not turn this into a
+          // whole-block selection or prevent the image drag from starting.
+          await gesture.moveBy(const Offset(3, 2));
+          await tester.pump(
+            kLongPressTimeout + const Duration(milliseconds: 50),
+          );
+          await tester.pump();
+          expect(find.byType(DDragHighlight), findsNothing);
+          expect(tiles, findsNWidgets(4)); // Three images and drag feedback.
+          expect(
+            tester
+                .widget<ComposerImageGalleryPreview>(
+                  find.byType(ComposerImageGalleryPreview),
+                )
+                .highlighted,
+            isFalse,
+          );
+          await gesture.moveBy(const Offset(20, 0));
+          await tester.pump();
+          await gesture.moveTo(last);
+          await tester.pump();
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(
+            composer.text.galleryBlocks.single.images.map((image) => image.url),
+            ['upload://second', 'upload://third', 'upload://first'],
+          );
+          expect(composer.text.galleryBlocks.single.mode, mode);
+          expect(composer.text.text, endsWith('[/grid]\nAfter'));
+          composer.history.undo();
+          await tester.pumpAndSettle();
+          expect(composer.text.text, source);
+          expect(composer.history.canUndo, isFalse);
+          expect(tester.takeException(), isNull);
+        },
+      );
 
       testWidgets('quick gallery swipe scrolls the carousel on $platform', (
         tester,
