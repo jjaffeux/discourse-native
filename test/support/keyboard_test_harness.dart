@@ -7,6 +7,7 @@ Map<String, Object> keyboardFramePayload({
   int elapsedMilliseconds = 0,
   int curve = 3,
   Map<String, double>? spring,
+  List<double>? samples,
 }) => {
   'frame': {'x': 0.0, 'y': 844 - inset, 'width': 390.0, 'height': inset},
   'bottomInset': inset,
@@ -14,6 +15,7 @@ Map<String, Object> keyboardFramePayload({
   'elapsed': elapsedMilliseconds / 1000,
   'curve': curve,
   'spring': ?spring,
+  'samples': ?samples,
 };
 
 Future<void> sendKeyboardFrame(
@@ -22,6 +24,7 @@ Future<void> sendKeyboardFrame(
   int milliseconds = 400,
   int curve = 3,
   Map<String, double>? spring,
+  List<double>? samples,
 }) async {
   await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
     'org.discourse.native/keyboard',
@@ -33,6 +36,7 @@ Future<void> sendKeyboardFrame(
           milliseconds: milliseconds,
           curve: curve,
           spring: spring,
+          samples: samples,
         ),
       ),
     ),

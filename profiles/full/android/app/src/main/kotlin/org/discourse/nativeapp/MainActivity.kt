@@ -8,11 +8,13 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val pushNotifications = AndroidPushNotifications(this)
     private val linkOpens = AndroidLinkOpens()
+    private val keyboardTransitions = AndroidKeyboardTransitions()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         pushNotifications.attach(flutterEngine.dartExecutor.binaryMessenger)
         linkOpens.attach(flutterEngine.dartExecutor.binaryMessenger)
+        keyboardTransitions.attach(flutterEngine.dartExecutor.binaryMessenger, window.decorView)
         linkOpens.didOpen(intent)
         pushNotifications.didOpen(intent)
         val credentials = CredentialStorage(applicationContext)
@@ -58,6 +60,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        keyboardTransitions.detach()
         linkOpens.detach()
         pushNotifications.detach()
         super.cleanUpFlutterEngine(flutterEngine)

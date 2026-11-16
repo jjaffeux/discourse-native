@@ -314,9 +314,10 @@ void main() {
   );
 
   for (final sizeToContent in [true, false]) {
-    for (final curve in [0, 3, 7]) {
+    // -1 stands for Android, which sends its interpolator as samples.
+    for (final curve in [0, 3, 7, -1]) {
       testWidgets(
-        'native keyboard timing drives the viewport inside the full sheet (content: $sizeToContent, curve: $curve)',
+        'native keyboard timing drives the viewport inside the full sheet (content: $sizeToContent, curve: ${curve < 0 ? 'samples' : curve})',
         (tester) async {
           const channel = MethodChannel('org.discourse.native/keyboard');
           tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -347,6 +348,9 @@ void main() {
             spring: curve == 7
                 ? {'mass': 1, 'stiffness': 100, 'damping': 20, 'velocity': 0}
                 : null,
+            samples: curve < 0
+                ? [for (var i = 0; i <= 32; i++) math.pow(i / 32, 2).toDouble()]
+                : null,
           );
           await tester.pump();
           expect(tester.getRect(sheet), opened);
@@ -362,6 +366,8 @@ void main() {
                 ? Curves.easeInOut.transform(t)
                 : curve == 7
                 ? (1 - (1 + 4 * t) * math.exp(-4 * t)) / (1 - 5 * math.exp(-4))
+                : curve < 0
+                ? t * t
                 : t;
             final rect = tester.getRect(sheet);
             expect(rect.left, 0);
