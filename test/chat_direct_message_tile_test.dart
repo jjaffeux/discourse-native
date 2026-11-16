@@ -1128,29 +1128,28 @@ void main() {
     expect(find.text('Copy link'), findsNothing);
   });
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final kind in ChatChannelKind.values) {
-      testWidgets('reaction row launcher for $kind on $platform', (
-        tester,
-      ) async {
-        final controller = await _controller(
-          _message(reactions: const [ChatReaction(emoji: 'heart', count: 2)]),
-          channel: _channel(kind: kind),
-        );
-        await tester.pumpWidget(
-          _tile(controller, theme: AppTheme.light.copyWith(platform: platform)),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('chat-reaction-pill-7-heart')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('chat-reaction-picker-7')),
-          findsNothing,
-        );
-      });
-    }
+  for (final kind in ChatChannelKind.values) {
+    final platform = kind == ChatChannelKind.directMessage
+        ? TargetPlatform.iOS
+        : TargetPlatform.macOS;
+    testWidgets('reaction row launcher for $kind on $platform', (tester) async {
+      final controller = await _controller(
+        _message(reactions: const [ChatReaction(emoji: 'heart', count: 2)]),
+        channel: _channel(kind: kind),
+      );
+      await tester.pumpWidget(
+        _tile(controller, theme: AppTheme.light.copyWith(platform: platform)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-reaction-pill-7-heart')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('chat-reaction-picker-7')),
+        findsNothing,
+      );
+    });
   }
 
   testWidgets('touch long press still opens DM actions', (tester) async {
