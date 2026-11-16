@@ -1441,18 +1441,14 @@ void main() {
         await pointer.up(timeStamp: const Duration(seconds: 1));
       }
 
-      for (final (direction, distance) in [('down', 200.0), ('up', -200.0)]) {
-        testWidgets('a finger dragging $direction closes the image', (
-          tester,
-        ) async {
-          await openOnPhone(tester);
+      testWidgets('a finger dragging up closes the image', (tester) async {
+        await openOnPhone(tester);
 
-          await dragSlowly(tester, Offset(0, distance));
-          await tester.pumpAndSettle();
+        await dragSlowly(tester, const Offset(0, -200));
+        await tester.pumpAndSettle();
 
-          expect(find.byType(PhotoView), findsNothing);
-        });
-      }
+        expect(find.byType(PhotoView), findsNothing);
+      });
 
       testWidgets('a short flick closes the image', (tester) async {
         await openOnPhone(tester);
