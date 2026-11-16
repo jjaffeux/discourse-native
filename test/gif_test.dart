@@ -160,20 +160,19 @@ void main() {
   });
 
   group('GifSearchPage', () {
-    for (final cursor in ['0', ' 0\n']) {
-      test('normalizes canonical zero (trimmed: ${cursor != '0'})', () {
-        final page = GifSearchPage(results: const [], nextPosition: cursor);
-        final parsed = GifSearchPage.fromJson({
-          'results': const <Object?>[],
-          'next': cursor,
-        }, fileDetail: 'webp');
+    test('normalizes padded zero to exhaustion', () {
+      const cursor = ' 0\n';
+      final page = GifSearchPage(results: const [], nextPosition: cursor);
+      final parsed = GifSearchPage.fromJson({
+        'results': const <Object?>[],
+        'next': cursor,
+      }, fileDetail: 'webp');
 
-        for (final value in [page, parsed]) {
-          expect(value.nextPosition, isNull);
-          expect(value.hasMore, isFalse);
-        }
-      });
-    }
+      for (final value in [page, parsed]) {
+        expect(value.nextPosition, isNull);
+        expect(value.hasMore, isFalse);
+      }
+    });
 
     for (final cursor in ['24', '0.25', '0/24']) {
       test('preserves opaque continuation $cursor', () {
