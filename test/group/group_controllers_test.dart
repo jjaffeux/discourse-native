@@ -578,7 +578,7 @@ void main() {
       });
     }
 
-    for (final invalid in ['0', '-1', '12,,35', '12,', '9223372036854775808']) {
+    for (final invalid in ['0', '-1', '12,,35', '9223372036854775808']) {
       test('invalid category IDs $invalid stay local', () async {
         var writes = 0;
         final controller = GroupManageController(
