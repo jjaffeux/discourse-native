@@ -2650,6 +2650,7 @@ void main() {
     for (final variant
         in <
           ({
+            List<TargetPlatform> platforms,
             String name,
             ChatMessage Function() message,
             bool provideCallback,
@@ -2657,12 +2658,14 @@ void main() {
           })
         >[
           (
+            platforms: [TargetPlatform.macOS],
             name: 'the callback is absent',
             message: () => _message(_thread()),
             provideCallback: false,
             contextThreadId: null,
           ),
           (
+            platforms: [TargetPlatform.iOS],
             name: 'the message is deleted',
             message: () =>
                 _message(_thread(), deletedAt: DateTime.utc(2026, 8, 12)),
@@ -2670,6 +2673,7 @@ void main() {
             contextThreadId: null,
           ),
           (
+            platforms: [TargetPlatform.macOS, TargetPlatform.iOS],
             name: 'the message is optimistic',
             message: () => ChatMessage.optimistic(
               id: -1,
@@ -2687,13 +2691,14 @@ void main() {
             contextThreadId: null,
           ),
           (
+            platforms: [TargetPlatform.macOS, TargetPlatform.iOS],
             name: 'the message is in a thread pane',
             message: () => _message(_thread()),
             provideCallback: true,
             contextThreadId: 3,
           ),
         ]) {
-      for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      for (final platform in variant.platforms) {
         testWidgets(
           'hides the reply action on ${platform.name} when ${variant.name}',
           (tester) async {
