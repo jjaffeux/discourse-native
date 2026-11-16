@@ -11,7 +11,8 @@ import 'controller.dart';
 
 bool composerNeedsCloseSheet(ComposerController composer) =>
     !composer.draft.isEmpty ||
-    (!composer.canSaveDraft && (composer.hasChanges || composer.metadataChanged));
+    (!composer.canSaveDraft &&
+        (composer.hasChanges || composer.metadataChanged));
 
 Future<void> closeComposerFromPanel({
   required BuildContext context,
@@ -143,6 +144,7 @@ Future<void> requestComposerDiscard({
         context: context,
         side: DSheetSide.bottom,
         variant: DSheetVariant.menu,
+        avoidKeyboard: false,
         canDismiss: canDismiss,
         builder: buildPrompt,
       );
@@ -464,23 +466,22 @@ class _DiscardComposerPromptState extends State<_DiscardComposerPrompt>
         key: const ValueKey('composer-close-sheet'),
         side: DSheetSide.bottom,
         variant: DSheetVariant.menu,
-        semanticLabel: message,
         showCloseButton: false,
         scrollWholeSheet: true,
         children: [
-          DSheetHeader(
-            children: [
-              DSheetTitle(child: Text(message)),
-              ?errorMessage,
-            ],
-          ),
-          DSheetFooter(
-            children: [
-              ?save,
-              cancel,
-              const SizedBox(height: DSpacing.lg),
-              ...destructiveActions,
-            ],
+          const DSheetHeader(children: []),
+          Semantics(
+            namesRoute: true,
+            label: message,
+            child: DSheetFooter(
+              children: [
+                ?errorMessage,
+                ?save,
+                cancel,
+                const SizedBox(height: DSpacing.lg),
+                ...destructiveActions,
+              ],
+            ),
           ),
         ],
       );

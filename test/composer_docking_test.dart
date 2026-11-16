@@ -1410,6 +1410,59 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('mobile close sheet slides up at its final height', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    composer.text.text = 'Keep this draft';
+    composer.focus.requestFocus();
+    final ratio = tester.view.devicePixelRatio;
+    tester.view.viewPadding = FakeViewPadding(bottom: 34 * ratio);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetViewInsets);
+    addTearDown(tester.view.resetPadding);
+    void setKeyboard(double inset) {
+      tester.view.viewInsets = FakeViewPadding(bottom: inset * ratio);
+      tester.view.padding = FakeViewPadding(
+        bottom: inset == 0 ? 34 * ratio : 0,
+      );
+    }
+
+    setKeyboard(300);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
+    await tester.pump();
+    final sheet = find.byKey(const ValueKey('composer-close-sheet'));
+    final frames = [tester.getRect(sheet)];
+    for (final inset in [280.0, 160.0, 60.0, 25.0, 5.0, 0.0]) {
+      setKeyboard(inset);
+      await tester.pump(const Duration(milliseconds: 24));
+      frames.add(tester.getRect(sheet));
+    }
+    await tester.pumpAndSettle();
+    expect(composer.focus.hasFocus, isFalse);
+    final settled = tester.getRect(sheet);
+    expect(frames.first.top, greaterThan(settled.top));
+    expect(settled.bottom, closeTo(800, .01));
+    for (var i = 0; i < frames.length; i++) {
+      expect(frames[i].height, closeTo(settled.height, .01));
+      expect(frames[i].top, greaterThanOrEqualTo(settled.top - .01));
+      if (i > 0) expect(frames[i].top, lessThanOrEqualTo(frames[i - 1].top));
+    }
+
+    await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(composer.focus.hasFocus, isTrue);
+    expect(composer.raw, 'Keep this draft');
+    await tester.runAsync(composer.flushDraft);
+  });
+
   testWidgets('mobile X isolates Discard in the close sheet', (tester) async {
     final harness = await _Harness.create(
       tester,
@@ -1432,6 +1485,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('composer-close')));
       await tester.pumpAndSettle();
       expect(sheet, findsOneWidget);
+      expect(
+        find.descendant(of: sheet, matching: find.text('Close composer')),
+        findsNothing,
+      );
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Close composer')),
+        matchesSemantics(label: 'Close composer', namesRoute: true),
+      );
       expect(cancel.hitTestable(), findsOneWidget);
       expect(discard.hitTestable(), findsOneWidget);
     }

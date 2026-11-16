@@ -1013,6 +1013,7 @@ Widget _sheetPresentation(
   GlobalKey? restAt,
   FocusNode? adaptiveInitialFocus,
   double? topBottomMaxWidth,
+  bool avoidKeyboard = true,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -1072,6 +1073,7 @@ Widget _sheetPresentation(
           dismissOnSwipe,
           variant: variant,
           topBottomMaxWidth: topBottomMaxWidth,
+          avoidKeyboard: avoidKeyboard,
           retainKeyboardInsets: retainKeyboardInsets,
           onRetainedDismiss: onRetainedDismiss,
           onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
@@ -1150,6 +1152,7 @@ Widget _sheetLayout(
   bool dismissOnSwipe, {
   DSheetVariant variant = DSheetVariant.standard,
   double? topBottomMaxWidth,
+  bool avoidKeyboard = true,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -1449,8 +1452,11 @@ Widget _sheetLayout(
       : layout;
   // Reading pages use their host's remaining inset. Restoring the raw view
   // inset after a Scaffold has resized would reserve the keyboard twice.
-  return !page && (fillAvailableHeight || viewportBottom)
-      ? _DSheetKeyboardInsets(child: retainedLayout)
+  return !page && (fillAvailableHeight || viewportBottom || !avoidKeyboard)
+      ? _DSheetKeyboardInsets(
+          avoidKeyboard: avoidKeyboard,
+          child: retainedLayout,
+        )
       : retainedLayout;
 }
 
@@ -2378,13 +2384,20 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 // so a bottom sheet still resizes as the keyboard opens and closes, while
 // preserving the caller's other MediaQuery overrides.
 class _DSheetKeyboardInsets extends StatelessWidget {
-  const _DSheetKeyboardInsets({required this.child});
+  const _DSheetKeyboardInsets({required this.child, this.avoidKeyboard = true});
 
   final Widget child;
+  final bool avoidKeyboard;
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    if (!avoidKeyboard) {
+      return MediaQuery(
+        data: media.copyWith(viewInsets: media.viewInsets.copyWith(bottom: 0)),
+        child: child,
+      );
+    }
     return MediaQuery.fromView(
       view: View.of(context),
       child: Builder(
@@ -3126,6 +3139,10 @@ Future<T?> showDSheet<T>({
 
   bool fillAvailableHeight = false,
 
+  /// Set to false for a compact bottom menu that takes focus from an editor
+  /// and should slide in at the height it will have once the keyboard hides.
+  bool avoidKeyboard = true,
+
   bool useRootNavigator = false,
   bool dismissOnSwipe = true,
   bool Function()? canDismiss,
@@ -3140,6 +3157,12 @@ Future<T?> showDSheet<T>({
 }) {
   assert(topBottomMaxWidth == null || topBottomMaxWidth > 0);
   assert(!keepFootInView || (sizeToContent && restAt == null));
+  assert(
+    avoidKeyboard ||
+        (side == DSheetSide.bottom &&
+            variant == DSheetVariant.menu &&
+            !fillAvailableHeight),
+  );
   return showDDialog<T>(
     context: context,
     builder: builder,
@@ -3170,6 +3193,7 @@ Future<T?> showDSheet<T>({
       contentLoading: contentLoading,
       restAt: restAt,
       topBottomMaxWidth: topBottomMaxWidth,
+      avoidKeyboard: avoidKeyboard,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),
