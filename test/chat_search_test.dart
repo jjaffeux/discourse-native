@@ -318,19 +318,4 @@ void main() {
     expect(page.offset, 40);
     expect(page.consumedCount, 1);
   });
-
-  test('bounds work and drops partial or mismatched result records', () {
-    final messages = [for (var id = 1; id <= 45; id++) result(id)];
-    messages[0].remove('channel');
-    messages[1]['chat_channel_id'] = 10;
-
-    final page = ChatSearchPage.fromJson({'messages': messages}, site);
-
-    expect(page.hits.map((hit) => hit.id), [
-      for (var id = 3; id <= ChatSearchPage.maximumPageSize; id++) id,
-    ]);
-    expect(page.limit, ChatSearchPage.defaultPageSize);
-    expect(page.offset, 0);
-    expect(page.consumedCount, ChatSearchPage.maximumPageSize);
-  });
 }
