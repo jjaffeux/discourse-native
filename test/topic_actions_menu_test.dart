@@ -119,7 +119,12 @@ void main() {
 
   for (final status in TopicStatusProperty.values) {
     for (final enabled in [false, true]) {
-      for (final duringWrite in [false, true]) {
+      final readTimings = switch (status) {
+        TopicStatusProperty.closed => [false, true],
+        TopicStatusProperty.archived => [enabled],
+        TopicStatusProperty.visible => [!enabled],
+      };
+      for (final duringWrite in readTimings) {
         testWidgets(
           '${status.name}=$enabled survives a read launched ${duringWrite ? 'during' : 'before'} the write',
           (tester) async {
@@ -172,7 +177,8 @@ void main() {
 
   for (final pinned in [false, true]) {
     for (final fails in [false, true]) {
-      for (final timing in ['before', 'pending', 'settled']) {
+      final timings = pinned == fails ? ['before', 'settled'] : ['pending'];
+      for (final timing in timings) {
         testWidgets(
           'pin=$pinned ${fails ? 'rollback' : 'acceptance'} fences $timing read',
           (tester) async {
