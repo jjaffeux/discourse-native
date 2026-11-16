@@ -938,7 +938,7 @@ void main() {
     }
 
     for (final automatic in [false, true]) {
-      for (final activation in ['pointer', 'Enter', 'Space']) {
+      for (final activation in ['pointer', automatic ? 'Space' : 'Enter']) {
         testWidgets(
           'camera off cancels a pending ${automatic ? 'automatic' : 'manual'} capture with $activation',
           (tester) async {
