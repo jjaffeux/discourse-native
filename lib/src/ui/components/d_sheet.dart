@@ -253,11 +253,11 @@ class DSheetViewport extends StatefulWidget {
   /// an anchored confirmation or action menu. Takes precedence over [onDismiss].
   final VoidCallback? onSwipeDismissRequested;
 
-  /// True while a full-height sheet's opaque canvas hides everything beneath
-  /// it, false while a swipe reveals it and once the sheet is gone. A host
-  /// that draws the covered content outside this viewport can skip painting
-  /// it while this is true. It changes during the frame that changes it,
-  /// including while the sheet builds and unmounts, so read it when painting.
+  /// True once a page sheet finishes entering or while a full-height sheet's
+  /// opaque canvas covers its background. A swipe or unmount clears it.
+  /// A host that draws the previous page outside this viewport can skip
+  /// painting it while this is true. Read it while painting because it can
+  /// change while the sheet builds or unmounts.
   final ValueNotifier<bool>? covering;
 
   @override
@@ -377,6 +377,7 @@ class _DSheetViewportState extends State<DSheetViewport>
         child: _DSheetCurves(
           animation: _entrance,
           opaque: false,
+          page: content != null,
           covering: widget.covering,
           readerIdentity: content == null
               ? null
@@ -908,6 +909,7 @@ class _DSheetCurves extends StatefulWidget {
   const _DSheetCurves({
     required this.animation,
     required this.opaque,
+    this.page = false,
     this.covering,
     this.readerIdentity,
     this.routePull,
@@ -920,6 +922,7 @@ class _DSheetCurves extends StatefulWidget {
 
   /// Whether the backdrop is an opaque canvas until a swipe fades it.
   final bool opaque;
+  final bool page;
   final ValueNotifier<bool>? covering;
   final Widget Function(
     BuildContext context,
@@ -949,11 +952,14 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   }
 
   void _syncCovering() {
-    widget.covering?.value = widget.opaque && _swipeProgress.value == 0;
+    widget.covering?.value =
+        (widget.opaque || widget.page && widget.animation.isCompleted) &&
+        _swipeProgress.value == 0;
     widget.routePull?.value = _swipeProgress.value;
   }
 
   void _create() {
+    widget.animation.addStatusListener(_animationChanged);
     _popup = CurvedAnimation(
       parent: widget.animation,
       curve: Curves.easeInOut,
@@ -966,7 +972,10 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
     );
   }
 
-  void _dispose() {
+  void _animationChanged(AnimationStatus _) => _syncCovering();
+
+  void _dispose(Animation<double> animation) {
+    animation.removeStatusListener(_animationChanged);
     _popup.dispose();
     _backdrop.dispose();
   }
@@ -983,14 +992,14 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
     }
     _syncCovering();
     if (identical(oldWidget.animation, widget.animation)) return;
-    _dispose();
+    _dispose(oldWidget.animation);
     _create();
   }
 
   @override
   void dispose() {
     widget.covering?.value = false;
-    _dispose();
+    _dispose(widget.animation);
     _swipeProgress.dispose();
     super.dispose();
   }
@@ -1059,6 +1068,7 @@ Widget _sheetPresentation(
         presentation.modal &&
         fillAvailableHeight &&
         variant != DSheetVariant.page,
+    page: variant == DSheetVariant.page,
     covering: covering,
     routePull: routePull,
     readerIdentity:

@@ -258,9 +258,13 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   ContentRoute? get _filterFeed {
-    final route = _document?.contentStack.reversed
-        .where((route) => !route.isGlobalSearch)
-        .firstOrNull;
+    final stack = _document?.contentStack;
+    if (stack == null) return null;
+    final searchIndex = widget._pageContent
+        ? stack.lastIndexWhere((route) => route.isGlobalSearch)
+        : -1;
+    final source = searchIndex == -1 ? stack : stack.take(searchIndex);
+    final route = source.where((route) => !route.isGlobalSearch).lastOrNull;
     return route?.isTopicList == true && route?.isMessages != true
         ? route
         : null;

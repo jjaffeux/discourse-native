@@ -102,6 +102,9 @@ final class MobilePresentation {
   final Map<Object, _MobilePagePolicy> _policies;
   final Map<Object, ContentRoute?> _predecessors;
 
+  bool get topicOverSearch =>
+      route?.isTopic == true && previousOf(route)?.isGlobalSearch == true;
+
   ContentRoute? previousOf(ContentRoute? route) =>
       route == null ? null : _predecessors[route.destination.identity];
   bool usesSheet(ContentRoute route) =>

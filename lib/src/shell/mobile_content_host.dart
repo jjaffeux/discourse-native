@@ -8,6 +8,7 @@ class _MobilePageSheet extends StatelessWidget {
     required this.reader,
     required this.underlay,
     this.readerKey,
+    this.covering,
   });
 
   final ContentRoute route;
@@ -16,12 +17,14 @@ class _MobilePageSheet extends StatelessWidget {
   final Key? readerKey;
   final Widget? reader;
   final Widget? underlay;
+  final ValueNotifier<bool>? covering;
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
     return DSheetViewport(
       key: viewportKey,
+      covering: covering,
       readerStart: reader == null || !route.isTopic
           ? null
           : shell.topicOpensAtTop(route.topicId!)
@@ -59,7 +62,14 @@ class _MobileContentHost extends StatefulWidget {
   final Object owner;
   final _MainContentSnapshot state;
   final PluginRegistry registry;
-  final Widget Function(_MainContentSnapshot, Key?, Widget?, Object?) builder;
+  final Widget Function(
+    _MainContentSnapshot,
+    Key?, {
+    Widget? underlay,
+    Object? sheetEntry,
+    ValueNotifier<bool>? covering,
+  })
+  builder;
 
   @override
   State<_MobileContentHost> createState() => _MobileContentHostState();
@@ -68,6 +78,23 @@ class _MobileContentHost extends StatefulWidget {
 class _MobileContentHostState extends State<_MobileContentHost> {
   final _sourceBodyKey = GlobalKey();
   var _searchPageKey = GlobalKey();
+  final _readerCovering = ValueNotifier(false);
+  final _searchCovered = FrameSafeValueNotifier(false);
+
+  @override
+  void initState() {
+    super.initState();
+    _readerCovering.addListener(_syncSearchCover);
+  }
+
+  void _syncSearchCover() => _searchCovered.value = _readerCovering.value;
+
+  @override
+  void dispose() {
+    _readerCovering.dispose();
+    _searchCovered.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(_MobileContentHost oldWidget) {
@@ -121,6 +148,8 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         base.previousRoute?.isGlobalSearch == true &&
         route != null &&
         (presentation?.usesSheet(route) ?? route.isTopic);
+    final searchBehindTopic =
+        searchBehindSheet && presentation?.topicOverSearch == true;
     final searchSource = presentation != null
         ? presentation.searchSourceRoute
         : searchIndex > 0
@@ -157,7 +186,9 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         !(mobilePresentation?.usesSheet(previous) ??
             widget.registry.usesMobilePageSheet(context, previous));
     final Widget? sheetUnderlay;
-    if (searchBehindSheet) {
+    if (searchBehindTopic) {
+      sheetUnderlay = const SizedBox.expand();
+    } else if (searchBehindSheet) {
       sheetUnderlay = searchPage;
     } else if (livePrevious) {
       final previousBody = widget.builder(
@@ -168,8 +199,6 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           previousRoute: mobilePresentation?.previousOf(previous),
         ),
         covered ? null : _sourceBodyKey,
-        null,
-        null,
       );
       sheetUnderlay = Builder(
         builder: (context) => DPageSurface(
@@ -195,12 +224,13 @@ class _MobileContentHostState extends State<_MobileContentHost> {
             )
           : base,
       livePrevious && !covered ? null : _sourceBodyKey,
-      covered ? null : sheetUnderlay,
-      searchOpen
+      underlay: covered ? null : sheetUnderlay,
+      sheetEntry: searchOpen
           ? previousSheetEntry
           : covered
           ? null
           : baseEntry,
+      covering: searchBehindTopic ? _readerCovering : null,
     );
     final hidden = covered || searchOpen;
     final sourcePage = Offstage(
@@ -232,15 +262,66 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                             )
                           : primary,
                     )
+                  : searchBehindTopic
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: mobileRaisedPageTop),
+                      child: primary,
+                    )
                   : primary,
             ),
           ),
         ),
       ),
     );
+    final Widget? searchLayer;
+    if (searchPage == null || searchBehindSheet && !searchBehindTopic) {
+      searchLayer = null;
+    } else {
+      final pull = DSheetDragScope.dismissProgressOf(context);
+      final animateEntrance =
+          searchBehindTopic &&
+          !MediaQuery.disableAnimationsOf(context) &&
+          DHistoryTransition.shouldAnimatePageEntranceOf(context);
+      // Keep the last Search frame visible while the live sheet processes the
+      // keyboard hide. Pulling the topic down reveals the live, settled sheet.
+      final departure = animateEntrance
+          ? DHistoryTransition.previousPageUnderlayOf(context)
+          : null;
+      searchLayer = DSheetBackdrop(
+        key: const ValueKey('mobile-search-layer'),
+        covered: searchBehindTopic,
+        surfaceIdentity: shell.mobileNavigation.entryId,
+        child: ListenableBuilder(
+          listenable: Listenable.merge([_searchCovered, pull]),
+          child: ExcludeFocus(
+            excluding: !searchOpen,
+            child: ExcludeSemantics(
+              excluding: !searchOpen,
+              child: IgnorePointer(ignoring: !searchOpen, child: searchPage),
+            ),
+          ),
+          builder: (context, search) {
+            final pulling = (pull?.value ?? 0) > 0;
+            final visible =
+                searchOpen ||
+                searchBehindTopic &&
+                    (pulling || animateEntrance && !_searchCovered.value);
+            final preview = visible && !pulling ? departure : null;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Offstage(offstage: !visible || preview != null, child: search),
+                ?preview,
+              ],
+            );
+          },
+        ),
+      );
+    }
     final basePages = Stack(
       fit: StackFit.expand,
       children: [
+        if (searchBehindTopic) ?searchLayer,
         DSheetBackdrop(
           covered: searchOpen,
           surfaceIdentity: searchOpen
@@ -252,12 +333,13 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           ),
         ),
         if (covered && !searchOpen)
-          widget.builder(base, null, sheetUnderlay, baseEntry),
-        if (searchPage != null && !searchBehindSheet)
-          Offstage(
-            offstage: !searchOpen,
-            child: ExcludeFocus(excluding: !searchOpen, child: searchPage),
+          widget.builder(
+            base,
+            null,
+            underlay: sheetUnderlay,
+            sheetEntry: baseEntry,
           ),
+        if (!searchBehindTopic) ?searchLayer,
       ],
     );
     final previousSheetPreview = retainPreviousSheet
@@ -297,7 +379,8 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           widget.builder(
             current,
             null,
-            previousSheetPreview ??
+            underlay:
+                previousSheetPreview ??
                 // The underlay's tickers are muted while it is covered.
                 MediaQuery(
                   data: MediaQuery.of(
@@ -305,7 +388,6 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                   ).copyWith(disableAnimations: true),
                   child: basePages,
                 ),
-            null,
           ),
       ],
     );

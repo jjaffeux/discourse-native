@@ -294,7 +294,7 @@ class ForumSidebarTheme extends StatelessWidget {
 }
 
 /// How a Native reading sheet covers the forum page.
-enum ForumMobileSheet { none, page, raised }
+enum ForumMobileSheet { none, page, raised, overSearch }
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
 /// Pages share the reading sheet's outline. The inset sidebar rounds around
@@ -326,7 +326,7 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     context,
     enabled: widget.sheet == ForumMobileSheet.raised,
     child: DPageSurface(
-      framed: true,
+      framed: widget.sheet != ForumMobileSheet.overSearch,
       border: false,
       clipBehavior: widget.sheet == ForumMobileSheet.raised
           ? Clip.none

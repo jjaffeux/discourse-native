@@ -37,6 +37,40 @@ import 'support/topic_post_list.dart';
 bool _useDeviceMetrics = false;
 
 class _ScrollingTopicSearchApi extends GlobalSearchFixtureApi {
+  _ScrollingTopicSearchApi({this.resultPostNumber = 1, this.topicResponseGate});
+
+  final int resultPostNumber;
+  final Completer<void>? topicResponseGate;
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final json = await super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    if (json['posts'] case final List<Map<String, dynamic>> posts
+        when resultPostNumber != 1) {
+      return {
+        ...json,
+        'posts': [
+          for (final post in posts)
+            if (post['topic_id'] == 1038)
+              {...post, 'post_number': resultPostNumber}
+            else
+              post,
+        ],
+      };
+    }
+    return json;
+  }
+
   @override
   Future<TopicPayload> topic({
     required String siteUrl,
@@ -47,21 +81,24 @@ class _ScrollingTopicSearchApi extends GlobalSearchFixtureApi {
     String? apiKey,
     String? clientId,
     Future<void>? abortTrigger,
-  }) async => topicPayload(
-    id: id,
-    title: 'Scrolling from search',
-    posts: [
-      for (var number = 1; number <= 30; number++)
-        Post(
-          id: number,
-          postNumber: number,
-          username: 'reader',
-          cooked:
-              '<p>Reply $number with enough text to scroll the reader.</p>'
-              '<p>Reading the discussion moves its header and navigation.</p>',
-        ),
-    ],
-  );
+  }) async {
+    await topicResponseGate?.future;
+    return topicPayload(
+      id: id,
+      title: 'Scrolling from search',
+      posts: [
+        for (var number = 1; number <= 30; number++)
+          Post(
+            id: number,
+            postNumber: number,
+            username: 'reader',
+            cooked:
+                '<p>Reply $number with enough text to scroll the reader.</p>'
+                '<p>Reading the discussion moves its header and navigation.</p>',
+          ),
+      ],
+    );
+  }
 }
 
 class _DirectorySearchApi extends GlobalSearchFixtureApi {
@@ -962,6 +999,176 @@ void main({bool useDeviceMetrics = false}) {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final postNumber in [1, 12]) {
+      for (final placement in [
+        'at rest',
+        'expanded',
+        'with keyboard',
+        'with a filtered topic row',
+      ]) {
+        _testPresentation(
+          '$platform Search to topic keeps $placement geometry at post $postNumber',
+          (tester) async {
+            const channel = MethodChannel(
+              'org.discourse.native/notification_opens',
+            );
+            final messenger = tester.binding.defaultBinaryMessenger;
+            messenger.setMockMethodCallHandler(channel, (_) async => null);
+            addTearDown(() async {
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pump();
+              messenger.setMockMethodCallHandler(channel, null);
+            });
+
+            debugDefaultTargetPlatformOverride = platform;
+            final keyboard = placement == 'with keyboard';
+            final filtered = placement == 'with a filtered topic row';
+            final topicGate = keyboard && postNumber == 12
+                ? Completer<void>()
+                : null;
+            final api = _ScrollingTopicSearchApi(
+              resultPostNumber: postNumber,
+              topicResponseGate: topicGate,
+            );
+            final shell = await _pumpSearch(tester, size: phone, api: api);
+            if (keyboard && !_useDeviceMetrics) {
+              tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+            }
+            final query = filtered ? '' : 'design';
+            await _openAndSearch(tester, query);
+            if (filtered) {
+              api.feeds['/filter.json?q=tag%3Adesign'] = [
+                const Topic(
+                  id: 1038,
+                  title: 'A calmer, more useful global search',
+                  slug: 'a-calmer-search',
+                  highestPostNumber: 30,
+                ).copyWith(lastReadPostNumber: postNumber - 1),
+              ];
+              shell.globalSearch.setTopicFilterClauses('tag:design');
+              await _finishSearch(tester);
+            }
+            if (!keyboard && _useDeviceMetrics) {
+              await SystemChannels.textInput.invokeMethod<void>(
+                'TextInput.hide',
+              );
+              for (
+                var i = 0;
+                i < 30 && tester.view.viewInsets.bottom > 0;
+                i++
+              ) {
+                await tester.pump(const Duration(milliseconds: 16));
+              }
+              await tester.pumpAndSettle();
+            }
+            final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+            final editor = find.byKey(
+              ForumSearch.inputKey,
+              skipOffstage: false,
+            );
+            final oldPanel = tester.state(find.byType(GlobalSearchPanel));
+            final result = _panelText(
+              'A calmer, more useful global search',
+            ).first;
+            await tester.ensureVisible(result);
+            if (placement == 'expanded') {
+              await tester.drag(handle, const Offset(0, -500));
+            }
+            await tester.pumpAndSettle();
+            if (keyboard) {
+              expect(tester.view.viewInsets.bottom, greaterThan(0));
+            }
+            final before = tester.getTopLeft(editor);
+            if (filtered && !_useDeviceMetrics) {
+              expect(before.dy, greaterThan(phone.height / 3));
+            }
+            await tester.tap(result);
+            await tester.pump();
+
+            expect(shell.currentContent?.postNumber, postNumber);
+            expect(tester.getTopLeft(editor).dx, closeTo(before.dx, 1));
+            expect(
+              tester.getTopLeft(editor).dy,
+              closeTo(before.dy, 1),
+              reason: 'The Search field stays in place on the tap frame.',
+            );
+            final retainedEditor = find.descendant(
+              of: editor,
+              matching: find.byType(EditableText, skipOffstage: false),
+              skipOffstage: false,
+            );
+            expect(
+              tester.widget<EditableText>(retainedEditor).focusNode.hasFocus,
+              isFalse,
+            );
+
+            final reader = find.byType(TopicView);
+            final card = find.ancestor(
+              of: reader,
+              matching: find.byType(DSheetContent),
+            );
+            double topicTop() {
+              final edge = DSheetPageBand.edgeOf(tester.element(reader))!;
+              return tester.getTopLeft(card).dy + edge.value;
+            }
+
+            var sheetTop = double.infinity;
+            for (var frame = 1; frame <= 24; frame++) {
+              if (keyboard && !_useDeviceMetrics && frame <= 12) {
+                tester.view.viewInsets = FakeViewPadding(
+                  bottom: 300 - 25.0 * frame,
+                );
+              }
+              await tester.pump(const Duration(milliseconds: 16));
+              final top = topicTop();
+              expect(
+                top,
+                lessThanOrEqualTo(sheetTop + 1),
+                reason: 'Frame $frame',
+              );
+              sheetTop = top;
+            }
+            if (topicGate != null) {
+              expect(find.byType(TopicLoadingSkeleton), findsOneWidget);
+              topicGate.complete();
+            }
+            await tester.pumpAndSettle();
+            expect(topicTop(), closeTo(sheetTop, 1));
+
+            final fixedHeader = find.byKey(const ValueKey('mobile-header'));
+            final headerBottom = tester.getRect(fixedHeader).bottom;
+            if (postNumber == 1) {
+              expect(sheetTop, lessThan(headerBottom));
+            } else {
+              expect(sheetTop, closeTo(headerBottom + 6, 1));
+              expect(
+                find
+                    .byKey(const ValueKey('mobile-search-button'))
+                    .hitTestable(),
+                findsOneWidget,
+              );
+            }
+            final target = tester.getRect(find.byKey(ValueKey(postNumber)));
+            expect(target.overlaps(topicReadingViewportRect(tester)), isTrue);
+            expect(shell.handleBack(), isTrue);
+            await tester.pumpAndSettle();
+            expect(
+              tester.state(find.byType(GlobalSearchPanel)),
+              same(oldPanel),
+            );
+            expect(_editor(tester).controller.text, query);
+            if (filtered && !_useDeviceMetrics) {
+              expect(tester.getTopLeft(editor).dy, closeTo(before.dy, 1));
+            }
+            expect(result, findsOneWidget);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     _testPresentation(

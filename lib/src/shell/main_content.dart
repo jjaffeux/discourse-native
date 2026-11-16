@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../foundation/frame_safe_notifier.dart';
 import '../foundation/icons/d_icons.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
@@ -117,19 +118,21 @@ class _MainContentState extends State<MainContent> {
       owner: owner,
       state: state,
       registry: registry,
-      builder: (snapshot, key, underlay, sheetEntry) => _MainContentBody(
-        key: key,
-        layout: widget.layout,
-        state: snapshot,
-        registry: registry,
-        groupPages: _groupPages,
-        groupPagesPort: port,
-        aboutPageKey: _aboutPageKey,
-        dashboardPageKey: _dashboardPageKey,
-        reviewPageKey: _reviewPageKey,
-        sheetUnderlay: underlay,
-        sheetEntry: sheetEntry,
-      ),
+      builder: (snapshot, key, {underlay, sheetEntry, covering}) =>
+          _MainContentBody(
+            key: key,
+            layout: widget.layout,
+            state: snapshot,
+            registry: registry,
+            groupPages: _groupPages,
+            groupPagesPort: port,
+            aboutPageKey: _aboutPageKey,
+            dashboardPageKey: _dashboardPageKey,
+            reviewPageKey: _reviewPageKey,
+            sheetUnderlay: underlay,
+            sheetEntry: sheetEntry,
+            sheetCovering: covering,
+          ),
     );
   }
 
@@ -279,6 +282,7 @@ class _MainContentBody extends StatelessWidget {
     required this.reviewPageKey,
     this.sheetUnderlay,
     this.sheetEntry,
+    this.sheetCovering,
   });
 
   final ShellLayout layout;
@@ -291,6 +295,7 @@ class _MainContentBody extends StatelessWidget {
   final GlobalKey<ReviewHostState> reviewPageKey;
   final Widget? sheetUnderlay;
   final Object? sheetEntry;
+  final ValueNotifier<bool>? sheetCovering;
 
   @override
   Widget build(BuildContext context) => DPageHeaderHost.exclude(
@@ -493,6 +498,7 @@ class _MainContentBody extends StatelessWidget {
           entry,
         )),
         reader: page,
+        covering: sheetCovering,
         underlay:
             sheetUnderlay ??
             (entry == currentEntry

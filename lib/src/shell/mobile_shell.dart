@@ -289,6 +289,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         );
         final route = presentation.route;
         final searchOpen = route?.isGlobalSearch == true;
+        final topicOverSearch = presentation.topicOverSearch;
         final pageSheetOpen = presentation.pageSheetOpen;
         final hideDock = presentation.hideDock;
         final preservePageChrome = presentation.preservePageChrome;
@@ -411,7 +412,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         ) => _MobileFrame(
           navigationOpen: sidebarOpen,
           raised: !sidebarOpen && pageSheetOpen && route?.isTopic == true,
-          overlaysHeader: !sidebarOpen && searchOpen,
+          overlaysHeader: !sidebarOpen && (searchOpen || topicOverSearch),
           key: const ValueKey('mobile-root'),
           // Ancestor Material ink layers also repaint on scroll. Retain the
           // fixed header independently of the moving page and dock.
@@ -777,6 +778,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           key: const ValueKey('mobile-content-panel'),
                           sheet: searchOpen
                               ? ForumMobileSheet.page
+                              : topicOverSearch
+                              ? ForumMobileSheet.overSearch
                               : !pageSheetOpen
                               ? ForumMobileSheet.none
                               : route?.isTopic == true
