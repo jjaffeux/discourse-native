@@ -733,6 +733,7 @@ void main() {
     testWidgets('shows the muted people and saves an added one when asked', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       final fixture = await _fixture(
         preferences: _muting,
         userSearches: _foundPeople,
@@ -741,6 +742,11 @@ void main() {
       await _section(tester, PreferenceSection.users);
       expect(_mutedChip('sam'), findsOneWidget);
       expect(_mutedSave(tester).onPressed, isNull);
+
+      expect(find.bySemanticsLabel('Remove sam'), findsOneWidget);
+      expect(find.bySemanticsLabel('Save muted users'), findsOneWidget);
+      expect(tester.getSemantics(_mutedSearch), isSemantics(isTextField: true));
+      semantics.dispose();
 
       await _searchPeople(tester, _mutedSearch, 'ro');
       expect(find.text('Robin Hood'), findsOneWidget);
@@ -867,20 +873,6 @@ void main() {
         find.text('This site does not let this account mute people yet.'),
         findsOneWidget,
       );
-    });
-
-    testWidgets('the list and its save button are named for a screen reader', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      final fixture = await _fixture(preferences: _muting);
-      await _pumpPage(tester, fixture);
-      await _section(tester, PreferenceSection.users);
-
-      expect(find.bySemanticsLabel('Remove sam'), findsOneWidget);
-      expect(find.bySemanticsLabel('Save muted users'), findsOneWidget);
-      expect(tester.getSemantics(_mutedSearch), isSemantics(isTextField: true));
-      semantics.dispose();
     });
 
     testWidgets('fits a phone at twice the text size', (tester) async {
