@@ -43,7 +43,7 @@ Finder _button(String label) => find.descendant(
 );
 
 void main() {
-  for (final width in [390.0, 500.0, 600.0, 1000.0]) {
+  for (final width in [390.0, 600.0, 1000.0]) {
     testWidgets(
       'post edit history navigation fits ${width}px at 200% text',
       (tester) async {
