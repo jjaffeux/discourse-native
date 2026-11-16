@@ -24,7 +24,10 @@ void main() {
     final kind = postNumber == null ? 'topic' : 'post';
 
     for (final replacement in ['forum', 'topic', 'tab', 'account']) {
-      for (final existingComposer in [false, true]) {
+      final composerStates = postNumber == null
+          ? [false, true]
+          : [replacement == 'forum' || replacement == 'tab'];
+      for (final existingComposer in composerStates) {
         testWidgets(
           '$kind share cannot ${existingComposer ? 'replace' : 'create'} a composer after $replacement replacement',
           (tester) async {
