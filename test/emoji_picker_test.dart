@@ -472,7 +472,7 @@ void main() {
     expect(bar.position.pixels, 0);
   });
 
-  testWidgets('frequent history clears and keyboard selects from search', (
+  testWidgets('selects by keyboard before and after clearing search', (
     tester,
   ) async {
     final store = EmojiPickerStore(persistence: _MemoryPersistence());
@@ -517,10 +517,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Frequently used'), findsNothing);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('emoji-picker-search')),
-      'wave',
-    );
+    final search = find.byKey(const ValueKey('emoji-picker-search'));
+    await tester.enterText(search, 'wave');
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
@@ -544,6 +542,22 @@ void main() {
     await tester.tap(target);
     await tester.pump();
     expect(selected, 'wave');
+
+    selected = null;
+    await tester.tap(find.byKey(const ValueKey('emoji-picker-clear-search')));
+    await tester.pumpAndSettle();
+    expect(controller.query, isEmpty);
+    expect(tester.widget<DInput>(search).focusNode!.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, 'smile');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, 'discourse');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
@@ -598,42 +612,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('emoji-picker-clear-search')));
     await tester.pump();
     expect(controller.searchPending, isFalse);
-  });
-
-  testWidgets('clearing search restores grouped keyboard navigation', (
-    tester,
-  ) async {
-    final controller = _pickerController(({refresh = false}) async => _catalog);
-    addTearDown(controller.dispose);
-    await controller.load();
-    String? selected;
-    await tester.pumpWidget(
-      _pickerHarness(controller, onPicked: (code) => selected = code),
-    );
-
-    final search = find.byKey(const ValueKey('emoji-picker-search'));
-    await tester.enterText(search, 'wave');
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    expect(selected, 'wave');
-
-    selected = null;
-    await tester.tap(find.byKey(const ValueKey('emoji-picker-clear-search')));
-    await tester.pumpAndSettle();
-    expect(controller.query, isEmpty);
-    expect(tester.widget<DInput>(search).focusNode!.hasFocus, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    expect(selected, 'smile');
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    expect(selected, 'discourse');
   });
 
   testWidgets('resizing updates the nearest keyboard column', (tester) async {
