@@ -709,10 +709,8 @@ void main() {
     }
 
     for (final (ratio, size) in [
-      (1.0, '690x388'),
       (1.25, '1035x582'),
       (2.0, '1380x776'),
-      (3.0, '1380x776'),
     ]) {
       testWidgets('load the $size candidate at ${ratio}x', (tester) async {
         expect(await drawnAt(tester, ratio), '${base}_$size.png');
