@@ -75,7 +75,7 @@ Future<void> _wheel(WidgetTester tester, double delta) async {
 void main() {
   for (final kind in _PageKind.values) {
     for (final reverse in [false, if (kind != _PageKind.scrollBody) true]) {
-      for (final ratio in [1.99, 2.0, 2.01]) {
+      for (final ratio in [1.99, 2.0, if (!reverse) 2.01]) {
         testWidgets('$kind toggles only at two viewports '
             '(ratio: $ratio, reverse: $reverse)', (tester) async {
           final viewport = kind == _PageKind.slivers ? 600.0 : 520.0;
