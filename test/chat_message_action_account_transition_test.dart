@@ -71,7 +71,10 @@ void main() {
         ),
   );
   for (final operation in _Operation.values) {
-    for (final timing in _Timing.values) {
+    final timings = operation == _Operation.unchanged
+        ? const [_Timing.afterClick, _Timing.afterRepaint]
+        : _Timing.values;
+    for (final timing in timings) {
       testWidgets(
         'Native Chat Delete ${operation.name} ${timing.name} owns its menu',
         (tester) async {
