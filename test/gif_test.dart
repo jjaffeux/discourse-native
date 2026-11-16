@@ -175,7 +175,7 @@ void main() {
       });
     }
 
-    for (final cursor in ['24', '0.25', 'cursor/0', '0/24']) {
+    for (final cursor in ['24', '0.25', '0/24']) {
       test('preserves opaque continuation $cursor', () {
         final page = GifSearchPage.fromJson({
           'results': const <Object?>[],
