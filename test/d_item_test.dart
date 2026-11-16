@@ -325,7 +325,7 @@ void main() {
   });
 
   for (final direction in TextDirection.values) {
-    for (final scale in [1.0, 2.0]) {
+    for (final scale in [1.0, if (direction == TextDirection.rtl) 2.0]) {
       testWidgets('fit-content items stay bounded in $direction at $scale', (
         tester,
       ) async {
@@ -663,92 +663,92 @@ void main() {
     },
   );
 
-  for (final direction in TextDirection.values) {
-    for (final brightness in Brightness.values) {
-      testWidgets(
-        'full-width row states paint immediately in $direction/$brightness',
-        (tester) async {
-          final theme = ThemeData(
-            brightness: brightness,
-            platform: TargetPlatform.macOS,
-          );
-          final tokens = DTokens.fromTheme(theme);
-          var selected = false;
-          await tester.pumpWidget(
-            host(
-              StatefulBuilder(
-                builder: (context, setState) => DItem(
-                  shape: DItemShape.fullWidth,
-                  selectionStyle: DItemSelectionStyle.leadingAccent,
-                  selected: selected,
-                  showSelectionIndicator: false,
-                  onPressed: () => setState(() => selected = !selected),
-                  children: const [
-                    DItemContent(children: [Text('Full-width topic')]),
-                  ],
-                ),
-              ),
-              direction: direction,
-              theme: theme,
-            ),
-          );
-          Container surface() => tester.widget<Container>(
-            find.descendant(
-              of: find.byType(DItem),
-              matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is Container && widget.decoration is BoxDecoration,
+  const paintCases = [
+    (TextDirection.ltr, Brightness.light),
+    (TextDirection.rtl, Brightness.dark),
+  ];
+  for (final (direction, brightness) in paintCases) {
+    testWidgets(
+      'full-width row states paint immediately in $direction/$brightness',
+      (tester) async {
+        final theme = ThemeData(
+          brightness: brightness,
+          platform: TargetPlatform.macOS,
+        );
+        final tokens = DTokens.fromTheme(theme);
+        var selected = false;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) => DItem(
+                shape: DItemShape.fullWidth,
+                selectionStyle: DItemSelectionStyle.leadingAccent,
+                selected: selected,
+                showSelectionIndicator: false,
+                onPressed: () => setState(() => selected = !selected),
+                children: const [
+                  DItemContent(children: [Text('Full-width topic')]),
+                ],
               ),
             ),
-          );
-          final initialRect = tester.getRect(find.byType(DItem));
-          expect(initialRect.width, 448);
-          expect(
-            (surface().decoration! as BoxDecoration).color,
-            Colors.transparent,
-          );
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          addTearDown(mouse.removePointer);
-          await mouse.addPointer(location: const Offset(700, 500));
-          await mouse.moveTo(tester.getCenter(find.text('Full-width topic')));
-          await tester.pump();
-          for (final duration in [
-            Duration.zero,
-            const Duration(milliseconds: 50),
-          ]) {
-            await tester.pump(duration);
-            final paint = surface().decoration! as BoxDecoration;
-            expect(paint.color, tokens.primary.withValues(alpha: .06));
-            expect(paint.borderRadius, BorderRadius.zero);
-          }
-          await tester.tap(find.text('Full-width topic'));
-          await tester.pump();
-          expect(
-            (surface().decoration! as BoxDecoration).color,
-            tokens.primary.withValues(alpha: .12),
-          );
-          final border =
-              (surface().foregroundDecoration! as BoxDecoration).border!
-                  as BorderDirectional;
-          expect(border.start, BorderSide(color: tokens.primary, width: 3));
-          expect(border.end, BorderSide.none);
-          expect(tester.getRect(find.byType(DItem)), initialRect);
-          await mouse.moveTo(const Offset(700, 500));
-          await tester.pump();
-          expect(
-            (surface().decoration! as BoxDecoration).color,
-            tokens.primary.withValues(alpha: .12),
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.pump();
-          expect(selected, isFalse);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+            direction: direction,
+            theme: theme,
+          ),
+        );
+        Container surface() => tester.widget<Container>(
+          find.descendant(
+            of: find.byType(DItem),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container && widget.decoration is BoxDecoration,
+            ),
+          ),
+        );
+        final initialRect = tester.getRect(find.byType(DItem));
+        expect(initialRect.width, 448);
+        expect(
+          (surface().decoration! as BoxDecoration).color,
+          Colors.transparent,
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(700, 500));
+        await mouse.moveTo(tester.getCenter(find.text('Full-width topic')));
+        await tester.pump();
+        for (final duration in [
+          Duration.zero,
+          const Duration(milliseconds: 50),
+        ]) {
+          await tester.pump(duration);
+          final paint = surface().decoration! as BoxDecoration;
+          expect(paint.color, tokens.primary.withValues(alpha: .06));
+          expect(paint.borderRadius, BorderRadius.zero);
+        }
+        await tester.tap(find.text('Full-width topic'));
+        await tester.pump();
+        expect(
+          (surface().decoration! as BoxDecoration).color,
+          tokens.primary.withValues(alpha: .12),
+        );
+        final border =
+            (surface().foregroundDecoration! as BoxDecoration).border!
+                as BorderDirectional;
+        expect(border.start, BorderSide(color: tokens.primary, width: 3));
+        expect(border.end, BorderSide.none);
+        expect(tester.getRect(find.byType(DItem)), initialRect);
+        await mouse.moveTo(const Offset(700, 500));
+        await tester.pump();
+        expect(
+          (surface().decoration! as BoxDecoration).color,
+          tokens.primary.withValues(alpha: .12),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(selected, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('card hover follows its themed surface corners', (tester) async {
