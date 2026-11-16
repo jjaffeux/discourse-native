@@ -506,6 +506,7 @@ void main() {
 
     test('updates independent channel notification settings', () async {
       late http.Request sent;
+      final expiry = DateTime.utc(2026, 11, 16, 15);
       final api = DiscourseApi(
         client: MockClient((request) async {
           sent = request;
@@ -514,6 +515,7 @@ void main() {
               'membership': {
                 'following': true,
                 'muted': true,
+                'muted_until': '2026-11-16T15:00:00.000Z',
                 'notification_level': 'always',
                 'starred': true,
                 'last_read_message_id': 44,
@@ -530,6 +532,7 @@ void main() {
             apiKey: 'key',
             channelId: 9,
             muted: true,
+            mutedUntil: expiry,
             notificationLevel: ChatChannelNotificationLevel.always,
           );
 
@@ -541,10 +544,13 @@ void main() {
       expect(jsonDecode(sent.body), {
         'notifications_settings': {
           'muted': true,
+          'muted_until': '2026-11-16T15:00:00.000Z',
           'notification_level': 'always',
         },
       });
       expect(membership.muted, isTrue);
+      expect(membership.mutedUntil, expiry);
+      expect(membership.supportsTimedMute, isTrue);
       expect(membership.notificationLevel, ChatChannelNotificationLevel.always);
       expect(membership.starred, isTrue);
       expect(membership.lastReadMessageId, 44);

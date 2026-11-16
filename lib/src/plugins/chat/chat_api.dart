@@ -85,6 +85,7 @@ abstract interface class ChatApi {
     required String apiKey,
     required int channelId,
     bool? muted,
+    DateTime? mutedUntil,
     ChatChannelNotificationLevel? notificationLevel,
     String? clientId,
   });

@@ -33,6 +33,7 @@ final class ChatLiveSyncHost {
     required this.didReceiveTrackingState,
     required this.didReceiveChannelEdit,
     required this.didReceiveChannelStatus,
+    this.didReceiveChannelMute,
     required this.putMessage,
     required this.putLiveMessage,
     required this.putThread,
@@ -85,6 +86,7 @@ final class ChatLiveSyncHost {
   // Settings writes must observe even events that repeat the held values.
   final void Function(String siteUrl, int channelId) didReceiveChannelEdit;
   final void Function(String siteUrl, int channelId) didReceiveChannelStatus;
+  final void Function(String, int, bool, DateTime?)? didReceiveChannelMute;
   final void Function(String siteUrl, ChatMessage message) putMessage;
   final void Function(
     String siteUrl,
@@ -318,6 +320,10 @@ final class ChatLiveSyncCoordinator {
     site.channelStatusCursor = _newerCursor(
       site.channelStatusCursor,
       channels.channelStatusBusLastId,
+    );
+    site.channelMuteCursor = _newerCursor(
+      site.channelMuteCursor,
+      channels.userChannelMuteBusLastId,
     );
     site.userTrackingCursor = _newerCursor(
       site.userTrackingCursor,
@@ -959,6 +965,36 @@ final class ChatLiveSyncCoordinator {
         install: (subscription) {
           site.newChannelSubscription = subscription;
         },
+      );
+    }
+
+    if (userId != null &&
+        site.channelMuteCursor != null &&
+        site.channelMuteSubscription == null) {
+      _subscribe(
+        site,
+        tracker,
+        '/chat/user-channel-mute/$userId',
+        lastId: site.channelMuteCursor,
+        onMessage: (data, _) {
+          if (data is! Map<String, dynamic>) return;
+          final channelId = jsonIntOrNull(data['channel_id']);
+          final muted = data['muted'];
+          if (channelId == null || muted is! bool) return;
+          _host.didReceiveChannelMute?.call(
+            site.siteUrl,
+            channelId,
+            muted,
+            muted ? jsonDate(data['muted_until']) : null,
+          );
+        },
+        onDelivered: (messageId) {
+          site.channelMuteCursor = _newerCursor(
+            site.channelMuteCursor,
+            messageId,
+          );
+        },
+        install: (subscription) => site.channelMuteSubscription = subscription,
       );
     }
 
@@ -1811,6 +1847,7 @@ final class _ChatLiveSite {
   int? channelMetadataCursor;
   int? channelEditCursor;
   int? channelStatusCursor;
+  int? channelMuteCursor;
   int? userTrackingCursor;
   bool userTrackingCursorSet = false;
   int? userHasThreadsCursor;
@@ -1819,6 +1856,7 @@ final class _ChatLiveSite {
   final Set<int> awaitingFirstMessage = {};
 
   _OwnedLiveSubscription? newChannelSubscription;
+  _OwnedLiveSubscription? channelMuteSubscription;
   final List<_OwnedLiveSubscription> channelStateSubscriptions = [];
   final List<_OwnedLiveSubscription> userTrackingSubscriptions = [];
   _OwnedLiveSubscription? userHasThreadsSubscription;
@@ -1850,6 +1888,7 @@ final class _ChatLiveSite {
       ..channelMetadataCursor = channelMetadataCursor
       ..channelEditCursor = channelEditCursor
       ..channelStatusCursor = channelStatusCursor
+      ..channelMuteCursor = channelMuteCursor
       ..userTrackingCursor = userTrackingCursor
       ..userTrackingCursorSet = userTrackingCursorSet
       ..userHasThreadsCursor = userHasThreadsCursor
@@ -1899,6 +1938,8 @@ final class _ChatLiveSite {
       subscription.cancel();
     }
     channelStateSubscriptions.clear();
+    channelMuteSubscription?.cancel();
+    channelMuteSubscription = null;
     for (final subscription in userTrackingSubscriptions) {
       subscription.cancel();
     }

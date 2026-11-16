@@ -2838,6 +2838,18 @@ abstract class AppLocalizations {
   /// **'Online'**
   String get online;
 
+  /// Opens the Chat channel timed mute duration menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute for…'**
+  String get muteFor;
+
+  /// Chat channel settings label for timed muting.
+  ///
+  /// In en, this message translates to:
+  /// **'Timed mute'**
+  String get timedMute;
+
   /// English UI message used by plugins/chat/chat_channel_actions.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

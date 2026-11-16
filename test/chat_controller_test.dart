@@ -1320,6 +1320,62 @@ void main() {
       expect(subject.chat.channelNotificationWriteInFlight(site, 9), isFalse);
     });
 
+    test(
+      'applies a timed mute and clears it on the server expiry event',
+      () async {
+        final expiry = DateTime.utc(2026, 11, 16, 15);
+        final initialMembership = ChatMembership.fromJson({
+          'following': true,
+          'muted': false,
+          'muted_until': null,
+          'notification_level': 'always',
+          'starred': true,
+          'last_read_message_id': 7,
+        });
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: [channel(9).withMembership(initialMembership)],
+              userChannelMuteBusLastId: 12,
+            ),
+          },
+          channelNotificationMembership: initialMembership,
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        expect(tracker.pluginChannelLastIds['/chat/user-channel-mute/7'], 12);
+        expect(
+          await subject.chat.updateChannelNotifications(
+            site,
+            9,
+            muted: true,
+            mutedUntil: expiry,
+          ),
+          isNull,
+        );
+        expect(subject.chat.channel(site, 9)!.membership.mutedUntil, expiry);
+
+        tracker.deliverPluginMessage('/chat/user-channel-mute/7', {
+          'channel_id': 9,
+          'muted': false,
+          'muted_until': null,
+        }, messageId: 13);
+
+        final membership = subject.chat.channel(site, 9)!.membership;
+        expect(membership.muted, isFalse);
+        expect(membership.mutedUntil, isNull);
+        expect(membership.starred, isTrue);
+        expect(membership.lastReadMessageId, 7);
+        expect(
+          membership.notificationLevel,
+          ChatChannelNotificationLevel.always,
+        );
+      },
+    );
+
     test('changes muting without changing the push level', () async {
       final subject = build(
         channels: {

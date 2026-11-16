@@ -94,6 +94,8 @@ class ChatMembership {
   const ChatMembership({
     this.following = false,
     this.muted = false,
+    this.mutedUntil,
+    this.supportsTimedMute = false,
     this.notificationLevel = ChatChannelNotificationLevel.mention,
     this.starred = false,
     this.lastReadMessageId,
@@ -109,6 +111,8 @@ class ChatMembership {
     return ChatMembership(
       following: value['following'] == true,
       muted: value['muted'] == true,
+      mutedUntil: jsonDate(value['muted_until']),
+      supportsTimedMute: value.containsKey('muted_until'),
       notificationLevel: ChatChannelNotificationLevel.read(
         value['notification_level'],
       ),
@@ -122,6 +126,8 @@ class ChatMembership {
 
   final bool following;
   final bool muted;
+  final DateTime? mutedUntil;
+  final bool supportsTimedMute;
   final ChatChannelNotificationLevel notificationLevel;
 
   final bool starred;
@@ -136,6 +142,8 @@ class ChatMembership {
   ChatMembership withLastRead(int messageId) => ChatMembership(
     following: following,
     muted: muted,
+    mutedUntil: mutedUntil,
+    supportsTimedMute: supportsTimedMute,
     notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: messageId,
@@ -149,6 +157,8 @@ class ChatMembership {
   ChatMembership withLastReadAfterDelete(int? messageId) => ChatMembership(
     following: following,
     muted: muted,
+    mutedUntil: mutedUntil,
+    supportsTimedMute: supportsTimedMute,
     notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: messageId,
@@ -160,6 +170,8 @@ class ChatMembership {
   ChatMembership withLastViewedAt(DateTime viewedAt) => ChatMembership(
     following: following,
     muted: muted,
+    mutedUntil: mutedUntil,
+    supportsTimedMute: supportsTimedMute,
     notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: lastReadMessageId,
@@ -171,6 +183,8 @@ class ChatMembership {
   ChatMembership withStarred(bool starred) => ChatMembership(
     following: following,
     muted: muted,
+    mutedUntil: mutedUntil,
+    supportsTimedMute: supportsTimedMute,
     notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: lastReadMessageId,
@@ -182,6 +196,8 @@ class ChatMembership {
   ChatMembership withPinsViewed(DateTime viewedAt) => ChatMembership(
     following: following,
     muted: muted,
+    mutedUntil: mutedUntil,
+    supportsTimedMute: supportsTimedMute,
     notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: lastReadMessageId,
@@ -193,6 +209,8 @@ class ChatMembership {
   ChatMembership withUnseenPins(bool hasUnseenPins) => ChatMembership(
     following: following,
     muted: muted,
+    mutedUntil: mutedUntil,
+    supportsTimedMute: supportsTimedMute,
     notificationLevel: notificationLevel,
     starred: starred,
     lastReadMessageId: lastReadMessageId,
@@ -203,10 +221,13 @@ class ChatMembership {
 
   ChatMembership withNotifications({
     bool? muted,
+    DateTime? mutedUntil,
     ChatChannelNotificationLevel? notificationLevel,
   }) => ChatMembership(
     following: following,
     muted: muted ?? this.muted,
+    mutedUntil: muted == null ? this.mutedUntil : mutedUntil,
+    supportsTimedMute: supportsTimedMute,
     notificationLevel: notificationLevel ?? this.notificationLevel,
     starred: starred,
     lastReadMessageId: lastReadMessageId,
@@ -220,6 +241,8 @@ class ChatMembership {
       other is ChatMembership &&
       other.following == following &&
       other.muted == muted &&
+      other.mutedUntil == mutedUntil &&
+      other.supportsTimedMute == supportsTimedMute &&
       other.notificationLevel == notificationLevel &&
       other.starred == starred &&
       other.lastReadMessageId == lastReadMessageId &&
@@ -231,6 +254,8 @@ class ChatMembership {
   int get hashCode => Object.hash(
     following,
     muted,
+    mutedUntil,
+    supportsTimedMute,
     notificationLevel,
     starred,
     lastReadMessageId,
@@ -384,6 +409,7 @@ class ChatChannels {
     this.channelMetadataBusLastId,
     this.channelEditsBusLastId,
     this.channelStatusBusLastId,
+    this.userChannelMuteBusLastId,
   });
 
   final List<ChatChannel> public;
@@ -407,6 +433,7 @@ class ChatChannels {
   final int? channelMetadataBusLastId;
   final int? channelEditsBusLastId;
   final int? channelStatusBusLastId;
+  final int? userChannelMuteBusLastId;
 }
 
 @immutable
@@ -724,6 +751,9 @@ class ChatChannel with Storable<ChatChannel> {
       ),
       channelEditsBusLastId: jsonIntOrNull(envelopeLastIds['channel_edits']),
       channelStatusBusLastId: jsonIntOrNull(envelopeLastIds['channel_status']),
+      userChannelMuteBusLastId: jsonIntOrNull(
+        envelopeLastIds['user_channel_mute'],
+      ),
     );
   }
 

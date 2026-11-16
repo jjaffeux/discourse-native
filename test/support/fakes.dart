@@ -3479,6 +3479,7 @@ class FakeDiscourseApi
     required String apiKey,
     required int channelId,
     bool? muted,
+    DateTime? mutedUntil,
     ChatChannelNotificationLevel? notificationLevel,
     String? clientId,
   }) async {
@@ -3492,6 +3493,7 @@ class FakeDiscourseApi
     if (failure != null) throw failure;
     return chatChannelNotificationMembership.withNotifications(
       muted: muted,
+      mutedUntil: mutedUntil,
       notificationLevel: notificationLevel,
     );
   }

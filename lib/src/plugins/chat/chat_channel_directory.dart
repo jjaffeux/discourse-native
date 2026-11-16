@@ -270,6 +270,7 @@ final class _ChatChannelDirectory {
   Future<String?> updateChannelNotifications(
     int channelId, {
     bool? muted,
+    DateTime? mutedUntil,
     ChatChannelNotificationLevel? notificationLevel,
   }) async {
     if (isDisposed || channelId <= 0) {
@@ -282,8 +283,12 @@ final class _ChatChannelDirectory {
     if (held == null || !held.membership.following) {
       return appL10n.onlyFollowedChannelsHaveNotificationSettings;
     }
+    if (mutedUntil != null && !held.membership.supportsTimedMute) {
+      return appL10n.thisChannelCanNoLongerBeChanged;
+    }
     final projectedMembership = held.membership.withNotifications(
       muted: muted,
+      mutedUntil: mutedUntil,
       notificationLevel: notificationLevel,
     );
     if (projectedMembership == held.membership) return null;
@@ -314,24 +319,17 @@ final class _ChatChannelDirectory {
     void project(ChatMembership source, {bool settled = true}) {
       lease.commit(() {
         final current = channel(channelId) ?? held;
-        final next = current.withMembership(
-          current.membership.withNotifications(
-            muted: source.muted,
-            notificationLevel: source.notificationLevel,
-          ),
+        _projectNotifications(
+          current,
+          muted: source.muted,
+          mutedUntil: source.mutedUntil,
+          notificationLevel: source.notificationLevel,
+          resumeMessages: settled && changesMuting,
         );
-        _publishListedNotificationChange(() => _putChannel(next));
-        if (next.membership.muted) {
-          _channels[key]?.messageResume = null;
-          _releaseIdleEntry(key);
-          liveSync.muteChannel(siteUrl, channelId);
-        } else if (settled && changesMuting) {
-          _resumeChannelMessages(channelId);
-        }
-        onChanged();
       });
     }
 
+    var muteWriteSucceeded = false;
     project(projectedMembership, settled: false);
     try {
       final requestCredentials = await requests.credentialsFor(siteUrl);
@@ -349,11 +347,15 @@ final class _ChatChannelDirectory {
           apiKey: apiKey,
           channelId: channelId,
           muted: muted,
+          mutedUntil: mutedUntil,
           notificationLevel: notificationLevel,
           clientId: clientId,
         ),
       );
-      if (isCurrentRequest()) project(membership);
+      if (isCurrentRequest()) {
+        muteWriteSucceeded = muted != null;
+        project(membership);
+      }
       return null;
     } on WriteException catch (error) {
       if (isCurrentRequest()) project(held.membership);
@@ -365,11 +367,64 @@ final class _ChatChannelDirectory {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_channels[key]?.notificationWrite, token)) {
-        _channels[key]?.notificationWrite = null;
+        final entry = _channels[key]!;
+        final deferredMute = entry.deferredMute;
+        entry.notificationWrite = null;
+        entry.deferredMute = null;
+        if (!muteWriteSucceeded && isCurrent && deferredMute != null) {
+          receiveChannelMute(channelId, deferredMute.muted, deferredMute.until);
+        }
         _releaseIdleEntry(key);
       }
       if (isCurrent) onChanged();
     }
+  }
+
+  void receiveChannelMute(int channelId, bool muted, DateTime? mutedUntil) {
+    final entry = _channels[channelId];
+    if (entry != null && entry.notificationWrite != null) {
+      entry.deferredMute = (muted: muted, until: mutedUntil);
+      return;
+    }
+    final current = channel(channelId);
+    if (current == null ||
+        !current.membership.following ||
+        (current.membership.muted == muted &&
+            current.membership.mutedUntil == mutedUntil)) {
+      return;
+    }
+    _projectNotifications(
+      current,
+      muted: muted,
+      mutedUntil: mutedUntil,
+      resumeMessages: current.membership.muted && !muted,
+    );
+  }
+
+  void _projectNotifications(
+    ChatChannel current, {
+    required bool muted,
+    required DateTime? mutedUntil,
+    required bool resumeMessages,
+    ChatChannelNotificationLevel? notificationLevel,
+  }) {
+    final channelId = current.id;
+    final membership = current.membership.withNotifications(
+      muted: muted,
+      mutedUntil: mutedUntil,
+      notificationLevel: notificationLevel,
+    );
+    _publishListedNotificationChange(
+      () => _putChannel(current.withMembership(membership)),
+    );
+    if (muted) {
+      _channels[channelId]?.messageResume = null;
+      _releaseIdleEntry(channelId);
+      liveSync.muteChannel(siteUrl, channelId);
+    } else if (resumeMessages) {
+      _resumeChannelMessages(channelId);
+    }
+    onChanged();
   }
 
   // Channel detail supplies fresh bus cursors after muting stops the stream.
@@ -1540,6 +1595,7 @@ final class _ChatChannelDirectoryEntry {
   Future<ChatChannel?>? detailRequest;
   Object? starWrite;
   Object? notificationWrite;
+  ({bool muted, DateTime? until})? deferredMute;
   Object? messageResume;
   Object? followWrite;
   _ChannelSettingsWrite? settingsWrite;

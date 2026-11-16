@@ -1564,6 +1564,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get online => 'Online';
 
   @override
+  String get muteFor => 'Mute for…';
+
+  @override
+  String get timedMute => 'Timed mute';
+
+  @override
   String get unmuteChannel => 'Unmute channel';
 
   @override

@@ -1806,6 +1806,14 @@
   "@online": {
     "description": "English UI message used by plugins/chat/chat_user_avatar.dart. Keep placeholders intact."
   },
+  "muteFor": "Mute for…",
+  "@muteFor": {
+    "description": "Opens the Chat channel timed mute duration menu."
+  },
+  "timedMute": "Timed mute",
+  "@timedMute": {
+    "description": "Chat channel settings label for timed muting."
+  },
   "unmuteChannel": "Unmute channel",
   "@unmuteChannel": {
     "description": "English UI message used by plugins/chat/chat_channel_actions.dart. Keep placeholders intact."
