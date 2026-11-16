@@ -547,7 +547,6 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
       signedIn: instance.user != null,
       unifiedNewEnabled: instance.user?.unifiedNewEnabled == true,
       desktopPanelsEnabled: shell.desktopPanelsEnabled,
-      mobileNavigationEnabled: shell.mobileNavigationEnabled,
     );
   }
 
@@ -599,9 +598,9 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
       shell._workspace.navigateTab(
         siteUrl!,
         plan.replacement,
-        mobile: plan.mobileLocation == null
-            ? _MobileVisitCommit.push
-            : _MobileVisitCommit.replace,
+        mobile: plan.updatesList
+            ? _MobileVisitCommit.updateList
+            : _MobileVisitCommit.push,
       );
     }
     if (plan.presentation == TopicListPresentation.content ||
@@ -625,7 +624,6 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
         ),
         keepTopicOpen: keepTopicOpen,
         desktopPanelsEnabled: shell.desktopPanelsEnabled,
-        mobileNavigationEnabled: shell.mobileNavigationEnabled,
       ),
     );
   }
@@ -661,7 +659,7 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
     final searchTab = plan.replacement.copyWith(
       contentStack: [...sourceLocation.contentStack, search!],
       backHistory: tab.backHistory,
-      forwardHistory: const [],
+      forwardHistory: tab.forwardHistory,
     );
     shell._workspace.replaceTab(siteUrl!, searchTab, persist: false);
     navigation.updateSearchSource(sourceLocation, searchTab.location);

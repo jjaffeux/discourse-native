@@ -203,13 +203,31 @@ final class MobileNavigation {
     _entries[_index] = (id: entryId, content: location);
   }
 
+  void updateListState(ForumTabLocation location) {
+    final previous = this.location!;
+    final index = location.contentStack.lastIndexWhere(
+      (route) => route.isTopicList,
+    );
+    final route = location.contentStack[index];
+    for (final step in [-1, 1]) {
+      for (var i = _index + step; i >= 0 && i < _entries.length; i += step) {
+        final entry = _entries[i];
+        final updated = entry.content?.withListState(
+          source: previous,
+          index: index,
+          route: route,
+        );
+        if (updated == null) break;
+        _entries[i] = (id: entry.id, content: updated);
+      }
+    }
+    updateCurrent(location);
+  }
+
   void updateSearchSource(ForumTabLocation source, ForumTabLocation search) {
     assert(canGoBack && location?.contentStack.last.isGlobalSearch == true);
-    _entries = [
-      ..._entries.take(_index - 1),
-      (id: previousEntryId!, content: source),
-      (id: entryId, content: search),
-    ];
+    _entries[_index - 1] = (id: previousEntryId!, content: source);
+    updateListState(search);
   }
 
   static bool _sameDestination(ForumTabLocation? a, ForumTabLocation? b) {

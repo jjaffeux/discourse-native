@@ -1,6 +1,6 @@
 part of 'shell_controller.dart';
 
-enum _MobileVisitCommit { push, replace }
+enum _MobileVisitCommit { push, replace, updateList }
 
 final class _WorkspaceController {
   _WorkspaceController(this._shell);

@@ -30,14 +30,23 @@ void main() {
           expect(plan.route.topicListSearch, 'café');
           expect(plan.route.topicListOrder, 'posts');
           expect(TopicListMode.fromRoute(plan.route), TopicListMode.topWeekly);
-          expect(plan.replacement.rootDestinationId, 'latest');
+          final opensList = reading && panels;
+          expect(
+            plan.replacement.rootDestinationId,
+            opensList ? 'latest' : tab.rootDestinationId,
+          );
           expect(plan.replacement.currentContent.isTopic, reading && !panels);
           expect(plan.replacement.contentStack.first.topicListOrder, 'posts');
           expect(
-            plan.mobileLocation?.contentStack.single.topicListOrder,
-            reading ? null : 'posts',
+            plan.replacement.backHistory.length,
+            tab.backHistory.length + (opensList ? 1 : 0),
           );
-          expect(plan.replacement.backHistory.last, tab.location);
+          if (reading && !panels) {
+            expect(
+              plan.replacement.goBack().currentContent.topicListOrder,
+              'posts',
+            );
+          }
           expect(plan.presentation, TopicListPresentation.preserve);
         },
       );
@@ -100,5 +109,4 @@ TopicListTransitions _facts(
   signedIn: true,
   unifiedNewEnabled: true,
   desktopPanelsEnabled: panels,
-  mobileNavigationEnabled: true,
 );

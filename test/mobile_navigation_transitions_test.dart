@@ -57,6 +57,77 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
+  testWidgets('category and tag links from Topics update the same visit', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      sidebarCategories: const [
+        TopicCategory(
+          id: 42,
+          name: 'Support',
+          slug: 'support',
+          color: '3188CC',
+        ),
+      ],
+      topics: const [
+        Topic(
+          id: 7,
+          title: 'Shared topic card',
+          slug: 'shared',
+          categoryId: 42,
+        ),
+      ],
+    );
+    final listVisit = shell.mobileNavigation.entryId;
+    await tester.tap(find.byKey(const ValueKey(('topic-row-category', 42))));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.categoryId, 42);
+    expect(shell.canPopContent, isFalse);
+    expect(shell.mobileNavigation.entryId, same(listVisit));
+
+    await tester.dragFrom(const Offset(8, 400), const Offset(360, 0));
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    expect(shell.currentContent?.categoryId, 42);
+    expect(shell.canForwardContent, isFalse);
+
+    shell.closeMobileSidebar();
+    expect(shell.openListUrl('https://meta.discourse.org/tag/42'), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.tagId, 42);
+    expect(shell.mobileNavigation.entryId, same(listVisit));
+    expect(shell.canPopContent, isFalse);
+  }, variant: _platforms);
+
+  testWidgets('changing the Topics feed keeps a topic available in Forward', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final listVisit = shell.mobileNavigation.entryId;
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 7);
+    expect(shell.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+
+    await shell.selectTopicListMode(TopicListMode.newActivity);
+    await tester.pumpAndSettle();
+    expect(shell.canForwardContent, isTrue);
+    expect(shell.mobileNavigation.entryId, same(listVisit));
+    expect(shell.handleForward(), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 7);
+    expect(shell.topicListContent, isNotNull);
+    expect(
+      TopicListMode.fromRoute(shell.topicListContent),
+      TopicListMode.newActivity,
+    );
+    expect(shell.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.currentTopicListMode, TopicListMode.newActivity);
+  }, variant: _platforms);
+
   testWidgets(
     'replacing the same channel visit keeps dismissal bound to that visit',
     (tester) async {

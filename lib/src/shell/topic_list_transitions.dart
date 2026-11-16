@@ -66,7 +66,6 @@ final class TopicListTransition {
     required this.route,
     required bool keepTopicOpen,
     required bool desktopPanelsEnabled,
-    required bool mobileNavigationEnabled,
     this.presentation = TopicListPresentation.preserve,
     this.resetScroll = false,
   }) {
@@ -79,30 +78,32 @@ final class TopicListTransition {
         tab.currentContent.isTopic &&
         sourceIndex >= 0 &&
         tab.contentStack[sourceIndex].isTopicList;
-    final root = route.isMessages ? 'messages' : 'latest';
-    final next = tab.navigate(
-      rootDestinationId: root,
-      contentStack: retainReader
-          ? [
-              ...tab.contentStack.take(sourceIndex),
-              route,
-              ...tab.contentStack.skip(sourceIndex + 1),
-            ]
-          : [route],
-    );
+    updatesList =
+        route.sharesListPageWith(tab.currentContent) ||
+        (retainReader &&
+            route.sharesListPageWith(tab.contentStack[sourceIndex]));
+    final next = updatesList
+        ? tab.updateListState(route)
+        : tab.navigate(
+            rootDestinationId: route.isMessages ? 'messages' : 'latest',
+            contentStack: retainReader
+                ? [
+                    ...tab.contentStack.take(sourceIndex),
+                    route,
+                    ...tab.contentStack.skip(sourceIndex + 1),
+                  ]
+                : [route],
+          );
     replacement = resetScroll && next.anchors.containsKey(route.id)
         ? next.copyWith(anchors: {...next.anchors}..remove(route.id))
         : next;
-    mobileLocation = mobileNavigationEnabled && tab.currentContent.isTopicList
-        ? ForumTabLocation(rootDestinationId: root, contentStack: [route])
-        : null;
   }
 
   final ContentRoute route;
   final bool resetScroll;
   final TopicListPresentation presentation;
   late final ForumTab replacement;
-  late final ForumTabLocation? mobileLocation;
+  late final bool updatesList;
 }
 
 /// The route policy for a tab's source list, separate from its current reader
@@ -119,7 +120,6 @@ final class TopicListTransitions {
     required this.signedIn,
     required this.unifiedNewEnabled,
     required this.desktopPanelsEnabled,
-    required this.mobileNavigationEnabled,
   }) : categories = List.unmodifiable(categories),
        canonicalCategories = Map.unmodifiable(canonicalCategories),
        resolvedTags = List.unmodifiable(resolvedTags);
@@ -135,7 +135,6 @@ final class TopicListTransitions {
   final bool signedIn;
   final bool unifiedNewEnabled;
   final bool desktopPanelsEnabled;
-  final bool mobileNavigationEnabled;
 
   TopicListTransition? plan(TopicListCommand command) {
     final ContentRoute route;
@@ -249,7 +248,6 @@ final class TopicListTransitions {
       route: route,
       keepTopicOpen: keepTopicOpen,
       desktopPanelsEnabled: desktopPanelsEnabled,
-      mobileNavigationEnabled: mobileNavigationEnabled,
       presentation: presentation,
       resetScroll: !route.sameDestinationAs(source),
     );

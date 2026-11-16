@@ -11,6 +11,24 @@ String _restoredRootDestinationId(String root, ContentRoute first) =>
     ? 'latest'
     : root;
 
+({List<T> locations, int index})
+_restoreListVisits<T extends ForumTabLocation?>(List<T> visits, int current) {
+  final locations = <T>[];
+  var index = -1;
+  for (final (position, visit) in visits.indexed) {
+    final route = visit?.contentStack.last;
+    final previous = locations.lastOrNull?.contentStack.last;
+    if (route != null && route.sharesListPageWith(previous)) {
+      // Preserve the visible state if the cursor is inside an old list run.
+      if (index != locations.length - 1) locations.last = visit;
+    } else {
+      locations.add(visit);
+    }
+    if (position == current) index = locations.length - 1;
+  }
+  return (locations: locations, index: index);
+}
+
 /// Stable panel identity, independent of its visual position.
 enum ForumPanel { main, secondary }
 
@@ -74,6 +92,30 @@ final class ForumTabLocation {
   final String rootDestinationId;
   final List<ContentRoute> contentStack;
 
+  ForumTabLocation? withListState({
+    required ForumTabLocation source,
+    required int index,
+    required ContentRoute route,
+  }) {
+    if (rootDestinationId != source.rootDestinationId ||
+        contentStack.length <= index ||
+        source.contentStack.length <= index ||
+        !route.sharesListPageWith(source.contentStack[index])) {
+      return null;
+    }
+    for (var i = 0; i <= index; i++) {
+      if (!contentStack[i].sameDestinationAs(source.contentStack[i])) {
+        return null;
+      }
+    }
+    final stack = contentStack.toList();
+    stack[index] = route;
+    return ForumTabLocation(
+      rootDestinationId: rootDestinationId,
+      contentStack: stack,
+    );
+  }
+
   Map<String, Object?> toJson() => {
     'root_destination_id': rootDestinationId,
     'content_stack': [for (final route in contentStack) route.toJson()],
@@ -96,9 +138,21 @@ final class ForumTabLocation {
       preserveRoot: true,
     );
     if (root is! String || root.isEmpty || routes.isEmpty) return null;
+    return _restore(root, routes);
+  }
+
+  static ForumTabLocation _restore(String root, List<ContentRoute> routes) {
+    final stack = <ContentRoute>[];
+    for (final route in routes) {
+      if (route.sharesListPageWith(stack.lastOrNull)) {
+        stack.last = route;
+      } else {
+        stack.add(route);
+      }
+    }
     return ForumTabLocation(
       rootDestinationId: _restoredRootDestinationId(root, routes.first),
-      contentStack: routes,
+      contentStack: stack,
     );
   }
 
@@ -262,6 +316,37 @@ final class ForumTab {
     )._pruneAnchors();
   }
 
+  ForumTab updateListState(ContentRoute route) {
+    final source = location;
+    final index = contentStack.lastIndexWhere(
+      (page) => page.sharesListPageWith(route),
+    );
+    assert(index >= 0);
+    if (route.sameDisplayAs(contentStack[index])) return this;
+
+    List<ForumTabLocation> updateAdjacent(List<ForumTabLocation> history) {
+      final updated = history.toList();
+      for (var i = updated.length - 1; i >= 0; i--) {
+        final visit = updated[i].withListState(
+          source: source,
+          index: index,
+          route: route,
+        );
+        if (visit == null) break;
+        updated[i] = visit;
+      }
+      return updated;
+    }
+
+    return copyWith(
+      contentStack: source
+          .withListState(source: source, index: index, route: route)!
+          .contentStack,
+      backHistory: updateAdjacent(backHistory),
+      forwardHistory: updateAdjacent(forwardHistory),
+    )._pruneAnchors();
+  }
+
   ForumTab goForward() {
     if (!canGoForward) return this;
     return copyWith(
@@ -408,21 +493,34 @@ final class ForumTab {
       return null;
     }
 
-    final stack = _readRoutes(
+    final routes = _readRoutes(
       rawStack,
       maximumContentRoutes,
       preserveRoot: true,
     );
-    if (stack.isEmpty) return null;
-    final backHistory =
+    if (routes.isEmpty) return null;
+    final location = ForumTabLocation._restore(root, routes);
+    final stack = location.contentStack;
+    final oldBack =
         _readHistory(json['back_history']) ?? _legacyBackHistory(root, stack);
-    final forwardHistory =
+    final oldForward =
         _readHistory(json['forward_history']) ??
         _legacyForwardHistory(
           root,
           stack,
           _readRoutes(json['forward_content_stack'], maximumHistoryEntries),
         );
+    final restored = _restoreListVisits([
+      ...oldBack,
+      location,
+      ...oldForward.reversed,
+    ], oldBack.length);
+    final backHistory = restored.locations.take(restored.index).toList();
+    final forwardHistory = restored.locations
+        .skip(restored.index + 1)
+        .toList()
+        .reversed
+        .toList();
     final routeIds = {
       for (final route in stack) route.id,
       for (final entry in [...backHistory, ...forwardHistory])
@@ -453,7 +551,7 @@ final class ForumTab {
         'secondary' => ForumPanel.secondary,
         _ => ForumPanel.main,
       },
-      rootDestinationId: _restoredRootDestinationId(root, stack.first),
+      rootDestinationId: location.rootDestinationId,
       contentStack: stack,
       backHistory: backHistory,
       forwardHistory: forwardHistory,
@@ -596,7 +694,12 @@ final class MobileNavigationState {
       if (visit == null && position > 0) return null;
       visits.add(visit);
     }
-    return MobileNavigationState(place: place, visits: visits, index: index);
+    final restored = _restoreListVisits(visits, index);
+    return MobileNavigationState(
+      place: place,
+      visits: restored.locations,
+      index: restored.index,
+    );
   }
 
   @override

@@ -793,6 +793,12 @@ class ContentRoute {
   bool get isTopicList =>
       destination is FeedDestination || destination is MessagesDestination;
 
+  bool sharesListPageWith(ContentRoute? other) => switch (destination) {
+    FeedDestination() => other?.destination is FeedDestination,
+    MessagesDestination() => other?.destination is MessagesDestination,
+    _ => false,
+  };
+
   Map<String, Object?> toJson() => ContentRouteCodec.encode(this);
 
   factory ContentRoute.fromJson(Map<String, dynamic> json) =>

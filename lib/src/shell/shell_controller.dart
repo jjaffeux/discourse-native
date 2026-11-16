@@ -8630,6 +8630,10 @@ class ShellController extends FrameSafeNotifier
     final startsPluginPane = _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return;
+    final updatesList =
+        !startsJourney &&
+        !startsPluginPane &&
+        route.sharesListPageWith(tab.currentContent);
     _setForumContentRoot();
     _workspace.navigateActiveTab(
       startsJourney || startsPluginPane
@@ -8639,8 +8643,12 @@ class ShellController extends FrameSafeNotifier
               backHistory: const [],
               forwardHistory: const [],
             )
+          : updatesList
+          ? tab.updateListState(route)
           : tab.push(route),
-      mobile: _MobileVisitCommit.push,
+      mobile: updatesList
+          ? _MobileVisitCommit.updateList
+          : _MobileVisitCommit.push,
     );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
@@ -8728,8 +8736,13 @@ class ShellController extends FrameSafeNotifier
   ForumWorkspace _withMobileBackPath(ForumWorkspace workspace) {
     mobileNavigation.restoreDocumentAncestors();
     if (mobileNavigation.canGoBack) return workspace;
-    final route = mobileNavigation.location?.contentStack.last;
-    if (route == null) return workspace;
+    final location = mobileNavigation.location;
+    if (location == null) return workspace;
+    final route = location.contentStack.last;
+    // A category or tag can also be the current state of a live Topics visit.
+    if (route.isTaxonomyList && location.rootDestinationId != route.id) {
+      return workspace;
+    }
 
     final parent = ContentPageContract.mobileParent(
       route,
@@ -8786,6 +8799,12 @@ class ShellController extends FrameSafeNotifier
         mobileNavigation.push(tab.location);
       case _MobileVisitCommit.replace:
         mobileNavigation.replaceCurrent(tab.location);
+      case _MobileVisitCommit.updateList:
+        if (mobileNavigation.atRoot) {
+          mobileNavigation.push(tab.location);
+        } else {
+          mobileNavigation.updateListState(tab.location);
+        }
     }
     _persistMobileNavigation();
   }

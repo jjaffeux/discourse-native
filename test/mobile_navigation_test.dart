@@ -317,6 +317,41 @@ void main() {
     expect(relaunched.tab, MobileTab.topics);
   });
 
+  test('restoration folds old Topics states around the current visit', () {
+    final latest = ContentRoute.topicList(TopicListMode.latest);
+    final filtered = ContentRoute.filteredTopicList(
+      TopicListMode.latest,
+      categoryId: 42,
+    );
+    final unread = ContentRoute.topicList(TopicListMode.unread);
+    final topic = ContentRoute.topic(topicId: 7, slug: 'seven', title: 'Seven');
+    final state = MobileNavigationState(
+      place: 'topics',
+      visits: [
+        for (final stack in [
+          [latest],
+          [latest, filtered],
+          [latest, filtered, unread],
+          [latest, filtered, topic],
+        ])
+          ForumTabLocation(rootDestinationId: 'latest', contentStack: stack),
+      ],
+      index: 1,
+    );
+    final navigation = MobileNavigation();
+    expect(
+      navigation.restore(
+        state: MobileNavigationState.tryFromJson(state.toJson())!,
+      ),
+      isTrue,
+    );
+    expect(navigation.location?.contentStack, [filtered]);
+    expect(navigation.canGoBack, isFalse);
+    expect(navigation.goForward(), isTrue);
+    expect(navigation.location?.contentStack, [filtered, topic]);
+    expect(navigation.canGoForward, isFalse);
+  });
+
   test('a saved document supplies missing visits and keeps Forward', () {
     final navigation = MobileNavigation();
     final parent = page('category');

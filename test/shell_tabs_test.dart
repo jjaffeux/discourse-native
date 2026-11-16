@@ -962,32 +962,26 @@ void main() {
         expect(controller.canForwardContent, isFalse);
       });
 
-      test(
-        'sidebar destination visits restore their navigation context',
-        () async {
-          controller.openTopicFromList(
-            const Topic(id: 101, slug: 'first', title: 'First'),
-          );
-          controller.selectDestination(_destination(forums[0], 'categories'));
-          controller.selectDestination(_destination(forums[0], 'latest'));
-          await controller.selectTopicListMode(TopicListMode.topYearly);
+      test('sidebar visits restore their latest topic list state', () async {
+        controller.openTopicFromList(
+          const Topic(id: 101, slug: 'first', title: 'First'),
+        );
+        controller.selectDestination(_destination(forums[0], 'categories'));
+        controller.selectDestination(_destination(forums[0], 'latest'));
+        await controller.selectTopicListMode(TopicListMode.topYearly);
 
-          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-          expect(controller.currentTopicListMode, TopicListMode.latest);
-          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-          expect(controller.destinationId, 'categories');
-          expect(controller.currentContent?.id, 'categories');
-          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-          expect(controller.destinationId, 'latest');
-          expect(controller.currentContent?.topicId, 101);
-          expect(controller.handleForward(), isTrue);
-          expect(controller.destinationId, 'categories');
-          expect(controller.handleForward(), isTrue);
-          expect(controller.currentTopicListMode, TopicListMode.latest);
-          expect(controller.handleForward(), isTrue);
-          expect(controller.currentTopicListMode, TopicListMode.topYearly);
-        },
-      );
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        expect(controller.destinationId, 'categories');
+        expect(controller.currentContent?.id, 'categories');
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        expect(controller.destinationId, 'latest');
+        expect(controller.currentContent?.topicId, 101);
+        expect(controller.handleForward(), isTrue);
+        expect(controller.destinationId, 'categories');
+        expect(controller.handleForward(), isTrue);
+        expect(controller.currentTopicListMode, TopicListMode.topYearly);
+        expect(controller.canForwardContent, isFalse);
+      });
 
       test('reselecting a destination refreshes without losing Forward', () {
         controller.selectDestination(_destination(forums[0], 'categories'));
