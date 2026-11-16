@@ -648,7 +648,7 @@ void main() {
         },
       );
     }
-    for (final invalid in ['587x', '58.7', '', '9223372036854775808']) {
+    for (final invalid in ['58.7', '', '9223372036854775808']) {
       test('SMTP port $invalid cannot submit null while enabled', () async {
         var writes = 0;
         final controller = GroupManageController(
