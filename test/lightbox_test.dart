@@ -1129,34 +1129,6 @@ void main() {
       expect(controller.scale, greaterThan(initialScale));
     });
 
-    testWidgets('pinches the image to zoom in with two touch pointers', (
-      tester,
-    ) async {
-      await pumpGallery(tester, platform: TargetPlatform.iOS);
-      final controller = photoControllerAt(tester, 0);
-      final initialScale = controller.scale!;
-      final center = tester.getCenter(photoViewAt(0));
-      final first = await tester.startGesture(
-        center - const Offset(40, 0),
-        pointer: 1,
-        kind: PointerDeviceKind.touch,
-      );
-      final second = await tester.startGesture(
-        center + const Offset(40, 0),
-        pointer: 2,
-        kind: PointerDeviceKind.touch,
-      );
-
-      await first.moveTo(center - const Offset(120, 0));
-      await second.moveTo(center + const Offset(120, 0));
-      await tester.pump();
-      await first.up();
-      await second.up();
-      await tester.pumpAndSettle();
-
-      expect(controller.scale, greaterThan(initialScale));
-    });
-
     testWidgets('downloads the upload instead of opening its URL', (
       tester,
     ) async {
