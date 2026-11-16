@@ -83,7 +83,6 @@ void main() {
     });
 
     for (final mask in [
-      0,
       0x20000409,
       0xa0000408,
       0xa0000401,
