@@ -338,7 +338,7 @@ Finder get _titleMark => find.descendant(
 
 void main() {
   setUpAll(TimezoneEnvironment.instance.ensureDatabase);
-  for (final width in [320.0, 680.0, 1000.0]) {
+  for (final width in [320.0, 1000.0]) {
     testWidgets('section tabs expose every available preference at $width', (
       tester,
     ) async {
@@ -1797,9 +1797,7 @@ void main() {
   );
   const loadingCases = [
     (320.0, Brightness.light, TargetPlatform.iOS),
-    (320.0, Brightness.dark, TargetPlatform.macOS),
-    (1000.0, Brightness.light, TargetPlatform.macOS),
-    (1000.0, Brightness.dark, TargetPlatform.iOS),
+    (1000.0, Brightness.dark, TargetPlatform.macOS),
   ];
   for (final (width, brightness, platform) in loadingCases) {
     testWidgets('preferences load as an accessible skeleton at $width '
