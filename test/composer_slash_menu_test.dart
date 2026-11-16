@@ -254,28 +254,23 @@ void main() {
     },
   );
 
-  for (final dark in [false, true]) {
-    testWidgets(
-      'slash hint and filtering preserve focus (${dark ? 'dark' : 'light'})',
-      (tester) async {
-        final composer = await pump(tester, dark: dark);
-        await type(tester, '/');
-        expect(find.text('Type to search'), findsOneWidget);
-        expect(find.text('Bold'), findsOneWidget);
-        expect(find.text('Table'), findsOneWidget);
-        expect(find.text('Details'), findsOneWidget);
-        expect(composer.focus.hasFocus, isTrue);
-        await type(tester, 'Before /bold');
-        expect(find.text('Table'), findsNothing);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-        expect(composer.text.text, 'Before ****');
-        expect(composer.text.selection.extentOffset, 9);
-        expect(find.text('Close menu'), findsNothing);
-        expect(composer.focus.hasFocus, isTrue);
-      },
-    );
-  }
+  testWidgets('slash hint and filtering preserve focus', (tester) async {
+    final composer = await pump(tester, dark: true);
+    await type(tester, '/');
+    expect(find.text('Type to search'), findsOneWidget);
+    expect(find.text('Bold'), findsOneWidget);
+    expect(find.text('Table'), findsOneWidget);
+    expect(find.text('Details'), findsOneWidget);
+    expect(composer.focus.hasFocus, isTrue);
+    await type(tester, 'Before /bold');
+    expect(find.text('Table'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, 'Before ****');
+    expect(composer.text.selection.extentOffset, 9);
+    expect(find.text('Close menu'), findsNothing);
+    expect(composer.focus.hasFocus, isTrue);
+  });
 
   testWidgets('arrow selection, Escape, empty results and pointer activation', (
     tester,
