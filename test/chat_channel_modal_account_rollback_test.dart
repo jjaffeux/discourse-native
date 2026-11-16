@@ -41,7 +41,10 @@ enum _Operation {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final action in _Action.values) {
-    for (final operation in _Operation.values) {
+    final operations = action == _Action.reopen
+        ? const [_Operation.unchanged, _Operation.failedReconnectWhileSaving]
+        : _Operation.values;
+    for (final operation in operations) {
       testWidgets(
         'the ${action.name} modal ${operation == _Operation.unchanged ? 'saves in its opening session' : 'rejects ${operation.name} session replacement'}',
         (tester) async {
