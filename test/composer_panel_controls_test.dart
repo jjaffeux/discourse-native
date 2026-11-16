@@ -466,7 +466,7 @@ void main() {
     }
 
     testWidgets(
-      'mobile toolbar popup triggers stay transparent while their menus are open',
+      'mobile toolbar triggers stay transparent while their menus are open',
       (tester) async {
         final composer = ComposerController(
           _newTopicTarget,
@@ -497,6 +497,17 @@ void main() {
           await tester.tap(button);
           await tester.pumpAndSettle();
           expect(find.text(item), findsOneWidget);
+          if (key == 'composer-insert') {
+            final sheet = find.ancestor(
+              of: find.text(item).hitTestable(),
+              matching: find.byType(DSheetContent),
+            );
+            expect(sheet, findsOneWidget);
+            expect(
+              tester.widget<DSheetContent>(sheet).variant,
+              DSheetVariant.adaptiveMenu,
+            );
+          }
           expect(tester.widget<DButton>(button).expanded, isTrue);
           expect(IconTheme.of(tester.element(icon)).color, tokens.foreground);
           expect(buttonSurface(tester, of: button).color, Colors.transparent);

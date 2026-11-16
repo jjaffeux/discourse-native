@@ -4358,6 +4358,8 @@ class _Toolbar extends StatelessWidget {
           ),
         if (!composer.target.isPlugin || actions.isNotEmpty)
           DDropdownMenu(
+            sheetOnMobile: true,
+            mobileSheetVariant: DSheetVariant.adaptiveMenu,
             content: DDropdownMenuContent(
               semanticLabel: context.l10n.insert,
               side: DPopoverSide.top,

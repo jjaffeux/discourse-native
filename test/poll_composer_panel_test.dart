@@ -503,7 +503,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 1));
       }
       await tester.tap(find.byKey(const ValueKey('composer-insert')));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text(tooltip), findsOneWidget);
       final shortcut = tester
           .widget<DShortcutKeycaps>(
@@ -518,6 +518,8 @@ void main() {
       expect(shortcut.shift, isTrue);
       expect(shortcut.meta, isFalse);
 
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(TextField).last);
       await tester.pump();
 
@@ -600,7 +602,7 @@ void main() {
         }
 
         await tester.tap(find.byKey(const ValueKey('composer-insert')));
-        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.text('Add poll'), findsOneWidget);
       },
     );
