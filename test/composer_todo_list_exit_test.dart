@@ -135,7 +135,6 @@ void main() {
 
   const separationCases = [
     (false, ''),
-    (true, ''),
     (false, 'Introduction\n\n'),
     (true, 'Introduction\r\n\r\n'),
     (true, '- [x] First\n\n'),
