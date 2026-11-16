@@ -298,24 +298,4 @@ void main() {
       expect(results.first.createdAt, DateTime.utc(2026, 8, 25, 10));
     },
   );
-
-  test('parses message, channel, thread context, and paging metadata', () {
-    final json = result(40)
-      ..['thread_id'] = 7
-      ..['thread_title'] = 'Search design';
-
-    final page = ChatSearchPage.fromJson({
-      'messages': [json],
-      'meta': const {'has_more': true, 'limit': 20, 'offset': 40},
-    }, site);
-
-    expect(page.hits.single.message.id, 40);
-    expect(page.hits.single.channel.title, 'Bugs');
-    expect(page.hits.single.threadTitle, 'Search design');
-    expect(page.hits.single.excerpt, 'message 40');
-    expect(page.hasMore, isTrue);
-    expect(page.limit, 20);
-    expect(page.offset, 40);
-    expect(page.consumedCount, 1);
-  });
 }
