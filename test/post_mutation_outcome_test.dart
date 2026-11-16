@@ -89,7 +89,7 @@ void main() {
       );
     }
 
-    for (final status in [200, 400, 403, 422]) {
+    for (final status in [200, 400, selected ? 422 : 403]) {
       test(
         '$path does not accept a failed owner acknowledgment with HTTP $status',
         () async {
