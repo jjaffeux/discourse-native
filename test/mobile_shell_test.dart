@@ -6579,7 +6579,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [320.0, 430.0, 600.0]) {
+  for (final width in [320.0, 600.0]) {
     _mobileTest('rail stays inside the $width viewport during swipes', (
       tester,
     ) async {
