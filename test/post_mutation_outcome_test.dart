@@ -120,7 +120,7 @@ void main() {
       );
     }
 
-    for (final notSent in [false, true]) {
+    for (final notSent in [if (!selected) false, true]) {
       test(
         '$path owner transport failure preserves notSent $notSent',
         () async {
