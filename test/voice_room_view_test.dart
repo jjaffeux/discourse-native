@@ -3160,7 +3160,7 @@ void main() {
         ('room', false),
         ('site', false),
         ('account', false),
-        if (!recording) ...[('room', true), ('site', true)],
+        if (!recording) ('room', true),
       ]) {
         final otherSite = change == 'site';
         final retiredSession = change == 'account';
