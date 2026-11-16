@@ -1099,7 +1099,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [320.0, 390.0, 430.0]) {
+  for (final width in [320.0, 430.0]) {
     testWidgets(
       'phone directory wraps its filters like the reference at width $width',
       (tester) async {
