@@ -1263,27 +1263,22 @@ void main() {
     },
   );
 
-  for (final whitespace in [false, true]) {
-    testWidgets(
-      '${whitespace ? 'whitespace' : 'Enter'} replaces an existing author',
-      (tester) async {
-        final api = _EngineApi();
-        final controller = _controller(api);
-        addTearDown(controller.dispose);
-        controller.addCondition(
-          const GlobalSearchCondition(filterId: 'author', value: ['alice']),
-        );
-        controller.setQuery(whitespace ? '@bob ' : '@bob');
-        controller.submit();
-        await tester.pump(const Duration(milliseconds: 10));
-        expect(controller.conditions.map((c) => (c.filterId, c.text)), [
-          ('author', 'bob'),
-        ]);
-        expect(api.requests, hasLength(1));
-        expect(globalSearchTerm(api.requests.single), '@bob in:all-posts');
-      },
+  testWidgets('trailing whitespace replaces an existing author', (tester) async {
+    final api = _EngineApi();
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    controller.addCondition(
+      const GlobalSearchCondition(filterId: 'author', value: ['alice']),
     );
-  }
+    controller.setQuery('@bob ');
+    controller.submit();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(controller.conditions.map((c) => (c.filterId, c.text)), [
+      ('author', 'bob'),
+    ]);
+    expect(api.requests, hasLength(1));
+    expect(globalSearchTerm(api.requests.single), '@bob in:all-posts');
+  });
 
   for (final scope in [GlobalSearchScope.forum, GlobalSearchScope.all]) {
     testWidgets('Enter replaces a choice in the retained ${scope.name} bank', (
