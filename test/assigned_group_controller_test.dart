@@ -609,167 +609,154 @@ void main() {
 
   for (final more in [false, true]) {
     for (final revisit in [false, true]) {
-      for (final fail in [false, true]) {
-        test(
-          'evicted ${more ? 'pages' : 'loads'} ${fail ? 'fail' : 'complete'} '
-          '${revisit ? 'during replacement requests' : 'without a revisit'}',
-          () async {
-            final api = _ControlledAssignedGroupApi();
-            final store = Store();
-            final controller = AssignedGroupController(
-              api: api,
-              requests: _requests(SiteLifecycle()),
-              topics: store,
-            );
-            addTearDown(controller.dispose);
-            const filter = AssignedGroupFilter.everyone();
+      final fail = more == revisit;
+      test(
+        'evicted ${more ? 'pages' : 'loads'} ${fail ? 'fail' : 'complete'} '
+        '${revisit ? 'during replacement requests' : 'without a revisit'}',
+        () async {
+          final api = _ControlledAssignedGroupApi();
+          final store = Store();
+          final controller = AssignedGroupController(
+            api: api,
+            requests: _requests(SiteLifecycle()),
+            topics: store,
+          );
+          addTearDown(controller.dispose);
+          const filter = AssignedGroupFilter.everyone();
 
-            Future<void> loadMembers() => more
-                ? controller.loadMoreMembers(
-                    siteUrl: _site,
-                    groupName: 'support',
-                  )
-                : controller.loadMembers(siteUrl: _site, groupName: 'support');
-            Future<void> loadTopics() => more
-                ? controller.loadMoreTopics(
-                    siteUrl: _site,
-                    groupName: 'support',
-                    filter: filter,
-                  )
-                : controller.loadTopics(
-                    siteUrl: _site,
-                    groupName: 'support',
-                    filter: filter,
-                  );
-            Future<void> firstPages() async {
-              api.memberResults.add(_completed(_members(1, hasMore: true)));
-              api.topicResults.add(
-                _completed(
-                  _topics(
-                    11,
-                    more: '/topics/group-topics-assigned/support?page=1',
-                  ),
+          Future<void> loadMembers() => more
+              ? controller.loadMoreMembers(siteUrl: _site, groupName: 'support')
+              : controller.loadMembers(siteUrl: _site, groupName: 'support');
+          Future<void> loadTopics() => more
+              ? controller.loadMoreTopics(
+                  siteUrl: _site,
+                  groupName: 'support',
+                  filter: filter,
+                )
+              : controller.loadTopics(
+                  siteUrl: _site,
+                  groupName: 'support',
+                  filter: filter,
+                );
+          Future<void> firstPages() async {
+            api.memberResults.add(_completed(_members(1, hasMore: true)));
+            api.topicResults.add(
+              _completed(
+                _topics(
+                  11,
+                  more: '/topics/group-topics-assigned/support?page=1',
                 ),
-              );
-              await controller.loadMembers(
-                siteUrl: _site,
-                groupName: 'support',
-              );
-              await controller.loadTopics(
-                siteUrl: _site,
-                groupName: 'support',
-                filter: filter,
-              );
-            }
+              ),
+            );
+            await controller.loadMembers(siteUrl: _site, groupName: 'support');
+            await controller.loadTopics(
+              siteUrl: _site,
+              groupName: 'support',
+              filter: filter,
+            );
+          }
 
+          if (more) await firstPages();
+          final oldMembers = Completer<AssignedGroupMembersPage>();
+          final oldTopics = Completer<TopicList>();
+          api.memberResults.add(oldMembers);
+          (more ? api.pageResults : api.topicResults).add(oldTopics);
+          final oldMemberLoad = loadMembers();
+          final oldTopicLoad = loadTopics();
+          await pumpEventQueue();
+
+          await _loadQueries(controller, api);
+          expect(controller.membersStateFor(_site, 'support').members, isEmpty);
+          expect(controller.membersStateFor(_site, 'support').loading, isFalse);
+          expect(
+            controller.topicFeedFor(_site, 'support', filter).topicIds,
+            isEmpty,
+          );
+          expect(
+            controller.topicFeedFor(_site, 'support', filter).loading,
+            isFalse,
+          );
+
+          final freshMembers = Completer<AssignedGroupMembersPage>();
+          final freshTopics = Completer<TopicList>();
+          Future<void>? freshMemberLoad;
+          Future<void>? freshTopicLoad;
+          if (revisit) {
             if (more) await firstPages();
-            final oldMembers = Completer<AssignedGroupMembersPage>();
-            final oldTopics = Completer<TopicList>();
-            api.memberResults.add(oldMembers);
-            (more ? api.pageResults : api.topicResults).add(oldTopics);
-            final oldMemberLoad = loadMembers();
-            final oldTopicLoad = loadTopics();
+            api.memberResults.add(freshMembers);
+            (more ? api.pageResults : api.topicResults).add(freshTopics);
+            freshMemberLoad = loadMembers();
+            freshTopicLoad = loadTopics();
             await pumpEventQueue();
+          }
 
-            await _loadQueries(controller, api);
+          var notifications = 0;
+          controller.addListener(() => notifications++);
+          if (fail) {
+            oldMembers.completeError(StateError('old member request failed'));
+            oldTopics.completeError(StateError('old topic request failed'));
+          } else {
+            oldMembers.complete(_members(2, offset: more ? 50 : 0));
+            oldTopics.complete(_topics(12));
+          }
+          await Future.wait([oldMemberLoad, oldTopicLoad]);
+
+          expect(notifications, 0, reason: 'evicted requests cannot notify');
+          expect(store.read<Topic>(_site, 12), isNull);
+          final members = controller.membersStateFor(_site, 'support');
+          final feed = controller.topicFeedFor(_site, 'support', filter);
+          expect(
+            members.members.map((member) => member.id),
+            more && revisit ? [1] : isEmpty,
+          );
+          expect(feed.topicIds, more && revisit ? [11] : isEmpty);
+          expect(members.loaded, more && revisit);
+          expect(feed.loaded, more && revisit);
+          expect(members.loading, !more && revisit);
+          expect(feed.loading, !more && revisit);
+          expect(members.loadingMore, more && revisit);
+          expect(feed.loadingMore, more && revisit);
+          expect(members.error, isNull);
+          expect(feed.error, isNull);
+
+          if (revisit) {
+            final memberCalls = api.memberCalls.length;
+            final topicCalls = api.topicCalls.length;
+            final pageCalls = api.pageCalls.length;
+            await loadMembers();
+            await loadTopics();
+            expect(api.memberCalls, hasLength(memberCalls));
+            expect(api.topicCalls, hasLength(topicCalls));
+            expect(api.pageCalls, hasLength(pageCalls));
+
+            freshMembers.complete(_members(3, offset: more ? 50 : 0));
+            freshTopics.complete(_topics(13));
+            await freshMemberLoad;
+            await freshTopicLoad;
             expect(
-              controller.membersStateFor(_site, 'support').members,
-              isEmpty,
+              controller
+                  .membersStateFor(_site, 'support')
+                  .members
+                  .map((member) => member.id),
+              more ? [1, 3] : [3],
             );
             expect(
-              controller.membersStateFor(_site, 'support').loading,
+              controller
+                  .topicsFor(_site, 'support', filter)
+                  .map((topic) => topic.id),
+              more ? [11, 13] : [13],
+            );
+            expect(
+              controller.membersStateFor(_site, 'support').loadingMore,
               isFalse,
             );
             expect(
-              controller.topicFeedFor(_site, 'support', filter).topicIds,
-              isEmpty,
-            );
-            expect(
-              controller.topicFeedFor(_site, 'support', filter).loading,
+              controller.topicFeedFor(_site, 'support', filter).loadingMore,
               isFalse,
             );
-
-            final freshMembers = Completer<AssignedGroupMembersPage>();
-            final freshTopics = Completer<TopicList>();
-            Future<void>? freshMemberLoad;
-            Future<void>? freshTopicLoad;
-            if (revisit) {
-              if (more) await firstPages();
-              api.memberResults.add(freshMembers);
-              (more ? api.pageResults : api.topicResults).add(freshTopics);
-              freshMemberLoad = loadMembers();
-              freshTopicLoad = loadTopics();
-              await pumpEventQueue();
-            }
-
-            var notifications = 0;
-            controller.addListener(() => notifications++);
-            if (fail) {
-              oldMembers.completeError(StateError('old member request failed'));
-              oldTopics.completeError(StateError('old topic request failed'));
-            } else {
-              oldMembers.complete(_members(2, offset: more ? 50 : 0));
-              oldTopics.complete(_topics(12));
-            }
-            await Future.wait([oldMemberLoad, oldTopicLoad]);
-
-            expect(notifications, 0, reason: 'evicted requests cannot notify');
-            expect(store.read<Topic>(_site, 12), isNull);
-            final members = controller.membersStateFor(_site, 'support');
-            final feed = controller.topicFeedFor(_site, 'support', filter);
-            expect(
-              members.members.map((member) => member.id),
-              more && revisit ? [1] : isEmpty,
-            );
-            expect(feed.topicIds, more && revisit ? [11] : isEmpty);
-            expect(members.loaded, more && revisit);
-            expect(feed.loaded, more && revisit);
-            expect(members.loading, !more && revisit);
-            expect(feed.loading, !more && revisit);
-            expect(members.loadingMore, more && revisit);
-            expect(feed.loadingMore, more && revisit);
-            expect(members.error, isNull);
-            expect(feed.error, isNull);
-
-            if (revisit) {
-              final memberCalls = api.memberCalls.length;
-              final topicCalls = api.topicCalls.length;
-              final pageCalls = api.pageCalls.length;
-              await loadMembers();
-              await loadTopics();
-              expect(api.memberCalls, hasLength(memberCalls));
-              expect(api.topicCalls, hasLength(topicCalls));
-              expect(api.pageCalls, hasLength(pageCalls));
-
-              freshMembers.complete(_members(3, offset: more ? 50 : 0));
-              freshTopics.complete(_topics(13));
-              await freshMemberLoad;
-              await freshTopicLoad;
-              expect(
-                controller
-                    .membersStateFor(_site, 'support')
-                    .members
-                    .map((member) => member.id),
-                more ? [1, 3] : [3],
-              );
-              expect(
-                controller
-                    .topicsFor(_site, 'support', filter)
-                    .map((topic) => topic.id),
-                more ? [11, 13] : [13],
-              );
-              expect(
-                controller.membersStateFor(_site, 'support').loadingMore,
-                isFalse,
-              );
-              expect(
-                controller.topicFeedFor(_site, 'support', filter).loadingMore,
-                isFalse,
-              );
-            }
-          },
-        );
-      }
+          }
+        },
+      );
     }
   }
 
