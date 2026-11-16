@@ -214,7 +214,6 @@ void main() {
   });
 
   for (final (platform, field, inset, gap) in [
-    (TargetPlatform.iOS, 36.0, 1.0, 6.0),
     (TargetPlatform.android, 36.0, 1.0, 6.0),
     (TargetPlatform.macOS, 30.0, 12.0, 12.0),
   ]) {
