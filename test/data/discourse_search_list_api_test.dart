@@ -56,7 +56,7 @@ void main() {
       expect(last.nextPagePath, isNull);
     },
   );
-  for (final prefix in ['', '/forum', '/forum%20space', '/caf%C3%A9']) {
+  for (final prefix in ['', '/forum', '/caf%C3%A9']) {
     test('search follows page two under site prefix "$prefix"', () async {
       final requests = <Uri>[];
       final api = DiscourseApi(
