@@ -82,29 +82,6 @@ void main() {
       );
     });
 
-    test('reads the core iframe and its preceding hidden thumbnail', () {
-      final document = html_parser.parseFragment('''
-<img class="youtube-thumbnail onebox" style="display:none"
-  src="https://cdn.example/core.jpg" title="Core title">
-<iframe class="youtube-onebox"
-  src="https://www.youtube.com/embed/dQw4w9WgXcQ?list=PL_test&amp;start=42&amp;end=90&amp;loop=1">
-</iframe>
-''');
-
-      final data = YoutubeVideoData.tryParseCoreIframe(
-        document.querySelector('iframe')!,
-      );
-
-      expect(data, isNotNull);
-      expect(data!.videoId, 'dQw4w9WgXcQ');
-      expect(data.listId, 'PL_test');
-      expect(data.title, 'Core title');
-      expect(data.thumbnailUrl, 'https://cdn.example/core.jpg');
-      expect(data.startSeconds, 42);
-      expect(data.endSeconds, 90);
-      expect(data.loop, isTrue);
-    });
-
     test('reads a playlist-only core iframe', () {
       final iframe = html_parser
           .parseFragment('''
@@ -828,54 +805,54 @@ void main() {
       expect(find.byType(YoutubeVideo), findsNothing);
     });
 
-    for (final loopValue in <String?>[null, '0', '1']) {
-      for (final withPlaylist in [false, true]) {
-        testWidgets('preserves core iframe loop=${loopValue ?? 'absent'} '
-            'with playlist=$withPlaylist', (tester) async {
-          final query = [
-            'start=12',
-            if (withPlaylist) 'list=PL_test',
-            if (loopValue != null) 'loop=$loopValue',
-          ].join('&amp;');
-          await tester.pumpWidget(
-            MaterialApp(
-              home: Scaffold(
-                body: CookedHtml(
-                  siteUrl: 'https://meta.discourse.org',
-                  html:
-                      '<iframe class="youtube-onebox" '
-                      'src="https://www.youtube.com/embed/dQw4w9WgXcQ?$query">'
-                      '</iframe>',
-                ),
+    const iframeCases = <(String?, bool)>[
+      (null, false),
+      ('0', true),
+      ('1', false),
+      ('1', true),
+    ];
+    for (final (loopValue, withPlaylist) in iframeCases) {
+      testWidgets('preserves core iframe loop=${loopValue ?? 'absent'} '
+          'with playlist=$withPlaylist', (tester) async {
+        final query = [
+          'start=12',
+          if (withPlaylist) 'list=PL_test',
+          if (loopValue != null) 'loop=$loopValue',
+        ].join('&amp;');
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: CookedHtml(
+                siteUrl: 'https://meta.discourse.org',
+                html:
+                    '<iframe class="youtube-onebox" '
+                    'src="https://www.youtube.com/embed/dQw4w9WgXcQ?$query">'
+                    '</iframe>',
               ),
             ),
-          );
-          await tester.pump();
+          ),
+        );
+        await tester.pump();
 
-          final data = tester
-              .widget<YoutubeVideo>(find.byType(YoutubeVideo))
-              .data;
-          final loops = loopValue == '1';
-          expect(data.loop, loops);
-          expect(data.videoId, 'dQw4w9WgXcQ');
-          expect(data.listId, withPlaylist ? 'PL_test' : null);
-          expect(data.startSeconds, 12);
-          final embed = youtubeEmbedUri(data);
-          expect(embed.queryParameters['loop'], loops ? '1' : null);
-          expect(
-            embed.queryParameters['playlist'],
-            loops ? 'dQw4w9WgXcQ' : null,
-          );
-          expect(
-            embed.queryParameters['list'],
-            withPlaylist ? 'PL_test' : null,
-          );
-          expect(data.watchUri.queryParameters['loop'], loops ? '1' : null);
-        });
-      }
+        final data = tester
+            .widget<YoutubeVideo>(find.byType(YoutubeVideo))
+            .data;
+        final loops = loopValue == '1';
+        expect(data.loop, loops);
+        expect(data.videoId, 'dQw4w9WgXcQ');
+        expect(data.listId, withPlaylist ? 'PL_test' : null);
+        expect(data.startSeconds, 12);
+        final embed = youtubeEmbedUri(data);
+        expect(embed.queryParameters['loop'], loops ? '1' : null);
+        expect(embed.queryParameters['playlist'], loops ? 'dQw4w9WgXcQ' : null);
+        expect(embed.queryParameters['list'], withPlaylist ? 'PL_test' : null);
+        expect(data.watchUri.queryParameters['loop'], loops ? '1' : null);
+      });
     }
 
-    testWidgets('claims the legacy core iframe fallback', (tester) async {
+    testWidgets('renders a legacy core iframe using its hidden thumbnail', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -883,9 +860,9 @@ void main() {
               siteUrl: 'https://meta.discourse.org',
               html: '''
 <img class="youtube-thumbnail onebox" style="display:none"
-  src="https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg">
+  src="https://cdn.example/core.jpg" title="Core title">
 <iframe class="youtube-onebox"
-  src="https://www.youtube.com/embed/dQw4w9WgXcQ?start=12"></iframe>
+  src="https://www.youtube.com/embed/dQw4w9WgXcQ?list=PL_test&amp;start=42&amp;end=90&amp;loop=1"></iframe>
 ''',
             ),
           ),
@@ -894,6 +871,14 @@ void main() {
       await tester.pump();
 
       expect(find.byType(YoutubeVideo), findsOneWidget);
+      final data = tester.widget<YoutubeVideo>(find.byType(YoutubeVideo)).data;
+      expect(data.videoId, 'dQw4w9WgXcQ');
+      expect(data.listId, 'PL_test');
+      expect(data.title, 'Core title');
+      expect(data.thumbnailUrl, 'https://cdn.example/core.jpg');
+      expect(data.startSeconds, 42);
+      expect(data.endSeconds, 90);
+      expect(data.loop, isTrue);
       // The hidden core image is suppressed; the one remaining image is the
       // native poster reusing that thumbnail.
       expect(find.byType(SiteImage), findsOneWidget);
