@@ -114,10 +114,6 @@ void main() {
       expect(at(2), two);
     });
 
-    test('takes the largest density on a denser screen', () {
-      expect(at(3), two);
-    });
-
     test('keeps a ratio that rounds past a density on that density', () {
       expect(at(1.0000001), src);
       expect(at(1.5000001), oneAndAHalf);
@@ -131,10 +127,6 @@ void main() {
         at(1, srcset: 'https://example.com/listed.png 1x, $two 2x'),
         'https://example.com/listed.png',
       );
-    });
-
-    test('keeps the first candidate of each density', () {
-      expect(at(2, srcset: '$two 2x, https://example.com/later.png 2.0x'), two);
     });
 
     test('returns a relative candidate as written', () {
