@@ -220,9 +220,82 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  for (final connected in [true, false]) {
+    for (final visibility in ['visible', 'empty', 'archived']) {
+      testWidgets(
+        'Boards sidebar with $visibility directory, connected=$connected',
+        (tester) async {
+          final fixture = BoardsFixture(connected: connected);
+          addTearDown(fixture.dispose);
+          final board = Map<String, dynamic>.from(fixture.data['board'] as Map);
+          board['archived'] = visibility == 'archived';
+          final path = connected
+              ? '/boards/api/boards.json'
+              : '/boards/api/boards.json?allowed_permissions=view';
+          final transport = RecordingPluginTransport(
+            responders: {
+              'GET $path': (_) => {
+                'boards': [if (visibility != 'empty') board],
+              },
+            },
+          );
+          final host = await PluginHostHarness.open(
+            transport: transport,
+            manifest: const PluginManifest([boardsModule]),
+            sites: [
+              PluginHostSite(
+                url: boardsSite,
+                apiKey: connected ? 'key' : null,
+                user: connected
+                    ? const PluginHostUser(id: 2, username: 'lee')
+                    : null,
+                config: fixture.config,
+              ),
+            ],
+          );
+          addTearDown(host.close);
+          final controller = host.require(boardsControllerKey);
+          const plugin = BoardsPlugin();
+          await tester.pumpWidget(
+            host.scope(
+              child: MaterialApp(
+                home: ListenableBuilder(
+                  listenable: controller,
+                  builder: (context, _) {
+                    final owned = PluginUiScope.contextFor(
+                      context,
+                      boardsPluginId,
+                    );
+                    return Text(
+                      plugin
+                          .communitySidebarDestinations(owned)
+                          .map((item) => item.id)
+                          .join(),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+          controller.activatePluginSite(boardsSite, connected: connected);
+          await tester.pumpAndSettle();
+          expect(
+            find.text('boards'),
+            visibility == 'visible' ? findsOneWidget : findsNothing,
+          );
+          expect(
+            transport.requests.where((request) => request.path == path),
+            isNotEmpty,
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
   for (final enabled in [false, true]) {
     testWidgets(
-      'registered Boards sidebar, route and heading respect setting $enabled',
+      'registered Boards route and heading respect setting $enabled',
       (tester) async {
         final fixture = BoardsFixture(enabled: enabled);
         addTearDown(fixture.dispose);
@@ -299,13 +372,6 @@ void main() {
                     final owned = PluginUiScope.contextFor(
                       context,
                       boardsPluginId,
-                    );
-                    final destinations = plugin.communitySidebarDestinations(
-                      owned,
-                    );
-                    expect(
-                      destinations.map((item) => item.id),
-                      enabled ? ['boards'] : isEmpty,
                     );
                     return plugin.content(owned, route)!;
                   },

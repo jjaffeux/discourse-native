@@ -104,6 +104,30 @@ final class BoardsController extends FrameSafeNotifier
   List<BoardSnapshot>? directory(String site) =>
       enabled(site) && _hasCurrentAccount(site) ? _directory[site] : null;
 
+  (String, int)? _sidebarRead;
+
+  bool hasVisibleBoards(String site) {
+    final boards = directory(site);
+    final key = (site, accountRevision(site));
+    if (enabled(site) && boards == null && _sidebarRead != key) {
+      _sidebarRead = key;
+      scheduleMicrotask(() {
+        if (_sidebarRead == key && accountRevision(site) == key.$2) {
+          unawaited(_refreshSidebar(site));
+        }
+      });
+    }
+    return boards?.any((board) => !board.archived) ?? false;
+  }
+
+  Future<void> _refreshSidebar(String site, {bool force = false}) async {
+    try {
+      await loadDirectory(site, force: force);
+    } catch (_) {
+      // A site or account change can retry the directory read.
+    }
+  }
+
   List<BoardSnapshot>? eligibleBoards(String site, int topicId) =>
       enabled(site) &&
           _hasCurrentAccount(site) &&
@@ -288,6 +312,7 @@ final class BoardsController extends FrameSafeNotifier
   @override
   void pluginCurrentUserRefreshed(String siteUrl) =>
       _resetSite(siteUrl, retire: false);
+
   void _observeSettings(String site) {
     if (_settingsListeners.containsKey(site)) return;
     final source = siteState.siteConfigListenableFor?.call(site);
@@ -305,8 +330,13 @@ final class BoardsController extends FrameSafeNotifier
   }
 
   @override
-  void activatePluginSite(String siteUrl, {required bool connected}) =>
-      _observeSettings(siteUrl);
+  void activatePluginSite(String siteUrl, {required bool connected}) {
+    _observeSettings(siteUrl);
+    if (_sidebarRead?.$1 == siteUrl) {
+      unawaited(_refreshSidebar(siteUrl, force: true));
+    }
+  }
+
   @override
   void attachPluginTracker(String siteUrl, PluginLiveChannelHandle channels) {
     _trackers[siteUrl] = channels;

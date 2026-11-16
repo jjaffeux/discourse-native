@@ -1112,12 +1112,16 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
           old = Completer<Map<String, dynamic>>();
           return old.future;
         }
-        return {
-          'boards': [
-            {'id': 2, 'name': 'Second community board'},
-          ],
-        };
+        throw StateError('Expected an authenticated request for $boardsSite');
       };
+      fixture
+              .transport
+              .responders['GET /boards/api/boards.json?allowed_permissions=view'] =
+          (_) => {
+            'boards': [
+              {'id': 2, 'name': 'Second community board'},
+            ],
+          };
       Widget page(String site) => MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(

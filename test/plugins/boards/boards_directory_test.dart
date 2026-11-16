@@ -101,9 +101,12 @@ void boardsDirectoryWidgetTests({
   }
 
   void respond(BoardsFixture fixture, List<Map<String, dynamic>> boards) {
-    fixture.transport.responders['GET /boards/api/boards.json'] = (_) => {
-      'boards': boards,
-    };
+    for (final path in [
+      '/boards/api/boards.json',
+      '/boards/api/boards.json?allowed_permissions=view',
+    ]) {
+      fixture.transport.responders['GET $path'] = (_) => {'boards': boards};
+    }
   }
 
   testWidgets(
