@@ -420,9 +420,17 @@ class _DDialogState<T> extends State<DDialog<T>> {
     if (widget.controller == null) _controller.dispose();
     final route = _route;
     final navigator = _navigator;
-    if (route != null && navigator != null) navigator.removeRoute(route);
-    _environment.dispose();
-    _configuration.dispose();
+    if (route != null && navigator != null && route.isActive) {
+      // Removing a route updates neighboring transitions synchronously.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (navigator.mounted && route.isActive) navigator.removeRoute(route);
+        _environment.dispose();
+        _configuration.dispose();
+      });
+    } else {
+      _environment.dispose();
+      _configuration.dispose();
+    }
     super.dispose();
   }
 }
