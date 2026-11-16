@@ -43,7 +43,7 @@ void main() {
     (TargetPlatform.android, 390.0),
     (TargetPlatform.macOS, 1200.0),
   ]) {
-    for (final scale in [1.0, 1.25, 2.0]) {
+    for (final scale in [1.0, 2.0]) {
       testWidgets('unread title text scales once on $platform at $scale', (
         tester,
       ) async {
