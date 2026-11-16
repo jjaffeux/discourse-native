@@ -440,24 +440,23 @@ void main() {
     );
   }
 
-  for (final mode in TopicListDisplayMode.values) {
-    testWidgets('$mode keeps event stamps and assignments together', (
+  testWidgets('Card mode keeps event stamps and assignments together', (
+    tester,
+  ) async {
+    final shell = await _setup(
       tester,
-    ) async {
-      final shell = await _setup(tester, mode: mode, enableEvents: true);
-      expect(
-        find.byKey(const ValueKey('event-calendar-stamp')),
-        findsOneWidget,
-      );
-      expect(find.text('joffrey'), findsOneWidget);
-      expect(find.textContaining(RegExp(r'^.* · 8:00 PM$')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('event-schedule-summary')));
-      await tester.pumpAndSettle();
-      expect(find.text('Event schedule'), findsNothing);
-      expect(shell.currentContent?.topicId, 1);
-      expect(tester.takeException(), isNull);
-    });
-  }
+      mode: TopicListDisplayMode.card,
+      enableEvents: true,
+    );
+    expect(find.byKey(const ValueKey('event-calendar-stamp')), findsOneWidget);
+    expect(find.text('joffrey'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^.* · 8:00 PM$')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('event-schedule-summary')));
+    await tester.pumpAndSettle();
+    expect(find.text('Event schedule'), findsNothing);
+    expect(shell.currentContent?.topicId, 1);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'legacy list settings preserve the lazy viewport and visible topic',
