@@ -515,6 +515,7 @@ void main() {
     testWidgets('shows the loaded bio and saves only when asked', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       final fixture = await _fixture(
         preferences: _preferences.copyWith(bioRaw: 'I like boats.'),
       );
@@ -531,6 +532,18 @@ void main() {
       expect(typed.dirty(PreferenceSection.about), isTrue);
       expect(fixture.api.userPreferenceUpdates, isEmpty);
       expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
+
+      expect(
+        tester.getSemantics(_bioInput),
+        isSemantics(
+          isTextField: true,
+          isMultiline: true,
+          label: 'About me',
+          value: 'I like trains.',
+        ),
+      );
+      expect(find.bySemanticsLabel('Save About me'), findsOneWidget);
+      semantics.dispose();
 
       await tester.ensureVisible(_bioSaveFinder);
       await tester.tap(_bioSaveFinder);
@@ -698,28 +711,6 @@ void main() {
       expect(fixture.api.userPreferenceUpdates.single.values, {
         'bio_raw': 'Still typing',
       });
-    });
-
-    testWidgets('the field and its save button are named for a screen reader', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture);
-      await tester.enterText(_bioInput, 'Hello');
-      await tester.pumpAndSettle();
-
-      expect(
-        tester.getSemantics(_bioInput),
-        isSemantics(
-          isTextField: true,
-          isMultiline: true,
-          label: 'About me',
-          value: 'Hello',
-        ),
-      );
-      expect(find.bySemanticsLabel('Save About me'), findsOneWidget);
-      semantics.dispose();
     });
 
     testWidgets('fits a phone at twice the text size', (tester) async {
