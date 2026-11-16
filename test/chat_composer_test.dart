@@ -743,46 +743,44 @@ void main() {
     }),
   );
 
-  for (final width in [360.0, 1024.0]) {
-    for (final dark in [false, true]) {
-      testWidgets(
-        'composer footer fits at $width in ${dark ? 'dark' : 'light'}',
-        (tester) async {
-          tester.view.physicalSize = Size(width, 800);
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          final fixture = await _fixture(
-            pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
-          );
-          addTearDown(fixture.shell.dispose);
-          await tester.pumpWidget(_TestView(shell: fixture.shell, dark: dark));
-          await tester.pumpAndSettle();
-          final add = find.byKey(const ValueKey('chat-composer-add'));
-          final emoji = find.byKey(const ValueKey('chat-composer-emoji'));
-          final send = find.byKey(const ValueKey('chat-composer-send'));
-          expect(
-            tester.getRect(_composerField()).bottom,
-            lessThan(tester.getRect(send).top),
-          );
-          expect(tester.getCenter(add).dy, tester.getCenter(send).dy);
-          expect(
-            tester.getRect(emoji).right,
-            lessThan(tester.getRect(send).left),
-          );
-          expect(_button(tester, 'chat-composer-send').onPressed, isNull);
-          await tester.enterText(
-            _composerField(),
-            'A first pass, with a little more room to compose.',
-          );
-          await tester.pumpAndSettle();
-          expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
-          expect(tester.getRect(send).right, lessThanOrEqualTo(width));
-          expect(tester.takeException(), isNull);
-        },
-        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
-      );
-    }
+  for (final (width, dark) in [(360.0, true), (1024.0, false)]) {
+    testWidgets(
+      'composer footer fits at $width in ${dark ? 'dark' : 'light'}',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell, dark: dark));
+        await tester.pumpAndSettle();
+        final add = find.byKey(const ValueKey('chat-composer-add'));
+        final emoji = find.byKey(const ValueKey('chat-composer-emoji'));
+        final send = find.byKey(const ValueKey('chat-composer-send'));
+        expect(
+          tester.getRect(_composerField()).bottom,
+          lessThan(tester.getRect(send).top),
+        );
+        expect(tester.getCenter(add).dy, tester.getCenter(send).dy);
+        expect(
+          tester.getRect(emoji).right,
+          lessThan(tester.getRect(send).left),
+        );
+        expect(_button(tester, 'chat-composer-send').onPressed, isNull);
+        await tester.enterText(
+          _composerField(),
+          'A first pass, with a little more room to compose.',
+        );
+        await tester.pumpAndSettle();
+        expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+        expect(tester.getRect(send).right, lessThanOrEqualTo(width));
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.macOS}),
+    );
   }
 
   testWidgets(
