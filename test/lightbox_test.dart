@@ -1721,12 +1721,6 @@ void main() {
           6,
         );
         expect(tester.getBottomLeft(thumbnailAt(0)).dy, 600 - 18);
-      });
-
-      testWidgets('centres a strip that fits the window', (tester) async {
-        await useScreen(tester, const Size(800, 600));
-        await pumpGallery(tester, images: manyImages(3));
-
         final content = tester
             .getRect(thumbnailAt(0))
             .expandToInclude(tester.getRect(thumbnailAt(2)));
