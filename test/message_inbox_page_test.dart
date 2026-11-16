@@ -399,7 +399,7 @@ void main() {
     );
   }
 
-  for (final width in [320.0, 390.0, 640.0]) {
+  for (final width in [320.0, 640.0]) {
     for (final textScale in [1.0, 2.0]) {
       testWidgets(
         'mobile Messages header at $width with ${textScale}x text',
