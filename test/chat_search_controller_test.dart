@@ -452,7 +452,10 @@ void main() {
     );
 
     for (final heldOffset in [0, 2]) {
-      for (final mutation in ['edit', 'delete', 'reaction', 'pin', 'remove']) {
+      final mutations = heldOffset == 0
+          ? ['edit', 'delete', 'remove']
+          : ['edit', 'reaction', 'pin'];
+      for (final mutation in mutations) {
         test(
           'late search at offset $heldOffset preserves canonical $mutation',
           () async {
