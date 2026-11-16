@@ -374,11 +374,8 @@ void _registerTopicReadingTests() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
-    for (final (openReader, useShortcut) in [
-      (false, false),
-      (true, false),
-      (true, true),
-    ]) {
+    for (final openReader in [false, true]) {
+      final useShortcut = openReader;
       testWidgets(
         '${useShortcut ? 'C' : 'sidebar New Topic'} prefills the list subcategory '
         '${openReader ? 'beside an open topic' : 'without list creation permission'}',
