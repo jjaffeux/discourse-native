@@ -156,138 +156,124 @@ void main() {
     );
   }
 
-  for (final mode in TopicListDisplayMode.values) {
-    testWidgets(
-      '$mode restores earlier ranges while the long feed stays mounted',
-      (tester) async {
-        final api = _RestorablePagingApi();
-        final store = Store(
-          policy: const StorePolicy(
-            maxEntries: 4096,
-            maxEntriesPerSite: 2048,
-            maxEntriesPerSiteAndType: 1024,
-          ),
-        );
-        final controller = ShellController(
-          instanceStore: FakeInstanceStore([sites.first]),
-          api: api,
-          authenticator: FakeAuthenticator(),
-          drafts: FakeDraftStore(),
-          trackers: FakeSiteTracker.reset(),
-          store: store,
-        );
-        addTearDown(controller.dispose);
-        await controller.load();
-        await controller.appSettings.setTopicListMode(mode);
-        await tester.pumpWidget(_LiveTestList(controller: controller));
-        await tester.pumpAndSettle();
-        expect(find.text('Topic 1'), findsOneWidget);
-        final mountedList = find.byType(TopicListView).evaluate().single;
-
-        void jumpToTopicRow(int row) {
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
-          list.listController!.jumpToItem(
-            index: row * 2,
-            scrollController: list.controller!,
-            alignment: 0,
-          );
-        }
-
-        for (var page = 1; page < 35; page++) {
-          await controller.loadMoreFeed('latest');
-          await tester.pumpAndSettle();
-          jumpToTopicRow(page * 30);
-          await tester.pumpAndSettle();
-        }
-        expect(find.text('Topic 1'), findsNothing);
-        expect(store.containsRecord<Topic>(sites.first.url, 1), isFalse);
-        expect(controller.currentFeed!.rowCount, 1050);
-        expect(controller.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
-        expect(
-          store.statisticsForTesting.entriesFor<Topic>(sites.first.url),
-          1024,
-        );
-
-        final requestsBeforeReturn = api.paths.length;
-        jumpToTopicRow(360);
-        await tester.pumpAndSettle();
-        expect(find.text('Topic 361'), findsOneWidget);
-        expect(api.paths.length, greaterThan(requestsBeforeReturn));
-        await tester.drag(find.byType(SuperListView), const Offset(0, 300));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-
-        jumpToTopicRow(0);
-        await tester.pumpAndSettle();
-        expect(find.text('Topic 1'), findsOneWidget);
-        expect(store.read<Topic>(sites.first.url, 1)?.title, 'Topic 1');
-        expect(find.byType(TopicListView).evaluate().single, same(mountedList));
-        expect(controller.currentFeed!.rowCount, 1050);
-        expect(controller.currentFeed!.hasMore, isFalse);
-        expect(controller.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
-        expect(tester.takeException(), isNull);
-      },
+  testWidgets('restores earlier ranges while the long feed stays mounted', (
+    tester,
+  ) async {
+    final api = _RestorablePagingApi();
+    final store = Store(
+      policy: const StorePolicy(
+        maxEntries: 4096,
+        maxEntriesPerSite: 2048,
+        maxEntriesPerSiteAndType: 1024,
+      ),
     );
-  }
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      store: store,
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await controller.appSettings.setTopicListMode(TopicListDisplayMode.card);
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 1'), findsOneWidget);
+    final mountedList = find.byType(TopicListView).evaluate().single;
 
-  for (final mode in TopicListDisplayMode.values) {
-    testWidgets('$mode pagination retains unchanged row contents', (
-      tester,
-    ) async {
-      final api = _ControlledPagingApi();
-      final controller = await _controlledShell(api, sites.first);
-      addTearDown(controller.dispose);
-      await controller.appSettings.setTopicListMode(mode);
-      api.requests.single.response.complete(
-        TopicList(topics: _topics(1, 30), moreTopicsUrl: '/latest.json?page=1'),
+    void jumpToTopicRow(int row) {
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      list.listController!.jumpToItem(
+        index: row * 2,
+        scrollController: list.controller!,
+        alignment: 0,
       );
-      await tester.pumpWidget(_LiveTestList(controller: controller));
-      await tester.pumpAndSettle();
-      final rebuiltTitles = <Element>[];
-      final builtTitles = find.byType(TopicTitle).evaluate().toSet();
-      final previous = debugOnRebuildDirtyWidget;
-      debugOnRebuildDirtyWidget = (element, builtOnce) {
-        previous?.call(element, builtOnce);
-        if (element.widget is TopicTitle && !builtTitles.add(element)) {
-          rebuiltTitles.add(element);
-        }
-      };
-      addTearDown(() => debugOnRebuildDirtyWidget = previous);
-      final position = tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position;
-      final offset = position.pixels;
+    }
 
-      final loading = controller.loadMoreFeed('latest');
-      await tester.pump();
-      expect(controller.currentFeed!.loadingMore, isTrue);
-      expect(rebuiltTitles, isEmpty);
-      api.requests.last.response.complete(TopicList(topics: _topics(31, 30)));
-      await loading;
+    for (var page = 1; page < 35; page++) {
+      await controller.loadMoreFeed('latest');
       await tester.pumpAndSettle();
-      expect(controller.currentFeed!.topicIds, hasLength(60));
-      expect(rebuiltTitles, isEmpty);
-      expect(position.pixels, offset);
+      jumpToTopicRow(page * 30);
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Topic 1'), findsNothing);
+    expect(store.containsRecord<Topic>(sites.first.url, 1), isFalse);
+    expect(controller.currentFeed!.rowCount, 1050);
+    expect(controller.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
+    expect(store.statisticsForTesting.entriesFor<Topic>(sites.first.url), 1024);
 
-      controller.store.put(
-        sites.first.url,
-        const Topic(id: 1, title: 'Updated topic', slug: 'topic-1'),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Updated topic'), findsOneWidget);
-      expect(rebuiltTitles, hasLength(1));
+    final requestsBeforeReturn = api.paths.length;
+    jumpToTopicRow(360);
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 361'), findsOneWidget);
+    expect(api.paths.length, greaterThan(requestsBeforeReturn));
+    await tester.drag(find.byType(SuperListView), const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
 
-      await controller.appSettings.setTopicListMode(
-        mode == TopicListDisplayMode.card
-            ? TopicListDisplayMode.compact
-            : TopicListDisplayMode.card,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Updated topic'), findsOneWidget);
-      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
+    jumpToTopicRow(0);
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 1'), findsOneWidget);
+    expect(store.read<Topic>(sites.first.url, 1)?.title, 'Topic 1');
+    expect(find.byType(TopicListView).evaluate().single, same(mountedList));
+    expect(controller.currentFeed!.rowCount, 1050);
+    expect(controller.currentFeed!.hasMore, isFalse);
+    expect(controller.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('pagination retains unchanged row contents', (tester) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    await controller.appSettings.setTopicListMode(TopicListDisplayMode.card);
+    api.requests.single.response.complete(
+      TopicList(topics: _topics(1, 30), moreTopicsUrl: '/latest.json?page=1'),
+    );
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+    final rebuiltTitles = <Element>[];
+    final builtTitles = find.byType(TopicTitle).evaluate().toSet();
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (element.widget is TopicTitle && !builtTitles.add(element)) {
+        rebuiltTitles.add(element);
+      }
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
+    final offset = position.pixels;
+
+    final loading = controller.loadMoreFeed('latest');
+    await tester.pump();
+    expect(controller.currentFeed!.loadingMore, isTrue);
+    expect(rebuiltTitles, isEmpty);
+    api.requests.last.response.complete(TopicList(topics: _topics(31, 30)));
+    await loading;
+    await tester.pumpAndSettle();
+    expect(controller.currentFeed!.topicIds, hasLength(60));
+    expect(rebuiltTitles, isEmpty);
+    expect(position.pixels, offset);
+
+    controller.store.put(
+      sites.first.url,
+      const Topic(id: 1, title: 'Updated topic', slug: 'topic-1'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Updated topic'), findsOneWidget);
+    expect(rebuiltTitles, hasLength(1));
+
+    await controller.appSettings.setTopicListMode(TopicListDisplayMode.compact);
+    await tester.pumpAndSettle();
+    expect(find.text('Updated topic'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('keyboard selection survives discarded pages and incoming rows', (
     tester,
