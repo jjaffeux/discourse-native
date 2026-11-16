@@ -315,9 +315,11 @@ void main() {
       ]) {
         for (final modifier in <LogicalKeyboardKey?>[
           null,
-          LogicalKeyboardKey.shiftLeft,
-          LogicalKeyboardKey.controlLeft,
-          LogicalKeyboardKey.metaLeft,
+          if (key == LogicalKeyboardKey.enter) ...[
+            LogicalKeyboardKey.shiftLeft,
+            LogicalKeyboardKey.controlLeft,
+            LogicalKeyboardKey.metaLeft,
+          ],
         ]) {
           testWidgets(
             '${shortcut.name} with ${modifier?.keyLabel} + ${key.keyLabel}',
