@@ -897,12 +897,18 @@ void main() {
     testWidgets('lists the ignored people and stops ignoring one at once', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       final fixture = await _fixture(preferences: _ignoring);
       await _pumpPage(tester, fixture);
       await _section(tester, PreferenceSection.users);
       expect(_ignoredRow('pat'), findsOneWidget);
       expect(find.text('@pat'), findsOneWidget);
       expect(_ignoreSubmit(tester).onPressed, isNull);
+
+      expect(find.bySemanticsLabel('Stop ignoring pat'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Ignore for')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp('Ignore a user')), findsWidgets);
+      semantics.dispose();
 
       await tester.ensureVisible(_stopIgnoring('pat'));
       await tester.tap(_stopIgnoring('pat'));
@@ -1036,18 +1042,6 @@ void main() {
       expect(_ignorePicker, findsNothing);
       expect(_ignoredRow('pat'), findsNothing);
       expect(_mutedUsers, findsOneWidget);
-    });
-
-    testWidgets('its controls are named for a screen reader', (tester) async {
-      final semantics = tester.ensureSemantics();
-      final fixture = await _fixture(preferences: _ignoring);
-      await _pumpPage(tester, fixture);
-      await _section(tester, PreferenceSection.users);
-
-      expect(find.bySemanticsLabel('Stop ignoring pat'), findsOneWidget);
-      expect(find.bySemanticsLabel(RegExp('Ignore for')), findsWidgets);
-      expect(find.bySemanticsLabel(RegExp('Ignore a user')), findsWidgets);
-      semantics.dispose();
     });
 
     testWidgets('fits a phone at twice the text size', (tester) async {
