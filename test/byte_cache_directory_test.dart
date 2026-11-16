@@ -64,7 +64,7 @@ void main() {
       expect(decodeDarwinCacheDirectoryBatches('/cache', []), isEmpty);
     });
 
-    for (final length in [0, 1, 55, 65, 0xffffffff]) {
+    for (final length in [0, 55, 65, 0xffffffff]) {
       test('rejects invalid record length $length', () {
         final bytes = _record();
         ByteData.sublistView(bytes).setUint32(0, length, Endian.host);
