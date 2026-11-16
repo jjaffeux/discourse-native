@@ -1347,16 +1347,7 @@ void main() {
         isTrue,
       );
       expect(_composerEditable(tester).showCursor, isFalse);
-      expect(find.byTooltip('Decrease image size'), findsOneWidget);
-      expect(find.byTooltip('Increase image size'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('composer-image-description')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('composer-image-description')).hitTestable(),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('composer-image-sheet')), findsNothing);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
@@ -1405,10 +1396,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(composer.text.keyboardSelectedImage, isNotNull);
-      expect(
-        find.byKey(const ValueKey('composer-image-description')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('composer-image-sheet')), findsNothing);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
@@ -1521,7 +1509,7 @@ void main() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
     }
 
-    testWidgets('mobile image controls retain selection until an outside tap', (
+    testWidgets('mobile image sheet retains selection until an outside tap', (
       tester,
     ) async {
       final composer = ComposerController(
@@ -1537,22 +1525,18 @@ void main() {
         tester.getTopLeft(find.byType(ComposerImagePreview)) +
             const Offset(8, 8),
       );
-      await tester.pump();
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(
-        find.byKey(const ValueKey('composer-image-toolbar')),
+        find.byKey(const ValueKey('composer-image-sheet')),
         findsOneWidget,
       );
       await tester.tap(find.byTooltip('Decrease image size'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(composer.text.keyboardSelectedImage, isNotNull);
-      await tester.tap(find.byKey(const ValueKey('composer-submit')));
-      await tester.pump();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
       expect(composer.text.keyboardSelectedImage, isNull);
-      expect(
-        find.byKey(const ValueKey('composer-image-toolbar')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('composer-image-sheet')), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
     testWidgets('selecting a projected image shows its editing controls', (
@@ -1654,10 +1638,8 @@ void main() {
         findsOneWidget,
       );
 
-      composer.focus.requestFocus();
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pump();
+      await tester.tap(find.byTooltip('Done'));
+      await tester.pumpAndSettle();
       expect(composer.text.keyboardSelectedImage, isNull);
       expect(_composerEditable(tester).showCursor, isTrue);
       expect(
@@ -1676,7 +1658,7 @@ void main() {
       expect(composer.text.keyboardSelectedImage, isNotNull);
       expect(
         find.byKey(const ValueKey('composer-image-description')),
-        findsOneWidget,
+        findsNothing,
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
@@ -1697,8 +1679,10 @@ void main() {
       expect(composer.text.keyboardSelectedImage, isNotNull);
       expect(
         find.byKey(const ValueKey('composer-image-description')),
-        findsOneWidget,
+        findsNothing,
       );
+      await tapPreview();
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byWidgetPredicate(
           (widget) =>
@@ -1716,7 +1700,9 @@ void main() {
         r'![new \[alt\]|640x480, 50%](upload://photo)',
       );
 
-      composer.focus.requestFocus();
+      await tester.tap(find.byTooltip('Done'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
       await tester.pump();
@@ -1924,6 +1910,9 @@ void main() {
       );
       expect(find.byTooltip('Delete image'), findsOneWidget);
       expect(find.byTooltip('Decrease image size'), findsNothing);
+
+      await tester.tap(find.byTooltip('Done'));
+      await tester.pumpAndSettle();
 
       final dragStart = composer.text
           .collapsedImageGlobalRect(currentGallery.images.first)!

@@ -22,6 +22,11 @@ void main() {
       for (final set in DIconSet.values.skip(1)) {
         expect(alternateIconSvg(set, 'gear'), isNotNull);
         expect(alternateIconSvg(set, 'unmapped-icon'), isNull);
+        final undo = alternateIconSvg(set, DIcons.arrowRotateLeft.name);
+        final redo = alternateIconSvg(set, DIcons.arrowRotateRight.name);
+        expect(undo, isNotNull, reason: set.name);
+        expect(redo, isNotNull, reason: set.name);
+        expect(redo, isNot(undo), reason: set.name);
         await tester.pumpWidget(
           MaterialApp(
             home: DIconSetScope(

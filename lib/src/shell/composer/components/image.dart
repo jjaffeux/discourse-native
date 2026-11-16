@@ -230,54 +230,138 @@ class _ImageFallback extends StatelessWidget {
   );
 }
 
-class ComposerMobileImageToolbar extends StatelessWidget {
-  const ComposerMobileImageToolbar({
+class ComposerMobileImageSheet extends StatefulWidget {
+  const ComposerMobileImageSheet({
     super.key,
     required this.media,
+    required this.onDone,
     required this.historyControls,
   });
 
   final ComposerMediaEditingCoordinator media;
+  final VoidCallback onDone;
   final Widget historyControls;
 
   @override
+  State<ComposerMobileImageSheet> createState() =>
+      _ComposerMobileImageSheetState();
+}
+
+class _ComposerMobileImageSheetState extends State<ComposerMobileImageSheet> {
+  late ComposerMediaEditingState _displayedSelection;
+  late final TextEditingController _description;
+  final _descriptionFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    final media = widget.media;
+    _displayedSelection = media.value;
+    _description = TextEditingController(
+      text: _displayedSelection.selectedImage?.alt,
+    );
+    media.addListener(_imageChanged);
+  }
+
+  void _imageChanged() {
+    final selection = widget.media.value;
+    final image = selection.selectedImage;
+    if (image != null &&
+        image.alt != _description.text &&
+        image.alt != flattenImageAlt(_description.text)) {
+      _description.value = TextEditingValue(
+        text: image.alt,
+        selection: TextSelection.collapsed(offset: image.alt.length),
+      );
+    }
+    setState(() {
+      // Keep the content visible during the sheet's closing animation.
+      if (image != null) _displayedSelection = selection;
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.media.removeListener(_imageChanged);
+    _description.dispose();
+    _descriptionFocus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final state = media.value;
-    final image = state.selectedImage!;
+    final media = widget.media;
+    if (media.value.selectedImage == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && media.value.selectedImage == null) widget.onDone();
+      });
+    }
+    final state = _displayedSelection;
+    final image = state.selectedImage;
+    if (image == null) return const SizedBox.shrink();
+    final l10n = context.l10n;
     const scales = [50, 75, 100];
     final scale = scales.contains(image.scale) ? image.scale! : 100;
     final index = scales.indexOf(scale);
-    return TapRegion(
-      groupId: media,
-      child: TextFieldTapRegion(
-        child: DCard(
-          key: const ValueKey('composer-image-toolbar'),
-          spacing: DSpacing.sm,
-          child: DCardContent(
+    return DSheetContent(
+      key: const ValueKey('composer-image-sheet'),
+      side: DSheetSide.bottom,
+      variant: DSheetVariant.menu,
+      semanticLabel: l10n.imageControls,
+      showCloseButton: false,
+      scrollWholeSheet: false,
+      topBottomMaxHeightFactor: 1,
+      children: [
+        DSheetHeader(
+          trailing: DModalHeaderAction(
+            onPressed: widget.onDone,
+            tooltip: l10n.done,
+            primary: true,
+            icon: const DIcon(DIcons.check),
+          ),
+          children: [DSheetTitle(child: Text(l10n.imageControls))],
+        ),
+        DSheetBody(
+          padding: const EdgeInsets.fromLTRB(
+            DSpacing.lg,
+            0,
+            DSpacing.lg,
+            DSpacing.lg,
+          ),
+          child: TextFieldTapRegion(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: DSpacing.controlGap,
+              spacing: DSpacing.md,
               children: [
-                DInput(
-                  key: const ValueKey('composer-image-description'),
-                  controller: media.imageAlt,
-                  semanticLabel: context.l10n.imageDescription,
-                  hintText: context.l10n.addImageDescription,
-                  prefix: const DIcon(DIcons.pen),
-                  textInputAction: TextInputAction.done,
-                  onChanged: (_) => media.updateImageAlt(),
-                  onSubmitted: (_) => media.dismissImage(),
+                DField(
+                  children: [
+                    DFieldLabel(
+                      focusNode: _descriptionFocus,
+                      child: Text(l10n.imageDescription),
+                    ),
+                    DInput(
+                      key: const ValueKey('composer-image-description'),
+                      controller: _description,
+                      focusNode: _descriptionFocus,
+                      semanticLabel: l10n.imageDescription,
+                      hintText: l10n.addImageDescription,
+                      textInputAction: TextInputAction.done,
+                      onChanged: media.updateImageAlt,
+                      onSubmitted: (_) => widget.onDone(),
+                    ),
+                  ],
                 ),
                 Wrap(
                   alignment: WrapAlignment.spaceBetween,
                   crossAxisAlignment: WrapCrossAlignment.center,
-                  runSpacing: DSpacing.controlGap,
+                  spacing: DSpacing.md,
+                  runSpacing: DSpacing.sm,
                   children: [
-                    historyControls,
+                    widget.historyControls,
                     if (state.selectedImageGallery == null)
                       Row(
                         mainAxisSize: MainAxisSize.min,
+                        spacing: DSpacing.xs,
                         children: [
                           DButton.iconOnly(
                             onPressed: index > 0
@@ -287,15 +371,10 @@ class ComposerMobileImageToolbar extends StatelessWidget {
                                   )
                                 : null,
                             variant: DButtonVariant.ghost,
-                            tooltip: context.l10n.decreaseImageSize,
+                            tooltip: l10n.decreaseImageSize,
                             icon: const DIcon(DIcons.minus),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: DSpacing.xs,
-                            ),
-                            child: Text('$scale%'),
-                          ),
+                          Text('$scale%'),
                           DButton.iconOnly(
                             onPressed: index < scales.length - 1
                                 ? () => media.scaleImage(
@@ -304,39 +383,33 @@ class ComposerMobileImageToolbar extends StatelessWidget {
                                   )
                                 : null,
                             variant: DButtonVariant.ghost,
-                            tooltip: context.l10n.increaseImageSize,
+                            tooltip: l10n.increaseImageSize,
                             icon: const DIcon(DIcons.plus),
                           ),
                         ],
                       ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: DSpacing.controlGap,
-                      children: [
-                        DButton(
-                          onPressed: media.deleteSelectedImage,
-                          variant: DButtonVariant.ghost,
-                          foregroundColor: DTokens.of(context).destructive,
-                          tooltip: context.l10n.deleteImage,
-                          semanticLabel: context.l10n.deleteImage,
-                          icon: const DIcon(DIcons.trashCan),
-                          label: Text(context.l10n.removeImage),
-                        ),
-                        DButton.iconOnly(
-                          onPressed: media.dismissImage,
-                          variant: DButtonVariant.ghost,
-                          tooltip: context.l10n.done,
-                          icon: const DIcon(DIcons.check),
-                        ),
-                      ],
-                    ),
                   ],
+                ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DButton(
+                    onPressed: () {
+                      media.deleteSelectedImage(requestFocus: false);
+                      widget.onDone();
+                    },
+                    variant: DButtonVariant.ghost,
+                    foregroundColor: DTokens.of(context).destructive,
+                    tooltip: l10n.deleteImage,
+                    semanticLabel: l10n.deleteImage,
+                    icon: const DIcon(DIcons.trashCan),
+                    label: Text(l10n.removeImage),
+                  ),
                 ),
               ],
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

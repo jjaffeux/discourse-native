@@ -26,6 +26,7 @@ enum DIconSet {
 /// Unmapped icons keep their original Font Awesome or branded artwork.
 String? alternateIconSvg(DIconSet set, String name) {
   final semanticName = switch (name) {
+    'arrow-rotate-left' => 'rotate-left',
     'pen-to-square' => 'far-pen-to-square',
     'trash-can' => 'trash',
     'pen' => 'pencil',
@@ -339,7 +340,7 @@ const _tabler = <String, String>{
   'arrow-right':
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M5 12l14 0"></path><path d="M13 18l6 -6"></path><path d="M13 6l6 6"></path></svg>',
   'arrow-rotate-right':
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"></path><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"></path></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M4.05 11a8 8 0 1 1 .5 4m-.5 5v-5h5"></path></svg>',
   'arrow-up-right-from-square':
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"></path><path d="M11 13l9 -9"></path><path d="M15 4h5v5"></path></svg>',
   'arrows-up-down':
@@ -415,7 +416,7 @@ const _tabler = <String, String>{
   'reply':
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M9 14l-4 -4l4 -4"></path><path d="M5 10h11a4 4 0 1 1 0 8h-1"></path></svg>',
   'rotate-left':
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M9 4.55a8 8 0 0 1 6 14.9m0 -4.45v5h5"></path><path d="M5.63 7.16l0 .01"></path><path d="M4.06 11l0 .01"></path><path d="M4.63 15.1l0 .01"></path><path d="M7.16 18.37l0 .01"></path><path d="M11 19.94l0 .01"></path></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M19.95 11a8 8 0 1 0 -.5 4m.5 5v-5h-5"></path></svg>',
   'sun':
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" weight="regular"><path d="M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"></path><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"></path></svg>',
   'tag':

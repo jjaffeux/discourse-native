@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
-import '../../foundation/frame_safe_notifier.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../../foundation/icons/d_native_icons.dart';
 import '../../models/composer_placement.dart';
@@ -176,7 +175,7 @@ class ComposerPanel extends StatelessWidget {
       context: (controller, composer.target),
     );
 
-    final panel = ListenableBuilder(
+    return ListenableBuilder(
       listenable: composer,
       builder: (context, _) {
         final target = composer.target;
@@ -741,53 +740,7 @@ class ComposerPanel extends StatelessWidget {
         );
       },
     );
-    return _ComposerImageToolbarHost(child: panel);
   }
-}
-
-class _ComposerImageToolbarHost extends StatefulWidget {
-  const _ComposerImageToolbarHost({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_ComposerImageToolbarHost> createState() =>
-      _ComposerImageToolbarHostState();
-}
-
-class _ComposerImageToolbarHostState extends State<_ComposerImageToolbarHost> {
-  final selection = FrameSafeValueNotifier<ComposerMediaEditingCoordinator?>(
-    null,
-  );
-
-  @override
-  void dispose() {
-    selection.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      _ComposerImageToolbarScope(selection: selection, child: widget.child);
-}
-
-class _ComposerImageToolbarScope extends InheritedWidget {
-  const _ComposerImageToolbarScope({
-    required this.selection,
-    required super.child,
-  });
-
-  final FrameSafeValueNotifier<ComposerMediaEditingCoordinator?> selection;
-
-  static FrameSafeValueNotifier<ComposerMediaEditingCoordinator?>? maybeOf(
-    BuildContext context,
-  ) => context
-      .dependOnInheritedWidgetOfExactType<_ComposerImageToolbarScope>()
-      ?.selection;
-
-  @override
-  bool updateShouldNotify(_ComposerImageToolbarScope oldWidget) =>
-      selection != oldWidget.selection;
 }
 
 /// The mobile title and growing editor share one viewport. The pinned sliver
@@ -1624,7 +1577,8 @@ class _ComposerEditorState extends State<ComposerEditor>
   late final ScrollController _scroll;
   ScrollPosition? _ancestorScroll;
   late final ComposerMediaEditingCoordinator _media;
-  FrameSafeValueNotifier<ComposerMediaEditingCoordinator?>? _imageToolbar;
+  bool _imageSheetOpen = false;
+  DDialogController<void>? _imageSheet;
   late final _ComposerSelectionOverlay _selectionOverlay;
   bool _touchSelection = false;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
@@ -1735,7 +1689,6 @@ class _ComposerEditorState extends State<ComposerEditor>
       _syncRawMarkdown();
     }
     _touchSelection = context.isTouch;
-    _imageToolbar = _ComposerImageToolbarScope.maybeOf(context);
     _selectionOverlay.sync();
     final ancestorScroll = widget.expands
         ? null
@@ -1834,7 +1787,9 @@ class _ComposerEditorState extends State<ComposerEditor>
       widget.composer.text.imageScrollController = null;
     }
     _media.removeListener(_scheduleMediaLayoutRefresh);
-    if (_parentEditor == null) _imageToolbar?.value = null;
+    if (_imageSheet case final sheet?) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => sheet.close());
+    }
     _media.dispose();
     _selectionOverlay.dispose();
     _mediaLayoutRevision.dispose();
@@ -1936,8 +1891,7 @@ class _ComposerEditorState extends State<ComposerEditor>
     final hasMedia = descendantHasMedia || _media.value.hasSelectedMedia;
     _parentEditor?._scheduleMediaLayoutRefresh(descendantHasMedia: hasMedia);
     if (_mediaLayoutRefreshScheduled ||
-        (_imageToolbar?.value == null &&
-            !hasMedia &&
+        (!hasMedia &&
             _mediaDropPosition.value == null &&
             _lastImageMenuAnchor == null &&
             _lastGalleryMenuPosition == null)) {
@@ -1947,9 +1901,6 @@ class _ComposerEditorState extends State<ComposerEditor>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mediaLayoutRefreshScheduled = false;
       if (!mounted) return;
-      if (_parentEditor == null) {
-        _imageToolbar?.value = _imageMenuEditor?._media;
-      }
       // Block geometry traverses the editor, so measure after layout, never
       // while the overlay's widget subtree is being built.
       _mediaDropIndicatorTop = _mediaDropTop();
@@ -2754,6 +2705,7 @@ class _ComposerEditorState extends State<ComposerEditor>
         widget.composer.text.releaseImagePointerEdit(image);
       } else {
         _media.selectImageForKeyboard(image);
+        if (context.isTouch) unawaited(_openImageSheet());
       }
       return;
     }
@@ -3369,8 +3321,7 @@ class _ComposerEditorState extends State<ComposerEditor>
     final state = _media.value;
     // The enclosing composer owns image menus for all its content, outside
     // the nested editors' clipping and text semantics.
-    final imageEditor =
-        _parentEditor == null && !(context.isTouch && _imageToolbar != null)
+    final imageEditor = _parentEditor == null && !context.isTouch
         ? _imageMenuEditor
         : null;
     final imageMenuAnchor = _imageMenuAnchor(imageEditor);
@@ -3432,6 +3383,44 @@ class _ComposerEditorState extends State<ComposerEditor>
         ],
       ),
     );
+  }
+
+  Future<void> _openImageSheet() async {
+    if (_imageSheetOpen || _media.value.selectedImage == null) return;
+    final composer = widget.composer;
+    _imageSheetOpen = true;
+    try {
+      await showDSheet<void>(
+        context: context,
+        side: DSheetSide.bottom,
+        variant: DSheetVariant.menu,
+        topBottomMaxWidth: 640,
+        builder: (context, sheet) {
+          if (!mounted || !identical(widget.composer, composer)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => sheet.close());
+            return const SizedBox.shrink();
+          }
+          _imageSheet = sheet;
+          return ComposerMobileImageSheet(
+            media: _media,
+            onDone: sheet.close,
+            historyControls: _ComposerHistoryControls(
+              composer: composer,
+              inImageSheet: true,
+            ),
+          );
+        },
+      );
+    } finally {
+      _imageSheetOpen = false;
+      _imageSheet = null;
+      if (mounted &&
+          identical(widget.composer, composer) &&
+          composer.isEditing) {
+        _media.dismissImage(requestFocus: false);
+        composer.focus.requestFocus();
+      }
+    }
   }
 
   Widget _imageMenu(_ComposerEditorState editor) {
@@ -3525,7 +3514,9 @@ class _ComposerEditorState extends State<ComposerEditor>
 
   Widget _imageSelectionRegion(Widget child) => TapRegion(
     groupId: _media,
-    onTapOutside: (_) => _media.dismissImage(requestFocus: false),
+    onTapOutside: (_) {
+      if (!_imageSheetOpen) _media.dismissImage(requestFocus: false);
+    },
     child: child,
   );
 
@@ -4426,9 +4417,13 @@ class _Toolbar extends StatelessWidget {
 }
 
 class _ComposerHistoryControls extends StatefulWidget {
-  const _ComposerHistoryControls({required this.composer});
+  const _ComposerHistoryControls({
+    required this.composer,
+    this.inImageSheet = false,
+  });
 
   final ComposerController composer;
+  final bool inImageSheet;
 
   @override
   State<_ComposerHistoryControls> createState() =>
@@ -4497,10 +4492,10 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
     final composer = widget.composer;
     final history = composer.history;
     final inputs = _drawn = _read();
-    if (!inputs.editing ||
-        inputs.loadingBody ||
-        inputs.composing ||
-        (!inputs.canUndo && !inputs.canRedo)) {
+    final available =
+        inputs.editing && !inputs.loadingBody && !inputs.composing;
+    if (!widget.inImageSheet &&
+        (!available || (!inputs.canUndo && !inputs.canRedo))) {
       return const SizedBox.shrink();
     }
     return TextFieldTapRegion(
@@ -4509,7 +4504,7 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
         spacing: 2,
         children: [
           for (final redo in [false, true])
-            if (redo ? inputs.canRedo : inputs.canUndo)
+            if (widget.inImageSheet || (redo ? inputs.canRedo : inputs.canUndo))
               DButton.iconOnly(
                 key: ValueKey(redo ? 'composer-redo' : 'composer-undo'),
                 tooltip: redo ? context.l10n.redo : context.l10n.undo,
@@ -4524,12 +4519,18 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
                 variant: _composerToolbarVariant(context),
                 foregroundColor: _composerToolForeground(context),
                 size: _composerToolbarSize(context),
-                icon: DIcon(redo ? DIcons.share : DIcons.reply),
-                onPressed: () {
-                  if (!composer.isEditing || composer.loadingBody) return;
-                  final restored = redo ? history.redo() : history.undo();
-                  if (restored) composer.focus.requestFocus();
-                },
+                icon: DIcon(
+                  redo ? DIcons.arrowRotateRight : DIcons.arrowRotateLeft,
+                ),
+                onPressed: available && (redo ? inputs.canRedo : inputs.canUndo)
+                    ? () {
+                        if (!composer.isEditing || composer.loadingBody) return;
+                        final restored = redo ? history.redo() : history.undo();
+                        if (restored && !widget.inImageSheet) {
+                          composer.focus.requestFocus();
+                        }
+                      }
+                    : null,
               ),
         ],
       ),
@@ -4973,34 +4974,15 @@ class _Footer extends StatelessWidget {
       controller.siteConfigFor(composer.target.siteUrl),
       controller.freshCurrentUserFor(composer.target.siteUrl),
     ),
-    builder: (context, _, _) => ValueListenableBuilder(
-      valueListenable: _ComposerImageToolbarScope.maybeOf(context)!,
-      builder: (context, media, _) {
-        if (!context.isTouch || media == null || !composer.isEditing) {
-          return _buildFooter(context);
-        }
-        return ListenableBuilder(
-          listenable: media,
-          builder: (context, _) => _buildFooter(
-            context,
-            imageMedia: media.value.selectedImage == null ? null : media,
-          ),
-        );
-      },
-    ),
+    builder: (context, _, _) => _buildFooter(context),
   );
 
-  Widget _buildFooter(
-    BuildContext context, {
-    ComposerMediaEditingCoordinator? imageMedia,
-  }) {
+  Widget _buildFooter(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final pluginControls = imageMedia == null
-        ? registry.composerFooter(context, composer)
-        : <Widget>[];
+    final pluginControls = registry.composerFooter(context, composer);
 
     final status = message == null
         ? const SizedBox.shrink()
@@ -5149,14 +5131,7 @@ class _Footer extends StatelessWidget {
               if (toolbar != null)
                 Flexible(
                   fit: FlexFit.tight,
-                  child: imageMedia != null
-                      ? ComposerMobileImageToolbar(
-                          media: imageMedia,
-                          historyControls: _ComposerHistoryControls(
-                            composer: imageMedia.composer,
-                          ),
-                        )
-                      : context.isTouch
+                  child: context.isTouch
                       ? DCard(
                           key: const ValueKey('composer-toolbar-bar'),
                           variant: DCardVariant.floatingCapsule,

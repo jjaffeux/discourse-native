@@ -215,12 +215,10 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
   }
 
   /// Commits the mobile description field without moving focus or closing it.
-  void updateImageAlt() {
+  void updateImageAlt(String alt) {
     final image = _state.selectedImage;
-    if (image == null || isDisposed || image.alt == imageAlt.text) return;
-    _updateSelectedImage(
-      (image) => _composer.setImageAlt(image, imageAlt.text),
-    );
+    if (image == null || isDisposed || image.alt == alt) return;
+    _updateSelectedImage((image) => _composer.setImageAlt(image, alt));
   }
 
   void scaleImage(int scale, {bool requestFocus = true}) {
@@ -253,13 +251,13 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     if (requestFocus) _composer.focus.requestFocus();
   }
 
-  void deleteSelectedImage() {
+  void deleteSelectedImage({bool requestFocus = true}) {
     final image = _state.selectedImage;
     if (image == null || isDisposed) return;
     _composer.text.releaseImagePointerEdit(image);
     _clearSelectedImageState(clearKeyboardSelection: true);
     _composer.removeImage(image);
-    _composer.focus.requestFocus();
+    if (requestFocus) _composer.focus.requestFocus();
   }
 
   void moveImageToOffset(ComposerImageBlock image, int offset) {
