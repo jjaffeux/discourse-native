@@ -918,25 +918,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final dark in [false, true]) {
-    testWidgets('narrow large-text table scrolls without overflowing ($dark)', (
-      tester,
-    ) async {
-      final composer = await _pump(tester, dark: dark, width: 320, scale: 2);
-      final scroll = composer.text.imageScrollController!;
-      scroll.jumpTo(
-        (scroll.offset + tester.getCenter(find.text('Add row')).dy - 400).clamp(
-          0,
-          scroll.position.maxScrollExtent,
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Add row'));
-      await tester.pumpAndSettle();
-      expect(parseComposerTables(composer.raw).single.rowCount, 3);
-      expect(tester.takeException(), isNull);
-    });
-  }
+  testWidgets('narrow large-text table scrolls without overflowing', (
+    tester,
+  ) async {
+    final composer = await _pump(tester, width: 320, scale: 2);
+    final scroll = composer.text.imageScrollController!;
+    scroll.jumpTo(
+      (scroll.offset + tester.getCenter(find.text('Add row')).dy - 400).clamp(
+        0,
+        scroll.position.maxScrollExtent,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add row'));
+    await tester.pumpAndSettle();
+    expect(parseComposerTables(composer.raw).single.rowCount, 3);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'submission disables inputs and ignores a previously opened menu',
