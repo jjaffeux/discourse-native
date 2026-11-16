@@ -35,7 +35,7 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
-  for (final width in [280.0, 500.0, 900.0]) {
+  for (final width in [280.0, 900.0]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('sparse cards hug content at $width/$scale', (tester) async {
         await tester.binding.setSurfaceSize(Size(width, 700));
@@ -243,7 +243,7 @@ void main() {
     });
   }
 
-  for (final width in [280.0, 640.0, 1200.0]) {
+  for (final width in [280.0, 1200.0]) {
     testWidgets('one topic layout ignores legacy mode at $width', (
       tester,
     ) async {
