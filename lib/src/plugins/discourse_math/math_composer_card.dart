@@ -23,7 +23,6 @@ class MathComposerCard extends StatelessWidget {
     size: DCardSize.small,
     spacing: DSpacing.sm,
     border: false,
-    borderRadius: BorderRadius.circular(DRadius.nested),
     backgroundColor: Theme.of(context).code.blockBackground,
     children: [
       DCardContent(
