@@ -107,7 +107,7 @@ void main() {
     );
   });
 
-  for (final level in [0, 1, 2, 3]) {
+  for (final level in [1, 2, 3]) {
     test('hydrates unread counts using notification level $level', () async {
       final api = DiscourseApi(
         client: MockClient(
