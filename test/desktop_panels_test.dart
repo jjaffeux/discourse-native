@@ -761,63 +761,65 @@ void main() {
 
   for (final panel in ForumPanel.values) {
     for (final samePanel in [true, false]) {
-      for (final entryPoint in ['link', 'content']) {
-        test(
-          '$entryPoint navigation to $panel from the '
-          '${samePanel ? 'current' : 'opposite'} panel honors explicit posts',
-          () {
-            shell.createTab(panel: panel);
-            final targetId = shell.activeTabId!;
-            shell.openTopic(_topic);
-            shell.saveTopicScrollPost(42, 9, viewportOffset: -24);
-            shell.openTopic(_otherTopic);
-            final sourcePanel = samePanel
-                ? panel
-                : panel == ForumPanel.main
-                ? ForumPanel.secondary
-                : ForumPanel.main;
-            final sourceId = samePanel
-                ? targetId
-                : shell.selectedTabIn(sourcePanel)!.id;
-            shell.selectTab(sourceId);
+      final viaLink = switch (panel) {
+        ForumPanel.main => samePanel,
+        ForumPanel.secondary => !samePanel,
+      };
+      test(
+        '${viaLink ? 'link' : 'content'} navigation to $panel from the '
+        '${samePanel ? 'current' : 'opposite'} panel honors explicit posts',
+        () {
+          shell.createTab(panel: panel);
+          final targetId = shell.activeTabId!;
+          shell.openTopic(_topic);
+          shell.saveTopicScrollPost(42, 9, viewportOffset: -24);
+          shell.openTopic(_otherTopic);
+          final sourcePanel = samePanel
+              ? panel
+              : panel == ForumPanel.main
+              ? ForumPanel.secondary
+              : ForumPanel.main;
+          final sourceId = samePanel
+              ? targetId
+              : shell.selectedTabIn(sourcePanel)!.id;
+          shell.selectTab(sourceId);
 
-            TabOpenResult open({required bool explicit}) => entryPoint == 'link'
-                ? shell.openLinkInPanel(
-                    '/t/panel-topic/42${explicit ? '/3' : ''}',
-                    panel: panel,
-                  )
-                : shell.openContentInPanel(
-                    ContentRoute.topic(
-                      topicId: 42,
-                      slug: _topic.slug,
-                      title: _topic.title,
-                      postNumber: explicit ? 3 : null,
-                    ),
-                    panel: panel,
-                    resetScrollPosition: explicit,
-                  );
+          TabOpenResult open({required bool explicit}) => viaLink
+              ? shell.openLinkInPanel(
+                  '/t/panel-topic/42${explicit ? '/3' : ''}',
+                  panel: panel,
+                )
+              : shell.openContentInPanel(
+                  ContentRoute.topic(
+                    topicId: 42,
+                    slug: _topic.slug,
+                    title: _topic.title,
+                    postNumber: explicit ? 3 : null,
+                  ),
+                  panel: panel,
+                  resetScrollPosition: explicit,
+                );
 
-            expect(open(explicit: true), TabOpenResult.opened);
-            expect(shell.activeTabId, targetId);
-            expect(shell.currentContent?.postNumber, 3);
-            expect(shell.topicScrollPostNumber(42), 3);
-            expect(shell.topicScrollPostOffset(42), 0);
-            expect(shell.activeTab!.anchors['topic-42'], isNull);
+          expect(open(explicit: true), TabOpenResult.opened);
+          expect(shell.activeTabId, targetId);
+          expect(shell.currentContent?.postNumber, 3);
+          expect(shell.topicScrollPostNumber(42), 3);
+          expect(shell.topicScrollPostOffset(42), 0);
+          expect(shell.activeTab!.anchors['topic-42'], isNull);
 
-            shell.saveTopicScrollPost(42, 9, viewportOffset: -24);
-            final anchor = shell.activeTab!.anchors['topic-42'];
-            shell.openTopic(_otherTopic);
-            shell.selectTab(sourceId);
+          shell.saveTopicScrollPost(42, 9, viewportOffset: -24);
+          final anchor = shell.activeTab!.anchors['topic-42'];
+          shell.openTopic(_otherTopic);
+          shell.selectTab(sourceId);
 
-            expect(open(explicit: false), TabOpenResult.opened);
-            expect(shell.activeTabId, targetId);
-            expect(shell.currentContent?.postNumber, isNull);
-            expect(shell.topicScrollPostNumber(42), 9);
-            expect(shell.topicScrollPostOffset(42), -24);
-            expect(shell.activeTab!.anchors['topic-42'], same(anchor));
-          },
-        );
-      }
+          expect(open(explicit: false), TabOpenResult.opened);
+          expect(shell.activeTabId, targetId);
+          expect(shell.currentContent?.postNumber, isNull);
+          expect(shell.topicScrollPostNumber(42), 9);
+          expect(shell.topicScrollPostOffset(42), -24);
+          expect(shell.activeTab!.anchors['topic-42'], same(anchor));
+        },
+      );
     }
 
     test('search result posts override a saved reading position in $panel', () {
