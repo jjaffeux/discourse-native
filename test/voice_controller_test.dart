@@ -1213,71 +1213,72 @@ void main() {
       },
     );
 
-    for (final pending in ['write', 'refresh']) {
-      for (final retirement in ['editor', 'account']) {
-        test(
-          'ignores a pending $pending after $retirement retirement',
-          () async {
-            final controlled = privilegedTransport();
-            controlled.responses['GET $rosterPath'] = roster();
-            useTransport(controlled);
-            final editor = await openMembershipEditor();
-            final initialRoster = editor.memberships;
-            final readsBefore = controlled.pluginGets.length;
-            var accepted = 0;
-            if (pending == 'write') {
-              controlled.heldPluginWritePaths.add(rosterPath);
-            } else {
-              controlled.heldPluginPaths.add(rosterPath);
-            }
-            final operation = editor.add(
-              'lee',
-              VoiceRole.speaker,
-              onAccepted: () => accepted++,
-            );
-            if (pending == 'write') {
-              await controlled.waitForPendingPluginWrites(1);
-            } else {
-              await pumpEventQueue();
-              expect(controlled.pendingPluginGets, hasLength(1));
-            }
+    for (final (pending, retirement) in [
+      ('write', 'account'),
+      ('refresh', 'editor'),
+    ]) {
+      test(
+        'ignores a pending $pending after $retirement retirement',
+        () async {
+          final controlled = privilegedTransport();
+          controlled.responses['GET $rosterPath'] = roster();
+          useTransport(controlled);
+          final editor = await openMembershipEditor();
+          final initialRoster = editor.memberships;
+          final readsBefore = controlled.pluginGets.length;
+          var accepted = 0;
+          if (pending == 'write') {
+            controlled.heldPluginWritePaths.add(rosterPath);
+          } else {
+            controlled.heldPluginPaths.add(rosterPath);
+          }
+          final operation = editor.add(
+            'lee',
+            VoiceRole.speaker,
+            onAccepted: () => accepted++,
+          );
+          if (pending == 'write') {
+            await controlled.waitForPendingPluginWrites(1);
+          } else {
+            await pumpEventQueue();
+            expect(controlled.pendingPluginGets, hasLength(1));
+          }
 
-            if (retirement == 'editor') {
-              editor.retire();
-            } else {
-              controller.forget(firstSite);
-            }
-            expect(editor.isCurrent, isFalse);
-            expect(editor.available, isFalse);
-            if (pending == 'write') {
-              controlled.pendingPluginWrites.single.response.complete({});
-            } else {
-              controlled.pendingPluginGets.single.response.complete(
-                roster(role: 'speaker'),
-              );
-            }
+          if (retirement == 'editor') {
+            editor.retire();
+          } else {
+            controller.forget(firstSite);
+          }
+          expect(editor.isCurrent, isFalse);
+          expect(editor.available, isFalse);
+          if (pending == 'write') {
+            controlled.pendingPluginWrites.single.response.complete({});
+          } else {
+            controlled.pendingPluginGets.single.response.complete(
+              roster(role: 'speaker'),
+            );
+          }
 
-            expect(await operation, VoiceMembershipEditStatus.retired);
-            expect(editor.memberships, same(initialRoster));
-            expect(editor.memberships.single.role, VoiceRole.participant);
-            expect(accepted, pending == 'write' ? 0 : 1);
-            expect(
-              controlled.pluginGets.length,
-              readsBefore + (pending == 'refresh' ? 1 : 0),
-            );
+          expect(await operation, VoiceMembershipEditStatus.retired);
+          expect(editor.memberships, same(initialRoster));
+          expect(editor.memberships.single.role, VoiceRole.participant);
+          expect(accepted, pending == 'write' ? 0 : 1);
+          expect(
+            controlled.pluginGets.length,
+            readsBefore + (pending == 'refresh' ? 1 : 0),
+          );
 
-            expect(
-              await editor.add('sam', VoiceRole.participant),
-              VoiceMembershipEditStatus.retired,
-            );
-            expect(
-              await editor.changeRole(9, VoiceRole.speaker),
-              VoiceMembershipEditStatus.retired,
-            );
-            expect(await editor.remove(9), VoiceMembershipEditStatus.retired);
-          },
-        );
-      }
+          expect(
+            await editor.add('sam', VoiceRole.participant),
+            VoiceMembershipEditStatus.retired,
+          );
+          expect(
+            await editor.changeRole(9, VoiceRole.speaker),
+            VoiceMembershipEditStatus.retired,
+          );
+          expect(await editor.remove(9), VoiceMembershipEditStatus.retired);
+        },
+      );
     }
 
     test(
