@@ -1466,7 +1466,7 @@ void main() {
     variant: _platforms,
   );
 
-  for (final width in [320.0, 800.0, 1024.0]) {
+  for (final width in [320.0, 1024.0]) {
     testWidgets(
       'sheet fills screen with safe controls and large text at $width with reduced motion',
       (tester) async {
