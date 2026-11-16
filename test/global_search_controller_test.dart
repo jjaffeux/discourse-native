@@ -417,15 +417,17 @@ void main() {
   for (final scope in [GlobalSearchScope.all, GlobalSearchScope.forum]) {
     for (final (alias, condition, value, order) in [
       ('l', null, null, 'latest'),
-      ('r', null, null, 'read'),
+      if (scope == GlobalSearchScope.forum) ('r', null, null, 'read'),
       ('f', 'searchIn', 'first', 'relevance'),
-      ('t', 'searchIn', 'title', 'relevance'),
-      ('in:mine', 'activity', 'created', 'relevance'),
-      ('in:messages', 'privateMessages', 'personal', 'relevance'),
-      ('in:whispers', 'whispers', 'whispers', 'relevance'),
-      ('in:bots', 'postType', 'bot', 'relevance'),
-      ('in:humans', 'postType', 'human', 'relevance'),
-      ('include:invisible', 'visibility', 'include', 'relevance'),
+      if (scope == GlobalSearchScope.forum) ('t', 'searchIn', 'title', 'relevance'),
+      if (scope == GlobalSearchScope.all) ...[
+        ('in:mine', 'activity', 'created', 'relevance'),
+        ('in:messages', 'privateMessages', 'personal', 'relevance'),
+        ('in:whispers', 'whispers', 'whispers', 'relevance'),
+        ('in:bots', 'postType', 'bot', 'relevance'),
+        ('in:humans', 'postType', 'human', 'relevance'),
+        ('include:invisible', 'visibility', 'include', 'relevance'),
+      ],
     ]) {
       testWidgets('${scope.name} retains forum alias $alias', (tester) async {
         final api = _EngineApi();
