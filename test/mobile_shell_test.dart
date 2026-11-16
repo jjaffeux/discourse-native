@@ -76,6 +76,7 @@ import 'support/button_surface.dart';
 import 'support/chat_shell.dart';
 import 'support/dock_panel.dart';
 import 'support/fakes.dart';
+import 'support/keyboard_test_harness.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -1612,6 +1613,69 @@ void main() {
       findsNothing,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('the Start a message backdrop matches the Chats header', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      size: const Size(430, 932),
+    );
+    tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 62, bottom: 34);
+    await _tapDockTab(tester, 'panel/chat');
+    await _loadChromeCaptureFonts(tester);
+
+    for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('mobile-panel-action')));
+      await tester.pumpAndSettle();
+      if (Theme.of(tester.element(_header)).platform == TargetPlatform.iOS) {
+        await sendKeyboardFrame(tester, milliseconds: 0);
+      }
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      tester.view.padding = const FakeViewPadding(top: 62);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-new-direct-message-sheet')),
+        findsOneWidget,
+      );
+      await _captureChrome(tester, 'chat-start-${mode.name}');
+
+      final (corner, header) = (await tester.runAsync(() async {
+        final builder = ui.SceneBuilder();
+        tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final size = tester.view.physicalSize;
+        final image = await scene.toImage(
+          size.width.toInt(),
+          size.height.toInt(),
+        );
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        List<int> pixel(int x, int y) =>
+            bytes.buffer.asUint8List((y * image.width + x) * 4, 4);
+        final colors = (pixel(2, 2), pixel(image.width ~/ 2, 40));
+        image.dispose();
+        scene.dispose();
+        return colors;
+      }))!;
+      for (var channel = 0; channel < 4; channel++) {
+        expect(
+          corner[channel],
+          closeTo(header[channel], 1),
+          reason: '${mode.name} corner $corner should match header $header',
+        );
+      }
+
+      await tester.tapAt(const Offset(20, 30));
+      tester.view.resetViewInsets();
+      tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
+      await tester.pumpAndSettle();
+    }
   });
 
   _mobileTest('chat filters the mixed recent list and live unread state', (

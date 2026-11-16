@@ -21,6 +21,7 @@ Widget _routeSheetBackground(
       depth: animate
           ? Curves.easeInOut.transform(animation.value) * (1 - pull.value)
           : 0,
+      surroundingColor: DTokens.of(context).wellFill,
       child: child!,
     ),
   );
@@ -120,27 +121,40 @@ class _DSheetBackgroundMotion extends StatelessWidget {
   const _DSheetBackgroundMotion({
     required this.depth,
     this.rounded = false,
+    this.surroundingColor,
     required this.child,
   });
 
   final double depth;
   final bool rounded;
+  final Color? surroundingColor;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Transform.scale(
-    scale: 1 - .06 * depth,
-    child: _DSheetBackgroundTint(
-      tint: depth == 0
-          ? null
-          : DTokens.of(context).colors.scrim.withValues(alpha: .24 * depth),
-      child: ClipRRect(
-        clipBehavior: rounded || depth > 0 ? Clip.antiAlias : Clip.none,
-        borderRadius: DSheetViewport.pageBorderRadius(context),
-        child: child,
+  Widget build(BuildContext context) {
+    final tint = depth == 0
+        ? null
+        : DTokens.of(context).colors.scrim.withValues(alpha: .24 * depth);
+    final scaled = Transform.scale(
+      scale: 1 - .06 * depth,
+      child: _DSheetBackgroundTint(
+        tint: tint,
+        child: ClipRRect(
+          clipBehavior: rounded || depth > 0 ? Clip.antiAlias : Clip.none,
+          borderRadius: DSheetViewport.pageBorderRadius(context),
+          child: child,
+        ),
       ),
-    ),
-  );
+    );
+    final surround = surroundingColor;
+    if (surround == null) return scaled;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: tint == null ? null : Color.alphaBlend(tint, surround),
+      ),
+      child: scaled,
+    );
+  }
 }
 
 class _DSheetBackgroundTint extends SingleChildRenderObjectWidget {
