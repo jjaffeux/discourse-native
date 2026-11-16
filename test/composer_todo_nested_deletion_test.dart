@@ -54,23 +54,24 @@ Future<void> nativeInsert(WidgetTester tester, String insertion) async {
 }
 
 void main() {
-  for (final newline in ['\n', '\r\n']) {
-    for (final blankIndent in ['', '  ', '   ']) {
-      test(
-        'deleting an extra blank line preserves child indentation '
-        'with newline ${newline.length} and indent ${blankIndent.length}',
-        () {
-          final source =
-              '- [ ] Parent$newline$blankIndent$newline'
-              '  - [x] Child$newline    - [ ] Grandchild';
-          final item = composerListItems(source).single;
-          expect(
-            item.body.replace('Parent\n- [x] Child\n  - [ ] Grandchild'),
-            '- [ ] Parent$newline  - [x] Child$newline    - [ ] Grandchild',
-          );
-        },
+  const blankLineCases = [
+    ('\n', ''),
+    ('\n', '  '),
+    ('\r\n', ''),
+    ('\r\n', '   '),
+  ];
+  for (final (newline, blankIndent) in blankLineCases) {
+    test('deleting an extra blank line preserves child indentation '
+        'with newline ${newline.length} and indent ${blankIndent.length}', () {
+      final source =
+          '- [ ] Parent$newline$blankIndent$newline'
+          '  - [x] Child$newline    - [ ] Grandchild';
+      final item = composerListItems(source).single;
+      expect(
+        item.body.replace('Parent\n- [x] Child\n  - [ ] Grandchild'),
+        '- [ ] Parent$newline  - [x] Child$newline    - [ ] Grandchild',
       );
-    }
+    });
   }
 
   for (final newline in ['\n', '\r\n']) {

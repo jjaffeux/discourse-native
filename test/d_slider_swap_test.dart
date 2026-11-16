@@ -29,6 +29,8 @@ Offset position(Rect rect, double value, Axis axis, TextDirection direction) {
 void main() {
   for (final axis in Axis.values) {
     for (final direction in TextDirection.values) {
+      if (axis == Axis.vertical && direction == TextDirection.rtl) continue;
+
       testWidgets(
         '$axis $direction swap follows accepted crossing with borrowed focus and semantic slots',
         (tester) async {

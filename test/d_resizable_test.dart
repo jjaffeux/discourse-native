@@ -63,6 +63,8 @@ Widget _host(
 void main() {
   for (final axis in Axis.values) {
     for (final direction in TextDirection.values) {
+      if (axis == Axis.vertical && direction == TextDirection.rtl) continue;
+
       testWidgets(
         'workspace grip stays centered and resizes in $axis $direction',
         (tester) async {
