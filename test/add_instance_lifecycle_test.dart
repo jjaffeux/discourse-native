@@ -191,6 +191,18 @@ void main() {
             label: 'Forum address\nmeta.discourse.org',
             isTextField: true,
             isFocusable: true,
+            isFocused: false,
+          ),
+        );
+
+        await tester.tap(field);
+        await tester.pump();
+        expect(
+          tester.getSemantics(editable),
+          isSemantics(
+            label: 'Forum address\nmeta.discourse.org',
+            isTextField: true,
+            isFocusable: true,
             isFocused: true,
           ),
         );

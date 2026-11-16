@@ -62,17 +62,36 @@ void main() {
     );
   });
 
-  testWidgets('uses the shell sheet on Android', (tester) async {
+  testWidgets('opens a standard sheet before showing the Android keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await openAddSite(tester, TargetPlatform.android);
 
     expect(find.byType(Dialog), findsNothing);
     expect(find.byType(BottomSheet), findsNothing);
-    expect(find.byType(DSheetContent), findsOneWidget);
-    expect(find.text('Add a site'), findsOneWidget);
     expect(
-      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
-      isTrue,
+      tester.widget<DSheetContent>(find.byType(DSheetContent)).variant,
+      DSheetVariant.standard,
     );
+    expect(find.text('Add a site'), findsOneWidget);
+    final address = find.byType(EditableText);
+    expect(tester.widget<EditableText>(address).focusNode.hasFocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+
+    await tester.tap(address);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+    await tester.pumpAndSettle();
+    expect(tester.widget<EditableText>(address).focusNode.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(tester.getRect(address).bottom, lessThanOrEqualTo(844 - 336));
+    expect(find.text('Connect').hitTestable(), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add a site'), findsNothing);
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {

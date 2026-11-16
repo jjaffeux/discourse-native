@@ -237,37 +237,44 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('phone sheet scrolls to suggestions below the keyboard', (
-    tester,
-  ) async {
-    const size = Size(390, 844);
-    const keyboard = 336.0;
-    tester.view.viewInsets = const FakeViewPadding(bottom: keyboard);
-    final source = DiscoverSites(client: MockClient((_) async => batch()));
-    await open(tester, source, size: size, platform: TargetPlatform.iOS);
-    await tester.pumpAndSettle();
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} builds more suggestions as they scroll above the keyboard',
+      (tester) async {
+        const size = Size(390, 844);
+        const keyboard = 336.0;
+        final source = DiscoverSites(client: MockClient((_) async => batch()));
+        await open(tester, source, size: size, platform: platform);
+        await tester.pumpAndSettle();
 
-    final last = find.byType(DItem).last;
-    expect(tester.getRect(last).top, greaterThan(size.height - keyboard));
+        final last = find.text('Community 10');
+        expect(last, findsNothing);
+        expect(find.byType(DItem).evaluate().length, lessThan(10));
 
-    await tester.drag(find.text('Connect'), const Offset(0, -1200));
-    await tester.pumpAndSettle();
-    await tester.drag(
-      find.descendant(
-        of: find.byType(DiscoverSiteSuggestions),
-        matching: find.byType(Scrollable),
-      ),
-      const Offset(0, -1200),
+        await tester.tap(find.byType(EditableText));
+        tester.view.viewInsets = const FakeViewPadding(bottom: keyboard);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Discover more communities'));
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          last,
+          140,
+          scrollable: find.descendant(
+            of: find.byType(DiscoverSiteSuggestions),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getRect(last).bottom,
+          lessThanOrEqualTo(size.height - keyboard),
+        );
+        expect(last.hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
     );
-    await tester.pumpAndSettle();
-
-    expect(
-      tester.getRect(last).bottom,
-      lessThanOrEqualTo(size.height - keyboard),
-    );
-    expect(last.hitTestable(), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  }
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     testWidgets(
@@ -297,7 +304,6 @@ void main() {
         );
         expect(first.left, second.left);
         expect(second.top, greaterThan(first.bottom));
-        expect(find.byType(DItem), findsNWidgets(10));
         expect(tester.takeException(), isNull);
       },
     );

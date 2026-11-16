@@ -15,7 +15,6 @@ import 'discover_site_suggestions.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 
 const Duration addInstanceLookupDebounce = Duration(milliseconds: 750);
 
@@ -28,37 +27,48 @@ Future<void> showAddInstanceSheet(
   final shell = ShellScope.maybeRead(context);
   final source = discoverSites ?? shell?.discoverSites ?? DiscoverSites();
   final ownsSource = discoverSites == null && shell == null;
-  final addressFocus = FocusNode(debugLabel: 'Add site address');
+  final form = _AddInstanceForm(
+    discoverSites: source,
+    initialAddress: initialAddress,
+  );
   try {
     if (context.isTouch) {
-      await showShellSheet<void>(
+      await showDSheet<void>(
         context: context,
-        title: title,
-        initialFocusNode: addressFocus,
-        fillAvailableHeight: true,
-        surfaceBuilder: (context, child) => AppHomeTheme(child: child),
-        builder: (context) => _AddInstanceForm(
-          focusNode: addressFocus,
-          discoverSites: source,
-          initialAddress: initialAddress,
+        side: DSheetSide.bottom,
+        inset: true,
+        topBottomMaxWidth: 640,
+        builder: (context, _) => AppHomeTheme(
+          child: DSheetContent(
+            side: DSheetSide.bottom,
+            topBottomMaxHeightFactor: 1,
+            semanticLabel: title,
+            children: [
+              DSheetHeader(children: [DSheetTitle(child: Text(title))]),
+              DSheetBody(
+                padding: const EdgeInsets.fromLTRB(
+                  DSpacing.lg,
+                  0,
+                  DSpacing.lg,
+                  DSpacing.lg,
+                ),
+                child: form,
+              ),
+            ],
+          ),
         ),
       );
       return;
     }
     await showDDialog<void>(
       context: context,
-      initialFocusNode: addressFocus,
       builder: (context, controller) => AppHomeTheme(
         child: DDialogContent(
           maxWidth: 600,
           semanticLabel: title,
           children: [
             DDialogHeader(children: [DDialogTitle(child: Text(title))]),
-            _AddInstanceForm(
-              focusNode: addressFocus,
-              discoverSites: source,
-              initialAddress: initialAddress,
-            ),
+            form,
           ],
         ),
       ),
@@ -69,19 +79,12 @@ Future<void> showAddInstanceSheet(
 }
 
 class _AddInstanceForm extends StatefulWidget {
-  const _AddInstanceForm({
-    required this.discoverSites,
-    required this.focusNode,
-    this.initialAddress,
-  });
+  const _AddInstanceForm({required this.discoverSites, this.initialAddress});
 
   /// Shown in the address field as if typed: the site is looked up, and the
   /// person still chooses whether to add it.
   final String? initialAddress;
 
-  // Own the node until the closing route has actually unmounted. The overlay
-  // helpers resolve on pop, before their dismissal animation finishes.
-  final FocusNode focusNode;
   final DiscoverSites discoverSites;
 
   @override
@@ -124,7 +127,6 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
     _field.dispose();
     _username.dispose();
     _password.dispose();
-    widget.focusNode.dispose();
     super.dispose();
   }
 
@@ -438,8 +440,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         const SizedBox(height: 16),
         DInput(
           controller: _field,
-          focusNode: widget.focusNode,
-          autofocus: true,
+          autofocus: !context.isTouch,
           enabled: !_connecting,
           keyboardType: TextInputType.url,
           autocorrect: false,

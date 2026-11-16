@@ -1,12 +1,14 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../data/discover_site.dart';
 import '../data/discover_sites.dart';
 import '../foundation/icons/d_icons.dart';
 import 'external_link.dart';
 import 'image_decode.dart';
+import 'platform.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'skeleton_fill.dart';
@@ -29,6 +31,7 @@ class DiscoverSiteSuggestions extends StatefulWidget {
 }
 
 class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
+  final _scroll = ScrollController();
   late Future<List<DiscoverSite>> _load = widget.source.load();
 
   @override
@@ -37,6 +40,12 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
     if (!identical(widget.source, oldWidget.source)) {
       _load = widget.source.load();
     }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -95,62 +104,79 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
               constraints: BoxConstraints(
                 maxHeight: (availableHeight - 300).clamp(120, 400),
               ),
-              child: DScrollArea(
-                thumbVisibility: false,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columns =
-                        constraints.maxWidth >= 480 &&
-                            textScaler.scale(14) <= 21
-                        ? 2
-                        : 1;
-                    final children = loading
-                        ? List<Widget>.generate(
-                            10,
-                            (_) => const _SiteSkeleton(),
-                          )
-                        : [
-                            for (final site in sites)
-                              DItem(
-                                key: ValueKey('discover-site-${site.url}'),
-                                size: DItemSize.xs,
-                                variant: DItemVariant.outline,
-                                enabled: widget.enabled,
-                                onPressed: () => widget.onSelected(site),
-                                children: [
-                                  DItemMedia(child: _SiteLogo(site: site)),
-                                  DItemContent(
-                                    children: [
-                                      DItemTitle(
-                                        maxLines: 2,
-                                        child: Text(site.title),
-                                      ),
-                                      DItemDescription(
-                                        maxLines: 1,
-                                        child: Text(site.address),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                          ];
-                    final grid = _SiteGrid(
-                      columns: columns,
-                      children: children,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns =
+                      constraints.maxWidth >= 480 && textScaler.scale(14) <= 21
+                      ? 2
+                      : 1;
+                  final count = loading ? 10 : sites.length;
+                  final rows = (count + columns - 1) ~/ columns;
+
+                  Widget row(int index) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var column = 0; column < columns; column++) ...[
+                        if (column > 0) const SizedBox(width: DSpacing.sm),
+                        Expanded(
+                          child: switch (index * columns + column) {
+                            final item when item >= count =>
+                              const SizedBox.shrink(),
+                            _ when loading => const _SiteSkeleton(),
+                            final item => _siteItem(sites[item]),
+                          },
+                        ),
+                      ],
+                    ],
+                  );
+
+                  Widget skeleton(Widget child) => loading
+                      ? DSkeletonRegion(
+                          semanticsLabel:
+                              context.l10n.loadingSuggestedCommunities,
+                          color: skeletonFill(
+                            context,
+                            on: SkeletonSurface.floating,
+                          ),
+                          child: child,
+                        )
+                      : child;
+
+                  if (context.isTouch) {
+                    return DScrollBar(
+                      controller: _scroll,
+                      thumbVisibility: false,
+                      child: skeleton(
+                        ListView.separated(
+                          controller: _scroll,
+                          primary: false,
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          // Start logo requests when their rows scroll into view.
+                          scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+                          itemCount: rows,
+                          itemBuilder: (_, index) => row(index),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: DSpacing.sm),
+                        ),
+                      ),
                     );
-                    return loading
-                        ? DSkeletonRegion(
-                            semanticsLabel:
-                                context.l10n.loadingSuggestedCommunities,
-                            color: skeletonFill(
-                              context,
-                              on: SkeletonSurface.floating,
-                            ),
-                            child: grid,
-                          )
-                        : grid;
-                  },
-                ),
+                  }
+                  return DScrollArea(
+                    thumbVisibility: false,
+                    child: skeleton(
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var index = 0; index < rows; index++) ...[
+                            if (index > 0) const SizedBox(height: DSpacing.sm),
+                            row(index),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },
@@ -168,33 +194,21 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
       ],
     );
   }
-}
 
-class _SiteGrid extends StatelessWidget {
-  const _SiteGrid({required this.columns, required this.children});
-  final int columns;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
+  Widget _siteItem(DiscoverSite site) => DItem(
+    key: ValueKey('discover-site-${site.url}'),
+    size: DItemSize.xs,
+    variant: DItemVariant.outline,
+    enabled: widget.enabled,
+    onPressed: () => widget.onSelected(site),
     children: [
-      for (var index = 0; index < children.length; index += columns) ...[
-        if (index > 0) const SizedBox(height: DSpacing.sm),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var column = 0; column < columns; column++) ...[
-              if (column > 0) const SizedBox(width: DSpacing.sm),
-              Expanded(
-                child: index + column < children.length
-                    ? children[index + column]
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ],
-        ),
-      ],
+      DItemMedia(child: _SiteLogo(site: site)),
+      DItemContent(
+        children: [
+          DItemTitle(maxLines: 2, child: Text(site.title)),
+          DItemDescription(maxLines: 1, child: Text(site.address)),
+        ],
+      ),
     ],
   );
 }
