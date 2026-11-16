@@ -98,28 +98,28 @@ void main() {
       });
     }
 
-    for (final (expression, words, chips) in [
-      ('hello', 'hello', 0),
-      ('category:1', '', 1),
-    ]) {
-      testWidgets('redraws the closed field for the route "$expression"', (
-        tester,
-      ) async {
-        final shell = createGlobalSearchFixtureController();
-        addTearDown(shell.dispose);
-        await shell.load();
-        await _pumpSearch(tester, shell, const ForumSearch());
-        await tester.pumpAndSettle();
-        expect(find.byKey(_clearKey), findsNothing);
+    testWidgets('redraws the closed field for word and filter routes', (
+      tester,
+    ) async {
+      final shell = createGlobalSearchFixtureController();
+      addTearDown(shell.dispose);
+      await shell.load();
+      await _pumpSearch(tester, shell, const ForumSearch());
+      await tester.pumpAndSettle();
+      expect(find.byKey(_clearKey), findsNothing);
 
+      for (final (expression, words, chips) in [
+        ('hello', 'hello', 0),
+        ('category:1', '', 1),
+      ]) {
         shell.pushContent(ContentRoute.searchList(expression));
         await tester.pumpAndSettle();
 
         expect(_input(tester).text, words);
         expect(find.byType(SearchFilterChip), findsNWidgets(chips));
         expect(find.byKey(_clearKey), findsOneWidget);
-      });
-    }
+      }
+    });
 
     testWidgets('redraws the closed field when capabilities arrive', (
       tester,
