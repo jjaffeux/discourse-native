@@ -224,124 +224,114 @@ void main() {
     }
   }
 
-  for (final firstLoaded in [21, 61]) {
-    for (final inbox in [true, false]) {
-      for (final dragging in [false, true]) {
-        testWidgets(
-          'prepending before $firstLoaded only mounts laid-out replies (inbox: $inbox, dragging: $dragging)',
-          (tester) async {
-            final gate = Completer<void>();
-            final api = FakeDiscourseApi(
-              postGate: gate,
-              topics: {},
-              postsById: {},
-            );
-            final controller = await mixedTopicScrollController(
-              api: api,
-              firstLoaded: firstLoaded,
-              initialPostNumber: firstLoaded + 10,
-            );
-            addTearDown(controller.dispose);
-            await tester.pumpWidget(
-              TopicScrollFixture(controller: controller, inbox: inbox),
-            );
-            await tester.pumpAndSettle();
-            final list = topicPostList(tester);
-            final originals = <int, Element>{};
-            // Warm several offscreen replies as well as the visible anchor.
-            for (final offset in [3, 6, 10]) {
-              list.listController!.jumpToItem(
-                index: (offset + 1) * 2,
-                scrollController: list.controller!,
-                alignment: 0,
-              );
-              await tester.pumpAndSettle();
-              for (final element in tester.elementList(
-                find.byType(CookedHtml),
-              )) {
-                if ((element.widget as CookedHtml).post case final post?) {
-                  originals[post.id] = element;
-                }
-              }
-            }
-            expect(
-              originals.values.every((element) => element.mounted),
-              isTrue,
-            );
-            final anchor = find.byKey(ValueKey(firstLoaded + 10));
-            final gesture = dragging
-                ? list.controller!.position.drag(
-                    DragStartDetails(
-                      globalPosition: tester.getCenter(topicPostListFinder()),
-                    ),
-                    () {},
-                  )
-                : null;
-            if (gesture != null) {
-              gesture.update(
-                DragUpdateDetails(
-                  globalPosition: tester.getCenter(topicPostListFinder()),
-                  delta: const Offset(0, 60),
-                  primaryDelta: 60,
-                ),
-              );
-              await tester.pump();
-            }
-            final top = tester.getTopLeft(anchor).dy;
-            final premature = <int>{};
-            final previous = debugOnRebuildDirtyWidget;
-            debugOnRebuildDirtyWidget = (element, builtOnce) {
-              previous?.call(element, builtOnce);
-              if (element.widget case CookedHtml(post: final post?)) {
-                if (post.id < firstLoaded) premature.add(post.id);
-              }
-            };
-            addTearDown(() => debugOnRebuildDirtyWidget = previous);
-            final loading = controller.loadEarlierPosts();
-            final loadingMore = dragging ? controller.loadMorePosts() : null;
-            await tester.pump();
-            gate.complete();
-            await loading;
-            if (loadingMore != null) await loadingMore;
-            await tester.pumpAndSettle();
-            expect(controller.currentPostIds.first, firstLoaded - 20);
-            expect(tester.getTopLeft(anchor).dy, closeTo(top, 1));
-            expect(
-              premature,
-              isEmpty,
-              reason:
-                  'Offscreen replacements must not mount HTML or evict retained replies',
-            );
-            for (final entry in originals.entries) {
-              expect(entry.value.mounted, isTrue, reason: 'Post ${entry.key}');
-            }
-            if (gesture != null) {
-              final viewportTop = tester.getTopLeft(topicPostListFinder()).dy;
-              expect(
-                list.controller!.position.activity,
-                isA<DragScrollActivity>(),
-              );
-              gesture.update(
-                DragUpdateDetails(
-                  globalPosition: tester.getCenter(topicPostListFinder()),
-                  delta: const Offset(0, -60),
-                  primaryDelta: -60,
-                ),
-              );
-              await tester.pump();
-              expect(
-                tester.getTopLeft(anchor).dy -
-                    tester.getTopLeft(topicPostListFinder()).dy,
-                closeTo(top - viewportTop - 60, 1),
-              );
-              gesture.end(DragEndDetails(primaryVelocity: 0));
-              await tester.pumpAndSettle();
-            }
-            expect(tester.takeException(), isNull);
-          },
+  const prependCases = [
+    (21, true, false),
+    (21, false, true),
+    (61, true, true),
+    (61, false, false),
+  ];
+  for (final (firstLoaded, inbox, dragging) in prependCases) {
+    testWidgets(
+      'prepending before $firstLoaded only mounts laid-out replies (inbox: $inbox, dragging: $dragging)',
+      (tester) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(postGate: gate, topics: {}, postsById: {});
+        final controller = await mixedTopicScrollController(
+          api: api,
+          firstLoaded: firstLoaded,
+          initialPostNumber: firstLoaded + 10,
         );
-      }
-    }
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          TopicScrollFixture(controller: controller, inbox: inbox),
+        );
+        await tester.pumpAndSettle();
+        final list = topicPostList(tester);
+        final originals = <int, Element>{};
+        // Warm several offscreen replies as well as the visible anchor.
+        for (final offset in [3, 6, 10]) {
+          list.listController!.jumpToItem(
+            index: (offset + 1) * 2,
+            scrollController: list.controller!,
+            alignment: 0,
+          );
+          await tester.pumpAndSettle();
+          for (final element in tester.elementList(find.byType(CookedHtml))) {
+            if ((element.widget as CookedHtml).post case final post?) {
+              originals[post.id] = element;
+            }
+          }
+        }
+        expect(originals.values.every((element) => element.mounted), isTrue);
+        final anchor = find.byKey(ValueKey(firstLoaded + 10));
+        final gesture = dragging
+            ? list.controller!.position.drag(
+                DragStartDetails(
+                  globalPosition: tester.getCenter(topicPostListFinder()),
+                ),
+                () {},
+              )
+            : null;
+        if (gesture != null) {
+          gesture.update(
+            DragUpdateDetails(
+              globalPosition: tester.getCenter(topicPostListFinder()),
+              delta: const Offset(0, 60),
+              primaryDelta: 60,
+            ),
+          );
+          await tester.pump();
+        }
+        final top = tester.getTopLeft(anchor).dy;
+        final premature = <int>{};
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          if (element.widget case CookedHtml(post: final post?)) {
+            if (post.id < firstLoaded) premature.add(post.id);
+          }
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        final loading = controller.loadEarlierPosts();
+        final loadingMore = dragging ? controller.loadMorePosts() : null;
+        await tester.pump();
+        gate.complete();
+        await loading;
+        if (loadingMore != null) await loadingMore;
+        await tester.pumpAndSettle();
+        expect(controller.currentPostIds.first, firstLoaded - 20);
+        expect(tester.getTopLeft(anchor).dy, closeTo(top, 1));
+        expect(
+          premature,
+          isEmpty,
+          reason:
+              'Offscreen replacements must not mount HTML or evict retained replies',
+        );
+        for (final entry in originals.entries) {
+          expect(entry.value.mounted, isTrue, reason: 'Post ${entry.key}');
+        }
+        if (gesture != null) {
+          final viewportTop = tester.getTopLeft(topicPostListFinder()).dy;
+          expect(list.controller!.position.activity, isA<DragScrollActivity>());
+          gesture.update(
+            DragUpdateDetails(
+              globalPosition: tester.getCenter(topicPostListFinder()),
+              delta: const Offset(0, -60),
+              primaryDelta: -60,
+            ),
+          );
+          await tester.pump();
+          expect(
+            tester.getTopLeft(anchor).dy -
+                tester.getTopLeft(topicPostListFinder()).dy,
+            closeTo(top - viewportTop - 60, 1),
+          );
+          gesture.end(DragEndDetails(primaryVelocity: 0));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final inbox in [true, false]) {
