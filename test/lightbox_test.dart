@@ -360,8 +360,6 @@ void main() {
 
     for (final boundary in const [
       ('div', 'class="spoiler"'),
-      ('span', 'class="spoiler"'),
-      ('div', 'class="hidden"'),
       ('span', 'class="hidden"'),
       ('details', ''),
       ('details', 'open'),
