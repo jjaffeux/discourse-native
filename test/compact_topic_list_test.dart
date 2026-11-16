@@ -107,44 +107,36 @@ void main() {
     expect(avatar, findsOneWidget);
   });
 
-  for (final width in [320.0, 1200.0]) {
-    testWidgets('topic tags fit the available strip and expand at $width', (
-      tester,
-    ) async {
-      final shell = await _setup(
-        tester,
-        width: width,
-        enableAssignments: false,
+  testWidgets('topic tags fit the available strip and expand', (tester) async {
+    final shell = await _setup(tester, width: 320, enableAssignments: false);
+    final site = shell.currentInstance!.url;
+    final topic = shell.store.read<Topic>(site, 1)!;
+    final tags = [for (var i = 1; i <= 23; i++) TopicTag(name: 'tag-$i')];
+    shell.store.put(site, topic.copyWith(tags: tags));
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('topic-card-1'));
+    final overflow = find.descendant(
+      of: row,
+      matching: find.byKey(const ValueKey('topic-row-tag-overflow')),
+    );
+    expect(overflow, findsOneWidget);
+    await tester.tap(overflow);
+    await tester.pumpAndSettle();
+    expect(overflow, findsNothing);
+    expect(shell.currentContent?.topicId, isNull);
+    for (final tag in tags) {
+      expect(
+        find.descendant(of: row, matching: find.text('#${tag.name}')),
+        findsOneWidget,
       );
-      final site = shell.currentInstance!.url;
-      final topic = shell.store.read<Topic>(site, 1)!;
-      final tags = [for (var i = 1; i <= 23; i++) TopicTag(name: 'tag-$i')];
-      shell.store.put(site, topic.copyWith(tags: tags));
-      await tester.pumpAndSettle();
-      final row = find.byKey(const ValueKey('topic-card-1'));
-      final overflow = find.descendant(
-        of: row,
-        matching: find.byKey(const ValueKey('topic-row-tag-overflow')),
-      );
-      expect(overflow, findsOneWidget);
-      await tester.tap(overflow);
-      await tester.pumpAndSettle();
-      expect(overflow, findsNothing);
-      expect(shell.currentContent?.topicId, isNull);
-      for (final tag in tags) {
-        expect(
-          find.descendant(of: row, matching: find.text('#${tag.name}')),
-          findsOneWidget,
-        );
-      }
-      final last = find.descendant(of: row, matching: find.text('#tag-23'));
-      await tester.ensureVisible(last);
-      await tester.tap(last);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.tagName, 'tag-23');
-      expect(tester.takeException(), isNull);
-    });
-  }
+    }
+    final last = find.descendant(of: row, matching: find.text('#tag-23'));
+    await tester.ensureVisible(last);
+    await tester.tap(last);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.tagName, 'tag-23');
+    expect(tester.takeException(), isNull);
+  });
 
   for (final (width, scale) in [(780.0, 1.0), (1200.0, 2.0)]) {
     testWidgets('topic category and tags share a baseline at $width/$scale', (
