@@ -1432,6 +1432,15 @@ void main() {
       tester,
     ) async {
       final fixture = await _fixture(preferences: _pictures);
+      final profileReads = <String>[];
+      fixture.api.userProfileHandler = (siteUrl, username) async {
+        profileReads.add(username);
+        return UserProfile(card: UserCard(id: 7, username: username));
+      };
+      await fixture.shell.userProfile.load(
+        fixture.shell.instanceFor(_siteUrl)!,
+        'reader',
+      );
       await _pumpPage(tester, fixture, pickPicture: _pickMe);
       expect(find.byKey(const ValueKey('preferences-avatar')), findsOneWidget);
       expect(_defaultPicture, findsNothing);
@@ -1444,6 +1453,7 @@ void main() {
 
       expect(fixture.api.avatarUploads, ['me.png']);
       expect(fixture.api.avatarPicks, [(username: 'reader', uploadId: 91)]);
+      expect(profileReads, ['reader', 'reader']);
       expect(fixture.api.currentUserRequests.length, userReads + 1);
       expect(_defaultPicture, findsOneWidget);
       expect(_pictureError, findsNothing);
@@ -1452,27 +1462,6 @@ void main() {
         'Still typing',
       );
       expect(fixture.api.userPreferenceUpdates, isEmpty);
-    });
-
-    testWidgets('a new picture reloads a profile page already showing it', (
-      tester,
-    ) async {
-      final fixture = await _fixture(preferences: _pictures);
-      final asked = <String>[];
-      fixture.api.userProfileHandler = (siteUrl, username) async {
-        asked.add(username);
-        return UserProfile(card: UserCard(id: 7, username: username));
-      };
-      await fixture.shell.userProfile.load(
-        fixture.shell.instanceFor(_siteUrl)!,
-        'reader',
-      );
-      await _pumpPage(tester, fixture, pickPicture: _pickMe);
-
-      await tester.tap(_changePicture);
-      await tester.pumpAndSettle();
-
-      expect(asked, ['reader', 'reader']);
     });
 
     testWidgets('a new picture reaches what was loaded with the old one', (
