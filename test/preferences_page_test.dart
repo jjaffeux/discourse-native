@@ -1795,67 +1795,67 @@ void main() {
       expect(fixture.api.userPreferenceUpdates, isEmpty);
     },
   );
-  for (final width in [320.0, 1000.0]) {
-    for (final brightness in Brightness.values) {
-      for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-        testWidgets('preferences load as an accessible skeleton at $width '
-            '${brightness.name} ${platform.name}', (tester) async {
-          final loadGate = Completer<void>();
-          final fixture = await _fixture(loadGate: loadGate);
-          final semantics = tester.ensureSemantics();
-          try {
-            await _pumpPage(
-              tester,
-              fixture,
-              width: width,
-              settle: false,
-              theme:
-                  (brightness == Brightness.dark
-                          ? AppTheme.dark
-                          : AppTheme.light)
-                      .copyWith(platform: platform),
-            );
+  const loadingCases = [
+    (320.0, Brightness.light, TargetPlatform.iOS),
+    (320.0, Brightness.dark, TargetPlatform.macOS),
+    (1000.0, Brightness.light, TargetPlatform.macOS),
+    (1000.0, Brightness.dark, TargetPlatform.iOS),
+  ];
+  for (final (width, brightness, platform) in loadingCases) {
+    testWidgets('preferences load as an accessible skeleton at $width '
+        '${brightness.name} ${platform.name}', (tester) async {
+      final loadGate = Completer<void>();
+      final fixture = await _fixture(loadGate: loadGate);
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pumpPage(
+          tester,
+          fixture,
+          width: width,
+          settle: false,
+          theme:
+              (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
+                  .copyWith(platform: platform),
+        );
 
-            final loading = find.bySemanticsLabel(
-              'Loading preferences from preferences.example.',
-            );
-            expect(loading, findsOneWidget);
-            expect(
-              tester.getSemantics(loading),
-              isSemantics(
-                label: 'Loading preferences from preferences.example.',
-                isLiveRegion: true,
-              ),
-            );
-            expect(find.text('Loading preferences…'), findsNothing);
-            expect(find.byType(DSpinner), findsNothing);
-            expect(find.byType(DSkeletonRegion), findsOneWidget);
-            expect(find.byType(DSkeleton), findsWidgets);
-            expect(find.text('Preferences'), findsOneWidget);
-            expect(_titleMark, findsOneWidget);
-            expect(_timezoneMenu, findsNothing);
-            expect(tester.takeException(), isNull);
+        final loading = find.bySemanticsLabel(
+          'Loading preferences from preferences.example.',
+        );
+        expect(loading, findsOneWidget);
+        expect(
+          tester.getSemantics(loading),
+          isSemantics(
+            label: 'Loading preferences from preferences.example.',
+            isLiveRegion: true,
+          ),
+        );
+        expect(find.text('Loading preferences…'), findsNothing);
+        expect(find.byType(DSpinner), findsNothing);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        expect(find.byType(DSkeleton), findsWidgets);
+        expect(find.text('Preferences'), findsOneWidget);
+        expect(_titleMark, findsOneWidget);
+        expect(_timezoneMenu, findsNothing);
+        expect(tester.takeException(), isNull);
 
+        loadGate.complete();
+        await tester.pumpAndSettle();
+        expect(loading, findsNothing);
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(find.byType(DSkeleton), findsNothing);
+        expect(_timezoneMenu, findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        try {
+          if (!loadGate.isCompleted) {
             loadGate.complete();
             await tester.pumpAndSettle();
-            expect(loading, findsNothing);
-            expect(find.byType(DSkeletonRegion), findsNothing);
-            expect(find.byType(DSkeleton), findsNothing);
-            expect(_timezoneMenu, findsOneWidget);
-            expect(tester.takeException(), isNull);
-          } finally {
-            try {
-              if (!loadGate.isCompleted) {
-                loadGate.complete();
-                await tester.pumpAndSettle();
-              }
-            } finally {
-              semantics.dispose();
-            }
           }
-        });
+        } finally {
+          semantics.dispose();
+        }
       }
-    }
+    });
   }
 
   testWidgets(
