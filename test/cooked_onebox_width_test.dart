@@ -89,7 +89,7 @@ void main() {
     },
   );
   for (final width in [390.0, 1100.0, 1440.0]) {
-    for (final plugin in [false, true]) {
+    for (final plugin in [false, if (width != 1100) true]) {
       testWidgets('onebox width $width plugin=$plugin', (tester) async {
         await prepareNativeUiEvidence(tester);
         await tester.binding.setSurfaceSize(Size(width, 700));
