@@ -1697,9 +1697,10 @@ void main() {
         expect(tester.getRect(find.byType(PageView)).bottom, 600 - 24);
       });
 
-      testWidgets('many images count, name the current one and draw a strip', (
+      testWidgets('many images show a labeled, selectable thumbnail strip', (
         tester,
       ) async {
+        final semantics = tester.ensureSemantics();
         await useScreen(tester, const Size(800, 600));
         await pumpGallery(tester, images: manyImages(3), initialIndex: 1);
 
@@ -1726,6 +1727,14 @@ void main() {
             .getRect(thumbnailAt(0))
             .expandToInclude(tester.getRect(thumbnailAt(2)));
         expect(content.center.dx, 400);
+
+        final data = tester
+            .getSemantics(find.bySemanticsLabel('Go to image 2 of 3'))
+            .getSemanticsData();
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.flagsCollection.isSelected, Tristate.isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+        semantics.dispose();
       });
 
       testWidgets('a tap goes straight to that image', (tester) async {
@@ -1987,21 +1996,6 @@ void main() {
         expect(tester.getRect(find.byType(PageView)).bottom, 700 - 34);
       });
 
-      testWidgets('offers each thumbnail to assistive technology', (
-        tester,
-      ) async {
-        final semantics = tester.ensureSemantics();
-        await useScreen(tester, const Size(800, 600));
-        await pumpGallery(tester, images: manyImages(3), initialIndex: 1);
-
-        final data = tester
-            .getSemantics(find.bySemanticsLabel('Go to image 2 of 3'))
-            .getSemanticsData();
-        expect(data.flagsCollection.isButton, isTrue);
-        expect(data.flagsCollection.isSelected, Tristate.isTrue);
-        expect(data.hasAction(SemanticsAction.tap), isTrue);
-        semantics.dispose();
-      });
     });
 
     testWidgets('leaves images Discourse did not lightbox alone', (
