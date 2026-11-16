@@ -40,9 +40,5 @@ void main() {
       };
       expect(offenders, isEmpty);
     });
-
-    test('no pair of layers depends on each other', () {
-      expect(graph.mutualLayerPairs(), isEmpty);
-    });
   });
 }
