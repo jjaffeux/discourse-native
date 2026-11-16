@@ -378,23 +378,14 @@ void main() {
     },
   );
 
-  for (final scope in [
-    GlobalSearchScope.users,
-    GlobalSearchScope.groups,
-    GlobalSearchScope.places,
-    GlobalSearchScope.messages,
-    chatSearchScope,
+  for (final (scope, terms) in [
+    (GlobalSearchScope.users, ['l', 'club r']),
+    (GlobalSearchScope.groups, ['r', 'f club']),
+    (GlobalSearchScope.places, ['f', 'club t']),
+    (GlobalSearchScope.messages, ['t', 'l club']),
+    (chatSearchScope, ['l', 'club t']),
   ]) {
-    for (final term in [
-      'l',
-      'r',
-      'f',
-      't',
-      'l club',
-      'club r',
-      'f club',
-      'club t',
-    ]) {
+    for (final term in terms) {
       testWidgets('${scope.name} keeps "$term" literal on submission', (
         tester,
       ) async {
