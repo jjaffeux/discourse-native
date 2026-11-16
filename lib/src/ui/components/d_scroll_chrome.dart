@@ -555,6 +555,13 @@ class _DScrollChromeState extends State<DScrollChrome>
   bool _onMetrics(ScrollMetricsNotification notification) {
     final source = _pageScroll(notification.context, notification.metrics.axis);
     if (source != null) {
+      final active = _activeSource;
+      if (_revealOnlyAtEnd(notification.context) &&
+          active != null &&
+          active.mounted &&
+          !identical(source, active)) {
+        return false;
+      }
       _releaseEndHold(source, notification.context, notification.metrics);
       if (_syncEndVisibility(
         source,
