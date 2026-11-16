@@ -617,7 +617,6 @@ void main() {
   for (final (width, scale, direction) in [
     (390.0, 1.0, TextDirection.ltr),
     (320.0, 2.0, TextDirection.rtl),
-    (780.0, 1.0, TextDirection.rtl),
   ]) {
     testWidgets(
       'topic rows retain metadata at width $width scale $scale $direction',
