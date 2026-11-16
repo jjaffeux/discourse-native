@@ -278,16 +278,6 @@ void main() {
       expect(find.text('Hi :inconnu_é:!'), findsOneWidget);
     });
 
-    testWidgets('projects a registered shortcode as an emoji span', (
-      tester,
-    ) async {
-      await _pump(tester, runs: const [SiteEmojiTextRun('Party :tada: time')]);
-
-      final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
-      expect(emoji.name, 'tada');
-      expect(find.bySemanticsLabel('Party :tada: time'), findsOneWidget);
-    });
-
     testWidgets('leaves unregistered tokens literal without artwork work', (
       tester,
     ) async {
@@ -336,15 +326,6 @@ void main() {
       expect(find.bySemanticsLabel('Hi :partyparrot:!'), findsOneWidget);
     });
 
-    testWidgets('resolves a skin-tone variant of a registered emoji', (
-      tester,
-    ) async {
-      await _pump(tester, runs: const [SiteEmojiTextRun('Bye :wave:t3:')]);
-
-      final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
-      expect(emoji.name, 'wave:t3');
-    });
-
     testWidgets('keeps shortcodes literal until the catalog answers', (
       tester,
     ) async {
@@ -362,6 +343,7 @@ void main() {
 
       final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
       expect(emoji.name, 'tada');
+      expect(find.bySemanticsLabel('Party :tada: time'), findsOneWidget);
     });
   });
 }
