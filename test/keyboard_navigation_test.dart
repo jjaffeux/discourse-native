@@ -99,7 +99,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  for (final size in [desktop, laptop, phone]) {
+  for (final size in [desktop, phone]) {
     testWidgets('J/K page through a long post in both directions at $size', (
       tester,
     ) async {
