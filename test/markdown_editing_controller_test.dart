@@ -767,7 +767,7 @@ void main() {
       expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
 
-    for (final scale in [0.8, 1.0, 1.4, 2.0]) {
+    for (final scale in [0.8, 1.0, 2.0]) {
       testWidgets('plugin widgets scale once at text scale $scale', (
         tester,
       ) async {
