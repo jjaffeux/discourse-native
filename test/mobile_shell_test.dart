@@ -1427,7 +1427,7 @@ void main() {
 
   for (final thread in [false, true]) {
     for (final readOnly in [false, true]) {
-      _mobileTest(
+      testWidgets(
         '${thread ? 'thread' : 'public channel'} scrolling keeps its own header '
         '(read only: $readOnly)',
         (tester) async {
@@ -1531,6 +1531,10 @@ void main() {
           expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
+        variant: TargetPlatformVariant({
+          if (thread || !readOnly) TargetPlatform.iOS,
+          if (thread || readOnly) TargetPlatform.android,
+        }),
       );
     }
   }
