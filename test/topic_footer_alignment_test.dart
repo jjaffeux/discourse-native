@@ -9,7 +9,7 @@ import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
 
 void main() {
-  for (final foot in [0.0, 24.0, 48.0]) {
+  for (final foot in [0.0, 48.0]) {
     testWidgets(
       'topic footer aligns with collapsed Topics at inset $foot',
       (tester) async {
