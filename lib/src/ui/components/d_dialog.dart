@@ -532,9 +532,48 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
 
   final DDialogBackgroundBuilder? backgroundBuilder;
 
+  // Whether the route beneath shows this background through its own host.
+  // Set as that route is announced, before it reads [delegatedTransition].
+  bool _hostedBackground = false;
+  _DDialogBackgroundHostState? _backgroundHost;
+
+  @override
+  void didChangePrevious(Route<dynamic>? previousRoute) {
+    super.didChangePrevious(previousRoute);
+    final host = previousRoute == null ? null : _backgroundHosts[previousRoute];
+    _hostedBackground =
+        backgroundBuilder != null &&
+        identical(host?.widget.builder, backgroundBuilder);
+    _showBackgroundOn(_hostedBackground ? host : null);
+  }
+
+  void _showBackgroundOn(_DDialogBackgroundHostState? host) {
+    if (identical(host, _backgroundHost)) return;
+    _backgroundHost?._hide(animation!);
+    _backgroundHost = host;
+    host?._show(animation!);
+  }
+
+  @override
+  void didComplete(T? result) {
+    super.didComplete(result);
+    // A removal skips the closing transition, so the page returns as the
+    // route leaves.
+    if (animation!.status
+        case AnimationStatus.forward || AnimationStatus.completed) {
+      _showBackgroundOn(null);
+    }
+  }
+
+  @override
+  void dispose() {
+    _showBackgroundOn(null);
+    super.dispose();
+  }
+
   @override
   DelegatedTransitionBuilder? get delegatedTransition =>
-      backgroundBuilder == null ? null : _buildBackground;
+      backgroundBuilder == null || _hostedBackground ? null : _buildBackground;
 
   Widget? _buildBackground(
     BuildContext context,
@@ -561,6 +600,80 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
         modal || (focusContext != null && ModalRoute.of(focusContext) == this);
     super.authorizePop(result);
   }
+}
+
+/// Keeps a route's page in place while a dialog opened over it applies its
+/// background builder.
+///
+/// A dialog otherwise delegates that background to the route beneath it, and
+/// Flutter applies a delegated transition by giving the covered page a new
+/// parent as the dialog opens and taking it away once it has closed. Each move
+/// rebuilds every widget in the page that reads an inherited value. Place this
+/// at the root of a route's page: a dialog opened over that route with the same
+/// [builder] then animates this host instead.
+class DDialogBackgroundHost extends StatefulWidget {
+  const DDialogBackgroundHost({
+    super.key,
+    required this.builder,
+    required this.child,
+  });
+
+  /// The background a covering dialog applies. While nothing covers the
+  /// route it is built with a dismissed animation, and must then leave [child]
+  /// looking and behaving as it does alone.
+  final DDialogBackgroundBuilder builder;
+  final Widget child;
+
+  @override
+  State<DDialogBackgroundHost> createState() => _DDialogBackgroundHostState();
+}
+
+final _backgroundHosts = Expando<_DDialogBackgroundHostState>();
+
+class _DDialogBackgroundHostState extends State<DDialogBackgroundHost> {
+  final _cover = ValueNotifier<Animation<double>>(kAlwaysDismissedAnimation);
+  Route<dynamic>? _route;
+
+  void _register(Route<dynamic>? route) {
+    if (identical(route, _route)) return;
+    if (_route case final previous?
+        when identical(_backgroundHosts[previous], this)) {
+      _backgroundHosts[previous] = null;
+    }
+    _route = route;
+    if (route != null) _backgroundHosts[route] = this;
+  }
+
+  void _show(Animation<double> animation) => _cover.value = animation;
+
+  void _hide(Animation<double> animation) {
+    if (mounted && identical(_cover.value, animation)) {
+      _cover.value = kAlwaysDismissedAnimation;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _register(ModalRoute.of(context));
+  }
+
+  @override
+  void dispose() {
+    _register(null);
+    _cover.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<Animation<double>>(
+        valueListenable: _cover,
+        // The page keeps its own layer while only the background moves.
+        child: RepaintBoundary(child: widget.child),
+        builder: (context, animation, page) =>
+            widget.builder(context, animation, page!),
+      );
 }
 
 DDialogBackgroundBuilder? _mobileBackground(

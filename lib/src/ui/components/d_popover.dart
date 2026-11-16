@@ -871,7 +871,9 @@ class _DPopoverState extends State<DPopover>
   void _registerAnchor(BuildContext context) => _anchorContext = context;
 
   void _anchorMoved() {
-    if (!_open || !mounted) return;
+    // A sheet rises from the screen's foot wherever its trigger is, as the
+    // page beneath it recedes and the trigger's press settles.
+    if (!_open || _sheet || !mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _open) setState(() {});
     });
