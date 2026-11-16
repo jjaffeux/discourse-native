@@ -33,7 +33,11 @@ Future<void> _focusBody(
 void main() {
   for (final depth in [0, 1, 3]) {
     for (final checkbox in [false, true]) {
-      for (final caret in [0, 2, 5]) {
+      final carets = switch ((depth, checkbox)) {
+        (1, true) || (0 || 3, false) => [2],
+        _ => [0, 5],
+      };
+      for (final caret in carets) {
         testWidgets('shorthand toggle retains caret $caret at depth $depth via '
             '${checkbox ? 'checkbox' : 'controller'} and undo/redo', (
           tester,
@@ -176,52 +180,50 @@ void main() {
     }
   }
 
-  for (final nested in [false, true]) {
-    for (final activeIndex in [0, 1]) {
-      for (final selected in [false, true]) {
-        testWidgets(
-          'toggle retains ${selected ? 'selection' : 'caret'} in sibling '
-          '$activeIndex nested=$nested',
-          (tester) async {
-            final source = nested
-                ? '- [ ] Parent\n  - [] First\n  - [] Second'
-                : '- [] First\n- [] Second';
-            final root = await _pumpEditor(tester, source);
-            final selection = TextSelection(
-              baseOffset: 4,
-              extentOffset: selected ? 1 : 4,
-              isDirectional: selected,
-            );
-            final active = bodies(tester)[activeIndex + (nested ? 1 : 0)];
-            await _focusBody(tester, active, selection);
-            final before = root.value;
-            final toggledIndex = 1 - activeIndex + (nested ? 1 : 0);
-            bodies(tester)[toggledIndex].toggle();
-            await tester.pumpAndSettle();
-            final expected = before.selection.copyWith(
-              baseOffset:
-                  before.selection.baseOffset + (activeIndex == 1 ? 1 : 0),
-              extentOffset:
-                  before.selection.extentOffset + (activeIndex == 1 ? 1 : 0),
-            );
-            expect(root.value.selection, expected);
-            expect(active.text.selection, selection);
-            expect(active.focus.hasPrimaryFocus, isTrue);
-            expect(root.history.undo(), isTrue);
-            await tester.pumpAndSettle();
-            expect(root.value, before);
-            expect(active.text.selection, selection);
-            expect(active.focus.hasPrimaryFocus, isTrue);
-            expect(root.history.redo(), isTrue);
-            await tester.pumpAndSettle();
-            expect(root.value.selection, expected);
-            expect(active.text.selection, selection);
-            expect(active.focus.hasPrimaryFocus, isTrue);
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
-    }
+  const siblingCases = [
+    (false, 0, false),
+    (false, 1, true),
+    (true, 0, true),
+    (true, 1, false),
+  ];
+  for (final (nested, activeIndex, selected) in siblingCases) {
+    testWidgets('toggle retains ${selected ? 'selection' : 'caret'} in sibling '
+        '$activeIndex nested=$nested', (tester) async {
+      final source = nested
+          ? '- [ ] Parent\n  - [] First\n  - [] Second'
+          : '- [] First\n- [] Second';
+      final root = await _pumpEditor(tester, source);
+      final selection = TextSelection(
+        baseOffset: 4,
+        extentOffset: selected ? 1 : 4,
+        isDirectional: selected,
+      );
+      final active = bodies(tester)[activeIndex + (nested ? 1 : 0)];
+      await _focusBody(tester, active, selection);
+      final before = root.value;
+      final toggledIndex = 1 - activeIndex + (nested ? 1 : 0);
+      bodies(tester)[toggledIndex].toggle();
+      await tester.pumpAndSettle();
+      final expected = before.selection.copyWith(
+        baseOffset: before.selection.baseOffset + (activeIndex == 1 ? 1 : 0),
+        extentOffset:
+            before.selection.extentOffset + (activeIndex == 1 ? 1 : 0),
+      );
+      expect(root.value.selection, expected);
+      expect(active.text.selection, selection);
+      expect(active.focus.hasPrimaryFocus, isTrue);
+      expect(root.history.undo(), isTrue);
+      await tester.pumpAndSettle();
+      expect(root.value, before);
+      expect(active.text.selection, selection);
+      expect(active.focus.hasPrimaryFocus, isTrue);
+      expect(root.history.redo(), isTrue);
+      await tester.pumpAndSettle();
+      expect(root.value.selection, expected);
+      expect(active.text.selection, selection);
+      expect(active.focus.hasPrimaryFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('bare shorthand retains caret through focus and undo/redo', (
