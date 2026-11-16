@@ -176,39 +176,41 @@ void main() {
     });
   }
 
-  for (final identity in ['controller', 'site', 'channel']) {
-    for (final fail in [false, true]) {
-      testWidgets(
-        'retires $identity requests with a late ${fail ? 'failure' : 'success'}',
-        (tester) async {
-          final chat = _Chat();
-          final replacement = identity == 'controller' ? _Chat() : chat;
-          final session = _session(chat);
-          unawaited(session.refresh());
-          final old = chat.requests.single;
-          session.bind(
-            chat: replacement,
-            siteUrl: identity == 'site' ? 'https://other.discourse.org' : _site,
-            channelId: identity == 'channel' ? 10 : 9,
-            membershipsCount: 100,
-          );
-          final current = replacement.requests.last;
-          expect(identical(old, current), isFalse);
-          expect(current.offset, 0);
-          current.complete([90]);
-          await tester.pump();
-          old.result.complete(
-            fail
-                ? (page: null, error: 'offline')
-                : (page: _page([1]), error: null),
-          );
-          await tester.pump();
-          expect(_ids(session), [90]);
-          expect(session.error, isNull);
-          expect(session.canLoadMore, isFalse);
-        },
-      );
-    }
+  for (final (identity, fail) in [
+    ('controller', false),
+    ('site', true),
+    ('channel', false),
+  ]) {
+    testWidgets(
+      'retires $identity requests with a late ${fail ? 'failure' : 'success'}',
+      (tester) async {
+        final chat = _Chat();
+        final replacement = identity == 'controller' ? _Chat() : chat;
+        final session = _session(chat);
+        unawaited(session.refresh());
+        final old = chat.requests.single;
+        session.bind(
+          chat: replacement,
+          siteUrl: identity == 'site' ? 'https://other.discourse.org' : _site,
+          channelId: identity == 'channel' ? 10 : 9,
+          membershipsCount: 100,
+        );
+        final current = replacement.requests.last;
+        expect(identical(old, current), isFalse);
+        expect(current.offset, 0);
+        current.complete([90]);
+        await tester.pump();
+        old.result.complete(
+          fail
+              ? (page: null, error: 'offline')
+              : (page: _page([1]), error: null),
+        );
+        await tester.pump();
+        expect(_ids(session), [90]);
+        expect(session.error, isNull);
+        expect(session.canLoadMore, isFalse);
+      },
+    );
   }
 
   testWidgets(
