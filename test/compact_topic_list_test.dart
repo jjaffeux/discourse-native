@@ -172,76 +172,68 @@ void main() {
     });
   }
 
-  for (final mode in TopicListDisplayMode.values) {
-    testWidgets('topic titles render site emoji in $mode', (tester) async {
-      installTestMediaPipeline(
-        client: MockClient(
-          (_) async => http.Response.bytes(
-            base64Decode(
-              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
-              'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-            ),
-            200,
+  testWidgets('topic titles render site emoji', (tester) async {
+    installTestMediaPipeline(
+      client: MockClient(
+        (_) async => http.Response.bytes(
+          base64Decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+            'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
           ),
+          200,
         ),
-      );
-      final shell = await _setup(
-        tester,
-        mode: mode,
-        emojis: const [
-          SiteEmoji(name: 'information_source', url: '/emoji/info.png'),
-          SiteEmoji(name: 'discourse2', url: '/uploads/custom-discourse.png'),
-        ],
-        customEmojis: const {
-          'discourse2': 'https://compact.example/uploads/custom-discourse.png',
-        },
-      );
-      await tester.pumpWidget(
-        ShellScope(
-          controller: shell,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: Scaffold(
-              body: TopicListRow(
-                topic: const Topic(
-                  id: 100,
-                  title: 'Welcome :information_source: :discourse2:',
-                  slug: 'welcome',
-                  excerpt: ':information_source: Help from :discourse2:',
-                ),
-                onTap: () {},
+      ),
+    );
+    final shell = await _setup(
+      tester,
+      emojis: const [
+        SiteEmoji(name: 'information_source', url: '/emoji/info.png'),
+        SiteEmoji(name: 'discourse2', url: '/uploads/custom-discourse.png'),
+      ],
+      customEmojis: const {
+        'discourse2': 'https://compact.example/uploads/custom-discourse.png',
+      },
+    );
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: TopicListRow(
+              topic: const Topic(
+                id: 100,
+                title: 'Welcome :information_source: :discourse2:',
+                slug: 'welcome',
+                excerpt: ':information_source: Help from :discourse2:',
               ),
+              onTap: () {},
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
-            .map((emoji) => emoji.name),
-        [
-          'information_source',
-          'discourse2',
-          'information_source',
-          'discourse2',
-        ],
-      );
-      expect(
-        tester
-            .widgetList<EmojiImage>(find.byType(EmojiImage))
-            .map((emoji) => emoji.url),
-        [
-          'https://compact.example/images/emoji/twitter/information_source.png',
-          'https://compact.example/uploads/custom-discourse.png',
-          'https://compact.example/images/emoji/twitter/information_source.png',
-          'https://compact.example/uploads/custom-discourse.png',
-        ],
-      );
-      expect(find.byType(Image), findsNWidgets(4));
-      expect(tester.takeException(), isNull);
-    });
-  }
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+          .map((emoji) => emoji.name),
+      ['information_source', 'discourse2', 'information_source', 'discourse2'],
+    );
+    expect(
+      tester
+          .widgetList<EmojiImage>(find.byType(EmojiImage))
+          .map((emoji) => emoji.url),
+      [
+        'https://compact.example/images/emoji/twitter/information_source.png',
+        'https://compact.example/uploads/custom-discourse.png',
+        'https://compact.example/images/emoji/twitter/information_source.png',
+        'https://compact.example/uploads/custom-discourse.png',
+      ],
+    );
+    expect(find.byType(Image), findsNWidgets(4));
+    expect(tester.takeException(), isNull);
+  });
 
   for (final width in [280.0, 1200.0]) {
     testWidgets('one topic layout ignores legacy mode at $width', (
