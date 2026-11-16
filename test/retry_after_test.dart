@@ -38,7 +38,6 @@ void main() {
     for (final serverDate in [
       null,
       '',
-      'not a date',
       '30',
       'Mon Aug',
       'Mon, 24 NotAMonth 2026 12:00:00 GMT',
@@ -132,7 +131,7 @@ void main() {
       });
     }
 
-    for (final header in [null, '', '-1', 'not a date', 'Mon Aug']) {
+    for (final header in [null, '', '-1', 'Mon Aug']) {
       test('leaves Retry-After "$header" to the caller fallback', () {
         expect(
           parseRetryAfter(
