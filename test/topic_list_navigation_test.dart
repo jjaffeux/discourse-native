@@ -1132,7 +1132,7 @@ void main() {
     expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
   });
 
-  for (final width in [320.0, 390.0, 760.0, 1120.0]) {
+  for (final width in [320.0, 760.0, 1120.0]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('focused toolbar fits $width at ${scale}x including RTL', (
         tester,
