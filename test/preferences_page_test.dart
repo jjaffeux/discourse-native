@@ -1291,12 +1291,25 @@ void main() {
     testWidgets('lists the browsers and signs one out after confirming', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       final fixture = await _fixture(preferences: _sessions);
       await _pumpPage(tester, fixture);
       await _section(tester, PreferenceSection.security);
       expect(find.text('Firefox on macOS'), findsOneWidget);
       expect(find.text('Paris, France · Last seen 3d'), findsOneWidget);
       expect(find.text('Safari on iPhone'), findsOneWidget);
+
+      expect(find.bySemanticsLabel('Open website: Password'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Open website: Two-factor authentication'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Open website: Passkeys'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Sign out Firefox on macOS'),
+        findsOneWidget,
+      );
+      semantics.dispose();
 
       await tester.ensureVisible(_signOut(41));
       await tester.tap(_signOut(41));
@@ -1397,25 +1410,6 @@ void main() {
       expect(_session(9), findsOneWidget);
       expect(find.text('Chrome'), findsOneWidget);
       expect(_signOut(9), findsNothing);
-    });
-
-    testWidgets('its actions are named for a screen reader', (tester) async {
-      final semantics = tester.ensureSemantics();
-      final fixture = await _fixture(preferences: _sessions);
-      await _pumpPage(tester, fixture);
-      await _section(tester, PreferenceSection.security);
-
-      expect(find.bySemanticsLabel('Open website: Password'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('Open website: Two-factor authentication'),
-        findsOneWidget,
-      );
-      expect(find.bySemanticsLabel('Open website: Passkeys'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('Sign out Firefox on macOS'),
-        findsOneWidget,
-      );
-      semantics.dispose();
     });
 
     testWidgets('fits a phone at twice the text size', (tester) async {
