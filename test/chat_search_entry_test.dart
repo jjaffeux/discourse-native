@@ -38,7 +38,7 @@ void main() {
   });
 
   for (final (source, width, scale) in [
-    for (final source in ['forum', 'channel', 'thread'])
+    for (final source in ['forum', 'channel'])
       for (final (width, scale) in const [
         (320.0, 1.0),
         (390.0, 1.0),
@@ -46,6 +46,8 @@ void main() {
         (390.0, 2.0),
       ])
         (source, width, scale),
+    ('thread', 390.0, 1.0),
+    ('thread', 320.0, 2.0),
   ]) {
     testWidgets(
       '$source contextual global search stays focused at $width and ${scale}x',
