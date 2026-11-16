@@ -1316,7 +1316,7 @@ void main() {
       expect(find.dIcon(DIcons.download), findsNothing);
     });
 
-    testWidgets('closes on the close button', (tester) async {
+    testWidgets('closes on the button and on Escape after reopening', (tester) async {
       await pumpCooked(tester, singleImage);
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
@@ -1324,6 +1324,14 @@ void main() {
       await tester.tap(galleryButton('Close'));
       await tester.pumpAndSettle();
 
+      expect(find.byType(PhotoView), findsNothing);
+
+      await tester.tap(thumbnail());
+      await tester.pumpAndSettle();
+      expect(find.byType(PhotoView), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       expect(find.byType(PhotoView), findsNothing);
     });
 
@@ -1369,19 +1377,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.widget<AnimatedOpacity>(chrome).opacity, 1);
-    });
-
-    testWidgets('closes on Escape, which is what the web client binds', (
-      tester,
-    ) async {
-      await pumpCooked(tester, singleImage);
-      await tester.tap(thumbnail());
-      await tester.pumpAndSettle();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(PhotoView), findsNothing);
     });
 
     group('vertical drag to close', () {
