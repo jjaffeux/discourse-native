@@ -55,19 +55,6 @@ void main() {
     ]);
   });
 
-  test('regression: chat search counts every raw pagination slot', () async {
-    final body = <String, dynamic>{
-      'messages': [result(1), null, result(2)],
-      'meta': {'offset': 20, 'limit': 3, 'has_more': true},
-    };
-    final dedicated = ChatSearchPage.fromJson(body, site);
-    final global = await globalPage(body);
-    expect(dedicated.consumedCount, 3);
-    expect(global.consumedCount, 3);
-    expect(dedicated.hits.map((hit) => hit.id), [1, 2]);
-    expect(dedicated.offset + dedicated.consumedCount, 23);
-  });
-
   test(
     'both searches accept the same bounded window and consume rejected objects',
     () async {
@@ -113,6 +100,7 @@ void main() {
         expected.map((id) => 'chat:$id'),
       );
       expect(dedicated.consumedCount, 40);
+      expect(dedicated.offset + dedicated.consumedCount, 100);
       expect(global.consumedCount, 40);
       expect(dedicated.hasMore, isTrue);
       expect(global.hasMore, isTrue);
