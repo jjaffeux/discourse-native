@@ -400,7 +400,13 @@ class _DInputGroupState extends State<DInputGroup> {
                         (composer
                             ? (widget.compact ? compactComposerExtent : 0)
                             : quiet
-                            ? (DControlStyle.isTouch(context) ? 36 : 30) +
+                            ? math.max(
+                                    DControlStyle.isTouch(context) ? 36 : 30,
+                                    DControlStyle.height(
+                                      widget.size,
+                                      context: context,
+                                    ),
+                                  ) +
                                   (MediaQuery.textScalerOf(
                                             context,
                                           ).scale(quietFontSize) -

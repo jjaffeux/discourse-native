@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
@@ -22,7 +23,11 @@ Finder _choice(String text) =>
     find.descendant(of: _list, matching: find.text(text));
 String _query(WidgetTester tester) => tester
     .widget<DInput>(
-      find.descendant(of: fixture.field, matching: find.byType(DInput)),
+      find.descendant(
+        of: fixture.field,
+        matching: find.byType(DInput),
+        matchRoot: true,
+      ),
     )
     .controller!
     .text;
@@ -122,6 +127,27 @@ void main() {
           const Offset(0, -550),
         );
         await tester.pumpAndSettle();
+      }
+      if (platform == TargetPlatform.iOS) {
+        final capsule = find.ancestor(
+          of: fixture.field,
+          matching: find.byType(DInputGroup),
+        );
+        expect(capsule, findsOneWidget);
+        final field = tester.widget<DInputGroup>(capsule);
+        expect(field.variant, DInputGroupVariant.quiet);
+        expect(field.borderless, isFalse);
+        expect(tester.getRect(capsule).height, closeTo(40, .1));
+        expect(
+          find.descendant(
+            of: capsule,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is DIcon && widget.icon == DIcons.magnifyingGlass,
+            ),
+          ),
+          findsOneWidget,
+        );
       }
       await fixture.capture(tester, 'taxonomy-tags-empty-$platform');
       expect(find.text('Match'), findsNothing);

@@ -160,7 +160,9 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final menu in ['category', 'tag']) {
       testWidgets(
-        '$menu keyboard Done dismisses autocomplete without selecting on $platform',
+        menu == 'tag'
+            ? 'Tags Enter picks the first match then closes when empty on $platform'
+            : 'Category Done dismisses autocomplete without selecting on $platform',
         (tester) async {
           final fixture = await _fixture(tester, platform: platform);
           if (menu == 'category') {
@@ -185,18 +187,48 @@ void main() {
           );
           if (menu == 'tag') {
             expect(fixture.api.searches.last.term, 'new');
+            expect(find.text('New second'), findsOneWidget);
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
           }
           final command = tester.widget<DCommand<String>>(
             find.byType(DCommand<String>),
           );
-          expect(command.controller!.value, isNotNull);
+          expect(
+            command.controller!.value,
+            menu == 'tag' ? contains('New second') : isNotNull,
+          );
           expect(
             tester.testTextInput.setClientArgs!['inputAction'],
             'TextInputAction.done',
           );
 
-          await tester.testTextInput.receiveAction(TextInputAction.done);
+          if (menu == 'tag' && platform == TargetPlatform.iOS) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          } else {
+            await tester.testTextInput.receiveAction(TextInputAction.done);
+          }
           await tester.pumpAndSettle();
+
+          if (menu == 'tag') {
+            expect(
+              fixture.shell.topicListContent?.topicFilterQuery,
+              'tag:"Original tag,New result"',
+            );
+            expect(find.byType(DSheetContent), findsOneWidget);
+            final input = find.byKey(const ValueKey('topic-filter-input'));
+            final editable = tester.widget<EditableText>(
+              find.descendant(of: input, matching: find.byType(EditableText)),
+            );
+            expect(tester.widget<DInput>(input).controller!.text, isEmpty);
+            expect(editable.focusNode.hasFocus, isTrue);
+            expect(tester.testTextInput.isVisible, isTrue);
+            if (platform == TargetPlatform.iOS) {
+              await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            } else {
+              await tester.testTextInput.receiveAction(TextInputAction.done);
+            }
+            await tester.pumpAndSettle();
+          }
 
           expect(find.byType(DSheetContent), findsNothing);
           expect(find.byType(DCommandList<String>), findsNothing);
@@ -204,9 +236,10 @@ void main() {
             fixture.shell.topicListContent?.categoryId,
             menu == 'category' ? _child.id : isNull,
           );
+          expect(fixture.shell.topicListContent?.tagNames, isEmpty);
           expect(
-            fixture.shell.topicListContent?.tagNames,
-            menu == 'tag' ? [_tag.name] : isEmpty,
+            fixture.shell.topicListContent?.topicFilterQuery,
+            menu == 'tag' ? 'tag:"Original tag,New result"' : isEmpty,
           );
           expect(fixture.navigator.currentState!.canPop(), isFalse);
           expect(tester.testTextInput.isVisible, isFalse);
@@ -215,9 +248,25 @@ void main() {
       );
 
       testWidgets(
-        '$menu keyboard Done closes empty and unmatched queries on $platform',
+        menu == 'tag'
+            ? 'Tags Enter keeps an unmatched query and closes when cleared on $platform'
+            : 'Category Done closes empty and unmatched queries on $platform',
         (tester) async {
           final fixture = await _fixture(tester, platform: platform);
+          if (menu == 'tag') {
+            await _open(tester, menu);
+            await _query(tester, 'missing-filter');
+            await tester.pumpAndSettle();
+            await tester.testTextInput.receiveAction(TextInputAction.done);
+            await tester.pumpAndSettle();
+            expect(find.byType(DSheetContent), findsOneWidget);
+            expect(fixture.shell.topicListContent?.tagNames, isEmpty);
+            await _query(tester, '');
+            await tester.testTextInput.receiveAction(TextInputAction.done);
+            await tester.pumpAndSettle();
+            expect(find.byType(DSheetContent), findsNothing);
+            return;
+          }
           for (final query in ['', 'missing-filter']) {
             await _open(tester, menu);
             await _query(tester, query);
@@ -691,7 +740,10 @@ class _FilterApi extends FakeDiscourseApi {
     searches.add((siteUrl: siteUrl, term: term, apiKey: apiKey));
     if (pending[term] case final gate?) return gate.future;
     return term == 'new'
-        ? const [TopicFilterLookupValue(name: 'New result')]
+        ? const [
+            TopicFilterLookupValue(name: 'New result', description: '9'),
+            TopicFilterLookupValue(name: 'New second', description: '1'),
+          ]
         : const [];
   }
 }

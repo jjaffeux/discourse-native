@@ -228,11 +228,76 @@ extension _TopicFilterSheet on _TopicFilterInputState {
     return appL10n.content;
   }
 
+  bool _isPickedTag(TopicFilterSuggestion suggestion, List<String> tags) =>
+      suggestion.term != null &&
+      RegExp(r'^tags?:').hasMatch(suggestion.name) &&
+      tags.contains(_unquoteTopicFilterValue(suggestion.term!));
+
+  Future<void> _submitPhoneTagSearch() async {
+    if (_tagSearchText.text.trim().isEmpty) {
+      widget.onDismiss?.call();
+      return;
+    }
+    final controller = filter;
+    final fresh = await controller.ensureFreshSuggestions();
+    if (!mounted ||
+        !identical(_filter, controller) ||
+        !fresh ||
+        !_focus.hasFocus ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    final tags = _sheetTags;
+    final match = controller.suggestions
+        .where((suggestion) => !_isPickedTag(suggestion, tags))
+        .firstOrNull;
+    if (match != null) await _acceptSuggestion(match);
+  }
+
+  Widget _phoneTagSearchField(BuildContext context) =>
+      DMenuContentScale.unscaled(
+        child: DReferenceTextScale(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11),
+            child: DInputGroup(
+              size: DControlSize.floating,
+              variant: DInputGroupVariant.quiet,
+              children: [
+                DInput(
+                  key: widget.inputKey,
+                  controller: _tagSearchText,
+                  focusNode: _focus,
+                  hintText: widget.hintText,
+                  semanticLabel: context.l10n.topicFilterQuery,
+                  autofocus: widget.focusOnOpen,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.done,
+                  onEmptyBackspace: _stepBackScope,
+                  onChanged: (text) {
+                    _setTokenDraft('tag:$text');
+                    filter.inputChanged(filter.text.text);
+                  },
+                  onEditingComplete: _focus.requestFocus,
+                  onSubmitted: (_) => unawaited(_submitPhoneTagSearch()),
+                ),
+                DInputGroupAddon(
+                  child: DIcon(
+                    DIcons.magnifyingGlass,
+                    size: 16,
+                    color: DTokens.of(context).mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
   Widget _buildSheet(BuildContext context) {
     final taxonomyScope = const {'tag', 'category'}.contains(widget.onlyKey);
     final searchPicker = widget.returnToSearch != null;
-    final phoneTagPicker =
-        widget.onlyKey == 'tag' && DControlStyle.isTouch(context);
+    final phoneTagPicker = _phoneTagPicker;
     final tagsInFooter = phoneTagPicker || searchPicker && _isTagStage;
     final selectedTags = tagsInFooter ? _sheetTags : const <String>[];
     final clauseKey = topicFilterClauseKey(filter.text.text);
@@ -241,10 +306,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         .firstOrNull;
     final groups = <String, List<TopicFilterSuggestion>>{};
     for (final suggestion in filter.suggestions) {
-      if (tagsInFooter &&
-          suggestion.term != null &&
-          RegExp(r'^tags?:').hasMatch(suggestion.name) &&
-          selectedTags.contains(_unquoteTopicFilterValue(suggestion.term!))) {
+      if (tagsInFooter && _isPickedTag(suggestion, selectedTags)) {
         continue;
       }
       (groups[suggestion.menuGroup ??
@@ -451,7 +513,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         children: [
           RepaintBoundary(
             child: Padding(
-              padding: searchPicker
+              padding: searchPicker || phoneTagPicker
                   ? const EdgeInsets.only(bottom: 6)
                   : const EdgeInsets.fromLTRB(2, 2, 2, 8),
               child: Focus(
@@ -460,7 +522,9 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                 onKeyEvent: _onKey,
                 child: KeyedSubtree(
                   key: const ValueKey('topic-filter-token-field'),
-                  child: widget.returnToSearch == null
+                  child: phoneTagPicker
+                      ? _phoneTagSearchField(context)
+                      : widget.returnToSearch == null
                       ? DCommandInput<String>(
                           density: DCommandInputDensity.menuFilter,
                           tokens: tagsInFooter ? const [] : _buildTokenChips(),
@@ -546,7 +610,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
               ),
             ),
           ),
-          if (!searchPicker) const DSeparator(),
+          if (!searchPicker && !phoneTagPicker) const DSeparator(),
           if (option?.type == 'date' &&
               (_activeMenuField == null || _menuDateSelected))
             DCalendar(

@@ -104,6 +104,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 
   TopicFilterController get filter => _filter!;
 
+  bool get _phoneTagPicker =>
+      widget.embedded &&
+      widget.onlyKey == 'tag' &&
+      DControlStyle.isTouch(context);
+
   @override
   void initState() {
     super.initState();
@@ -199,6 +204,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           ? const Duration(milliseconds: 75)
           : const Duration(milliseconds: 300),
     );
+    _syncTagSearchText(filter.text.text);
     filter
       ..addListener(_onFilterChanged)
       ..text.addListener(_onTextChanged);
@@ -349,7 +355,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   void _syncTagSearchText(String value) {
-    if (widget.returnToSearch == null) return;
+    if (widget.onlyKey != 'tag' && widget.returnToSearch == null) return;
     final prefix = RegExp(r'^-?tags?:').matchAsPrefix(value);
     final term = prefix == null ? '' : value.substring(prefix.end);
     if (_tagSearchText.text == term) return;
@@ -548,6 +554,13 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         if (HardwareKeyboard.instance.isMetaPressed ||
             HardwareKeyboard.instance.isControlPressed) {
           unawaited(filter.submit());
+          return KeyEventResult.handled;
+        }
+        if (_phoneTagPicker) {
+          if (_tagSearchText.value.isComposingRangeValid) {
+            return KeyEventResult.skipRemainingHandlers;
+          }
+          unawaited(_submitPhoneTagSearch());
           return KeyEventResult.handled;
         }
         if (widget.embedded &&
