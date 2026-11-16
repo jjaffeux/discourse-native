@@ -285,6 +285,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     this.restAt,
     this.initialFocusNode,
     this.onDismissRequested,
+    this.routePull,
   });
 
   final DDialogPresentation presentation;
@@ -298,6 +299,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final GlobalKey? restAt;
   final FocusNode? initialFocusNode;
   final VoidCallback? onDismissRequested;
+  final ValueNotifier<double>? routePull;
 
   @override
   State<_DSheetAdaptiveMenu> createState() => _DSheetAdaptiveMenuState();
@@ -497,9 +499,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double get _heightOffset => _heightOffsetAt(_offset);
 
   @override
-  double get _dismissProgress {
+  double get _backgroundProgress {
     if (!_draggedPastDetent && _retainedExitHeightOffset == null) return 0;
-    return ((_offset - _low) / (_swipeExtent * .4)).clamp(0, 1);
+    return ((_offset - _low) / _swipeExtent).clamp(0, 1);
   }
 
   double _heightOffsetAt(double offset) => _fullyExpanded
@@ -747,6 +749,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   void _travelChanged() {
     if (_travel.value <= _low) _draggedPastDetent = false;
+    widget.routePull?.value = _backgroundProgress;
     _dragOwner?._reportProgress(this);
     // Translation and backdrop dimming listen directly to travel. Rebuild the
     // content's inherited state only when the handle changes Expand/Collapse.
@@ -1209,8 +1212,20 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     );
     Widget backdrop(double progress) {
       const color = Color(0x52000000);
+      final sharesBackground =
+          _animate &&
+          (widget.routePull != null ||
+              widget.retained &&
+                  widget.onDismiss != null &&
+                  context
+                          .dependOnInheritedWidgetOfExactType<
+                            _DSheetDragHost
+                          >() !=
+                      null);
       Widget result = widget.presentation.buildBackdrop(
-        color: color.withValues(alpha: color.a * progress),
+        color: color.withValues(
+          alpha: sharesBackground ? 0 : color.a * progress,
+        ),
       );
       if (widget.presentation.modal &&
           (widget.onDismiss != null || widget.onDismissRequested != null)) {

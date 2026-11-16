@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
@@ -28,6 +29,7 @@ import 'd_page_surface.dart';
 import 'd_swipe_hint.dart';
 
 part 'd_sheet_adaptive_menu.dart';
+part 'd_sheet_backdrop.dart';
 part 'd_sheet_lifecycle.dart';
 
 const _sheetMenuCorner = Radius.circular(22);
@@ -140,6 +142,7 @@ class DSheet<T> extends StatelessWidget {
     initialFocusNode: _focusAfterLayout ? null : initialFocusNode,
     finalFocusNode: finalFocusNode,
     restoreFocus: restoreFocus,
+    mobileBackgroundBuilder: _routeSheetBackground,
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),
     presentationBuilder: (context, presentation) => _sheetPresentation(
@@ -266,7 +269,7 @@ class _DSheetViewportState extends State<DSheetViewport>
   late bool _retainsSource = widget.content == null;
   late final _entrance = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 280),
+    duration: _sheetPageTransition,
   );
   bool _started = false;
   final _edge = ValueNotifier(0.0);
@@ -906,11 +909,13 @@ class _DSheetCurves extends StatefulWidget {
     required this.opaque,
     this.covering,
     this.readerIdentity,
+    this.routePull,
     required this.builder,
   });
 
   final Object? readerIdentity;
   final Animation<double> animation;
+  final ValueNotifier<double>? routePull;
 
   /// Whether the backdrop is an opaque canvas until a swipe fades it.
   final bool opaque;
@@ -944,6 +949,7 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
 
   void _syncCovering() {
     widget.covering?.value = widget.opaque && _swipeProgress.value == 0;
+    widget.routePull?.value = _swipeProgress.value;
   }
 
   void _create() {
@@ -1020,6 +1026,9 @@ Widget _sheetPresentation(
   Widget? underlay,
   ValueNotifier<bool>? covering,
 }) {
+  final routePull = !retainKeyboardInsets && DControlStyle.isTouch(context)
+      ? _routeBackdropPull(presentation.animation)
+      : null;
   if (variant == DSheetVariant.adaptiveMenu &&
       requestedSide == DSheetSide.bottom) {
     Widget menu(VoidCallback? close) => _DSheetAdaptiveMenu(
@@ -1034,6 +1043,7 @@ Widget _sheetPresentation(
       contentLoading: contentLoading,
       restAt: restAt,
       initialFocusNode: adaptiveInitialFocus,
+      routePull: routePull,
     );
     return _DSheetKeyboardInsets(
       child: retainKeyboardInsets
@@ -1049,6 +1059,7 @@ Widget _sheetPresentation(
         fillAvailableHeight &&
         variant != DSheetVariant.page,
     covering: covering,
+    routePull: routePull,
     readerIdentity:
         retainKeyboardInsets &&
             variant == DSheetVariant.page &&
@@ -1115,19 +1126,10 @@ Widget _sheetPageBackdrop(
         offstage: !visible,
         child: TickerMode(
           enabled: !covered,
-          child: Transform.scale(
-            scale: 1 - .06 * depth,
-            child: ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                DTokens.of(context).colors.scrim.withValues(alpha: .24 * depth),
-                BlendMode.srcATop,
-              ),
-              child: ClipRRect(
-                clipBehavior: covered ? Clip.antiAlias : Clip.none,
-                borderRadius: DSheetViewport.pageBorderRadius(context),
-                child: child,
-              ),
-            ),
+          child: _DSheetBackgroundMotion(
+            depth: depth,
+            rounded: covered,
+            child: child!,
           ),
         ),
       );
@@ -1178,6 +1180,8 @@ Widget _sheetLayout(
   )!;
   Widget backdrop = page
       ? const SizedBox.expand()
+      : mobile && animate && !retainKeyboardInsets
+      ? presentation.buildBackdrop(color: Colors.transparent)
       : fillAvailableHeight
       ? presentation.buildBackdrop(color: backdropColor)
       : presentation.buildBackdrop();
@@ -1574,7 +1578,7 @@ class DSheetDragScope extends StatefulWidget {
 }
 
 abstract interface class _DSheetDismissMotion {
-  double get _dismissProgress;
+  double get _backgroundProgress;
 }
 
 class _DSheetDragScopeState extends State<DSheetDragScope> {
@@ -1594,12 +1598,14 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
   }
 
   final _pullProgress = ValueNotifier(0.0);
+  final _backdropPull = ValueNotifier(0.0);
   final _pageEdge = ValueNotifier(0.0);
 
   @override
   void dispose() {
     _pageEdge.dispose();
     _pullProgress.dispose();
+    _backdropPull.dispose();
     super.dispose();
   }
 
@@ -1625,7 +1631,13 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
       _publish();
       return;
     }
-    _pullProgress.value = sheet._dismissProgress;
+    _syncProgress();
+  }
+
+  void _syncProgress() {
+    final pull = _sheet?._backgroundProgress ?? 0.0;
+    _pullProgress.value = (pull / .4).clamp(0, 1);
+    _backdropPull.value = pull;
   }
 
   void _publish() {
@@ -1635,7 +1647,7 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (mounted) {
-        _pullProgress.value = _sheet?._dismissProgress ?? 0;
+        _syncProgress();
         setState(() {});
       }
     });
@@ -1647,7 +1659,7 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
     child: _DSheetDragHost(
       owner: this,
       swipe: switch (_sheet) {
-        _DSheetSwipeDismissState swipe => swipe,
+        _DSheetSwipeDismissState swipe when swipe.widget.page => swipe,
         _ => null,
       },
       barExtent: _barExtent,
@@ -1891,23 +1903,20 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   Timer? _wheelPause;
   bool _wheelFromTop = false;
   _DSheetDragScopeState? _dragOwner;
-  bool _externalDragEnabled = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final owner = context
-        .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
-        ?.owner;
-    final enabled =
-        widget.page &&
-        TickerMode.valuesOf(context).enabled &&
-        (ModalRoute.isCurrentOf(context) ?? true);
-    if (owner == _dragOwner && enabled == _externalDragEnabled) return;
+    final owner =
+        widget.retained &&
+            TickerMode.valuesOf(context).enabled &&
+            (ModalRoute.isCurrentOf(context) ?? true)
+        ? context.dependOnInheritedWidgetOfExactType<_DSheetDragHost>()?.owner
+        : null;
+    if (owner == _dragOwner) return;
     _dragOwner?._detach(this);
     _dragOwner = owner;
-    _externalDragEnabled = enabled;
-    if (enabled) owner?._attach(this);
+    owner?._attach(this);
   }
 
   void _rememberScroll(BuildContext? origin) {
@@ -2006,13 +2015,11 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   @override
-  double get _dismissProgress => (_offset / (_swipeExtent * .4)).clamp(0, 1);
+  double get _backgroundProgress => widget.swipeProgress.value;
 
   void _syncBackdrop() {
     widget.swipeProgress.value = (_offset / _swipeExtent).clamp(0, 1);
-    if (_externalDragEnabled) {
-      _dragOwner?._reportProgress(this);
-    }
+    _dragOwner?._reportProgress(this);
   }
 
   Simulation _beginDismissal(double velocity) {
@@ -3166,6 +3173,7 @@ Future<T?> showDSheet<T>({
   return showDDialog<T>(
     context: context,
     builder: builder,
+    mobileBackgroundBuilder: _routeSheetBackground,
     useRootNavigator: useRootNavigator,
     modal: true,
     dismissOnBarrier: true,

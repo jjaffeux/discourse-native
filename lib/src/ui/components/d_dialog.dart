@@ -97,6 +97,13 @@ typedef DDialogTriggerBuilder =
 typedef DDialogPresentationBuilder =
     Widget Function(BuildContext context, DDialogPresentation presentation);
 
+typedef DDialogBackgroundBuilder =
+    Widget Function(
+      BuildContext context,
+      Animation<double> animation,
+      Widget child,
+    );
+
 /// Route-owned pieces available to an alternative Dialog presentation.
 ///
 /// Dialog remains the owner of controller state, focus, typed close,
@@ -130,15 +137,29 @@ class DDialogPresentation {
 }
 
 /// Composes any trigger widget with the root dialog state.
-class DDialogTrigger extends StatelessWidget {
+class DDialogTrigger extends StatefulWidget {
   const DDialogTrigger({super.key, required this.builder});
 
   final DDialogTriggerBuilder builder;
 
   @override
+  State<DDialogTrigger> createState() => _DDialogTriggerState();
+}
+
+class _DDialogTriggerState extends State<DDialogTrigger> {
+  (DDialogTriggerBuilder, VoidCallback)? _configuration;
+  late Widget _content;
+
+  @override
   Widget build(BuildContext context) {
-    final scope = _DDialogRootScope.of(context);
-    return builder(context, scope.open);
+    final open = _DDialogRootScope.of(context).open;
+    final builder = widget.builder;
+    final configuration = (builder, open);
+    if (_configuration != configuration) {
+      _configuration = configuration;
+      _content = Builder(builder: (context) => builder(context, open));
+    }
+    return _content;
   }
 }
 
@@ -163,6 +184,7 @@ class DDialog<T> extends StatefulWidget {
     this.finalFocusNode,
     this.restoreFocus = true,
     this.presentationBuilder,
+    this.mobileBackgroundBuilder,
     this.transitionDuration,
     this.reverseTransitionDuration,
   }) : assert(open == null || !initiallyOpen);
@@ -194,6 +216,9 @@ class DDialog<T> extends StatefulWidget {
   /// Restores focus to the trigger or previous control after dismissal.
   final bool restoreFocus;
   final DDialogPresentationBuilder? presentationBuilder;
+
+  /// Transition applied to the previous route when opened on a phone.
+  final DDialogBackgroundBuilder? mobileBackgroundBuilder;
   final Duration? transitionDuration;
   final Duration? reverseTransitionDuration;
 
@@ -313,6 +338,10 @@ class _DDialogState<T> extends State<DDialog<T>> {
       settings: widget.routeSettings,
       environment: _environment,
       configuration: _configuration,
+      backgroundBuilder: _mobileBackground(
+        context,
+        widget.mobileBackgroundBuilder,
+      ),
       onDismissRequested: (reason) => _requestClose(null, reason),
       onCloseRequested: (result) =>
           _requestClose(result, DDialogChangeReason.close),
@@ -465,6 +494,7 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
     required ValueChanged<T?> onCloseRequested,
     required super.transitionDuration,
     required super.reverseTransitionDuration,
+    this.backgroundBuilder,
     super.settings,
   }) : super(
          requestFocus: null,
@@ -492,6 +522,20 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
          ),
        );
 
+  final DDialogBackgroundBuilder? backgroundBuilder;
+
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition =>
+      backgroundBuilder == null ? null : _buildBackground;
+
+  Widget? _buildBackground(
+    BuildContext context,
+    Animation<double> _,
+    Animation<double> _,
+    bool _,
+    Widget? child,
+  ) => backgroundBuilder!(context, animation!, child!);
+
   bool? _restoreFocus;
   bool get shouldRestoreFocus =>
       wasCurrentWhenAuthorized && (_restoreFocus ?? false);
@@ -510,6 +554,16 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
     super.authorizePop(result);
   }
 }
+
+DDialogBackgroundBuilder? _mobileBackground(
+  BuildContext context,
+  DDialogBackgroundBuilder? builder,
+) =>
+    builder != null &&
+        DControlStyle.isTouch(context) &&
+        !MediaQuery.disableAnimationsOf(context)
+    ? builder
+    : null;
 
 class _DDialogRoutePage<T> extends StatefulWidget {
   const _DDialogRoutePage({
@@ -1051,6 +1105,7 @@ Future<T?> showDDialog<T>({
   FocusNode? finalFocusNode,
   bool restoreFocus = true,
   DDialogPresentationBuilder? presentationBuilder,
+  DDialogBackgroundBuilder? mobileBackgroundBuilder,
   Duration? transitionDuration,
   Duration? reverseTransitionDuration,
 }) async {
@@ -1092,6 +1147,7 @@ Future<T?> showDDialog<T>({
     settings: routeSettings,
     environment: environment,
     configuration: configuration,
+    backgroundBuilder: _mobileBackground(context, mobileBackgroundBuilder),
     onDismissRequested: (_) => requestClose(null),
     onCloseRequested: requestClose,
     transitionDuration: DMotion.duration(

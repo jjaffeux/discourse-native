@@ -73,6 +73,70 @@ Future<_PageHarnessState> _pump(
 }
 
 void main() {
+  for (final variant in [
+    DSheetVariant.standard,
+    DSheetVariant.menu,
+    DSheetVariant.adaptiveMenu,
+  ]) {
+    testWidgets('a phone $variant restores its background on swipe and close', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = DSheetController<void>();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: ColoredBox(
+            key: _underlay,
+            color: _previousFill,
+            child: Center(
+              child: DSheet<void>(
+                controller: controller,
+                trigger: DSheetTrigger(
+                  builder: (context, open) =>
+                      DButton(onPressed: open, label: const Text('Open sheet')),
+                ),
+                content: DSheetContent(
+                  side: DSheetSide.bottom,
+                  variant: variant,
+                  children: const [
+                    DSheetBody(
+                      child: SizedBox(height: 200, child: Text('Sheet body')),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      double width() => _paintedRect(tester, find.byKey(_underlay)).width;
+      expect(width(), 400);
+
+      await tester.tap(find.text('Open sheet'));
+      await tester.pumpAndSettle();
+      expect(width(), closeTo(376, .01));
+      final drag = await tester.startGesture(tester.getCenter(_handle));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 48));
+      await tester.pump();
+      expect(width(), inExclusiveRange(376.0, 400.0));
+      await drag.cancel();
+      await tester.pumpAndSettle();
+      expect(width(), closeTo(376, .01));
+
+      controller.close();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 70));
+      expect(width(), inExclusiveRange(376.0, 400.0));
+      await tester.pumpAndSettle();
+      expect(width(), 400);
+    });
+  }
+
   for (final headerHeight in [28.0, 92.0]) {
     testWidgets('a captured page keeps its origin when the frame moves to '
         '$headerHeight', (tester) async {

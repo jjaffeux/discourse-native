@@ -5564,12 +5564,16 @@ void main() {
     await _tapDockTab(tester, 'panel/chat');
     final title = find.descendant(of: _header, matching: find.text('Chats'));
     expect(title, findsOneWidget);
+    final chat = find.byType(ChatMobileSidebar);
+    final fullWidth = tester.getRect(chat).width;
 
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     addTearDown(tester.view.resetViewInsets);
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     await tester.pumpAndSettle();
     expect(title, findsNothing);
+    final coveredWidth = tester.getRect(chat).width;
+    expect(coveredWidth, closeTo(fullWidth * .94, .01));
 
     final handle = find.byKey(const ValueKey('sheet-drag-handle'));
     final start = tester.getCenter(handle);
@@ -5578,6 +5582,10 @@ void main() {
     await swipe.moveBy(const Offset(0, 100));
     await tester.pump();
     expect(tester.getCenter(handle).dy, greaterThan(start.dy));
+    expect(
+      tester.getRect(chat).width,
+      inExclusiveRange(coveredWidth, fullWidth),
+    );
     expect(shell.currentContent?.isGlobalSearch, isTrue);
     expect(title, findsOneWidget);
     expect(tester.getRect(_header).contains(tester.getCenter(title)), isTrue);
@@ -5586,12 +5594,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     expect(title, findsNothing);
+    expect(tester.getRect(chat).width, closeTo(coveredWidth, .01));
 
     await tester.drag(handle, const Offset(0, 400));
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.inputKey), findsNothing);
     expect(title.hitTestable(), findsOneWidget);
+    expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
+
+    await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pumpAndSettle();
+    expect(shell.handleBack(), isTrue);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      tester.getRect(chat).width,
+      inExclusiveRange(coveredWidth, fullWidth),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
   });
 
   _mobileTest('chat retains Browse channels and Browse threads navigation', (

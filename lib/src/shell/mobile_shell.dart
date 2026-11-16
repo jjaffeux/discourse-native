@@ -782,14 +782,25 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (searchOpen)
-                                belowSearchHeader(
-                                  const ForumMobileSurface(
-                                    child: SizedBox.expand(),
-                                  ),
+                              DSheetBackdrop(
+                                covered: searchOpen,
+                                surfaceIdentity: searchOpen
+                                    ? previousEntry
+                                    : entry,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (searchOpen)
+                                      belowSearchHeader(
+                                        const ForumMobileSurface(
+                                          child: SizedBox.expand(),
+                                        ),
+                                      ),
+                                    for (final entry in panels)
+                                      panelPage(entry.owner.value),
+                                  ],
                                 ),
-                              for (final entry in panels)
-                                panelPage(entry.owner.value),
+                              ),
                               if (!panelRoot) widget.content,
                             ],
                           ),

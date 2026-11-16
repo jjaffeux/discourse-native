@@ -202,52 +202,55 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           : baseEntry,
     );
     final hidden = covered || searchOpen;
+    final sourcePage = Offstage(
+      offstage:
+          covered ||
+          searchOpen && (searchSource == null || searchPreview != null),
+      child: ExcludeFocus(
+        excluding: hidden,
+        child: ExcludeSemantics(
+          excluding: hidden,
+          child: IgnorePointer(
+            ignoring: hidden,
+            child: ForumContentScope(
+              route: covered
+                  ? source
+                  : searchOpen
+                  ? searchSource
+                  : null,
+              child: hidden
+                  ? DPageHeaderHost.exclude(
+                      child: searchOpen
+                          ? Padding(
+                              padding: EdgeInsets.only(
+                                top:
+                                    DSheetDragScope.topBarExtentOf(context) + 6,
+                              ),
+                              child: TickerMode(enabled: false, child: primary),
+                            )
+                          : primary,
+                    )
+                  : primary,
+            ),
+          ),
+        ),
+      ),
+    );
     final basePages = Stack(
       fit: StackFit.expand,
       children: [
-        Offstage(
-          offstage:
-              covered ||
-              searchOpen && (searchSource == null || searchPreview != null),
-          child: ExcludeFocus(
-            excluding: hidden,
-            child: ExcludeSemantics(
-              excluding: hidden,
-              child: IgnorePointer(
-                ignoring: hidden,
-                child: ForumContentScope(
-                  route: covered
-                      ? source
-                      : searchOpen
-                      ? searchSource
-                      : null,
-                  child: hidden
-                      ? DPageHeaderHost.exclude(
-                          child: searchOpen
-                              ? Padding(
-                                  padding: EdgeInsets.only(
-                                    top:
-                                        DSheetDragScope.topBarExtentOf(
-                                          context,
-                                        ) +
-                                        6,
-                                  ),
-                                  child: TickerMode(
-                                    enabled: false,
-                                    child: primary,
-                                  ),
-                                )
-                              : primary,
-                        )
-                      : primary,
-                ),
-              ),
-            ),
+        DSheetBackdrop(
+          covered: searchOpen,
+          surfaceIdentity: searchOpen
+              ? previousSheetEntry
+              : shell.mobileNavigation.entryId,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [sourcePage, ?searchPreview],
           ),
         ),
         if (covered && !searchOpen)
           widget.builder(base, null, sheetUnderlay, baseEntry),
-        ?searchPreview,
         if (searchPage != null && !searchBehindSheet)
           Offstage(
             offstage: !searchOpen,

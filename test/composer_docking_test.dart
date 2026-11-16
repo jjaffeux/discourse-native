@@ -1085,11 +1085,13 @@ void main() {
     final repaint = ValueNotifier(0);
     addTearDown(repaint.dispose);
     var paints = 0;
+    const readerKey = ValueKey('covered-reader');
     final harness = await _Harness.create(
       tester,
       mobile: true,
       size: const Size(390, 800),
       reader: CustomPaint(
+        key: readerKey,
         painter: _CountingPainter(repaint, () => paints++),
         child: const SizedBox.expand(),
       ),
@@ -1110,6 +1112,12 @@ void main() {
     await gesture.moveBy(const Offset(0, 60));
     await tester.pump();
     expect(await painted(), isTrue);
+    final reader = find.byKey(readerKey);
+    final pulledWidth = tester.getRect(reader).width;
+    expect(pulledWidth, inExclusiveRange(390 * .94, 390));
+    await gesture.moveBy(const Offset(0, 40));
+    await tester.pump();
+    expect(tester.getRect(reader).width, greaterThan(pulledWidth));
     await gesture.cancel();
     await tester.pumpAndSettle();
     expect(await painted(), isFalse);
@@ -1610,7 +1618,7 @@ void main() {
 
   for (final keyboard in [0.0, 300.0]) {
     testWidgets(
-      'picker focus and swipe keep the composer fixed (keyboard: $keyboard)',
+      'picker focus and swipe preserve composer layout (keyboard: $keyboard)',
       (tester) async {
         final harness = await _Harness.create(
           tester,
@@ -1632,15 +1640,23 @@ void main() {
         final panel = find.byType(ComposerPanel);
         final toolbar = find.byKey(const ValueKey('composer-toolbar-scroll'));
         final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+        final host = tester.renderObject<RenderBox>(
+          find.byType(ComposerPresentationHost),
+        );
+        Rect layoutRect(Finder finder) {
+          final box = tester.renderObject<RenderBox>(finder);
+          return box.localToGlobal(Offset.zero, ancestor: host) & box.size;
+        }
+
         final bounds = [
-          tester.getRect(panel),
-          tester.getRect(toolbar),
-          tester.getRect(viewport),
+          layoutRect(panel),
+          layoutRect(toolbar),
+          layoutRect(viewport),
         ];
         void expectStill() {
-          expect(tester.getRect(panel), bounds[0]);
-          expect(tester.getRect(toolbar), bounds[1]);
-          expect(tester.getRect(viewport), bounds[2]);
+          expect(layoutRect(panel), bounds[0]);
+          expect(layoutRect(toolbar), bounds[1]);
+          expect(layoutRect(viewport), bounds[2]);
         }
 
         await tester.tap(
@@ -1710,6 +1726,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(picker, findsNothing);
         expectStill();
+        expect(tester.getRect(panel), bounds[0]);
         expect(composer.focus.hasFocus, isTrue);
         expect(composer.raw, 'Keep the editor in place.');
 
