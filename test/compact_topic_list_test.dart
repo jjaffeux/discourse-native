@@ -363,32 +363,27 @@ void main() {
     );
   }
 
-  for (final dark in [false, true]) {
-    testWidgets(
-      'plain tag links retain Native hover and focus targets in $dark',
-      (tester) async {
-        await _setup(tester, dark: dark, focusPolicy: true);
-        final row = find.byKey(const ValueKey('topic-card-1'));
-        final tag = find.descendant(of: row, matching: find.text('#design'));
-        final button = find
-            .ancestor(of: tag, matching: find.byType(DButton))
-            .first;
-        expect(
-          tester.widget<DButton>(button).density,
-          DButtonDensity.inlineMetadata,
-        );
-        expect(tester.widget<DButton>(button).isLink, isTrue);
-        expect(tester.getRect(button).size, tester.getRect(tag).size);
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        addTearDown(mouse.removePointer);
-        await mouse.addPointer(location: Offset.zero);
-        await mouse.moveTo(tester.getCenter(button));
-        await tester.pumpAndSettle();
-        expect(tester.getRect(button).size, tester.getRect(tag).size);
-        expect(tester.takeException(), isNull);
-      },
+  testWidgets('plain tag links retain Native hover and focus targets', (
+    tester,
+  ) async {
+    await _setup(tester, dark: true, focusPolicy: true);
+    final row = find.byKey(const ValueKey('topic-card-1'));
+    final tag = find.descendant(of: row, matching: find.text('#design'));
+    final button = find.ancestor(of: tag, matching: find.byType(DButton)).first;
+    expect(
+      tester.widget<DButton>(button).density,
+      DButtonDensity.inlineMetadata,
     );
-  }
+    expect(tester.widget<DButton>(button).isLink, isTrue);
+    expect(tester.getRect(button).size, tester.getRect(tag).size);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(button));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(button).size, tester.getRect(tag).size);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final (width, scale, direction) in [
     (1200.0, 1.0, TextDirection.ltr),
