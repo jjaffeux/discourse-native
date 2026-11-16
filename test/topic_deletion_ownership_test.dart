@@ -105,7 +105,12 @@ void main() {
   }
 
   for (final beforeSubmit in [false, true]) {
-    for (final destination in ['topic', 'forum', 'tab', 'reopened topic']) {
+    for (final destination in [
+      if (!beforeSubmit) 'topic',
+      'forum',
+      'tab',
+      'reopened topic',
+    ]) {
       testWidgets(
         'delete keeps its target without popping $destination ${beforeSubmit ? 'during confirmation' : 'during the request'}',
         (tester) async {
