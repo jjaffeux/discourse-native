@@ -2157,26 +2157,38 @@ void main() {
       },
     );
 
-    test(
-      'the peer with the lower ID keeps its offer during a collision',
-      () async {
-        final peer = _FakePeerConnection();
-        final media = _meshSession(peer: peer, audioPublishingAllowed: false);
-        await media.connect();
-        peer.prepareAssociatedTransceivers();
+    test('rebuilds the lower-ID peer to answer a competing offer', () async {
+      final original = _FakePeerConnection();
+      final replacement = _FakePeerConnection();
+      final peers = [original, replacement].iterator;
+      final sentTypes = <Object?>[];
+      final media = MeshVoiceMediaSession(
+        join: _meshJoin(localUserId: 10, remoteUserId: 20),
+        localUserId: 10,
+        audioPublishingAllowed: false,
+        createPeerConnection: (_) async {
+          expect(peers.moveNext(), isTrue);
+          return peers.current;
+        },
+        sendSignal: (_, signal) async => sentTypes.add(signal['type']),
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      await media.handleSignal(20, {
+        'type': 'candidate',
+        'candidate': {
+          'candidate': 'candidate:early',
+          'sdpMid': '0',
+          'sdpMLineIndex': 0,
+        },
+      });
+      await media.handleSignal(20, {'type': 'offer', 'sdp': 'fallback-offer'});
 
-        await media.handleSignal(20, {
-          'type': 'offer',
-          'sdp': 'fallback-offer',
-        });
-
-        expect(peer.rollbackCount, 0);
-        expect(peer.createdAnswers, 0);
-        expect((await peer.getLocalDescription())?.type, 'offer');
-        expect(await peer.getRemoteDescription(), isNull);
-        await media.dispose();
-      },
-    );
+      expect(original.teardownCalls, ['close', 'dispose']);
+      expect((await replacement.getRemoteDescription())?.sdp, 'fallback-offer');
+      expect(replacement.addedCandidates.single.candidate, 'candidate:early');
+      expect(sentTypes, ['offer', 'answer']);
+    });
 
     test('ignores an answer when no local offer is outstanding', () async {
       final peer = _FakePeerConnection();

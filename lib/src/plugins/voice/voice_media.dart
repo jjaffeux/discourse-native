@@ -824,20 +824,20 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     if (removedMedia) changed();
   }
 
-  Future<void> _createPeer(int peerId) {
+  Future<void> _createPeer(int peerId, {bool offer = true}) {
     if (_closing || disposed || _peers.containsKey(peerId)) {
       return Future.value();
     }
     return _peerCreations.putIfAbsent(peerId, () async {
       try {
-        await _createPeerNow(peerId);
+        await _createPeerNow(peerId, offer: offer);
       } finally {
         final _ = _peerCreations.remove(peerId);
       }
     });
   }
 
-  Future<void> _createPeerNow(int peerId) async {
+  Future<void> _createPeerNow(int peerId, {required bool offer}) async {
     if (_closing || disposed || _peers.containsKey(peerId)) return;
 
     late final rtc.RTCPeerConnection peer;
@@ -853,7 +853,9 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     var setupSucceeded = false;
     try {
       peer.onIceCandidate = (candidate) {
-        if (candidate.candidate == null) return;
+        if (!identical(_peers[peerId], peer) || candidate.candidate == null) {
+          return;
+        }
 
         _queueCandidate(peerId, candidate);
       };
@@ -926,7 +928,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       if (_screenAudioTrack != null) {
         await _applyAudioQuality(screenAudio.sender);
       }
-      if (localUserId < peerId) await _offer(peerId);
+      if (offer && localUserId < peerId) await _offer(peerId);
       setupSucceeded = true;
     } catch (error) {
       rethrow;
@@ -1026,21 +1028,29 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     }
     final signal = _parseMeshInboundSignal(data);
     if (signal == null) return;
-    if (!_peers.containsKey(senderId)) await _createPeer(senderId);
-    final peer = _peers[senderId];
+    if (!_peers.containsKey(senderId)) {
+      await _createPeer(
+        senderId,
+        offer: signal is! _MeshSdpSignal || signal.kind != _MeshSdpKind.offer,
+      );
+    }
+    var peer = _peers[senderId];
     if (peer == null) return;
     switch (signal) {
       case _MeshSdpSignal(kind: _MeshSdpKind.offer, :final sdp):
         final signalingState = await peer.getSignalingState();
-        final collision =
-            _makingOffer.contains(senderId) ||
-            signalingState != rtc.RTCSignalingState.RTCSignalingStateStable;
-        if (collision) {
-          // Mesh creation deterministically assigns the lower user ID as the
-          // offerer. Keep that negotiation when both clients briefly offer:
-          // flutter_webrtc's Darwin bridge cannot represent a rollback
-          // description because the native SDK rejects its required empty SDP.
-
+        if (signalingState ==
+            rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+          // Match Discourse Live's tie-break and avoid rolling back on Darwin.
+          if (localUserId > senderId) return;
+          final pending = _pendingCandidates[senderId];
+          await _closePeer(senderId);
+          await _createPeer(senderId, offer: false);
+          peer = _peers[senderId];
+          if (peer == null) return;
+          if (pending != null) _pendingCandidates[senderId] = pending;
+        } else if (signalingState !=
+            rtc.RTCSignalingState.RTCSignalingStateStable) {
           return;
         }
         await peer.setRemoteDescription(
