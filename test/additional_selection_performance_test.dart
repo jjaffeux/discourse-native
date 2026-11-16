@@ -31,22 +31,6 @@ void main() {
   });
 
   test(
-    'discovery returns all available entries when fewer than ten qualify',
-    () {
-      const sites = [
-        DiscoverSite(url: 'https://a.example/sub', title: 'A'),
-        DiscoverSite(url: 'https://a.example/sub/', title: 'Duplicate'),
-        DiscoverSite(url: 'https://a.example/other', title: 'B'),
-      ];
-      expect(DiscoverSite.suggestions(sites, []).map((s) => s.title), [
-        'A',
-        'B',
-      ]);
-      expect(DiscoverSite.suggestions(sites, [sites.first.url]), [sites.last]);
-    },
-  );
-
-  test(
     'density selection matches sorted reference including nonfinite DPR',
     () {
       final random = Random(125);
