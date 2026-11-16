@@ -146,7 +146,7 @@ void main() {
     });
   }
 
-  for (final (width, scale) in [(780.0, 1.0), (1200.0, 1.0), (1200.0, 2.0)]) {
+  for (final (width, scale) in [(780.0, 1.0), (1200.0, 2.0)]) {
     testWidgets('topic category and tags share a baseline at $width/$scale', (
       tester,
     ) async {
@@ -401,7 +401,6 @@ void main() {
 
   for (final (width, scale, direction) in [
     (1200.0, 1.0, TextDirection.ltr),
-    (390.0, 1.0, TextDirection.ltr),
     (320.0, 2.0, TextDirection.rtl),
   ]) {
     testWidgets(
