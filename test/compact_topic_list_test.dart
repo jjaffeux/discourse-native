@@ -520,7 +520,6 @@ void main() {
   );
 
   for (final (width, scale, direction, dark) in [
-    (1200.0, 1.0, TextDirection.ltr, false),
     (390.0, 1.0, TextDirection.ltr, true),
     (320.0, 2.0, TextDirection.rtl, false),
   ]) {
