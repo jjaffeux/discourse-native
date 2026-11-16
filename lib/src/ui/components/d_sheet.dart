@@ -391,6 +391,7 @@ class _DSheetViewportState extends State<DSheetViewport>
                 child: widget.underlay,
               ),
               covered: content != null,
+              swipeKey: swipeKey,
             );
             return Stack(
               fit: StackFit.expand,
@@ -1099,8 +1100,14 @@ Widget _sheetPageBackdrop(
   ValueNotifier<double> swipeProgress,
   Widget? underlay, {
   bool covered = true,
+  GlobalKey<_DSheetSwipeDismissState>? swipeKey,
 }) {
   final animate = !MediaQuery.disableAnimationsOf(context);
+  final android = Theme.of(context).platform == TargetPlatform.android;
+  final rise = context.dependOnInheritedWidgetOfExactType<DSheetRiseScope>();
+  final radius = DSheetViewport.pageBorderRadius(context);
+  final topCorner = math.max(radius.topLeft.y, radius.topRight.y);
+  final bottomCorner = math.max(radius.bottomLeft.y, radius.bottomRight.y);
   return AnimatedBuilder(
     animation: Listenable.merge([popupCurve, swipeProgress]),
     child: ExcludeFocus(
@@ -1122,6 +1129,16 @@ Widget _sheetPageBackdrop(
       final depth = covered && animate
           ? popupCurve.value * (1 - swipeProgress.value)
           : 0.0;
+      final offset = swipeKey?.currentState?._offset ?? 0;
+      // The moving page paints opaque. Once its bottom corners are offscreen,
+      // its top edge and corners bound the backdrop that can still be seen.
+      final visibleHeight =
+          android &&
+              depth > 0 &&
+              popupCurve.value == 1 &&
+              offset > bottomCorner + 1
+          ? offset + (rise?.overlap ?? 0) + topCorner + 1
+          : null;
       return Offstage(
         offstage: !visible,
         child: TickerMode(
@@ -1129,6 +1146,7 @@ Widget _sheetPageBackdrop(
           child: _DSheetBackgroundMotion(
             depth: depth,
             rounded: covered,
+            visibleHeight: visibleHeight,
             child: child!,
           ),
         ),
@@ -1195,6 +1213,7 @@ Widget _sheetLayout(
         popupCurve,
         swipeProgress,
         underlay,
+        swipeKey: retainKeyboardInsets ? swipeKey : null,
       );
     }
   } else {
@@ -1511,6 +1530,9 @@ class _DSheetMotion extends StatelessWidget {
 
 const _sheetDismissFraction = .3;
 
+double _sheetSwipeExitDuration(BuildContext context) =>
+    Theme.of(context).platform == TargetPlatform.android ? .2 : .32;
+
 // Start the exit at the release velocity and accelerate slow swipes to finish
 // within the requested duration; faster swipes retain their speed.
 class _DSheetDismissSimulation extends Simulation {
@@ -1519,7 +1541,7 @@ class _DSheetDismissSimulation extends Simulation {
     this.velocity,
     this.initialValue, {
     this.endValue = 0,
-    double duration = .32,
+    required double duration,
   }) : acceleration = math.max(
          0,
          2 * (distance - velocity * duration) / (duration * duration),
@@ -2033,6 +2055,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       math.max(1, viewportHeight - top),
       math.max(0, velocity),
       widget.routeAnimation.value,
+      duration: _sheetSwipeExitDuration(context),
     );
     _exit.geometry = (
       origin: origin,
@@ -2153,7 +2176,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
               math.max(0, velocity),
               _travel.value,
               endValue: _travel.value + distance,
-              duration: widget.page ? .2 : .32,
+              duration: widget.page ? .2 : _sheetSwipeExitDuration(context),
             ),
           )
           .then<void>((_) => complete()),

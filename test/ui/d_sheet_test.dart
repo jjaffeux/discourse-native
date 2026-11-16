@@ -832,6 +832,33 @@ void main() {
     });
   }
 
+  for (final retained in [false, true]) {
+    testWidgets(
+      'an accepted Android ${retained ? 'retained' : 'modal'} swipe exits promptly after release',
+      (tester) async {
+        await openSwipeSheet(
+          tester,
+          platform: TargetPlatform.android,
+          retained: retained,
+        );
+        final sheet = find.byType(DSheetContent);
+        final drag = await tester.startGesture(
+          tester.getCenter(find.text('Swipe sheet')),
+        );
+        await drag.moveBy(const Offset(0, 30));
+        await drag.moveBy(const Offset(0, 270));
+        await tester.pump();
+        final releasedTop = tester.getTopLeft(sheet).dy;
+        await drag.up();
+        await tester.pump();
+        expect(tester.getTopLeft(sheet).dy, closeTo(releasedTop, .01));
+        await tester.pump(const Duration(milliseconds: 224));
+        await tester.pump();
+        expect(sheet, findsNothing);
+      },
+    );
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final origin in ['header', 'scroll', 'helper']) {
       testWidgets('partial $origin swipe restores the sheet on $platform', (

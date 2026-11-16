@@ -1099,6 +1099,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                 math.max(0, velocity),
                 _travel.value,
                 endValue: destination,
+                duration: _sheetSwipeExitDuration(context),
               ),
             )
             .then<void>((_) {

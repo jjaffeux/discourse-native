@@ -130,12 +130,14 @@ class _DSheetBackgroundMotion extends StatelessWidget {
     required this.depth,
     this.rounded = false,
     this.surroundingColor,
+    this.visibleHeight,
     required this.child,
   });
 
   final double depth;
   final bool rounded;
   final Color? surroundingColor;
+  final double? visibleHeight;
   final Widget child;
 
   @override
@@ -143,14 +145,22 @@ class _DSheetBackgroundMotion extends StatelessWidget {
     final tint = depth == 0
         ? null
         : DTokens.of(context).colors.scrim.withValues(alpha: .24 * depth);
+    final scale = 1 - .06 * depth;
+    final height = visibleHeight;
     final scaled = Transform.scale(
-      scale: 1 - .06 * depth,
+      scale: scale,
       child: _DSheetBackgroundTint(
         tint: tint,
-        child: ClipRRect(
-          clipBehavior: rounded || depth > 0 ? Clip.antiAlias : Clip.none,
-          borderRadius: DSheetViewport.pageBorderRadius(context),
-          child: child,
+        child: ClipRect(
+          clipBehavior: height == null ? Clip.none : Clip.hardEdge,
+          clipper: height == null
+              ? null
+              : _DSheetBackgroundClipper(height, scale),
+          child: ClipRRect(
+            clipBehavior: rounded || depth > 0 ? Clip.antiAlias : Clip.none,
+            borderRadius: DSheetViewport.pageBorderRadius(context),
+            child: child,
+          ),
         ),
       ),
     );
@@ -163,6 +173,29 @@ class _DSheetBackgroundMotion extends StatelessWidget {
       child: scaled,
     );
   }
+}
+
+class _DSheetBackgroundClipper extends CustomClipper<Rect> {
+  const _DSheetBackgroundClipper(this.visibleHeight, this.scale);
+
+  final double visibleHeight;
+  final double scale;
+
+  @override
+  Rect getClip(Size size) {
+    final scaledTop = size.height * (1 - scale) / 2;
+    final bottom = (visibleHeight - scaledTop) / scale;
+    // Keep the original antialiasing on the other three sides. Skip bottom
+    // clipping when the backdrop is close enough to show through a side edge.
+    if (bottom >= size.height || size.width * (1 - scale) / 2 < 1) {
+      return Rect.fromLTRB(-1, -1, size.width + 1, size.height + 1);
+    }
+    return Rect.fromLTRB(-1, -1, size.width + 1, math.max(-1, bottom));
+  }
+
+  @override
+  bool shouldReclip(_DSheetBackgroundClipper oldClipper) =>
+      oldClipper.visibleHeight != visibleHeight || oldClipper.scale != scale;
 }
 
 class _DSheetBackgroundTint extends SingleChildRenderObjectWidget {

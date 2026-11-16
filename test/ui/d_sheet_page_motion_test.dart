@@ -45,6 +45,7 @@ Future<Color> _pixel(WidgetTester tester, Offset point) async =>
 
 Future<_PageHarnessState> _pump(
   WidgetTester tester, {
+  TargetPlatform platform = TargetPlatform.iOS,
   bool reducedMotion = false,
   bool history = false,
   Color sheetFill = _sheetFill,
@@ -57,7 +58,7 @@ Future<_PageHarnessState> _pump(
   final key = GlobalKey<_PageHarnessState>();
   await tester.pumpWidget(
     MaterialApp(
-      theme: ThemeData(platform: TargetPlatform.iOS),
+      theme: ThemeData(platform: platform),
       home: _PageHarness(
         key: key,
         reducedMotion: reducedMotion,
@@ -304,11 +305,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final history in [false, true]) {
+  for (final (platform, history) in [
+    (TargetPlatform.iOS, false),
+    (TargetPlatform.iOS, true),
+    (TargetPlatform.android, false),
+    (TargetPlatform.android, true),
+  ]) {
     testWidgets(
-      'pulling down restores a rounded background (snapshot: $history)',
+      'pulling down restores a rounded background on $platform (snapshot: $history)',
       (tester) async {
-        final state = await _pump(tester, history: history);
+        final state = await _pump(tester, platform: platform, history: history);
         state.visit(1);
         await tester.pumpAndSettle();
         final drag = await tester.startGesture(tester.getCenter(_handle));

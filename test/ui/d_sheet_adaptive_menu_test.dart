@@ -1494,10 +1494,15 @@ void main() {
     );
   }
 
-  for (final sizeToContent in [true, false]) {
-    for (final backdrop in [false, true]) {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final (sizeToContent, backdrop) in [
+      (true, true),
+      (true, false),
+      (false, true),
+      (false, false),
+    ]) {
       testWidgets(
-        'retained adaptive menu finishes its swipe (content: $sizeToContent, backdrop: $backdrop)',
+        'retained adaptive menu finishes its swipe on $platform (content: $sizeToContent, backdrop: $backdrop)',
         (tester) async {
           tester.view.physicalSize = const Size(390, 844);
           tester.view.devicePixelRatio = 1;
@@ -1505,7 +1510,7 @@ void main() {
           var dismissals = 0;
           await tester.pumpWidget(
             MaterialApp(
-              theme: ThemeData(platform: TargetPlatform.iOS),
+              theme: ThemeData(platform: platform),
               home: DSheetViewport(
                 onDismiss: () => dismissals++,
                 content: DSheetContent(
@@ -1541,8 +1546,14 @@ void main() {
             Offset(0, sizeToContent ? 130 : 200),
           );
           expect(dismissals, 0);
-          await tester.pumpAndSettle();
+          if (platform == TargetPlatform.android) {
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 224));
+          } else {
+            await tester.pumpAndSettle();
+          }
           expect(dismissals, 1);
+          await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         },
       );
