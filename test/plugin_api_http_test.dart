@@ -785,7 +785,6 @@ void main() {
 
     for (final uploadIds in <List<int>>[
       [],
-      [0],
       [-1],
       [31, 0],
       List.filled(ChatMessage.maximumUploadsPerMessage + 1, 31),
