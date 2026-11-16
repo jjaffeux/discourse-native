@@ -325,6 +325,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           key: ObjectKey(_options[index]),
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
                 child: DInput(

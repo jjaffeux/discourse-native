@@ -106,6 +106,40 @@ void main() {
       expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.byType(PollComposerSheet), findsOneWidget);
     });
+
+    testWidgets('centers the option actions beside each phone input', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await openSheet(
+        tester,
+        PollComposerDraft.newPoll(name: 'poll', defaultPublic: true),
+        platform: TargetPlatform.iOS,
+      );
+
+      for (final index in [0, 1]) {
+        final editor = find.descendant(
+          of: field('Option ${index + 1}'),
+          matching: find.byType(EditableText),
+        );
+        final inputCenter = tester.getCenter(editor).dy;
+        for (final label in [
+          'Move option up',
+          'Move option down',
+          'Remove option',
+        ]) {
+          final buttonCenter = tester
+              .getCenter(find.byTooltip(label).at(index))
+              .dy;
+          expect(
+            buttonCenter,
+            closeTo(inputCenter, 1),
+            reason: '$label for option ${index + 1}',
+          );
+        }
+      }
+    });
   });
 
   group('new poll creation', () {
