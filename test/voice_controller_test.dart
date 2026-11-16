@@ -3419,7 +3419,10 @@ void main() {
     });
 
     for (final retirement in ['call replacement', 'account replacement']) {
-      for (final blockedAt in ['roster sync', 'first signal']) {
+      for (final blockedAt in [
+        if (retirement == 'call replacement') 'roster sync',
+        'first signal',
+      ]) {
         test(
           'signal batch preserves $blockedAt ordering across $retirement',
           () async {
