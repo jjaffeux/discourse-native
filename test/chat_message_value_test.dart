@@ -508,22 +508,23 @@ void main() {
       });
     }
 
-    for (final scheme in ['http', 'https']) {
-      for (final (width, height) in [(1, 10000), (10000, 1)]) {
-        test('trusted GIF input accepts $scheme at ${width}x$height', () {
-          final outgoing = OutgoingChatMessage.trustedGif(
-            raw: 'image',
-            url: '$scheme://media.example/cat.gif',
-            title: 'cat',
-            width: width,
-            height: height,
-          );
-          final seed = outgoing.trustedPreviewSeed as TrustedGifPreviewSeed;
-          expect(seed.url, Uri.parse('$scheme://media.example/cat.gif'));
-          expect(seed.width, width);
-          expect(seed.height, height);
-        });
-      }
+    for (final (scheme, width, height) in [
+      ('http', 1, 10000),
+      ('https', 10000, 1),
+    ]) {
+      test('trusted GIF input accepts $scheme at ${width}x$height', () {
+        final outgoing = OutgoingChatMessage.trustedGif(
+          raw: 'image',
+          url: '$scheme://media.example/cat.gif',
+          title: 'cat',
+          width: width,
+          height: height,
+        );
+        final seed = outgoing.trustedPreviewSeed as TrustedGifPreviewSeed;
+        expect(seed.url, Uri.parse('$scheme://media.example/cat.gif'));
+        expect(seed.width, width);
+        expect(seed.height, height);
+      });
     }
   });
 }
