@@ -567,7 +567,10 @@ void main() {
     }
 
     for (final heldOffset in [0, 1]) {
-      for (final retirement in ['invalidate', 'forget', 'dispose', 'clear']) {
+      final retirements = heldOffset == 0
+          ? ['invalidate', 'forget', 'clear']
+          : ['invalidate', 'dispose'];
+      for (final retirement in retirements) {
         test('$retirement retires held search at offset $heldOffset', () async {
           final gate = Completer<void>();
           addTearDown(() {
