@@ -82,7 +82,7 @@ class DDropdownMenu extends StatelessWidget {
     this.restoreFocus = true,
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
-    this.mobileSheetShowTitle = true,
+    this.mobileSheetShowTitle,
     this.mobileSheetShowCloseButton = true,
     this.mobileSheetSizeToContent = true,
     this.mobileSheetInitiallyExpanded = false,
@@ -104,7 +104,8 @@ class DDropdownMenu extends StatelessWidget {
   final DSheetVariant mobileSheetVariant;
 
   /// Shows the mobile sheet's title without changing its semantic label.
-  final bool mobileSheetShowTitle;
+  /// Defaults to hiding the title on adaptive menu sheets.
+  final bool? mobileSheetShowTitle;
 
   /// Shows the close button on non-adaptive mobile sheets.
   final bool mobileSheetShowCloseButton;

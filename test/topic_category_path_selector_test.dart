@@ -71,7 +71,6 @@ Future<ValueNotifier<int?>> _pump(
                 siteUrl: 'https://example.invalid',
                 categories: _categories,
                 selectedCategoryId: value.value,
-                sheetOnMobile: true,
                 maxCategoryNesting: nestingSetting?.value ?? maxCategoryNesting,
                 onSelected: (category) => value.value = category?.id,
                 exact: exact,

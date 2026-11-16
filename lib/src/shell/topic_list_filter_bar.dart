@@ -180,7 +180,6 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           categories: widget.categories,
           selectedCategoryId: widget.selectedCategoryId,
           onSelected: widget.onCategorySelected,
-          sheetOnMobile: true,
           maxCategoryNesting: widget.maxCategoryNesting,
         ),
       if (widget.taggingEnabled && widget.filterQuery == null)

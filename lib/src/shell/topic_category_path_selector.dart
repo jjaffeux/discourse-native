@@ -23,7 +23,6 @@ class TopicCategoryPathSelector extends StatelessWidget {
     required this.selectedCategoryId,
     required this.onSelected,
     this.keyPrefix = 'category-path',
-    this.sheetOnMobile = false,
     this.maxCategoryNesting = SiteConfig.defaultMaxCategoryNesting,
     this.segmentBuilder,
     this.exact = false,
@@ -35,7 +34,6 @@ class TopicCategoryPathSelector extends StatelessWidget {
   final int? selectedCategoryId;
   final ValueChanged<TopicCategory?>? onSelected;
   final String keyPrefix;
-  final bool sheetOnMobile;
   final bool exact;
 
   /// Shows every level as its mark alone, named in its tooltip and aloud.
@@ -194,7 +192,6 @@ class TopicCategoryPathSelector extends StatelessWidget {
           hasChildren: (item) =>
               level + 1 < maxCategoryNesting &&
               (children[item.id]?.isNotEmpty ?? false),
-          sheetOnMobile: sheetOnMobile,
           onSelected: onSelected == null
               ? null
               : (value) => onSelected!(value ?? parent),

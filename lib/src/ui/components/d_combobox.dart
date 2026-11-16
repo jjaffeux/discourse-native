@@ -789,7 +789,8 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   }
 
   bool get _usesSheetFooter =>
-      combobox.content._adaptiveSheet && DControlStyle.isTouch(context);
+      combobox.content._adaptiveSheet == _DComboboxAdaptiveSheet.withFooter &&
+      DControlStyle.isTouch(context);
 
   bool _submitSheetSearch() {
     if (!_usesSheetFooter || !mutable || !isOpen) return false;
@@ -948,15 +949,22 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       );
     }
     final popupWidth = combobox.content.width ?? _anchorWidth ?? 320;
+    final adaptiveSheet = combobox.content._adaptiveSheet;
+    final expandedSheet = adaptiveSheet == _DComboboxAdaptiveSheet.expanded;
     return _DComboboxScope<T>(
       state: this,
       child: DPopover(
         sheetOnMobile: combobox.content.sheetOnMobile,
         fullScreenOnMobile: combobox.content.fullScreenOnMobile,
-        mobileSheetVariant: combobox.content._adaptiveSheet
+        mobileSheetVariant: adaptiveSheet != null
             ? DSheetVariant.adaptiveMenu
             : DSheetVariant.standard,
-        mobileSheetKeepFootInView: combobox.content._adaptiveSheet,
+        mobileSheetShowTitle: expandedSheet ? true : null,
+        mobileSheetShowCloseButton: !combobox.content.fullScreenOnMobile,
+        mobileSheetInitiallyExpanded: expandedSheet,
+        mobileSheetSizeToContent: !expandedSheet,
+        mobileSheetKeepFootInView:
+            adaptiveSheet == _DComboboxAdaptiveSheet.withFooter,
         initialFocusNode: focusNode,
         controller: _popoverController,
         open: isOpen,
@@ -1370,6 +1378,8 @@ class _ComboboxIconAction extends StatelessWidget {
   }
 }
 
+enum _DComboboxAdaptiveSheet { withFooter, expanded }
+
 class DComboboxContent extends StatelessWidget {
   const DComboboxContent({
     super.key,
@@ -1382,7 +1392,7 @@ class DComboboxContent extends StatelessWidget {
     this.sheetOnMobile = false,
     this.fullScreenOnMobile = false,
   }) : isInline = false,
-       _adaptiveSheet = false;
+       _adaptiveSheet = null;
 
   /// Presents a content-sized mobile sheet with selected values and footer
   /// option groups in a single scrolling row at its visible bottom.
@@ -1392,7 +1402,21 @@ class DComboboxContent extends StatelessWidget {
     this.semanticLabel,
     this.width,
   }) : isInline = false,
-       _adaptiveSheet = true,
+       _adaptiveSheet = _DComboboxAdaptiveSheet.withFooter,
+       side = DPopoverSide.bottom,
+       maxHeight = 288,
+       sheetOnMobile = true,
+       fullScreenOnMobile = false;
+
+  /// Opens a titled mobile sheet at the adaptive menu's expanded position.
+  /// Selections stay in the option list. Desktop retains the anchored popup.
+  const DComboboxContent.expandedSheet({
+    super.key,
+    required this.children,
+    this.semanticLabel,
+    this.width,
+  }) : isInline = false,
+       _adaptiveSheet = _DComboboxAdaptiveSheet.expanded,
        side = DPopoverSide.bottom,
        maxHeight = 288,
        sheetOnMobile = true,
@@ -1413,13 +1437,13 @@ class DComboboxContent extends StatelessWidget {
        width = null,
        sheetOnMobile = false,
        fullScreenOnMobile = false,
-       _adaptiveSheet = false;
+       _adaptiveSheet = null;
 
   final List<Widget> children;
   final String? semanticLabel;
   final DPopoverSide side;
   final bool isInline;
-  final bool _adaptiveSheet;
+  final _DComboboxAdaptiveSheet? _adaptiveSheet;
 
   final double? width;
   final double maxHeight;
@@ -1427,7 +1451,8 @@ class DComboboxContent extends StatelessWidget {
   /// Uses a searchable bottom sheet on mobile platforms.
   final bool sheetOnMobile;
 
-  /// Uses a full-height, keyboard-aware inset sheet on mobile platforms.
+  /// Uses a full-height, keyboard-aware inset sheet with swipe dismissal on
+  /// mobile platforms.
   final bool fullScreenOnMobile;
 
   @override

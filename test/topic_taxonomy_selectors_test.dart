@@ -70,7 +70,6 @@ void main() {
                 categories: const [support, designCategory],
                 selected: support,
                 includeAll: true,
-                sheetOnMobile: true,
                 onSelected: selections.add,
               ),
             ),
@@ -716,11 +715,9 @@ void main() {
             ? tagOption('design')
             : find.byKey(const ValueKey(('category-selector-option', 1)));
         expect(option, findsOneWidget);
-        if (platform == TargetPlatform.iOS && tags) {
-          // The phone tag sheet has no Close button; its backdrop closes it.
+        if (platform == TargetPlatform.iOS) {
+          expect(find.byTooltip('Close'), findsNothing);
           await tester.tapAt(const Offset(195, 20));
-        } else if (platform == TargetPlatform.iOS) {
-          await tester.tap(find.byTooltip('Close'));
         } else {
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         }

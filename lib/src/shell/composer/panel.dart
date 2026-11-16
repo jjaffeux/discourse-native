@@ -1120,7 +1120,7 @@ class _TopicTaxonomy extends StatelessWidget {
                         size: context.isTouch
                             ? DButtonSize.filter
                             : DButtonSize.toolbar,
-                        sheetOnMobile: true,
+                        expandedSheetOnMobile: true,
                         key: ObjectKey(composer),
                         valueKey: const ValueKey('composer-category'),
                         siteUrl: composer.target.siteUrl,
@@ -1166,7 +1166,7 @@ class _TopicTaxonomy extends StatelessWidget {
                         size: context.isTouch
                             ? DButtonSize.filter
                             : DButtonSize.toolbar,
-                        sheetOnMobile: true,
+                        expandedSheetOnMobile: true,
                         key: ValueKey((composer, rootCategory.id)),
                         keyPrefix: 'composer-subcategory',
                         valueKey: const ValueKey('composer-subcategory'),

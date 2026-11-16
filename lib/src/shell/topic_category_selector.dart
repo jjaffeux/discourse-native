@@ -34,7 +34,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.keyPrefix = 'category-selector',
     this.size = DButtonSize.regular,
     this.valueKey,
-    this.sheetOnMobile = false,
+    this.expandedSheetOnMobile = false,
     this.triggerBuilder,
     this.hasChildren,
   });
@@ -53,7 +53,7 @@ class TopicCategorySelector extends StatefulWidget {
   final String keyPrefix;
   final DButtonSize size;
   final Key? valueKey;
-  final bool sheetOnMobile;
+  final bool expandedSheetOnMobile;
 
   /// Reuses the selector popup with a caller's Native trigger composition.
   final DComboboxTriggerBuilder<int>? triggerBuilder;
@@ -185,6 +185,78 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
     final label = selected == null ? widget.placeholder : _label(selected);
     final matches = _matches;
     final prefix = widget.keyPrefix;
+    final contentKey = ValueKey('$prefix-popover');
+    final sheetTitle = parent == null
+        ? context.l10n.categories
+        : context.l10n.subcategoriesOf((parent.name).toString());
+    final children = <Widget>[
+      Padding(
+        padding: DInsets.menu,
+        child: DComboboxInput<int>(
+          size: context.isTouch ? DControlSize.filter : DControlSize.regular,
+          key: ValueKey('$prefix-query'),
+          placeholder: context.l10n.filterTopiccategoryselector(
+            (noun).toString(),
+          ),
+          semanticLabel: context.l10n.filterTopiccategoryselector(
+            (noun).toString(),
+          ),
+          registerAsAnchor: false,
+          autofocus: context.isTouch,
+          showTrigger: false,
+        ),
+      ),
+      DComboboxList<int>(
+        itemBuilder: (context, option) => Row(
+          children: [
+            if (option.value == 0)
+              DIcon(
+                widget.clearSelectionLabel == null
+                    ? DIcons.layerGroup
+                    : DIcons.xmark,
+                size: 16,
+              )
+            else
+              CategoryIcon(
+                key: ValueKey(('category-selector-icon', option.value)),
+                category: matches.firstWhere(
+                  (category) => category.id == option.value,
+                ),
+                siteUrl: widget.siteUrl,
+                size: 16,
+                squareSize: 10,
+              ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(child: Text(option.label)),
+                  if (option.value != 0 &&
+                      widget.hasChildren?.call(
+                            matches.firstWhere(
+                              (category) => category.id == option.value,
+                            ),
+                          ) ==
+                          true) ...[
+                    const SizedBox(width: 6),
+                    const DBreadcrumbSeparator(),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (_loading)
+        const DComboboxStatus(child: SizedBox.shrink())
+      else if (_error != null || matches.isEmpty)
+        DComboboxStatus(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(_error ?? context.l10n.noMatching((noun).toString())),
+          ),
+        ),
+    ];
     return DCombobox<int>.controlled(
       controller: _combobox,
       value: selected?.id ?? (_canClear ? 0 : null),
@@ -268,87 +340,20 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
               maximumWidth: parent == null ? 260 : 230,
             ),
       ),
-      content: DComboboxContent(
-        sheetOnMobile: widget.sheetOnMobile,
-        fullScreenOnMobile: true,
-        key: ValueKey('$prefix-popover'),
-        semanticLabel: parent == null
-            ? context.l10n.categories
-            : context.l10n.subcategoriesOf((parent.name).toString()),
-        width: 320,
-        children: [
-          Padding(
-            padding: DInsets.menu,
-            child: DComboboxInput<int>(
-              size: context.isTouch
-                  ? DControlSize.filter
-                  : DControlSize.regular,
-              key: ValueKey('$prefix-query'),
-              placeholder: context.l10n.filterTopiccategoryselector(
-                (noun).toString(),
-              ),
-              semanticLabel: context.l10n.filterTopiccategoryselector(
-                (noun).toString(),
-              ),
-              registerAsAnchor: false,
-              autofocus: context.isTouch,
-              showTrigger: false,
+      content: widget.expandedSheetOnMobile
+          ? DComboboxContent.expandedSheet(
+              key: contentKey,
+              semanticLabel: sheetTitle,
+              width: 320,
+              children: children,
+            )
+          : DComboboxContent(
+              key: contentKey,
+              semanticLabel: sheetTitle,
+              width: 320,
+              fullScreenOnMobile: true,
+              children: children,
             ),
-          ),
-          DComboboxList<int>(
-            itemBuilder: (context, option) => Row(
-              children: [
-                if (option.value == 0)
-                  DIcon(
-                    widget.clearSelectionLabel == null
-                        ? DIcons.layerGroup
-                        : DIcons.xmark,
-                    size: 16,
-                  )
-                else
-                  CategoryIcon(
-                    key: ValueKey(('category-selector-icon', option.value)),
-                    category: matches.firstWhere(
-                      (category) => category.id == option.value,
-                    ),
-                    siteUrl: widget.siteUrl,
-                    size: 16,
-                    squareSize: 10,
-                  ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(child: Text(option.label)),
-                      if (option.value != 0 &&
-                          widget.hasChildren?.call(
-                                matches.firstWhere(
-                                  (category) => category.id == option.value,
-                                ),
-                              ) ==
-                              true) ...[
-                        const SizedBox(width: 6),
-                        const DBreadcrumbSeparator(),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_loading)
-            const DComboboxStatus(child: SizedBox.shrink())
-          else if (_error != null || matches.isEmpty)
-            DComboboxStatus(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text(
-                  _error ?? context.l10n.noMatching((noun).toString()),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

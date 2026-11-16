@@ -740,21 +740,45 @@ void main() {
     },
   );
 
-  testWidgets('the category selector uses the same dropdown on touch', (
+  testWidgets('the phone category sheet opens at the top with its title', (
     tester,
   ) async {
-    await pumpComposer(tester, platform: TargetPlatform.iOS);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+    tester.view.padding = tester.view.viewPadding;
+    addTearDown(tester.view.reset);
+    final shell = await pumpComposer(tester, platform: TargetPlatform.iOS);
 
     await open(tester, const ValueKey('composer-category-action'));
 
-    expect(find.byType(DComboboxContent), findsOneWidget);
-    expect(find.byType(DDrawerContent), findsNothing);
-    expect(find.byType(Dialog), findsNothing);
-    await tester.drag(find.byType(DSheetTitle), const Offset(0, 300));
+    final sheet = find.byType(DSheetContent);
+    final title = find.widgetWithText(DSheetTitle, 'Categories');
+    expect(tester.getTopLeft(sheet).dy, closeTo(55, 1));
+    expect(title.hitTestable(), findsOneWidget);
+    expect(
+      find.descendant(of: sheet, matching: find.byTooltip('Close')),
+      findsNothing,
+    );
+    await tester.drag(title, const Offset(0, 400));
     await tester.pumpAndSettle();
-    expect(find.byType(DSheetContent), findsNothing);
+    expect(sheet, findsNothing);
+
     await open(tester, const ValueKey('composer-category-action'));
-    expect(find.byType(DSheetContent), findsOneWidget);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(sheet).dy, closeTo(55, 1));
+    final search = find.byKey(const ValueKey('category-selector-query'));
+    await tester.enterText(search, 'support');
+    await tester.pumpAndSettle();
+    final option = find.byKey(const ValueKey(('category-selector-option', 5)));
+    expect(tester.getBottomRight(option).dy, lessThan(844 - 320));
+    await tester.tap(option);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(shell.visibleComposer!.categoryId, 5);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
