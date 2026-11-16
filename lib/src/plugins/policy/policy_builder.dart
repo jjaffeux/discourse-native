@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -14,57 +13,183 @@ Future<PolicyDefinition?> showPolicyBuilder(
   required bool Function() isCurrent,
   bool insert = false,
   required PolicyDefinition? persistedDefinition,
-}) => showDSheet<PolicyDefinition>(
-  context: context,
-  side: context.isTouch ? DSheetSide.bottom : DSheetSide.right,
-  variant: context.isTouch ? DSheetVariant.menu : DSheetVariant.standard,
-  initiallyExpanded: true,
-  fillAvailableHeight: true,
-  builder: (context, sheet) => DSheetContent(
-    side: context.isTouch ? DSheetSide.bottom : DSheetSide.right,
-    variant: context.isTouch ? DSheetVariant.menu : DSheetVariant.standard,
+}) {
+  if (!isCurrent()) return Future.value();
+  final touch = context.isTouch;
+  final side = touch ? DSheetSide.bottom : DSheetSide.right;
+  final variant = touch ? DSheetVariant.menu : DSheetVariant.standard;
+  Future<List<PolicyGroup>>? request;
+  return showDSheet<PolicyDefinition>(
+    context: context,
+    side: side,
+    variant: variant,
     fillAvailableHeight: true,
-    initiallyExpanded: true,
-    topBottomMaxHeightFactor: context.isTouch ? .9 : null,
-    scrollWholeSheet: false,
-    children: [
-      DSheetHeader(
-        children: [
-          DSheetTitle(
-            child: Text(
-              insert
-                  ? context.l10n.policyCreate
-                  : context.l10n.policyEditSettings,
+    builder: (context, sheet) => DSheetContent(
+      side: side,
+      variant: variant,
+      topBottomMaxHeightFactor: touch ? .9 : null,
+      scrollWholeSheet: false,
+      children: [
+        DSheetHeader(
+          children: [
+            DSheetTitle(
+              child: Text(
+                insert
+                    ? context.l10n.policyCreate
+                    : context.l10n.policyEditSettings,
+              ),
+            ),
+          ],
+        ),
+        Expanded(
+          child: StatefulBuilder(
+            builder: (context, setState) => FutureBuilder(
+              future: request ??= Future.sync(loadGroups),
+              builder: (context, snapshot) {
+                final current = isCurrent();
+                final loaded = snapshot.connectionState == ConnectionState.done;
+                if (current && loaded && snapshot.hasData) {
+                  return PolicyBuilder(
+                    initial: initial,
+                    groups: snapshot.requireData,
+                    isCurrent: isCurrent,
+                    insert: insert,
+                    persistedDefinition: persistedDefinition,
+                    onClose: sheet.close,
+                  );
+                }
+                final l = context.l10n;
+                return _PolicyBuilderLayout(
+                  insert: insert,
+                  onCancel: () => sheet.close(null),
+                  body: current && !loaded
+                      ? const _PolicyBuilderSkeleton()
+                      : DAlert(
+                          title: DAlertTitle(
+                            child: Text(
+                              current
+                                  ? l.policyGroupsUnavailable
+                                  : l.policySourceChanged,
+                            ),
+                          ),
+                          action: current
+                              ? DAlertAction(
+                                  child: DButton(
+                                    label: Text(l.retry),
+                                    variant: DButtonVariant.outline,
+                                    onPressed: () =>
+                                        setState(() => request = null),
+                                  ),
+                                )
+                              : null,
+                        ),
+                );
+              },
             ),
           ),
-        ],
-      ),
-      Expanded(
-        child: PolicyBuilder(
-          initial: initial,
-          loadGroups: loadGroups,
-          isCurrent: isCurrent,
-          insert: insert,
-          persistedDefinition: persistedDefinition,
-          onClose: sheet.close,
         ),
-      ),
-    ],
-  ),
-);
+      ],
+    ),
+  );
+}
+
+class _PolicyBuilderSkeleton extends StatelessWidget {
+  const _PolicyBuilderSkeleton();
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    semanticsLabel: context.l10n.loading,
+    child: Column(
+      spacing: 18,
+      children: [
+        for (final labels in const <List<double>>[
+          [60],
+          [72],
+          [76, 42],
+          [88, 78],
+          [120, 120],
+          [164],
+        ])
+          Row(
+            spacing: DSpacing.lg,
+            children: [
+              for (final width in labels)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: DSpacing.sm,
+                    children: [
+                      DSkeleton(width: width, height: 16),
+                      const DSkeleton(height: DControlStyle.regularHeight),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+      ],
+    ),
+  );
+}
+
+class _PolicyBuilderLayout extends StatelessWidget {
+  const _PolicyBuilderLayout({
+    required this.insert,
+    required this.body,
+    required this.onCancel,
+    this.onSubmit,
+  });
+
+  final bool insert;
+  final Widget body;
+  final VoidCallback onCancel;
+  final VoidCallback? onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(DSpacing.lg),
+            child: body,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(DSpacing.lg),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            spacing: DSpacing.sm,
+            children: [
+              DButton(
+                label: Text(l.cancel),
+                variant: DButtonVariant.outline,
+                onPressed: onCancel,
+              ),
+              DButton(
+                label: Text(insert ? l.policyInsert : l.saveChanges),
+                onPressed: onSubmit,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class PolicyBuilder extends StatefulWidget {
   const PolicyBuilder({
     super.key,
     required this.initial,
-    required this.loadGroups,
+    required this.groups,
     required this.isCurrent,
     required this.onClose,
     this.insert = false,
     this.persistedDefinition,
   });
   final PolicyDefinition initial;
-  final Future<List<PolicyGroup>> Function() loadGroups;
+  final List<PolicyGroup> groups;
   final bool Function() isCurrent;
   final ValueChanged<PolicyDefinition?> onClose;
   final bool insert;
@@ -95,32 +220,12 @@ class _PolicyBuilderState extends State<PolicyBuilder> {
   late String? _target = widget.initial.targetGroup;
   DCalendarDate? _date;
   var _dateChanged = false;
-  List<PolicyGroup> _groups = const [];
-  var _loading = true;
-  Object? _groupError;
   String? _error;
   @override
   void initState() {
     super.initState();
     final date = DateTime.tryParse(widget.initial.renewStartDate ?? '');
     if (date != null) _date = DCalendarDate(date.year, date.month, date.day);
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _groupError = null;
-    });
-    try {
-      final groups = await widget.loadGroups();
-      if (!mounted || !widget.isCurrent()) return;
-      setState(() => _groups = groups);
-    } catch (error) {
-      if (mounted && widget.isCurrent()) setState(() => _groupError = error);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
   }
 
   @override
@@ -198,200 +303,152 @@ class _PolicyBuilderState extends State<PolicyBuilder> {
     final l = context.l10n;
     final audience = {
       ..._audience,
-      for (final group in _groups) group.name,
+      for (final group in widget.groups) group.name,
     }.toList()..sort();
     final targets = {
       ?_target,
-      for (final group in _groups)
+      for (final group in widget.groups)
         if (!group.automatic) group.name,
     }.toList()..sort();
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(DSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 18,
-              children: [
-                if (_loading) const DSpinner(),
-                if (_groupError != null)
-                  DAlert(
-                    title: DAlertTitle(child: Text(l.policyGroupsUnavailable)),
-                    action: DAlertAction(
-                      child: DButton(
-                        label: Text(l.retry),
-                        onPressed: _load,
-                        variant: DButtonVariant.outline,
-                      ),
-                    ),
-                  ),
-                DMultiSelect<String>(
-                  initialValue: _audience,
-                  label: Text(l.policyGroups),
-                  isExpanded: true,
-                  description: Text(l.policyGroupsHelp),
-                  entries: [
-                    for (final name in audience)
-                      DSelectItem(
-                        value: name,
-                        child: Text(name),
-                        textValue: name,
-                      ),
-                  ],
-                  onChanged: (values) => setState(() => _audience = values),
-                ),
-                DInput(
-                  controller: _version,
-                  labelText: l.policyVersion,
-                  helperText: l.policyVersionHelp,
-                ),
-                _pair(
-                  DSelect<String>(
-                    value: _renewal,
-                    label: Text(l.policyRenewal),
-                    isExpanded: true,
-                    entries: [
-                      for (final (id, name) in [
-                        ('none', l.policyNoRenewal),
-                        ('days', l.policyRenewDays),
-                        ('monthly', l.policyMonthly),
-                        ('quarterly', l.policyQuarterly),
-                        ('yearly', l.policyYearly),
-                      ])
-                        DSelectItem(
-                          value: id,
-                          child: Text(name),
-                          textValue: name,
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _renewal = value);
-                    },
-                  ),
-                  DInput(
-                    controller: _days,
-                    labelText: l.policyDays,
-                    keyboardType: TextInputType.number,
-                    enabled: _renewal == 'days',
-                  ),
-                ),
-                _pair(
-                  DDatePicker.controlled(
-                    value: _date,
-                    label: l.policyRenewStart,
-                    onChanged: (date) => setState(() {
-                      _date = date;
-                      _dateChanged = true;
-                    }),
-                  ),
-                  DSelect<PolicyReminder>(
-                    value: _reminder,
-                    label: Text(l.policyReminder),
-                    isExpanded: true,
-                    entries: [
-                      for (final (value, label) in [
-                        (PolicyReminder.none, l.policyNoReminder),
-                        (PolicyReminder.daily, l.policyDaily),
-                        (PolicyReminder.weekly, l.policyWeekly),
-                      ])
-                        DSelectItem(
-                          value: value,
-                          child: Text(label),
-                          textValue: label,
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _reminder = value);
-                    },
-                  ),
-                ),
-                const DSeparator(),
-                _pair(
-                  DInput(
-                    controller: _accept,
-                    labelText: l.policyAcceptLabel,
-                    hintText: l.policyAccept,
-                  ),
-                  DInput(
-                    controller: _revoke,
-                    labelText: l.policyRevokeLabel,
-                    hintText: l.policyRevoke,
-                  ),
-                ),
-                DSelect<String>(
-                  value: _target ?? '',
-                  label: Text(l.policyTargetGroup),
-                  isExpanded: true,
-                  entries: [
-                    DSelectItem(
-                      value: '',
-                      child: Text(l.policyNoGroup),
-                      textValue: l.policyNoGroup,
-                    ),
-                    for (final name in targets)
-                      DSelectItem(
-                        value: name,
-                        child: Text(name),
-                        textValue: name,
-                      ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _target = value == '' ? null : value),
-                ),
-                DFieldDescription(child: Text(l.policyTargetHelp)),
-                const DSeparator(),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 12,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        spacing: 6,
-                        children: [
-                          DFieldTitle(child: Text(l.policyPrivate)),
-                          DFieldDescription(child: Text(l.policyPrivateHelp)),
-                        ],
-                      ),
-                    ),
-                    DToggle(
-                      pressed: _private,
-                      semanticLabel: l.policyPrivate,
-                      onPressedChanged: (value) =>
-                          setState(() => _private = value),
-                      variant: DToggleVariant.outline,
-                      child: DIcon(
-                        _private ? DIcons.lock : DIcons.unlock,
-                        size: 16,
-                      ),
-                    ),
-                  ],
-                ),
-                if (_error != null) DFieldError(child: Text(_error!)),
+    return _PolicyBuilderLayout(
+      insert: widget.insert,
+      onCancel: () => widget.onClose(null),
+      onSubmit: _save,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 18,
+        children: [
+          DMultiSelect<String>(
+            initialValue: _audience,
+            label: Text(l.policyGroups),
+            isExpanded: true,
+            enabled: audience.isNotEmpty,
+            description: Text(l.policyGroupsHelp),
+            entries: [
+              for (final name in audience)
+                DSelectItem(value: name, child: Text(name), textValue: name),
+            ],
+            onChanged: (values) => setState(() => _audience = values),
+          ),
+          DInput(
+            controller: _version,
+            labelText: l.policyVersion,
+            helperText: l.policyVersionHelp,
+          ),
+          _pair(
+            DSelect<String>(
+              value: _renewal,
+              label: Text(l.policyRenewal),
+              isExpanded: true,
+              entries: [
+                for (final (id, name) in [
+                  ('none', l.policyNoRenewal),
+                  ('days', l.policyRenewDays),
+                  ('monthly', l.policyMonthly),
+                  ('quarterly', l.policyQuarterly),
+                  ('yearly', l.policyYearly),
+                ])
+                  DSelectItem(value: id, child: Text(name), textValue: name),
               ],
+              onChanged: (value) {
+                if (value != null) setState(() => _renewal = value);
+              },
+            ),
+            DInput(
+              controller: _days,
+              labelText: l.policyDays,
+              keyboardType: TextInputType.number,
+              enabled: _renewal == 'days',
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(DSpacing.lg),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            spacing: 8,
-            children: [
-              DButton(
-                label: Text(l.cancel),
-                variant: DButtonVariant.outline,
-                onPressed: () => widget.onClose(null),
+          _pair(
+            DDatePicker.controlled(
+              value: _date,
+              label: l.policyRenewStart,
+              onChanged: (date) => setState(() {
+                _date = date;
+                _dateChanged = true;
+              }),
+            ),
+            DSelect<PolicyReminder>(
+              value: _reminder,
+              label: Text(l.policyReminder),
+              isExpanded: true,
+              entries: [
+                for (final (value, label) in [
+                  (PolicyReminder.none, l.policyNoReminder),
+                  (PolicyReminder.daily, l.policyDaily),
+                  (PolicyReminder.weekly, l.policyWeekly),
+                ])
+                  DSelectItem(
+                    value: value,
+                    child: Text(label),
+                    textValue: label,
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _reminder = value);
+              },
+            ),
+          ),
+          const DSeparator(),
+          _pair(
+            DInput(
+              controller: _accept,
+              labelText: l.policyAcceptLabel,
+              hintText: l.policyAccept,
+            ),
+            DInput(
+              controller: _revoke,
+              labelText: l.policyRevokeLabel,
+              hintText: l.policyRevoke,
+            ),
+          ),
+          DSelect<String>(
+            value: _target ?? '',
+            label: Text(l.policyTargetGroup),
+            isExpanded: true,
+            enabled: targets.isNotEmpty,
+            entries: [
+              DSelectItem(
+                value: '',
+                child: Text(l.policyNoGroup),
+                textValue: l.policyNoGroup,
               ),
-              DButton(
-                label: Text(widget.insert ? l.policyInsert : l.saveChanges),
-                onPressed: _save,
+              for (final name in targets)
+                DSelectItem(value: name, child: Text(name), textValue: name),
+            ],
+            onChanged: (value) =>
+                setState(() => _target = value == '' ? null : value),
+          ),
+          DFieldDescription(child: Text(l.policyTargetHelp)),
+          const DSeparator(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 12,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 6,
+                  children: [
+                    DFieldTitle(child: Text(l.policyPrivate)),
+                    DFieldDescription(child: Text(l.policyPrivateHelp)),
+                  ],
+                ),
+              ),
+              DToggle(
+                pressed: _private,
+                semanticLabel: l.policyPrivate,
+                onPressedChanged: (value) => setState(() => _private = value),
+                variant: DToggleVariant.outline,
+                child: DIcon(_private ? DIcons.lock : DIcons.unlock, size: 16),
               ),
             ],
           ),
-        ),
-      ],
+          if (_error != null) DFieldError(child: Text(_error!)),
+        ],
+      ),
     );
   }
 }

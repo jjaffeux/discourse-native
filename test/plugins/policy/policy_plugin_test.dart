@@ -118,10 +118,32 @@ void main() {
     },
   );
 
+  test('group lookup reads the list returned by Discourse', () async {
+    final transport = RecordingPluginTransport(
+      listResponses: {
+        'GET /groups/search.json': [
+          {'id': 0, 'name': 'everyone', 'automatic': true},
+          {'id': 3, 'name': 'staff', 'automatic': true},
+          {'id': 41, 'name': 'crew', 'automatic': false},
+        ],
+      },
+    );
+    final requests = PluginTestRequestHost(apiKeys: {_site: 'key'});
+
+    final groups = await PolicyGroups(transport, requests).load(_site);
+
+    expect(groups.map((group) => (group.name, group.automatic)), [
+      ('staff', true),
+      ('crew', false),
+    ]);
+    expect(transport.reads.single.apiKey, 'key');
+    expect(transport.reads.single.clientId, 'test-client');
+  });
+
   test(
     'group lookup uses credentials and discards retired responses',
     () async {
-      final gate = Completer<Map<String, dynamic>>();
+      final gate = Completer<List<Map<String, dynamic>>>();
       final transport = RecordingPluginTransport(
         responders: {'GET /groups/search.json': (_) => gate.future},
       );
@@ -130,11 +152,9 @@ void main() {
       final pending = groups.load(_site);
       await Future<void>.delayed(Duration.zero);
       requests.forget(_site);
-      gate.complete({
-        'groups': [
-          {'id': 41, 'name': 'crew', 'automatic': false},
-        ],
-      });
+      gate.complete([
+        {'id': 41, 'name': 'crew', 'automatic': false},
+      ]);
       expect(await pending, isEmpty);
       expect(transport.reads.single.path, '/groups/search.json');
       expect(transport.reads.single.apiKey, 'key');

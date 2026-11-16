@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart'
     show ComposerUploadFile;
 import 'package:discourse_native/src/plugins/policy/policy_builder.dart';
@@ -35,6 +38,79 @@ void main() {
     );
   });
 
+  testWidgets('phone policy skeleton keeps the sheet and footer in place', (
+    tester,
+  ) async {
+    final groups = Completer<List<PolicyGroup>>();
+    PolicyDefinition? result;
+    await _mountPhonePolicyLauncher(
+      tester,
+      loadGroups: () => groups.future,
+      onClose: (value) => result = value,
+    );
+    await tester.tap(find.text('Open policy'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final sheet = find.byType(DSheetContent);
+    final insert = find.widgetWithText(DButton, 'Insert');
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(tester.widget<DButton>(insert).onPressed, isNull);
+    final sheetBounds = tester.getRect(sheet);
+    final insertBounds = tester.getRect(insert);
+
+    groups.complete(const [PolicyGroup(41, 'crew', false)]);
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(tester.getRect(sheet), sheetBounds);
+    expect(tester.getRect(insert), insertBounds);
+    final versionBounds = tester.getRect(
+      find.widgetWithText(DInput, 'Version'),
+    );
+    await tester.tap(find.text('Select options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('crew'));
+    await tester.tap(find.text('Create Policy'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.widgetWithText(DInput, 'Version')),
+      versionBounds,
+    );
+    await tester.tap(find.text('Insert'));
+    await tester.pumpAndSettle();
+    expect(result?.audienceGroups, ['crew']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('phone policy retries in place and ignores a dismissed load', (
+    tester,
+  ) async {
+    final retry = Completer<List<PolicyGroup>>();
+    var requests = 0;
+    await _mountPhonePolicyLauncher(
+      tester,
+      loadGroups: () async {
+        if (++requests == 1) throw StateError('lookup failed');
+        return retry.future;
+      },
+    );
+    await tester.tap(find.text('Open policy'));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(DSheetContent);
+    final sheetBounds = tester.getRect(sheet);
+    await tester.tap(find.text('Retry'));
+    await tester.pump();
+    expect(requests, 2);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(tester.getRect(sheet), sheetBounds);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    retry.complete(const [PolicyGroup(41, 'crew', false)]);
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('builder requires groups and preserves every configured field', (
     tester,
   ) async {
@@ -59,7 +135,7 @@ void main() {
           height: 800,
           child: PolicyBuilder(
             initial: initial,
-            loadGroups: () async => const [
+            groups: const [
               PolicyGroup(41, 'crew', false),
               PolicyGroup(42, 'qualified', false),
             ],
@@ -83,7 +159,7 @@ void main() {
           child: PolicyBuilder(
             key: UniqueKey(),
             initial: PolicyDefinition(audienceGroups: const []),
-            loadGroups: () async => const [],
+            groups: const [],
             isCurrent: () => true,
             onClose: (_) => fail('invalid policy must not save'),
           ),
@@ -106,7 +182,7 @@ void main() {
           height: 800,
           child: PolicyBuilder(
             initial: PolicyDefinition(audienceGroups: const ['crew']),
-            loadGroups: () async => const [PolicyGroup(41, 'crew', false)],
+            groups: const [PolicyGroup(41, 'crew', false)],
             isCurrent: () => current,
             onClose: (_) => fail('retired editor saved'),
           ),
@@ -158,7 +234,7 @@ void main() {
                           PolicyCalendarInterval.monthly,
                         ),
                 ),
-                loadGroups: () async => const [PolicyGroup(41, 'crew', false)],
+                groups: const [PolicyGroup(41, 'crew', false)],
                 isCurrent: () => true,
                 onClose: (_) => fail('unsupported transition saved'),
               ),
@@ -336,4 +412,37 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+}
+
+Future<void> _mountPhonePolicyLauncher(
+  WidgetTester tester, {
+  required Future<List<PolicyGroup>> Function() loadGroups,
+  ValueChanged<PolicyDefinition?>? onClose,
+}) async {
+  tester.view.physicalSize = const Size(430, 932);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => DButton(
+            label: const Text('Open policy'),
+            onPressed: () async {
+              final result = await showPolicyBuilder(
+                context,
+                initial: PolicyDefinition(audienceGroups: const []),
+                loadGroups: loadGroups,
+                isCurrent: () => true,
+                insert: true,
+                persistedDefinition: null,
+              );
+              onClose?.call(result);
+            },
+          ),
+        ),
+      ),
+    ),
+  );
 }

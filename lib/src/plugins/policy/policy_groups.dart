@@ -16,8 +16,12 @@ final class PolicyGroups {
     final lease = requests.capture(siteUrl);
     final credentials = await requests.credentialsFor(siteUrl);
     if (!lease.isCurrent || credentials.apiKey == null) return const [];
-    final body = await credentials.run(
-      () => transport.pluginGetJson(
+    final listTransport = switch (transport) {
+      final PluginJsonListTransport transport => transport,
+      _ => throw const WriteException(WriteFailure.unreachable),
+    };
+    final rows = await credentials.run(
+      () => listTransport.pluginGetJsonList(
         siteUrl: siteUrl,
         path: '/groups/search.json',
         apiKey: credentials.apiKey,
@@ -25,14 +29,11 @@ final class PolicyGroups {
       ),
     );
     if (!lease.isCurrent) return const [];
-    final raw = body['groups'];
-    if (raw is! List) throw const WriteException(WriteFailure.unreachable);
     final result = <PolicyGroup>[];
-    for (final entry in raw) {
-      final json = jsonObjectFields(entry);
-      final id = json?['id'];
-      final name = json?['name'];
-      final automatic = json?['automatic'];
+    for (final row in rows) {
+      final id = row['id'];
+      final name = row['name'];
+      final automatic = row['automatic'];
       if (id is! int || name is! String || name.isEmpty || automatic is! bool) {
         throw const WriteException(WriteFailure.unreachable);
       }

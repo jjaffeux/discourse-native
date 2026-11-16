@@ -19,8 +19,9 @@ const policyGroupsService = PluginServiceKey<PolicyGroups>(
 );
 
 class PolicyComposerPolicy implements ComposerSyntaxPolicy {
-  const PolicyComposerPolicy(this.context);
+  PolicyComposerPolicy(this.context);
   final ComposerSyntaxPolicyContext context;
+  bool _editingDefinition = false;
   @override
   ComposerSyntaxKind get kind => policyComposerKind;
   @override
@@ -70,29 +71,35 @@ Future<void> editPolicyDefinition(
   PolicyComposerPolicy policy, [
   PolicySourceOccurrence? occurrence,
 ]) async {
-  if (!policy.canAuthor(editor)) return;
+  if (policy._editingDefinition || !policy.canAuthor(editor)) return;
   final groups = PluginUiScope.maybe(context, policyGroupsService);
   if (groups == null) return;
   final before = editor.value;
-  final definition = await showPolicyBuilder(
-    context,
-    initial:
-        occurrence?.definition ?? PolicyDefinition(audienceGroups: const []),
-    insert: occurrence == null,
-    persistedDefinition:
-        occurrence != null &&
-            editor.isEdit &&
-            const PolicySourceCodec().find(before.text).firstOrNull?.range ==
-                occurrence.range
-        ? const PolicySourceCodec()
-              .find(editor.originalRaw ?? '')
-              .firstOrNull
-              ?.definition
-        : null,
-    loadGroups: () => groups.load(editor.siteUrl),
-    isCurrent: () =>
-        policy.canAuthor(editor) && editor.value.text == before.text,
-  );
+  PolicyDefinition? definition;
+  policy._editingDefinition = true;
+  try {
+    definition = await showPolicyBuilder(
+      context,
+      initial:
+          occurrence?.definition ?? PolicyDefinition(audienceGroups: const []),
+      insert: occurrence == null,
+      persistedDefinition:
+          occurrence != null &&
+              editor.isEdit &&
+              const PolicySourceCodec().find(before.text).firstOrNull?.range ==
+                  occurrence.range
+          ? const PolicySourceCodec()
+                .find(editor.originalRaw ?? '')
+                .firstOrNull
+                ?.definition
+          : null,
+      loadGroups: () => groups.load(editor.siteUrl),
+      isCurrent: () =>
+          policy.canAuthor(editor) && editor.value.text == before.text,
+    );
+  } finally {
+    policy._editingDefinition = false;
+  }
   if (definition == null || !context.mounted) return;
   if (!policy.canAuthor(editor) || editor.value.text != before.text) {
     DToast.show(
