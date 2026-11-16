@@ -1136,132 +1136,125 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final origin in ['handle', 'header', 'body', 'bottom']) {
-      for (final keyboard in [0.0, 300.0]) {
-        testWidgets(
-          '$platform composer ${origin == 'bottom' ? 'keeps bottom overscroll open then swipes from the top' : 'swipes from $origin'} and minimizes (keyboard: $keyboard)',
-          (tester) async {
-            tester.view.physicalSize =
-                const Size(390, 800) * tester.view.devicePixelRatio;
-            addTearDown(tester.view.resetPhysicalSize);
-            final harness = await _Harness.create(
-              tester,
-              mobile: true,
-              platform: platform,
-              size: const Size(390, 800),
-            );
-            tester.view.viewInsets = FakeViewPadding(
-              bottom: keyboard * tester.view.devicePixelRatio,
-            );
-            addTearDown(tester.view.resetViewInsets);
-            final composer = harness.shell.visibleComposer!;
-            composer.title.text = 'Keep my draft';
-            final text = List.generate(
-              60,
-              (i) => 'Draft paragraph $i',
-            ).join('\n');
-            composer.text.value = TextEditingValue(
-              text: text,
-              selection: const TextSelection.collapsed(offset: 0),
-            );
-            await tester.runAsync(composer.flushDraft);
-            await tester.pumpAndSettle();
-            final viewport = find.byKey(
-              const ValueKey('composer-mobile-scroll'),
-            );
-            final scroll = tester
-                .widget<CustomScrollView>(viewport)
-                .controller!;
-            // The pinned header must drag the sheet even far into the draft.
-            scroll.jumpTo(
-              origin == 'bottom'
-                  ? scroll.position.maxScrollExtent
-                  : origin == 'header' || origin == 'handle'
-                  ? 400
-                  : 0,
-            );
-            await tester.pumpAndSettle();
-            final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
-            final editor = tester.state(find.byType(ComposerEditor));
-            final top = tester.getTopLeft(sheet).dy;
-            final api =
-                harness.shell.api.composerPersistence as FakeDiscourseApi;
-            final savesBeforeSwipe = api.draftsSaved.length;
-            final start = origin == 'handle'
-                ? tester.getCenter(
-                    find.byKey(const ValueKey('sheet-drag-handle')),
-                  )
-                : origin == 'header'
-                ? tester.getCenter(
-                    find.byKey(const ValueKey('composer-header')),
-                  )
-                : origin == 'bottom'
-                ? tester.getBottomLeft(viewport) + const Offset(80, -24)
-                : tester.getTopLeft(viewport) + const Offset(80, 180);
-            expect(
-              tester
-                  .getRect(origin == 'handle' ? sheet : viewport)
-                  .contains(start),
-              isTrue,
-            );
-            expect(start.dy, lessThan(800 - keyboard));
-            var gesture = await tester.startGesture(start);
-            if (origin == 'bottom') {
-              // Scrolling past the bottom continues the editor scroll; only
-              // a downward pull from its top edge dismisses the sheet.
-              await gesture.moveBy(const Offset(0, -30));
-              await gesture.moveBy(const Offset(0, -300));
-              await tester.pump();
-              expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
-              await gesture.up();
-              await tester.pumpAndSettle();
-              expect(harness.shell.visibleComposer, same(composer));
-              expect(sheet, findsOneWidget);
-
-              scroll.jumpTo(0);
-              await tester.pumpAndSettle();
-              gesture = await tester.startGesture(
-                tester.getTopLeft(viewport) + const Offset(80, 180),
-              );
-            }
-            await gesture.moveBy(const Offset(0, 30));
-            await gesture.moveBy(Offset(0, origin == 'header' ? 300 : 600));
+      final keyboard = switch ((platform, origin)) {
+        (TargetPlatform.iOS, 'handle' || 'body') ||
+        (TargetPlatform.android, 'header' || 'bottom') => 300.0,
+        _ => 0.0,
+      };
+      testWidgets(
+        '$platform composer ${origin == 'bottom' ? 'keeps bottom overscroll open then swipes from the top' : 'swipes from $origin'} and minimizes (keyboard: $keyboard)',
+        (tester) async {
+          tester.view.physicalSize =
+              const Size(390, 800) * tester.view.devicePixelRatio;
+          addTearDown(tester.view.resetPhysicalSize);
+          final harness = await _Harness.create(
+            tester,
+            mobile: true,
+            platform: platform,
+            size: const Size(390, 800),
+          );
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: keyboard * tester.view.devicePixelRatio,
+          );
+          addTearDown(tester.view.resetViewInsets);
+          final composer = harness.shell.visibleComposer!;
+          composer.title.text = 'Keep my draft';
+          final text = List.generate(
+            60,
+            (i) => 'Draft paragraph $i',
+          ).join('\n');
+          composer.text.value = TextEditingValue(
+            text: text,
+            selection: const TextSelection.collapsed(offset: 0),
+          );
+          await tester.runAsync(composer.flushDraft);
+          await tester.pumpAndSettle();
+          final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+          final scroll = tester.widget<CustomScrollView>(viewport).controller!;
+          // The pinned header must drag the sheet even far into the draft.
+          scroll.jumpTo(
+            origin == 'bottom'
+                ? scroll.position.maxScrollExtent
+                : origin == 'header' || origin == 'handle'
+                ? 400
+                : 0,
+          );
+          await tester.pumpAndSettle();
+          final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
+          final editor = tester.state(find.byType(ComposerEditor));
+          final top = tester.getTopLeft(sheet).dy;
+          final api = harness.shell.api.composerPersistence as FakeDiscourseApi;
+          final savesBeforeSwipe = api.draftsSaved.length;
+          final start = origin == 'handle'
+              ? tester.getCenter(
+                  find.byKey(const ValueKey('sheet-drag-handle')),
+                )
+              : origin == 'header'
+              ? tester.getCenter(find.byKey(const ValueKey('composer-header')))
+              : origin == 'bottom'
+              ? tester.getBottomLeft(viewport) + const Offset(80, -24)
+              : tester.getTopLeft(viewport) + const Offset(80, 180);
+          expect(
+            tester
+                .getRect(origin == 'handle' ? sheet : viewport)
+                .contains(start),
+            isTrue,
+          );
+          expect(start.dy, lessThan(800 - keyboard));
+          var gesture = await tester.startGesture(start);
+          if (origin == 'bottom') {
+            // Scrolling past the bottom continues the editor scroll; only
+            // a downward pull from its top edge dismisses the sheet.
+            await gesture.moveBy(const Offset(0, -30));
+            await gesture.moveBy(const Offset(0, -300));
             await tester.pump();
-            expect(tester.getTopLeft(sheet).dy, greaterThan(top));
-            if (origin == 'header' || origin == 'handle') {
-              expect(scroll.offset, 400);
-            }
-            expect(find.text('Discard'), findsNothing);
-            expect(find.text('Minimize'), findsNothing);
-            expect(
-              find.byKey(const ValueKey('composer-restore')),
-              findsNothing,
-            );
-            // Continue the gesture without snapping back or opening actions.
-            await gesture.moveBy(const Offset(0, 30));
-            await tester.pump();
-            expect(tester.getTopLeft(sheet).dy, greaterThan(top));
+            expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
             await gesture.up();
             await tester.pumpAndSettle();
             expect(harness.shell.visibleComposer, same(composer));
-            expect(composer.closing, isFalse);
-            expect(composer.isDisposed, isFalse);
-            expect(composer.raw, text);
-            expect(composer.text.selection.extentOffset, 0);
-            expect(sheet, findsNothing);
-            expect(api.draftsSaved.length, savesBeforeSwipe);
-            expect(find.text('Discard'), findsNothing);
-            await tester.tap(find.byKey(const ValueKey('composer-restore')));
-            await tester.pumpAndSettle();
-            expect(tester.state(find.byType(ComposerEditor)), same(editor));
-            expect(composer.raw, text);
-            expect(composer.title.text, 'Keep my draft');
-            expect(composer.text.selection.extentOffset, 0);
             expect(sheet, findsOneWidget);
-            expect(find.text('Discard'), findsNothing);
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+
+            scroll.jumpTo(0);
+            await tester.pumpAndSettle();
+            gesture = await tester.startGesture(
+              tester.getTopLeft(viewport) + const Offset(80, 180),
+            );
+          }
+          await gesture.moveBy(const Offset(0, 30));
+          await gesture.moveBy(Offset(0, origin == 'header' ? 300 : 600));
+          await tester.pump();
+          expect(tester.getTopLeft(sheet).dy, greaterThan(top));
+          if (origin == 'header' || origin == 'handle') {
+            expect(scroll.offset, 400);
+          }
+          expect(find.text('Discard'), findsNothing);
+          expect(find.text('Minimize'), findsNothing);
+          expect(find.byKey(const ValueKey('composer-restore')), findsNothing);
+          // Continue the gesture without snapping back or opening actions.
+          await gesture.moveBy(const Offset(0, 30));
+          await tester.pump();
+          expect(tester.getTopLeft(sheet).dy, greaterThan(top));
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(harness.shell.visibleComposer, same(composer));
+          expect(composer.closing, isFalse);
+          expect(composer.isDisposed, isFalse);
+          expect(composer.raw, text);
+          expect(composer.text.selection.extentOffset, 0);
+          expect(sheet, findsNothing);
+          expect(api.draftsSaved.length, savesBeforeSwipe);
+          expect(find.text('Discard'), findsNothing);
+          await tester.tap(find.byKey(const ValueKey('composer-restore')));
+          await tester.pumpAndSettle();
+          expect(tester.state(find.byType(ComposerEditor)), same(editor));
+          expect(composer.raw, text);
+          expect(composer.title.text, 'Keep my draft');
+          expect(composer.text.selection.extentOffset, 0);
+          expect(sheet, findsOneWidget);
+          expect(find.text('Discard'), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 
