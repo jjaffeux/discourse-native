@@ -22,13 +22,14 @@ final class BoardsApi {
     PluginRequestCredentials credentials, {
     int? topicId,
   }) async {
-    final json = await _get(
-      site,
-      topicId == null
-          ? 'boards.json'
-          : 'boards/available.json?allowed_permissions=edit,manage&topic_id=$topicId',
-      credentials,
-    );
+    final path = switch (topicId) {
+      final id? =>
+        'boards/available.json?allowed_permissions=edit,manage&topic_id=$id',
+      null when credentials.apiKey == null =>
+        'boards.json?allowed_permissions=view',
+      null => 'boards.json',
+    };
+    final json = await _get(site, path, credentials);
     if (json['boards'] is! List) {
       throw const FormatException('Invalid board directory');
     }

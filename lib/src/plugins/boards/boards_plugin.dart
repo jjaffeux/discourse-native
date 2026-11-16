@@ -61,7 +61,7 @@ final class BoardsPlugin
     final controller = PluginUiScope.require(context, boardsControllerKey);
     final navigation = PluginUiScope.require(context, boardsNavigationKey);
     final site = navigation.host.currentSite;
-    return site != null && controller.enabled(site.url)
+    return site != null && controller.hasVisibleBoards(site.url)
         ? [
             SidebarDestination(
               id: 'boards',

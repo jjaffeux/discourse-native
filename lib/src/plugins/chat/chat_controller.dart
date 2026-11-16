@@ -527,6 +527,10 @@ class ChatController extends FrameSafeNotifier {
         didReceiveChannelEdit: (siteUrl, channelId) {
           _heldDirectory(siteUrl)?.recordMetadataEdit(channelId);
         },
+        didReceiveChannelMute: (siteUrl, channelId, muted, mutedUntil) =>
+            _heldDirectory(
+              siteUrl,
+            )?.receiveChannelMute(channelId, muted, mutedUntil),
         didReceiveChannelStatus: (siteUrl, channelId) {
           _heldDirectory(siteUrl)?.recordStatusEdit(channelId);
         },
@@ -1158,12 +1162,14 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     int channelId, {
     bool? muted,
+    DateTime? mutedUntil,
     ChatChannelNotificationLevel? notificationLevel,
   }) => isDisposed
       ? Future.value(appL10n.thisChannelCanNoLongerBeChanged)
       : _directory(siteUrl).updateChannelNotifications(
           channelId,
           muted: muted,
+          mutedUntil: mutedUntil,
           notificationLevel: notificationLevel,
         );
 

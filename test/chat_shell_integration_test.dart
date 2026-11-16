@@ -2797,12 +2797,19 @@ void _registerChatShellTests() {
         final previous = debugDefaultTargetPlatformOverride;
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
         try {
+          const membership = ChatMembership(
+            following: true,
+            supportsTimedMute: true,
+          );
           final api = FakeDiscourseApi(
             totals: withChat,
             user: me,
             chatChannelsBySite: {
-              site: ChatChannels(public: [channel(9)]),
+              site: ChatChannels(
+                public: [channel(9).withMembership(membership)],
+              ),
             },
+            chatChannelNotificationMembership: membership,
           );
           await pumpChat(tester, api: api);
           final mouse = await tester.createGesture(
@@ -2841,16 +2848,28 @@ void _registerChatShellTests() {
           await tester.pump(const Duration(milliseconds: 100));
           expect(find.text('Mute channel'), findsOneWidget);
 
-          final mute = tester.getCenter(
-            find.byKey(const ValueKey('chat-channel-mute-9')),
+          await mouse.moveTo(tester.getCenter(find.text('Mute for…')));
+          await tester.pumpAndSettle();
+          final eightHours = find.byKey(
+            const ValueKey('chat-mute-duration-eightHours'),
           );
-          await mouse.moveTo(mute);
-          await mouse.down(mute);
-          await mouse.up();
+          expect(eightHours, findsOneWidget);
+          final before = DateTime.now();
+          await tester.tap(eightHours);
           await tester.pumpAndSettle();
           expect(api.chatChannelNotificationsUpdated, const [
             (channelId: 9, muted: true, notificationLevel: null),
           ]);
+          final shell = ShellScope.read(tester.element(primaryMainContent));
+          expect(
+            shell.chat
+                .channel(site, 9)!
+                .membership
+                .mutedUntil!
+                .difference(before)
+                .inHours,
+            8,
+          );
           expect(find.text('Channel settings'), findsNothing);
         } finally {
           debugDefaultTargetPlatformOverride = previous;
@@ -4329,6 +4348,46 @@ void _registerChatShellTests() {
           shell.chat.channel(site, 9)?.membership.notificationLevel,
           ChatChannelNotificationLevel.always,
         );
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('sets a timed mute from routed channel settings', (
+        tester,
+      ) async {
+        const membership = ChatMembership(
+          following: true,
+          supportsTimedMute: true,
+        );
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9).withMembership(membership)]),
+          },
+          chatMessagesByKey: {key(9): page(const [])},
+          chatChannelNotificationMembership: membership,
+        );
+        await pumpChat(tester, api: api);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('content-header-title-action')),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(DButton, 'Mute for…'));
+        await tester.pumpAndSettle();
+        for (final label in ['15 mins', '1 hour', '8h', '24h']) {
+          expect(find.text(label), findsOneWidget);
+        }
+        final before = DateTime.now();
+        await tester.tap(find.text('1 hour'));
+        await tester.pumpAndSettle();
+
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        final muted = shell.chat.channel(site, 9)!.membership;
+        expect(muted.muted, isTrue);
+        expect(muted.mutedUntil!.difference(before).inMinutes, 60);
+        expect(find.textContaining('Until '), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('leaves a public channel from settings and opens browse', (

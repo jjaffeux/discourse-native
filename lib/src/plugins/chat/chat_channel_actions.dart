@@ -14,6 +14,54 @@ enum _ChannelAction { settings, star, leave }
 
 enum _NotificationAction { never, mention, always, mute }
 
+enum ChatMuteDuration {
+  fifteenMinutes(Duration(minutes: 15)),
+  oneHour(Duration(hours: 1)),
+  eightHours(Duration(hours: 8)),
+  twentyFourHours(Duration(hours: 24));
+
+  const ChatMuteDuration(this.duration);
+
+  final Duration duration;
+
+  String get label => switch (this) {
+    fifteenMinutes => appL10n.durationMinutes(15),
+    oneHour => appL10n.message1Hour,
+    eightHours => appL10n.relativeHours(8),
+    twentyFourHours => appL10n.relativeHours(24),
+  };
+}
+
+Widget chatTimedMuteMenu({
+  required bool busy,
+  required ValueChanged<ChatMuteDuration> onSelect,
+  bool nested = false,
+}) {
+  final options = [
+    for (final duration in ChatMuteDuration.values)
+      DDropdownMenuItem(
+        key: ValueKey('chat-mute-duration-${duration.name}'),
+        onPressed: busy ? null : () => onSelect(duration),
+        child: Text(duration.label),
+      ),
+  ];
+  if (nested) {
+    return DDropdownMenuSub(trigger: Text(appL10n.muteFor), children: options);
+  }
+  return DDropdownMenu(
+    content: DDropdownMenuContent(children: options),
+    child: DDropdownMenuTrigger(
+      builder: (context, menu) => DButton(
+        expanded: menu.open,
+        focusNode: menu.focusNode,
+        hasPopup: true,
+        onPressed: busy ? null : menu.toggle,
+        label: Text(appL10n.muteFor),
+      ),
+    ),
+  );
+}
+
 class ChatChannelMenu extends StatelessWidget {
   const ChatChannelMenu({
     super.key,
@@ -133,6 +181,21 @@ class _ChannelMenu extends StatelessWidget {
               child: Text(_notificationLabel(action)),
             ),
           const DDropdownMenuSeparator(),
+          if (membership.supportsTimedMute)
+            chatTimedMuteMenu(
+              busy: notificationBusy,
+              nested: true,
+              onSelect: (duration) => unawaited(
+                _applyNotificationAction(
+                  context,
+                  chat,
+                  siteUrl,
+                  channel,
+                  _NotificationAction.mute,
+                  duration: duration,
+                ),
+              ),
+            ),
           DDropdownMenuItem(
             key: ValueKey('chat-channel-mute-${channel.id}'),
             onPressed: notificationBusy
@@ -347,14 +410,18 @@ Future<void> _applyNotificationAction(
   ChatController chat,
   String siteUrl,
   ChatChannel channel,
-  _NotificationAction action,
-) async {
+  _NotificationAction action, {
+  ChatMuteDuration? duration,
+}) async {
   final toast = DToast.maybeOf(context);
   final error = switch (action) {
     _NotificationAction.mute => await chat.updateChannelNotifications(
       siteUrl,
       channel.id,
-      muted: !channel.membership.muted,
+      muted: duration != null || !channel.membership.muted,
+      mutedUntil: duration == null
+          ? null
+          : DateTime.now().add(duration.duration),
     ),
     _ => await chat.updateChannelNotifications(
       siteUrl,

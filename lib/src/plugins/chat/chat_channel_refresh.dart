@@ -87,6 +87,7 @@ final class ChatChannelRefresh {
       channelMetadataBusLastId: snapshot.channelMetadataBusLastId,
       channelEditsBusLastId: snapshot.channelEditsBusLastId,
       channelStatusBusLastId: snapshot.channelStatusBusLastId,
+      userChannelMuteBusLastId: snapshot.userChannelMuteBusLastId,
     );
   }
 }
@@ -116,6 +117,7 @@ enum _Field {
   threadingEnabled,
   following,
   muted,
+  mutedUntil,
   notificationLevel,
   starred,
   lastViewedAt,
@@ -184,6 +186,11 @@ final class _ChannelChanges {
       after.membership.following,
     );
     field(_Field.muted, before?.membership.muted, after.membership.muted);
+    field(
+      _Field.mutedUntil,
+      before?.membership.mutedUntil,
+      after.membership.mutedUntil,
+    );
     field(
       _Field.notificationLevel,
       before?.membership.notificationLevel,
@@ -263,6 +270,8 @@ final class _ChannelChanges {
       membership: ChatMembership(
         following: _value(_Field.following, snapshot.membership.following),
         muted: _value(_Field.muted, snapshot.membership.muted),
+        mutedUntil: _value(_Field.mutedUntil, snapshot.membership.mutedUntil),
+        supportsTimedMute: snapshot.membership.supportsTimedMute,
         notificationLevel: _value(
           _Field.notificationLevel,
           snapshot.membership.notificationLevel,

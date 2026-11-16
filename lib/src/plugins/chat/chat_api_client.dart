@@ -281,6 +281,7 @@ final class ChatApiClient implements ChatApi {
     required String apiKey,
     required int channelId,
     bool? muted,
+    DateTime? mutedUntil,
     ChatChannelNotificationLevel? notificationLevel,
     String? clientId,
   }) async {
@@ -292,6 +293,7 @@ final class ChatApiClient implements ChatApi {
     }
     final settings = <String, Object?>{
       'muted': ?muted,
+      'muted_until': ?mutedUntil?.toUtc().toIso8601String(),
       'notification_level': ?notificationLevel?.name,
     };
     final body = await _write(

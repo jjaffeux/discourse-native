@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
+import 'chat_channel_actions.dart';
 import 'chat_channel_editor.dart';
 import 'chat_channel_members_session.dart';
 import 'chat_channel_status.dart';
@@ -182,12 +183,14 @@ class _ChannelSettings extends StatelessWidget {
   Future<void> _changeNotifications(
     BuildContext context, {
     bool? muted,
+    DateTime? mutedUntil,
     ChatChannelNotificationLevel? notificationLevel,
   }) async {
     final error = await chat.updateChannelNotifications(
       siteUrl,
       channelId,
       muted: muted,
+      mutedUntil: mutedUntil,
       notificationLevel: notificationLevel,
     );
     if (error != null && context.mounted) _notice(context, error);
@@ -302,6 +305,38 @@ class _ChannelSettings extends StatelessWidget {
                                           ),
                                   ),
                                 ),
+                                if (membership.supportsTimedMute)
+                                  _InfoRow(
+                                    label: context.l10n.timedMute,
+                                    description:
+                                        switch (membership.mutedUntil) {
+                                          final until? => context.l10n.until(
+                                            MaterialLocalizations.of(
+                                              context,
+                                            ).formatMediumDate(until.toLocal()),
+                                            MaterialLocalizations.of(
+                                              context,
+                                            ).formatTimeOfDay(
+                                              TimeOfDay.fromDateTime(
+                                                until.toLocal(),
+                                              ),
+                                            ),
+                                          ),
+                                          null => null,
+                                        },
+                                    action: chatTimedMuteMenu(
+                                      busy: notificationBusy,
+                                      onSelect: (duration) => unawaited(
+                                        _changeNotifications(
+                                          context,
+                                          muted: true,
+                                          mutedUntil: DateTime.now().add(
+                                            duration.duration,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 if (!membership.muted)
                                   _InfoRow(
                                     label: context.l10n.pushNotifications,
