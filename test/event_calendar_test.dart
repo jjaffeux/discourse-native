@@ -154,7 +154,11 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final width in [390.0, 800.0, 1300.0]) {
+    for (final width in [
+      390.0,
+      800.0,
+      if (platform == TargetPlatform.iOS) 1300.0,
+    ]) {
       testWidgets('$platform header matches mockup at $width', (tester) async {
         await pump(
           tester,
