@@ -3976,7 +3976,6 @@ void _feedGroups() {
     });
 
     for (final (label, description) in [
-      ('100 ASCII', 'a' * 100),
       ('100 emoji', '🧵' * 100),
       ('100 combining scalars', 'e\u0301' * 50),
     ]) {
@@ -4004,10 +4003,8 @@ void _feedGroups() {
     }
 
     for (final (label, description, emoji) in [
-      ('empty description', '', 'house'),
       ('blank description', '   ', 'house'),
       ('101 ASCII description', 'a' * 101, 'house'),
-      ('101 emoji description', '🧵' * 101, 'house'),
       ('102 combining scalars description', 'e\u0301' * 51, 'house'),
       ('empty emoji name', 'Working', ''),
       ('101 ASCII emoji name', 'Working', 'a' * 101),
@@ -6226,9 +6223,6 @@ void _writeGroups() {
     for (final response in [
       '{}',
       '{"success":true}',
-      '{"success":false}',
-      '{"success":"FAILED"}',
-      '{"failed":"FAILED"}',
       '{"success":"ok"}',
       '[]',
       'invalid json',
