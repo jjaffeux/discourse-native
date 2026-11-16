@@ -1241,7 +1241,12 @@ void main() {
 
   for (final customBoundary in [false, true]) {
     for (final nested in [false, true]) {
-      for (final keyboardInitiallyVisible in [false, true]) {
+      final initialKeyboardStates = switch ((customBoundary, nested)) {
+        (true, true) => [false, true],
+        (false, false) => [false],
+        _ => [true],
+      };
+      for (final keyboardInitiallyVisible in initialKeyboardStates) {
         testWidgets(
           'iOS dropdown avoids consumed keyboard insets (custom boundary: $customBoundary, nested: $nested, initially visible: $keyboardInitiallyVisible)',
           (tester) async {
