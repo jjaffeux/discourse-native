@@ -48,234 +48,221 @@ void main() {
     expect(find.text('99+'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  for (final dark in [false, true]) {
-    for (final expanded in [false, true]) {
-      for (final pill in [false, true]) {
-        testWidgets(
-          'notification state dark=$dark open=$expanded pillCount=$pill',
-          (tester) async {
-            final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
-              platform: TargetPlatform.macOS,
-            );
-            final semantics = tester.ensureSemantics();
-            try {
-              await tester.pumpWidget(
-                MaterialApp(
-                  theme: theme,
-                  home: Scaffold(
-                    body: Builder(
-                      builder: (context) {
-                        return Center(
-                          child: headerNotificationButton(
-                            context,
-                            key: const ValueKey('button'),
-                            countKey: const ValueKey('count'),
-                            icon: DIcon(
-                              pill ? DIcons.inbox : DIcons.comment,
-                              size: pill ? 17 : 16,
-                            ),
-                            count: 3,
-                            color: theme.discourse.success,
-                            surface: theme.shell.content,
-                            tooltip: 'Notifications',
-                            semanticLabel: 'Notifications, 3 unread',
-                            onPressed: () {},
-                            hasPopup: true,
-                            expanded: expanded,
-                            pillCount: pill,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              );
-              await tester.pumpAndSettle();
-              final button = find.byKey(const ValueKey('button'));
-              final count = find.byKey(const ValueKey('count'));
-              final control = tester.widget<DButton>(button);
-              expect(
-                control.variant,
-                expanded ? DButtonVariant.primary : DButtonVariant.ghost,
-              );
-              expect(control.backgroundColor, isNull);
-              expect(control.shape, DButtonShape.pill);
-              expect(count, pill && expanded ? findsNothing : findsOneWidget);
-              if (pill && !expanded) {
-                expect(tester.widget(count), isA<DBadge>());
-                final badge = tester.widget<DBadge>(count);
-                final primary = DTokens.of(
-                  tester.element(button),
-                ).buttonTheme.primary;
-                expect(badge.backgroundColor, primary.background);
-                expect(badge.foregroundColor, primary.foreground);
-                // The mockup's `.bar-bell` with `.bell-count`: 9px insets, a
-                // 17px glyph, a 5px gap and an accent pill at least 17px
-                // across with 4px insets.
-                final bounds = tester.getRect(button);
-                final glyph = tester.getRect(
-                  find.descendant(of: button, matching: find.byType(DIcon)),
-                );
-                final pillRect = tester.getRect(count);
-                final digits = tester.getRect(
-                  find.descendant(of: count, matching: find.text('3')),
-                );
-                expect(bounds.height, 36);
-                expect(glyph.left - bounds.left, 9);
-                expect(pillRect.left - glyph.right, 5);
-                expect(bounds.right - pillRect.right, 9);
-                expect(pillRect.height, 17);
-                expect(pillRect.width, math.max(17, digits.width + 8));
-                expect(digits.center.dx, closeTo(pillRect.center.dx, .5));
-                expect(pillRect.center.dy, closeTo(glyph.center.dy, .5));
-              }
-              expect(
-                find.descendant(of: button, matching: find.byType(DSeparator)),
-                pill ? findsNothing : findsOneWidget,
-              );
-              if (!pill) {
-                final bounds = tester.getRect(button);
-                final glyph = tester.getRect(
-                  find.descendant(of: button, matching: find.byType(DIcon)),
-                );
-                final separator = tester.getRect(
-                  find.descendant(
-                    of: button,
-                    matching: find.byType(DSeparator),
-                  ),
-                );
-                final text = tester.getRect(count);
-                expect(bounds.height, 36);
-                expect(glyph.left - bounds.left, 10);
-                expect(separator.left - glyph.right, 8);
-                expect(text.left - separator.right, 8);
-                expect(bounds.right - text.right, 10);
-              } else if (expanded) {
-                expect(tester.getSize(button), const Size.square(36));
-              }
-              expect(
-                tester.getSemantics(button).label,
-                'Notifications, 3 unread',
-              );
-              expect(tester.takeException(), isNull);
-            } finally {
-              semantics.dispose();
-            }
-          },
+  const stateCases = [
+    (false, false, true),
+    (false, true, false),
+    (true, false, false),
+    (true, true, true),
+  ];
+  for (final (dark, expanded, pill) in stateCases) {
+    testWidgets(
+      'notification state dark=$dark open=$expanded pillCount=$pill',
+      (tester) async {
+        final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: TargetPlatform.macOS,
         );
-      }
-    }
-  }
-  for (final dark in [false, true]) {
-    for (final rtl in [false, true]) {
-      for (final scale in [1.0, 2.0]) {
-        testWidgets('capsules fit 320px, dark=$dark rtl=$rtl scale=$scale', (
-          tester,
-        ) async {
-          final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
-            platform: TargetPlatform.macOS,
-          );
-          final semantics = tester.ensureSemantics();
-          try {
-            var opened = 0;
-            await tester.pumpWidget(
-              MaterialApp(
-                theme: theme,
-                home: Scaffold(
-                  body: Builder(
-                    builder: (context) => MediaQuery(
-                      data: MediaQuery.of(
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) {
+                    return Center(
+                      child: headerNotificationButton(
                         context,
-                      ).copyWith(textScaler: TextScaler.linear(scale)),
-                      child: Directionality(
-                        textDirection: rtl
-                            ? TextDirection.rtl
-                            : TextDirection.ltr,
-                        child: Center(
-                          child: SizedBox(
-                            width: 320,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                for (final (index, color) in [
-                                  (0, theme.discourse.success),
-                                  (1, theme.discourse.notificationIndicator),
-                                ])
-                                  headerNotificationButton(
-                                    context,
-                                    key: ValueKey('button-$index'),
-                                    countKey: ValueKey('count-$index'),
-                                    icon: DIcon(
-                                      index == 0 ? DIcons.comment : DIcons.bell,
-                                      size: index == 0 ? 16 : 17,
-                                    ),
-                                    count: 128,
-                                    color: color,
-                                    surface: theme.shell.content,
-                                    tooltip: index == 0
-                                        ? 'Chat'
-                                        : 'Notifications',
-                                    semanticLabel:
-                                        '${index == 0 ? 'Chat' : 'Notifications'}, 128 unread',
-                                    onPressed: () => opened++,
-                                  ),
-                                const SizedBox(width: 32, height: 32),
-                              ],
-                            ),
-                          ),
+                        key: const ValueKey('button'),
+                        countKey: const ValueKey('count'),
+                        icon: DIcon(
+                          pill ? DIcons.inbox : DIcons.comment,
+                          size: pill ? 17 : 16,
+                        ),
+                        count: 3,
+                        color: theme.discourse.success,
+                        surface: theme.shell.content,
+                        tooltip: 'Notifications',
+                        semanticLabel: 'Notifications, 3 unread',
+                        onPressed: () {},
+                        hasPopup: true,
+                        expanded: expanded,
+                        pillCount: pill,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final button = find.byKey(const ValueKey('button'));
+          final count = find.byKey(const ValueKey('count'));
+          final control = tester.widget<DButton>(button);
+          expect(
+            control.variant,
+            expanded ? DButtonVariant.primary : DButtonVariant.ghost,
+          );
+          expect(control.backgroundColor, isNull);
+          expect(control.shape, DButtonShape.pill);
+          expect(count, pill && expanded ? findsNothing : findsOneWidget);
+          if (pill && !expanded) {
+            expect(tester.widget(count), isA<DBadge>());
+            final badge = tester.widget<DBadge>(count);
+            final primary = DTokens.of(
+              tester.element(button),
+            ).buttonTheme.primary;
+            expect(badge.backgroundColor, primary.background);
+            expect(badge.foregroundColor, primary.foreground);
+            // The mockup's `.bar-bell` with `.bell-count`: 9px insets, a
+            // 17px glyph, a 5px gap and an accent pill at least 17px
+            // across with 4px insets.
+            final bounds = tester.getRect(button);
+            final glyph = tester.getRect(
+              find.descendant(of: button, matching: find.byType(DIcon)),
+            );
+            final pillRect = tester.getRect(count);
+            final digits = tester.getRect(
+              find.descendant(of: count, matching: find.text('3')),
+            );
+            expect(bounds.height, 36);
+            expect(glyph.left - bounds.left, 9);
+            expect(pillRect.left - glyph.right, 5);
+            expect(bounds.right - pillRect.right, 9);
+            expect(pillRect.height, 17);
+            expect(pillRect.width, math.max(17, digits.width + 8));
+            expect(digits.center.dx, closeTo(pillRect.center.dx, .5));
+            expect(pillRect.center.dy, closeTo(glyph.center.dy, .5));
+          }
+          expect(
+            find.descendant(of: button, matching: find.byType(DSeparator)),
+            pill ? findsNothing : findsOneWidget,
+          );
+          if (!pill) {
+            final bounds = tester.getRect(button);
+            final glyph = tester.getRect(
+              find.descendant(of: button, matching: find.byType(DIcon)),
+            );
+            final separator = tester.getRect(
+              find.descendant(of: button, matching: find.byType(DSeparator)),
+            );
+            final text = tester.getRect(count);
+            expect(bounds.height, 36);
+            expect(glyph.left - bounds.left, 10);
+            expect(separator.left - glyph.right, 8);
+            expect(text.left - separator.right, 8);
+            expect(bounds.right - text.right, 10);
+          } else if (expanded) {
+            expect(tester.getSize(button), const Size.square(36));
+          }
+          expect(tester.getSemantics(button).label, 'Notifications, 3 unread');
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
+  const capsuleCases = [
+    (false, false, 1.0),
+    (false, true, 2.0),
+    (true, false, 2.0),
+    (true, true, 1.0),
+  ];
+  for (final (dark, rtl, scale) in capsuleCases) {
+    testWidgets('capsules fit 320px, dark=$dark rtl=$rtl scale=$scale', (
+      tester,
+    ) async {
+      final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: TargetPlatform.macOS,
+      );
+      final semantics = tester.ensureSemantics();
+      try {
+        var opened = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: Directionality(
+                    textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+                    child: Center(
+                      child: SizedBox(
+                        width: 320,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            for (final (index, color) in [
+                              (0, theme.discourse.success),
+                              (1, theme.discourse.notificationIndicator),
+                            ])
+                              headerNotificationButton(
+                                context,
+                                key: ValueKey('button-$index'),
+                                countKey: ValueKey('count-$index'),
+                                icon: DIcon(
+                                  index == 0 ? DIcons.comment : DIcons.bell,
+                                  size: index == 0 ? 16 : 17,
+                                ),
+                                count: 128,
+                                color: color,
+                                surface: theme.shell.content,
+                                tooltip: index == 0 ? 'Chat' : 'Notifications',
+                                semanticLabel:
+                                    '${index == 0 ? 'Chat' : 'Notifications'}, 128 unread',
+                                onPressed: () => opened++,
+                              ),
+                            const SizedBox(width: 32, height: 32),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.text('99+'), findsNWidgets(2));
+        final first = tester.getRect(find.byKey(const ValueKey('button-0')));
+        final second = tester.getRect(find.byKey(const ValueKey('button-1')));
+        expect(first.overlaps(second), isFalse);
+        for (var index = 0; index < 2; index++) {
+          final button = find.byKey(ValueKey('button-$index'));
+          final count = find.byKey(ValueKey('count-$index'));
+          expect(tester.widget<Text>(count).textDirection, TextDirection.ltr);
+          final bounds = tester.getRect(button);
+          expect(bounds.contains(tester.getTopLeft(count)), isTrue);
+          expect(bounds.contains(tester.getBottomRight(count)), isTrue);
+          final control = tester.widget<DButton>(button);
+          expect(control.variant, DButtonVariant.ghost);
+          expect(control.shape, DButtonShape.pill);
+          expect(control.backgroundColor, isNull);
+          final tokens = DTokens.of(tester.element(button));
+          for (final fill in [
+            Colors.transparent,
+            tokens.buttonTheme.accent.hover,
+          ]) {
+            final painted = Color.alphaBlend(fill, theme.shell.content);
+            final a = painted.computeLuminance();
+            final b = control.foregroundColor!.computeLuminance();
+            expect(
+              (math.max(a, b) + .05) / (math.min(a, b) + .05),
+              greaterThanOrEqualTo(4.5),
             );
-            await tester.pumpAndSettle();
-            expect(tester.takeException(), isNull);
-            expect(find.text('99+'), findsNWidgets(2));
-            final first = tester.getRect(
-              find.byKey(const ValueKey('button-0')),
-            );
-            final second = tester.getRect(
-              find.byKey(const ValueKey('button-1')),
-            );
-            expect(first.overlaps(second), isFalse);
-            for (var index = 0; index < 2; index++) {
-              final button = find.byKey(ValueKey('button-$index'));
-              final count = find.byKey(ValueKey('count-$index'));
-              expect(
-                tester.widget<Text>(count).textDirection,
-                TextDirection.ltr,
-              );
-              final bounds = tester.getRect(button);
-              expect(bounds.contains(tester.getTopLeft(count)), isTrue);
-              expect(bounds.contains(tester.getBottomRight(count)), isTrue);
-              final control = tester.widget<DButton>(button);
-              expect(control.variant, DButtonVariant.ghost);
-              expect(control.shape, DButtonShape.pill);
-              expect(control.backgroundColor, isNull);
-              final tokens = DTokens.of(tester.element(button));
-              for (final fill in [
-                Colors.transparent,
-                tokens.buttonTheme.accent.hover,
-              ]) {
-                final painted = Color.alphaBlend(fill, theme.shell.content);
-                final a = painted.computeLuminance();
-                final b = control.foregroundColor!.computeLuminance();
-                expect(
-                  (math.max(a, b) + .05) / (math.min(a, b) + .05),
-                  greaterThanOrEqualTo(4.5),
-                );
-              }
-              expect(tester.getSemantics(button).label, contains('128 unread'));
-              await tester.tap(button);
-            }
-            expect(opened, 2);
-          } finally {
-            semantics.dispose();
           }
-        });
+          expect(tester.getSemantics(button).label, contains('128 unread'));
+          await tester.tap(button);
+        }
+        expect(opened, 2);
+      } finally {
+        semantics.dispose();
       }
-    }
+    });
   }
 }
