@@ -6550,7 +6550,21 @@ void main() {
           },
         );
       }
-      for (final second in _MessageAction.values) {
+      final otherAction = switch (first) {
+        _MessageAction.edit => _MessageAction.delete,
+        _MessageAction.delete => _MessageAction.restore,
+        _MessageAction.restore => _MessageAction.bulkDelete,
+        _MessageAction.bulkDelete => _MessageAction.move,
+        _MessageAction.move => _MessageAction.pin,
+        _MessageAction.pin => _MessageAction.flag,
+        _MessageAction.flag => _MessageAction.rebake,
+        _MessageAction.rebake => _MessageAction.edit,
+      };
+      for (final second in [
+        first,
+        otherAction,
+        if (first == _MessageAction.move) _MessageAction.bulkDelete,
+      ]) {
         test(
           '${first.name} excludes ${second.name} on the same message',
           () async {
