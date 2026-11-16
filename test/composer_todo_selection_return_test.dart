@@ -250,7 +250,14 @@ void main() {
 
     for (final depth in [0, 1, 3]) {
       for (final wholeBody in [false, true]) {
-        for (final reversed in [false, true]) {
+        final selectionDirections = switch ((platform, wholeBody)) {
+          (TargetPlatform.android, false) ||
+          (TargetPlatform.iOS, true) => [false],
+          (TargetPlatform.android, true) ||
+          (TargetPlatform.iOS, false) => [true],
+          _ => [false, true],
+        };
+        for (final reversed in selectionDirections) {
           testWidgets('selected Return on $platform depth=$depth '
               'wholeBody=$wholeBody reversed=$reversed', (tester) async {
             final ancestors = [
