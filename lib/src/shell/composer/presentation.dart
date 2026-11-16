@@ -47,7 +47,6 @@ class _ComposerEntry {
   final ComposerController composer;
   final surfaceKey = GlobalKey();
   _ComposerSurface? surface;
-  bool closeMenuOpen = false;
   bool minimized = false;
   bool moving = false;
   Size size = const Size(420, 380);
@@ -217,7 +216,6 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
     }
     entry.composer.focus.unfocus();
     setState(() {
-      entry.closeMenuOpen = false;
       entry.minimized = true;
     });
   }
@@ -333,7 +331,6 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
       mobile: mobile,
       placement: placement,
       editorSize: minimized ? entry.size : size,
-      closeMenuOpen: mobile ? entry.closeMenuOpen : null,
       canDockSide:
           placement.isSide ||
           size.width >=
@@ -352,11 +349,6 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
             unawaited(_place(entry, _previousDockPlacement)),
         onMinimize: () => _putAway(entry),
         onRestore: () => _restore(entry),
-        onCloseMenuOpenChanged: (open) {
-          if (mounted && entry.closeMenuOpen != open) {
-            setState(() => entry.closeMenuOpen = open);
-          }
-        },
       );
     }
     return Offstage(
@@ -956,7 +948,6 @@ typedef _ComposerSurfacePresentation = ({
   bool mobile,
   ComposerPlacement placement,
   Size editorSize,
-  bool? closeMenuOpen,
   bool canDockSide,
 });
 
@@ -970,13 +961,11 @@ class _ComposerSurface extends StatelessWidget {
     required this.onExitFullScreen,
     required this.onMinimize,
     required this.onRestore,
-    required this.onCloseMenuOpenChanged,
   });
   final ComposerController composer;
   final _ComposerSurfacePresentation presentation;
   final ValueChanged<ComposerPlacement> onPlacement;
   final VoidCallback onMinimize, onRestore, onExitFullScreen;
-  final ValueChanged<bool> onCloseMenuOpenChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1002,8 +991,6 @@ class _ComposerSurface extends StatelessWidget {
                   maxHeight: size.height,
                   child: ComposerPanel(
                     composer: composer,
-                    closeMenuOpen: presentation.closeMenuOpen,
-                    onCloseMenuOpenChanged: onCloseMenuOpenChanged,
                     height: size.height,
                     placement: placement,
                     onPlacementChanged: mobile ? null : onPlacement,

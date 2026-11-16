@@ -535,52 +535,47 @@ void main() {
   });
 
   for (final mobile in [false, true]) {
-    testWidgets('Cancel can discard a saved draft (mobile: $mobile)', (
-      tester,
-    ) async {
-      final harness = await _Harness.create(tester, mobile: mobile);
-      final composer = harness.shell.visibleComposer!;
-      final cancel = find.byKey(const ValueKey('composer-cancel'));
-      composer.text.text = 'A saved topic draft';
-      await tester.runAsync(composer.flushDraft);
-      await tester.pumpAndSettle();
-      composer.text.text = 'A saved topic draft with edits';
-      await tester.pump();
-      if (mobile) {
-        await tester.tap(find.byKey(const ValueKey('composer-close')));
+    testWidgets(
+      'the close prompt can discard a saved draft (mobile: $mobile)',
+      (tester) async {
+        final harness = await _Harness.create(tester, mobile: mobile);
+        final composer = harness.shell.visibleComposer!;
+        composer.text.text = 'A saved topic draft';
+        await tester.runAsync(composer.flushDraft);
+        await tester.pumpAndSettle();
+        composer.text.text = 'A saved topic draft with edits';
+        await tester.pump();
+        Future<void> openPrompt() async {
+          await tester.tap(
+            find.byKey(ValueKey(mobile ? 'composer-close' : 'composer-cancel')),
+          );
+          // Autosave can remain pending with the prompt open.
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(
+            find.byKey(
+              ValueKey(
+                mobile ? 'composer-close-sheet' : 'composer-discard-dialog',
+              ),
+            ),
+            findsOneWidget,
+          );
+        }
+
+        await openPrompt();
+        await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(cancel.hitTestable(), findsOneWidget);
-      }
-      await tester.tap(cancel);
-      // Autosave stays pending while the prompt is open; its spinner keeps
-      // animating, so wait for the dialog rather than all scheduled frames.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(
-        find.byKey(const ValueKey('composer-discard-dialog')),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(composer.raw, 'A saved topic draft with edits');
-      if (mobile) {
-        await tester.tap(find.byKey(const ValueKey('composer-close')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(cancel.hitTestable(), findsOneWidget);
-      }
-      await tester.tap(cancel);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
-      await tester.pumpAndSettle();
-      expect(harness.shell.visibleComposer, isNull);
-      expect(tester.takeException(), isNull);
-    });
+        expect(composer.raw, 'A saved topic draft with edits');
+        await openPrompt();
+        await tester.tap(
+          find.byKey(const ValueKey('composer-confirm-discard')),
+        );
+        await tester.pumpAndSettle();
+        expect(harness.shell.visibleComposer, isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets(
@@ -978,12 +973,9 @@ void main() {
     await tester.tap(close);
     await tester.pumpAndSettle();
     expect(harness.shell.visibleComposer, same(composer));
-    expect(
-      tester
-          .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
-          .map((item) => (item.child as Text).data),
-      ['Save draft', 'Discard'],
-    );
+    expect(find.byKey(const ValueKey('composer-close-sheet')), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Discard'), findsOneWidget);
     await tester.tap(find.text('Save draft'));
     await tester.pumpAndSettle();
     expect(harness.shell.visibleComposer, isNull);
@@ -1418,40 +1410,60 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('mobile X discard requires confirmation', (tester) async {
+  testWidgets('mobile X isolates Discard in the close sheet', (tester) async {
     final harness = await _Harness.create(
       tester,
       mobile: true,
       size: const Size(390, 800),
+      textScale: 2,
     );
     final composer = harness.shell.visibleComposer!;
     composer.text.text = 'Keep the draft until an action is chosen';
+    tester.view.viewInsets = FakeViewPadding(
+      bottom: 300 * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
-    for (final confirm in [false, true]) {
+
+    final sheet = find.byKey(const ValueKey('composer-close-sheet'));
+    final cancel = find.byKey(const ValueKey('composer-cancel-discard'));
+    final discard = find.byKey(const ValueKey('composer-confirm-discard'));
+    Future<void> openSheet() async {
       await tester.tap(find.byKey(const ValueKey('composer-close')));
       await tester.pumpAndSettle();
-      expect(find.text('Minimize'), findsNothing);
-      await tester.tap(find.text('Discard'));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('composer-discard-dialog')),
-        findsOneWidget,
-      );
-      expect(composer.isDisposed, isFalse);
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            confirm ? 'composer-confirm-discard' : 'composer-cancel-discard',
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      if (confirm) {
-        expect(harness.shell.visibleComposer, isNull);
-      } else {
-        expect(composer.raw, 'Keep the draft until an action is chosen');
-      }
+      expect(sheet, findsOneWidget);
+      expect(cancel.hitTestable(), findsOneWidget);
+      expect(discard.hitTestable(), findsOneWidget);
     }
+
+    await openSheet();
+    final cancelBounds = tester.getRect(cancel);
+    final discardBounds = tester.getRect(discard);
+    expect(cancelBounds.height, greaterThanOrEqualTo(44));
+    expect(discardBounds.height, greaterThanOrEqualTo(44));
+    expect(discardBounds.top - cancelBounds.bottom, greaterThanOrEqualTo(32));
+    await tester.tapAt(
+      Offset(
+        cancelBounds.center.dx,
+        (cancelBounds.bottom + discardBounds.top) / 2,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(sheet, findsOneWidget);
+    expect(harness.shell.visibleComposer, same(composer));
+
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(harness.shell.visibleComposer, same(composer));
+    expect(composer.raw, 'Keep the draft until an action is chosen');
+
+    await openSheet();
+    await tester.tap(discard);
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(find.byKey(const ValueKey('composer-discard-dialog')), findsNothing);
+    expect(harness.shell.visibleComposer, isNull);
     expect(tester.takeException(), isNull);
   });
 

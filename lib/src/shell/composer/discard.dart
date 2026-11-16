@@ -9,12 +9,24 @@ import '../shell_controller.dart';
 import '../shell_scope.dart';
 import 'controller.dart';
 
+bool composerNeedsCloseSheet(ComposerController composer) =>
+    !composer.draft.isEmpty ||
+    (!composer.canSaveDraft && (composer.hasChanges || composer.metadataChanged));
+
 Future<void> closeComposerFromPanel({
   required BuildContext context,
   required ComposerController composer,
   ShellController? controller,
+  bool showCloseSheet = false,
 }) async {
-  if (!composer.draft.isEmpty &&
+  if (showCloseSheet && composerNeedsCloseSheet(composer)) {
+    await requestComposerDiscard(
+      context: context,
+      composer: composer,
+      controller: controller,
+      showCloseSheet: true,
+    );
+  } else if (!composer.draft.isEmpty &&
       composer.canSaveDraft &&
       (composer.hasChanges ||
           composer.metadataChanged ||
@@ -80,6 +92,7 @@ Future<void> requestComposerDiscard({
   required ComposerController composer,
   ShellController? controller,
   bool offerSave = false,
+  bool showCloseSheet = false,
 }) async {
   final shell = controller ?? ShellScope.read(context);
   if (composer.isDisposed || composer.discarding || composer.closing) return;
@@ -96,22 +109,45 @@ Future<void> requestComposerDiscard({
     _showDiscardError(context, _pendingOperationMessage);
     return;
   }
-  if (composer.hasUnappliedDraft && !composer.hasChanges) {
-    shell.closeComposer(composer: composer);
-    return;
-  }
-  if (composer.draft.isEmpty ||
-      (!composer.hasChanges &&
-          !composer.metadataChanged &&
-          composer.savedDraft == null)) {
-    final error = await shell.discardComposer(composer);
-    if (error != null && context.mounted) _showDiscardError(context, error);
-    return;
+  if (!showCloseSheet) {
+    if (composer.hasUnappliedDraft && !composer.hasChanges) {
+      shell.closeComposer(composer: composer);
+      return;
+    }
+    if (composer.draft.isEmpty ||
+        (!composer.hasChanges &&
+            !composer.metadataChanged &&
+            composer.savedDraft == null)) {
+      final error = await shell.discardComposer(composer);
+      if (error != null && context.mounted) _showDiscardError(context, error);
+      return;
+    }
   }
 
   if (!composer.beginDiscardPrompt()) return;
   final revision = composer.draftRevision;
+  bool canDismiss() =>
+      (!composer.discarding && !composer.closing) || composer.isDisposed;
+  Widget buildPrompt(BuildContext context, DDialogController<void> dialog) =>
+      _DiscardComposerPrompt(
+        composer: composer,
+        controller: shell,
+        confirmedRevision: revision,
+        offerSave: offerSave || (showCloseSheet && composer.canSaveDraft),
+        showCloseSheet: showCloseSheet,
+        onClose: dialog.close,
+      );
   try {
+    if (showCloseSheet) {
+      await showDSheet<void>(
+        context: context,
+        side: DSheetSide.bottom,
+        variant: DSheetVariant.menu,
+        canDismiss: canDismiss,
+        builder: buildPrompt,
+      );
+      return;
+    }
     await showDDialog<void>(
       context: context,
       // Keep the source diff readable. Native Dialog still owns the barrier,
@@ -140,15 +176,8 @@ Future<void> requestComposerDiscard({
           ),
         ],
       ),
-      canDismiss: () =>
-          (!composer.discarding && !composer.closing) || composer.isDisposed,
-      builder: (dialogContext, dialog) => _DiscardComposerDialog(
-        composer: composer,
-        controller: shell,
-        confirmedRevision: revision,
-        offerSave: offerSave,
-        onClose: dialog.close,
-      ),
+      canDismiss: canDismiss,
+      builder: buildPrompt,
     );
   } finally {
     composer.finishDiscardPrompt();
@@ -162,12 +191,13 @@ void _showDiscardError(BuildContext context, String error) {
   DToast.show(context, error, type: DToastType.error);
 }
 
-class _DiscardComposerDialog extends StatefulWidget {
-  const _DiscardComposerDialog({
+class _DiscardComposerPrompt extends StatefulWidget {
+  const _DiscardComposerPrompt({
     required this.composer,
     required this.controller,
     required this.confirmedRevision,
-    this.offerSave = false,
+    required this.offerSave,
+    required this.showCloseSheet,
     required this.onClose,
   });
 
@@ -175,13 +205,14 @@ class _DiscardComposerDialog extends StatefulWidget {
   final ShellController controller;
   final int confirmedRevision;
   final bool offerSave;
+  final bool showCloseSheet;
   final VoidCallback onClose;
 
   @override
-  State<_DiscardComposerDialog> createState() => _DiscardComposerDialogState();
+  State<_DiscardComposerPrompt> createState() => _DiscardComposerPromptState();
 }
 
-class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
+class _DiscardComposerPromptState extends State<_DiscardComposerPrompt>
     with SingleTickerProviderStateMixin {
   late final AnimationController _restoration = AnimationController(
     vsync: this,
@@ -315,6 +346,11 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
       });
       return;
     }
+    if (widget.composer.hasUnappliedDraft && !widget.composer.hasChanges) {
+      widget.controller.closeComposer(composer: widget.composer);
+      widget.onClose();
+      return;
+    }
     setState(() {
       _discarding = true;
       _error = null;
@@ -322,7 +358,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
     final error = await widget.controller.discardComposer(widget.composer);
     if (!mounted) return;
     if (error == null) {
-      _closeDialog();
+      _closePrompt();
       return;
     }
     setState(() {
@@ -331,7 +367,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
     });
   }
 
-  void _closeDialog() {
+  void _closePrompt() {
     if ((_discarding || _saving || _restoring) && !widget.composer.isDisposed) {
       return;
     }
@@ -344,11 +380,111 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
     final saved = widget.composer.savedDraft != null;
     final changed = widget.composer.hasSavedDraftChanges;
     final busy = _saving || _discarding || _restoring;
-    final message = widget.offerSave
+    final showCloseSheet = widget.showCloseSheet;
+    final message = widget.offerSave || showCloseSheet
         ? context.l10n.closeComposer
         : editing
         ? context.l10n.doYouWantToDiscardYourChanges
         : context.l10n.doYouWantToDiscardYourPost;
+    final size = showCloseSheet ? DButtonSize.action : DButtonSize.regular;
+    final errorMessage = switch (_error) {
+      final error? => Semantics(
+        liveRegion: true,
+        child: Text(
+          error,
+          style: TextStyle(color: DTokens.of(context).destructive),
+        ),
+      ),
+      null => null,
+    };
+    final save = widget.offerSave
+        ? DButton(
+            key: ValueKey(
+              showCloseSheet ? 'composer-save-draft' : 'composer-confirm-save',
+            ),
+            size: size,
+            autofocus: true,
+            variant: DButtonVariant.primary,
+            onPressed: busy ? null : () => unawaited(_save()),
+            loading: _saving,
+            icon: const DIcon(DIcons.check),
+            label: Text(
+              !saved
+                  ? context.l10n.saveDraft
+                  : changed
+                  ? context.l10n.saveChanges
+                  : context.l10n.keepComposerDraft,
+            ),
+          )
+        : null;
+    final cancel = DButton(
+      key: const ValueKey('composer-cancel-discard'),
+      size: size,
+      autofocus: showCloseSheet && !widget.offerSave,
+      variant: showCloseSheet ? DButtonVariant.secondary : DButtonVariant.ghost,
+      onPressed: busy ? null : _closePrompt,
+      label: Text(context.l10n.cancel),
+    );
+    final destructiveActions = [
+      if (saved && changed)
+        _previewAction(
+          ComposerDiscardPreview.changes,
+          DButton(
+            key: const ValueKey('composer-revert-saved-draft'),
+            size: size,
+            variant: DButtonVariant.destructive,
+            onPressed: busy ? null : () => unawaited(_rollback()),
+            loading: _restoring,
+            icon: const DIcon(DIcons.arrowRotateLeft),
+            label: Text(context.l10n.discardChanges),
+          ),
+        ),
+      _previewAction(
+        ComposerDiscardPreview.all,
+        DButton(
+          key: const ValueKey('composer-confirm-discard'),
+          size: size,
+          variant: DButtonVariant.destructive,
+          onPressed: busy ? null : () => unawaited(_discard()),
+          loading: _discarding,
+          icon: const DIcon(DIcons.trashCan),
+          label: Text(
+            saved
+                ? context.l10n.deleteComposerDraft
+                : editing
+                ? context.l10n.discardChanges
+                : context.l10n.discard,
+          ),
+        ),
+      ),
+    ];
+
+    if (showCloseSheet) {
+      return DSheetContent(
+        key: const ValueKey('composer-close-sheet'),
+        side: DSheetSide.bottom,
+        variant: DSheetVariant.menu,
+        semanticLabel: message,
+        showCloseButton: false,
+        scrollWholeSheet: true,
+        children: [
+          DSheetHeader(
+            children: [
+              DSheetTitle(child: Text(message)),
+              ?errorMessage,
+            ],
+          ),
+          DSheetFooter(
+            children: [
+              ?save,
+              cancel,
+              const SizedBox(height: DSpacing.lg),
+              ...destructiveActions,
+            ],
+          ),
+        ],
+      );
+    }
     return DDialogContent(
       key: const ValueKey('composer-discard-dialog'),
       semanticLabel: message,
@@ -357,71 +493,12 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
         DDialogHeader(
           children: [
             DDialogTitle(child: Text(message)),
-            if (_error case final error?)
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  error,
-                  style: TextStyle(color: DTokens.of(context).destructive),
-                ),
-              ),
+            ?errorMessage,
           ],
         ),
         DDialogFooter(
           wideAlignment: WrapAlignment.start,
-          children: [
-            if (widget.offerSave)
-              DButton(
-                key: const ValueKey('composer-confirm-save'),
-                autofocus: true,
-                variant: DButtonVariant.primary,
-                onPressed: busy ? null : () => unawaited(_save()),
-                loading: _saving,
-                icon: const DIcon(DIcons.check),
-                label: Text(
-                  !saved
-                      ? context.l10n.saveDraft
-                      : changed
-                      ? context.l10n.saveChanges
-                      : context.l10n.keepComposerDraft,
-                ),
-              ),
-            if (saved && changed)
-              _previewAction(
-                ComposerDiscardPreview.changes,
-                DButton(
-                  key: const ValueKey('composer-revert-saved-draft'),
-                  variant: DButtonVariant.destructive,
-                  onPressed: busy ? null : () => unawaited(_rollback()),
-                  loading: _restoring,
-                  icon: const DIcon(DIcons.arrowRotateLeft),
-                  label: Text(context.l10n.discardChanges),
-                ),
-              ),
-            _previewAction(
-              ComposerDiscardPreview.all,
-              DButton(
-                key: const ValueKey('composer-confirm-discard'),
-                variant: DButtonVariant.destructive,
-                onPressed: busy ? null : () => unawaited(_discard()),
-                loading: _discarding,
-                icon: const DIcon(DIcons.trashCan),
-                label: Text(
-                  saved
-                      ? context.l10n.deleteComposerDraft
-                      : editing
-                      ? context.l10n.discardChanges
-                      : context.l10n.discard,
-                ),
-              ),
-            ),
-            DButton(
-              key: const ValueKey('composer-cancel-discard'),
-              variant: DButtonVariant.ghost,
-              onPressed: busy ? null : _closeDialog,
-              label: Text(context.l10n.cancel),
-            ),
-          ],
+          children: [?save, ...destructiveActions, cancel],
         ),
       ],
     );

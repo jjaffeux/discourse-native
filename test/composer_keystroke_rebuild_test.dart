@@ -283,7 +283,7 @@ void main() {
     });
   }
 
-  testWidgets('the phone close menu weighs the draft as it opens', (
+  testWidgets('the phone close sheet offers to save the current draft edits', (
     tester,
   ) async {
     final (:composer, api: _) = await _openNewTopic(tester, mobile: true);
@@ -342,7 +342,7 @@ void main() {
     await _saveDraftAndSettle(tester);
   });
 
-  testWidgets('the first title key still arms the phone close menu', (
+  testWidgets('the first title key still arms the phone close sheet', (
     tester,
   ) async {
     final (:composer, api: _) = await _openNewTopic(tester, mobile: true);

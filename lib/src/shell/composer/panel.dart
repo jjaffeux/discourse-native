@@ -115,8 +115,6 @@ class ComposerPanel extends StatelessWidget {
   const ComposerPanel({
     super.key,
     required this.composer,
-    this.closeMenuOpen,
-    this.onCloseMenuOpenChanged,
     this.height,
     this.minimized = false,
     this.onMinimize,
@@ -131,8 +129,6 @@ class ComposerPanel extends StatelessWidget {
   });
 
   final ComposerController composer;
-  final bool? closeMenuOpen;
-  final ValueChanged<bool>? onCloseMenuOpenChanged;
   final double? height;
   final bool minimized;
   final VoidCallback? onMinimize;
@@ -209,6 +205,7 @@ class ComposerPanel extends StatelessWidget {
             context: context,
             composer: composer,
             controller: controller,
+            showCloseSheet: mobile,
           ),
         );
 
@@ -244,8 +241,6 @@ class ComposerPanel extends StatelessWidget {
 
         final header = ComposerHeader(
           composer: composer,
-          closeMenuOpen: closeMenuOpen,
-          onCloseMenuOpenChanged: onCloseMenuOpenChanged,
           minimized: minimized,
           onClose: close,
           closeTooltip: composer.canSaveDraft
@@ -267,14 +262,6 @@ class ComposerPanel extends StatelessWidget {
                   onPressed: busy ? null : onSubmit,
                 )
               : null,
-          onSaveDraft: () => unawaited(
-            saveComposerFromPanel(
-              context: context,
-              composer: composer,
-              controller: controller,
-            ),
-          ),
-          onDiscard: discard,
         );
 
         // Keyboard motion changes the available height without changing the

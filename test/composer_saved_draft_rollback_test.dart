@@ -360,8 +360,6 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-close')));
         await tester.pumpAndSettle();
         expect(find.text('Save changes'), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('composer-cancel')));
-        await tester.pumpAndSettle();
         final revert = find.byKey(
           const ValueKey('composer-revert-saved-draft'),
         );

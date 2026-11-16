@@ -675,7 +675,10 @@ void main() {
           find.byKey(const ValueKey('composer-save-draft')),
           findsOneWidget,
         );
-        expect(find.byKey(const ValueKey('composer-cancel')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('composer-confirm-discard')),
+          findsOneWidget,
+        );
       },
     );
   }

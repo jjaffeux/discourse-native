@@ -11,6 +11,7 @@ import '../platform.dart';
 import '../shell_metrics.dart';
 import '../shell_scope.dart';
 import 'controller.dart';
+import 'discard.dart';
 import 'draft_tabs.dart';
 import 'placement_icon.dart';
 import 'presentation_controller.dart';
@@ -22,29 +23,21 @@ class ComposerHeader extends StatelessWidget {
     required this.minimized,
     required this.onClose,
     required this.closeTooltip,
-    this.closeMenuOpen,
-    this.onCloseMenuOpenChanged,
     this.onMinimize,
     this.onRestore,
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
     this.canDockSide,
     this.mobileSubmit,
-    this.onDiscard,
-    this.onSaveDraft,
   });
 
   static const double height = readerHeaderHeight;
 
   final Widget? mobileSubmit;
-  final VoidCallback? onDiscard;
-  final VoidCallback? onSaveDraft;
   final ComposerController composer;
   final bool minimized;
   final VoidCallback onClose;
   final String closeTooltip;
-  final bool? closeMenuOpen;
-  final ValueChanged<bool>? onCloseMenuOpenChanged;
   final VoidCallback? onMinimize;
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
@@ -239,51 +232,18 @@ class ComposerHeader extends StatelessWidget {
     }
 
     if (mobileSubmit != null && !minimized) {
-      final empty = composer.draft.isEmpty;
+      final hasCloseOptions = composerNeedsCloseSheet(composer);
+      final closeLabel = hasCloseOptions
+          ? context.l10n.composerActions
+          : context.l10n.closeComposer;
       return DSheetHeader(
         key: const ValueKey('composer-header'),
-        leading: DDropdownMenu(
-          open: closeMenuOpen,
-          onOpenChange: (open, _) => onCloseMenuOpenChanged?.call(open),
-          content: DDropdownMenuContent(
-            semanticLabel: context.l10n.composerActions,
-            children: [
-              DDropdownMenuItem(
-                key: const ValueKey('composer-save-draft'),
-                onPressed: composer.canSaveDraft
-                    ? onSaveDraft ?? onClose
-                    : null,
-                child: Text(
-                  composer.savedDraft == null
-                      ? context.l10n.saveDraft
-                      : composer.hasSavedDraftChanges
-                      ? context.l10n.saveChanges
-                      : context.l10n.keepComposerDraft,
-                ),
-              ),
-              DDropdownMenuItem(
-                key: const ValueKey('composer-cancel'),
-                variant: DDropdownMenuItemVariant.destructive,
-                onPressed: onDiscard,
-                child: Text(context.l10n.discard),
-              ),
-            ],
-          ),
-          child: DDropdownMenuTrigger(
-            builder: (context, trigger) => DModalHeaderAction.close(
-              buttonKey: const ValueKey('composer-close'),
-              onPressed: empty ? onClose : trigger.toggle,
-              tooltip: empty
-                  ? context.l10n.closeComposer
-                  : context.l10n.composerActions,
-              semanticLabel: empty
-                  ? context.l10n.closeComposer
-                  : context.l10n.composerActions,
-              focusNode: trigger.focusNode,
-              hasPopup: !empty,
-              expanded: !empty && trigger.open,
-            ),
-          ),
+        leading: DModalHeaderAction.close(
+          buttonKey: const ValueKey('composer-close'),
+          onPressed: onClose,
+          tooltip: closeLabel,
+          semanticLabel: closeLabel,
+          hasPopup: hasCloseOptions,
         ),
         trailing: mobileSubmit,
         children: [
