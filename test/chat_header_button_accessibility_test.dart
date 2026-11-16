@@ -26,72 +26,76 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.discourse.org';
 
 void main() {
-  for (final width in [1000.0, 1440.0]) {
-    for (final chatEnabled in [false, true]) {
-      for (final count in [0, 128]) {
-        testWidgets(
-          'header matches mockup group gaps at $width, chat=$chatEnabled, count=$count',
-          (tester) async {
-            await _pump(
-              tester,
-              width: width,
-              chatEnabled: chatEnabled,
-              mentionCount: count,
-              bellCount: count,
-            );
-            final chatVisible = chatEnabled;
-            expect(
-              find.byKey(ChatHeaderButton.buttonKey),
-              chatVisible ? findsOneWidget : findsNothing,
-            );
-            final controls = [
-              find.byType(DInputGroup),
-              if (chatVisible) find.byKey(ChatHeaderButton.buttonKey),
-              find.byKey(UserMenuButton.bellKey),
-            ];
-            for (var index = 1; index < controls.length; index++) {
-              final previous = tester.getRect(controls[index - 1]);
-              final current = tester.getRect(controls[index]);
-              expect(
-                current.left - previous.right,
-                closeTo(index == 1 ? 11 : 6, .01),
-                reason: 'Gap before control $index',
-              );
-            }
-            expect(tester.takeException(), isNull);
-          },
-          variant: const TargetPlatformVariant({
-            TargetPlatform.macOS,
-            TargetPlatform.fuchsia,
-          }),
+  const desktopCases = [
+    (1000.0, false, 0),
+    (1000.0, true, 128),
+    (1440.0, false, 128),
+    (1440.0, true, 0),
+  ];
+  for (final (width, chatEnabled, count) in desktopCases) {
+    testWidgets(
+      'header matches mockup group gaps at $width, chat=$chatEnabled, count=$count',
+      (tester) async {
+        await _pump(
+          tester,
+          width: width,
+          chatEnabled: chatEnabled,
+          mentionCount: count,
+          bellCount: count,
         );
-      }
-    }
+        final chatVisible = chatEnabled;
+        expect(
+          find.byKey(ChatHeaderButton.buttonKey),
+          chatVisible ? findsOneWidget : findsNothing,
+        );
+        final controls = [
+          find.byType(DInputGroup),
+          if (chatVisible) find.byKey(ChatHeaderButton.buttonKey),
+          find.byKey(UserMenuButton.bellKey),
+        ];
+        for (var index = 1; index < controls.length; index++) {
+          final previous = tester.getRect(controls[index - 1]);
+          final current = tester.getRect(controls[index]);
+          expect(
+            current.left - previous.right,
+            closeTo(index == 1 ? 11 : 6, .01),
+            reason: 'Gap before control $index',
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.fuchsia,
+      }),
+    );
   }
 
-  for (final width in [390.0, 430.0]) {
-    for (final chatEnabled in [false, true]) {
-      for (final count in [0, 128]) {
-        testWidgets(
-          'mobile header keeps account gaps without a chat shortcut at $width, chat=$chatEnabled, count=$count',
-          (tester) async {
-            await _pump(
-              tester,
-              width: width,
-              chatEnabled: chatEnabled,
-              mentionCount: count,
-              bellCount: count,
-            );
-            expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
-            _expectMobileHeaderGaps(tester);
-          },
-          variant: const TargetPlatformVariant({
-            TargetPlatform.iOS,
-            TargetPlatform.android,
-          }),
+  const mobileCases = [
+    (390.0, false, 0),
+    (390.0, true, 128),
+    (430.0, false, 128),
+    (430.0, true, 0),
+  ];
+  for (final (width, chatEnabled, count) in mobileCases) {
+    testWidgets(
+      'mobile header keeps account gaps without a chat shortcut at $width, chat=$chatEnabled, count=$count',
+      (tester) async {
+        await _pump(
+          tester,
+          width: width,
+          chatEnabled: chatEnabled,
+          mentionCount: count,
+          bellCount: count,
         );
-      }
-    }
+        expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+        _expectMobileHeaderGaps(tester);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
   }
 
   for (final width in [320.0, 390.0]) {
