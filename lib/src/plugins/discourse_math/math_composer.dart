@@ -25,7 +25,7 @@ Future<void> insertMath(BuildContext context, ComposerEditorHost editor) async {
   final before = editor.value;
   final selection = before.selection;
   if (!selection.isValid) return;
-  final result = await _mathDialog(
+  final result = await _showMathEditor(
     context,
     source: before.text.substring(selection.start, selection.end),
     display: true,
@@ -39,36 +39,50 @@ Future<void> insertMath(BuildContext context, ComposerEditorHost editor) async {
   editor.requestFocus();
 }
 
-Future<DMathExpression?> _mathDialog(
+Future<DMathExpression?> _showMathEditor(
   BuildContext context, {
   required String source,
   required bool display,
   bool editing = false,
-}) => showDDialog<DMathExpression>(
-  context: context,
-  builder: (context, dialog) => _MathSourceDialog(
+}) {
+  final useSheet = context.isTouch;
+  Widget buildEditor(
+    BuildContext _,
+    DDialogController<DMathExpression> route,
+  ) => _MathSourceEditor(
     source: source,
     display: display,
     editing: editing,
-    dialog: dialog,
-  ),
-);
+    useSheet: useSheet,
+    onClose: route.close,
+  );
+  if (useSheet) {
+    return showDSheet<DMathExpression>(
+      context: context,
+      side: DSheetSide.bottom,
+      inset: true,
+      builder: buildEditor,
+    );
+  }
+  return showDDialog<DMathExpression>(context: context, builder: buildEditor);
+}
 
-class _MathSourceDialog extends StatefulWidget {
-  const _MathSourceDialog({
+class _MathSourceEditor extends StatefulWidget {
+  const _MathSourceEditor({
     required this.source,
     required this.display,
     required this.editing,
-    required this.dialog,
+    required this.useSheet,
+    required this.onClose,
   });
   final String source;
-  final bool display, editing;
-  final DDialogController<DMathExpression> dialog;
+  final bool display, editing, useSheet;
+  final ValueChanged<DMathExpression?> onClose;
   @override
-  State<_MathSourceDialog> createState() => _MathSourceDialogState();
+  State<_MathSourceEditor> createState() => _MathSourceEditorState();
 }
 
-class _MathSourceDialogState extends State<_MathSourceDialog> {
+class _MathSourceEditorState extends State<_MathSourceEditor> {
   late final controller = TextEditingController(text: widget.source);
   @override
   void dispose() {
@@ -77,51 +91,73 @@ class _MathSourceDialogState extends State<_MathSourceDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => DDialogContent(
-    maxWidth: 560,
-    children: [
-      DDialogTitle(
-        child: Text(
-          widget.editing ? context.l10n.editMath : context.l10n.insertMath,
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final title = Text(widget.editing ? l10n.editMath : l10n.insertMath);
+    final field = DTextarea(
+      controller: controller,
+      labelText: l10n.mathSource,
+      hintText: _mathSourceExample,
+      autofocus: true,
+      autocorrect: false,
+      enableSuggestions: false,
+      minLines: 3,
+      maxLines: 10,
+      maxLength: 16384,
+      onChanged: (_) => setState(() {}),
+    );
+    final actions = Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        DButton(
+          label: Text(l10n.cancel),
+          variant: DButtonVariant.outline,
+          onPressed: () => widget.onClose(null),
         ),
-      ),
-      DTextarea(
-        controller: controller,
-        labelText: context.l10n.mathSource,
-        hintText: _mathSourceExample,
-        autofocus: true,
-        autocorrect: false,
-        enableSuggestions: false,
-        minLines: 3,
-        maxLines: 10,
-        maxLength: 16384,
-        onChanged: (_) => setState(() {}),
-      ),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        const SizedBox(width: DSpacing.sm),
+        DButton(
+          label: Text(widget.editing ? l10n.mathApply : l10n.insert),
+          onPressed:
+              controller.text.trim().isEmpty ||
+                  (!widget.display && controller.text.contains('\n'))
+              ? null
+              : () => widget.onClose(
+                  DMathExpression(controller.text, display: widget.display),
+                ),
+        ),
+      ],
+    );
+    if (widget.useSheet) {
+      return DSheetContent(
+        side: DSheetSide.bottom,
+        scrollWholeSheet: true,
         children: [
-          DButton(
-            label: Text(context.l10n.cancel),
-            variant: DButtonVariant.outline,
-            onPressed: () => widget.dialog.close(),
+          DSheetHeader(children: [DSheetTitle(child: title)]),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
+            child: field,
           ),
-          const SizedBox(width: DSpacing.sm),
-          DButton(
-            label: Text(
-              widget.editing ? context.l10n.mathApply : context.l10n.insert,
+          DSheetFooter(
+            padding: const EdgeInsets.fromLTRB(
+              DSpacing.lg,
+              0,
+              DSpacing.lg,
+              DSpacing.lg,
             ),
-            onPressed:
-                controller.text.trim().isEmpty ||
-                    (!widget.display && controller.text.contains('\n'))
-                ? null
-                : () => widget.dialog.close(
-                    DMathExpression(controller.text, display: widget.display),
-                  ),
+            children: [actions],
           ),
         ],
-      ),
-    ],
-  );
+      );
+    }
+    return DDialogContent(
+      maxWidth: 560,
+      children: [
+        DDialogTitle(child: title),
+        field,
+        actions,
+      ],
+    );
+  }
 }
 
 final class MathComposerPolicy implements ComposerSyntaxPolicy {
@@ -287,7 +323,7 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
     if (!_editable(editor)) return;
     final before = editor.value.text;
     if (end > before.length || before.substring(start, end) != source) return;
-    final result = await _mathDialog(
+    final result = await _showMathEditor(
       context,
       source: occurrence.expression.source,
       display: occurrence.expression.display,

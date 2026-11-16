@@ -318,10 +318,11 @@ void main() {
       expect(find.byType(DTextarea), findsNothing);
       await tester.tapAt(Offset(card.left + 12, card.center.dy));
       await tester.pumpAndSettle();
-      expect(find.byType(DTextarea), findsOneWidget);
+      expect(find.widgetWithText(DDialogTitle, 'Edit math'), findsOneWidget);
       await tester.tap(find.widgetWithText(DButton, 'Cancel'));
       await finish(tester);
     },
+    variant: const TargetPlatformVariant({TargetPlatform.macOS}),
   );
   for (final source in [r'$x$', r'$$x$$']) {
     testWidgets('retired composer cannot open math editor: $source', (
@@ -580,6 +581,56 @@ void main() {
       await finish(tester);
     });
   }
+  testWidgets(
+    'editing math opens a bottom sheet above the mobile keyboard',
+    (tester) async {
+      const phone = Size(430, 880);
+      const keyboardHeight = 325.0;
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = phone;
+      addTearDown(tester.view.reset);
+
+      final composer = await pump(
+        tester,
+        r'Before $x+2$ after',
+        width: phone.width,
+      );
+      composer.focus.requestFocus();
+      tester.view.viewInsets = const FakeViewPadding(bottom: keyboardHeight);
+      await tester.pumpAndSettle();
+
+      await tester.tapAt(tester.getCenter(find.byType(DMath)));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byType(DSheetContent);
+      expect(sheet, findsOneWidget);
+      expect(find.byType(DDialogContent), findsNothing);
+      expect(find.widgetWithText(DSheetTitle, 'Edit math'), findsOneWidget);
+      final apply = find.widgetWithText(DButton, 'Apply');
+      expect(
+        tester.getRect(apply).bottom,
+        lessThan(phone.height - keyboardHeight),
+      );
+      final input = find.descendant(
+        of: sheet,
+        matching: find.byType(EditableText),
+      );
+      expect(tester.widget<EditableText>(input).controller.text, 'x+2');
+      expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+      await tester.enterText(input, 'x+3');
+      await tester.tap(apply);
+      await tester.pumpAndSettle();
+
+      expect(sheet, findsNothing);
+      expect(composer.text.text, r'Before $x+3$ after');
+      await finish(tester);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   testWidgets('Cancel and stale Apply do not change source', (tester) async {
     final composer = await pump(tester, r'$x$');
     await tester.tapAt(tester.getCenter(find.byType(DMath)));
