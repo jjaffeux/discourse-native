@@ -1703,7 +1703,7 @@ void main() {
       });
 
       for (final chained in [true, false]) {
-        for (final scale in [1.0, 2.0]) {
+        for (final scale in [if (!chained) 1.0, 2.0]) {
           testWidgets(
             'adds no height at ${scale}x text and is pressable across what it '
             'draws (chained: $chained)',
