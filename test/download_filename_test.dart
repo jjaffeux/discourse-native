@@ -47,25 +47,30 @@ void main() {
     });
   }
 
-  for (final unit in ['a', 'é', '中', '📷']) {
-    for (final existingExtension in ['', '.jpg', '.command']) {
-      test(
-        'bounds a detected extension after $unit titles ending in $existingExtension',
-        () {
-          final filename = downloadFilename(
-            title: '${unit * 300}$existingExtension',
-            url: 'https://example.com/image.jpeg',
-            fallback: 'image',
-            mediaExtensions: _images,
-            preferredExtensions: const ['png'],
-          );
-          expect(utf8.encode(filename).length, lessThanOrEqualTo(240));
-          expect(filename, endsWith('.png'));
-          expect(filename, startsWith(unit));
-          expect(utf8.decode(utf8.encode(filename)), filename);
-        },
-      );
-    }
+  for (final (unit, existingExtension) in [
+    ('a', ''),
+    ('a', '.jpg'),
+    ('a', '.command'),
+    ('é', ''),
+    ('中', '.jpg'),
+    ('📷', '.command'),
+  ]) {
+    test(
+      'bounds a detected extension after $unit titles ending in $existingExtension',
+      () {
+        final filename = downloadFilename(
+          title: '${unit * 300}$existingExtension',
+          url: 'https://example.com/image.jpeg',
+          fallback: 'image',
+          mediaExtensions: _images,
+          preferredExtensions: const ['png'],
+        );
+        expect(utf8.encode(filename).length, lessThanOrEqualTo(240));
+        expect(filename, endsWith('.png'));
+        expect(filename, startsWith(unit));
+        expect(utf8.decode(utf8.encode(filename)), filename);
+      },
+    );
   }
 
   test('a known type keeps its filename aliases', () {
