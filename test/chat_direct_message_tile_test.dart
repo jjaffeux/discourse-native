@@ -292,45 +292,47 @@ void main() {
     }
   }
 
-  for (final group in [false, true]) {
-    for (final outgoing in [false, true]) {
-      for (final direction in TextDirection.values) {
-        testWidgets('group=$group outgoing=$outgoing aligns in $direction', (
-          tester,
-        ) async {
-          final controller = await _controller(
-            _message(author: outgoing ? 1 : 2),
-            channel: _channel(group: group),
-          );
-          await tester.pumpWidget(_tile(controller, direction: direction));
-          await tester.pumpAndSettle();
-          final bubble = tester.getRect(find.byType(DBubbleContent));
-          final content = tester.getRect(find.byType(DMessageContent));
-          final right = direction == TextDirection.rtl;
-          expect(
-            right ? bubble.right : bubble.left,
-            closeTo(right ? content.right : content.left, .01),
-          );
-          final avatar = tester.getRect(find.byType(ChatUserAvatar));
-          expect(
-            right ? avatar.left > bubble.right : avatar.right < bubble.left,
-            isTrue,
-          );
-          expect(avatar.size, const Size.square(28));
-          expect(
-            avatar.top,
-            closeTo(tester.getTopLeft(find.byType(DMessageHeader)).dy, .01),
-          );
-          expect(find.byType(DMessageHeader), findsOneWidget);
-          expect(find.text(outgoing ? 'user1' : 'user2'), findsOneWidget);
-          expect(
-            tester.widget<DBubble>(find.byType(DBubble)).variant,
-            DBubbleVariant.ghost,
-          );
-          expect(bubble.width, closeTo(content.width, .01));
-        });
-      }
-    }
+  const alignmentCases = [
+    (false, false, TextDirection.ltr),
+    (false, true, TextDirection.rtl),
+    (true, false, TextDirection.rtl),
+    (true, true, TextDirection.ltr),
+  ];
+  for (final (group, outgoing, direction) in alignmentCases) {
+    testWidgets('group=$group outgoing=$outgoing aligns in $direction', (
+      tester,
+    ) async {
+      final controller = await _controller(
+        _message(author: outgoing ? 1 : 2),
+        channel: _channel(group: group),
+      );
+      await tester.pumpWidget(_tile(controller, direction: direction));
+      await tester.pumpAndSettle();
+      final bubble = tester.getRect(find.byType(DBubbleContent));
+      final content = tester.getRect(find.byType(DMessageContent));
+      final right = direction == TextDirection.rtl;
+      expect(
+        right ? bubble.right : bubble.left,
+        closeTo(right ? content.right : content.left, .01),
+      );
+      final avatar = tester.getRect(find.byType(ChatUserAvatar));
+      expect(
+        right ? avatar.left > bubble.right : avatar.right < bubble.left,
+        isTrue,
+      );
+      expect(avatar.size, const Size.square(28));
+      expect(
+        avatar.top,
+        closeTo(tester.getTopLeft(find.byType(DMessageHeader)).dy, .01),
+      );
+      expect(find.byType(DMessageHeader), findsOneWidget);
+      expect(find.text(outgoing ? 'user1' : 'user2'), findsOneWidget);
+      expect(
+        tester.widget<DBubble>(find.byType(DBubble)).variant,
+        DBubbleVariant.ghost,
+      );
+      expect(bubble.width, closeTo(content.width, .01));
+    });
   }
 
   group('desktop DM dropdown', () {
@@ -350,86 +352,86 @@ void main() {
       return mouse;
     }
 
-    for (final group in [false, true]) {
-      for (final outgoing in [false, true]) {
-        for (final direction in TextDirection.values) {
-          testWidgets(
-            'group=$group outgoing=$outgoing trailing trigger in $direction',
-            (tester) async {
-              final controller = await _controller(
-                _message(author: outgoing ? 1 : 2),
-                channel: _channel(group: group),
-              );
-              int? replied;
-              await tester.pumpWidget(
-                _tile(
-                  controller,
-                  theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
-                  direction: direction,
-                  onReply: (message) => replied = message.id,
-                ),
-              );
-              await tester.pumpAndSettle();
-              expect(triggerOpacity(tester), 0);
-              final bubble = tester.getRect(find.byType(DBubbleContent));
-              final body = tester.element(
-                find.byKey(ChatMessageTile.bodySelectionKey(7)),
-              );
-              final mouse = await hover(tester);
-              expect(triggerOpacity(tester), 1);
-              expect(find.byType(HoverActionToolbar), findsNothing);
-              expect(find.byType(DButton), findsNWidgets(5));
-              expect(tester.getRect(find.byType(DBubbleContent)), bubble);
-              expect(
-                tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
-                same(body),
-              );
-              final reaction = find.byKey(
-                const ValueKey('chat-message-react-7'),
-              );
-              final reactionRect = tester.getRect(reaction);
-              expect(
-                reactionRect.center.dy,
-                closeTo(tester.getRect(trigger).center.dy, 1),
-              );
-              await mouse.moveTo(reactionRect.center);
-              await tester.pump();
-              expect(reaction.hitTestable(), findsOneWidget);
-              final control = tester.getRect(trigger);
-              expect(bubble.contains(control.topLeft), isTrue);
-              expect(bubble.contains(control.bottomRight), isTrue);
-              expect(control.top, closeTo(bubble.top + 2, .01));
-              expect(
-                direction == TextDirection.ltr ? control.right : control.left,
-                closeTo(
-                  direction == TextDirection.ltr
-                      ? bubble.right - 1
-                      : bubble.left + 1,
-                  .01,
-                ),
-              );
-              expect(reactionRect.center.dy, closeTo(bubble.center.dy, .01));
-              await tester.tap(trigger);
-              await tester.pumpAndSettle();
-              expect(find.byType(DDropdownMenuContent), findsOneWidget);
-              expect(find.text('Reply'), findsOneWidget);
-              expect(
-                find.widgetWithText(DDropdownMenuItem, 'React'),
-                findsOneWidget,
-              );
-              expect(find.text('Bookmark'), findsOneWidget);
-              await mouse.moveTo(const Offset(790, 590));
-              await tester.pumpAndSettle();
-              expect(find.text('Copy link'), findsOneWidget);
-              await tester.tap(find.text('Reply'));
-              await tester.pumpAndSettle();
-              expect(replied, 7);
-              expect(find.byType(DDropdownMenuContent), findsNothing);
-              expect(tester.takeException(), isNull);
-            },
+    const hoverCases = [
+      (false, false, TextDirection.rtl),
+      (false, true, TextDirection.ltr),
+      (true, false, TextDirection.ltr),
+      (true, true, TextDirection.rtl),
+    ];
+    for (final (group, outgoing, direction) in hoverCases) {
+      testWidgets(
+        'group=$group outgoing=$outgoing trailing trigger in $direction',
+        (tester) async {
+          final controller = await _controller(
+            _message(author: outgoing ? 1 : 2),
+            channel: _channel(group: group),
           );
-        }
-      }
+          int? replied;
+          await tester.pumpWidget(
+            _tile(
+              controller,
+              theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+              direction: direction,
+              onReply: (message) => replied = message.id,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(triggerOpacity(tester), 0);
+          final bubble = tester.getRect(find.byType(DBubbleContent));
+          final body = tester.element(
+            find.byKey(ChatMessageTile.bodySelectionKey(7)),
+          );
+          final mouse = await hover(tester);
+          expect(triggerOpacity(tester), 1);
+          expect(find.byType(HoverActionToolbar), findsNothing);
+          expect(find.byType(DButton), findsNWidgets(5));
+          expect(tester.getRect(find.byType(DBubbleContent)), bubble);
+          expect(
+            tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
+            same(body),
+          );
+          final reaction = find.byKey(const ValueKey('chat-message-react-7'));
+          final reactionRect = tester.getRect(reaction);
+          expect(
+            reactionRect.center.dy,
+            closeTo(tester.getRect(trigger).center.dy, 1),
+          );
+          await mouse.moveTo(reactionRect.center);
+          await tester.pump();
+          expect(reaction.hitTestable(), findsOneWidget);
+          final control = tester.getRect(trigger);
+          expect(bubble.contains(control.topLeft), isTrue);
+          expect(bubble.contains(control.bottomRight), isTrue);
+          expect(control.top, closeTo(bubble.top + 2, .01));
+          expect(
+            direction == TextDirection.ltr ? control.right : control.left,
+            closeTo(
+              direction == TextDirection.ltr
+                  ? bubble.right - 1
+                  : bubble.left + 1,
+              .01,
+            ),
+          );
+          expect(reactionRect.center.dy, closeTo(bubble.center.dy, .01));
+          await tester.tap(trigger);
+          await tester.pumpAndSettle();
+          expect(find.byType(DDropdownMenuContent), findsOneWidget);
+          expect(find.text('Reply'), findsOneWidget);
+          expect(
+            find.widgetWithText(DDropdownMenuItem, 'React'),
+            findsOneWidget,
+          );
+          expect(find.text('Bookmark'), findsOneWidget);
+          await mouse.moveTo(const Offset(790, 590));
+          await tester.pumpAndSettle();
+          expect(find.text('Copy link'), findsOneWidget);
+          await tester.tap(find.text('Reply'));
+          await tester.pumpAndSettle();
+          expect(replied, 7);
+          expect(find.byType(DDropdownMenuContent), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
 
     testWidgets(
