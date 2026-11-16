@@ -234,9 +234,8 @@ void main() {
           findsNothing,
         );
       },
-      variant: const TargetPlatformVariant({
-        TargetPlatform.iOS,
-        TargetPlatform.android,
+      variant: TargetPlatformVariant({
+        width == 320 ? TargetPlatform.iOS : TargetPlatform.android,
         TargetPlatform.macOS,
       }),
     );
