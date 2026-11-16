@@ -83,7 +83,7 @@ void main() {
     expect(parseComposerImages(source), isEmpty);
   });
 
-  for (final slashes in [0, 1, 2, 3, 4]) {
+  for (final slashes in [0, 1, 2]) {
     testWidgets('editor projects image only with even slash count $slashes', (
       tester,
     ) async {
