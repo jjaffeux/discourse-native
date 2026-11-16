@@ -376,8 +376,8 @@ void main({bool useDeviceMetrics = false}) {
         final chatRow = find.byKey(
           const ValueKey('global-search-result-chat:3001'),
         );
-        expect(tester.widget<DItem>(chatRow).selected, isTrue);
-        expect(selected, findsOneWidget);
+        expect(tester.widget<DItem>(chatRow).selected, !mobile);
+        expect(selected, mobile ? findsNothing : findsOneWidget);
         api.sourceGate.complete();
         await tester.pumpAndSettle();
         expect(shell.globalSearch.phase, GlobalSearchPhase.results);
@@ -385,7 +385,7 @@ void main({bool useDeviceMetrics = false}) {
           shell.globalSearch.sections.first.scope,
           GlobalSearchScope.forum,
         );
-        expect(tester.widget<DItem>(chatRow).selected, isTrue);
+        expect(tester.widget<DItem>(chatRow).selected, !mobile);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, 'chat-c-2');

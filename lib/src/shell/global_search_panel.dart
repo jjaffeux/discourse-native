@@ -154,6 +154,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     _publishSelection();
   }
 
+  bool get _showsKeyboardHighlight => !widget.footerControls;
+
   /// Rows kept across builds read the selection through [_resultSelection],
   /// and only a result id draws one of them selected.
   void _publishSelection() =>
@@ -404,7 +406,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         size: DItemSize.artwork,
         shape: DItemShape.menu,
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        selected: _selected == id,
+        selected: _showsKeyboardHighlight && _selected == id,
         selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
         onPressed: () => turn(!_filtersOpen),
@@ -505,8 +507,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               shape: DItemShape.menu,
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               selected:
-                  _selected == 'filter:${filter.id}' ||
-                  (_selected == null && _actions.isEmpty),
+                  _showsKeyboardHighlight &&
+                  (_selected == 'filter:${filter.id}' ||
+                      (_selected == null && _actions.isEmpty)),
               selectionStyle: DItemSelectionStyle.strongNeutral,
               showSelectionIndicator: false,
               onPressed: () => _stage(filter),
@@ -804,8 +807,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 key: ValueKey('global-search-staged-${choice.value}'),
                 size: DItemSize.sm,
                 selected:
-                    _selected == 'value:${choice.value}' ||
-                    (_selected == null && _actions.isEmpty),
+                    _showsKeyboardHighlight &&
+                    (_selected == 'value:${choice.value}' ||
+                        (_selected == null && _actions.isEmpty)),
                 showSelectionIndicator: false,
                 onPressed: () => pick(choice),
                 children: [
@@ -886,7 +890,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               ),
               DItem(
                 size: DItemSize.sm,
-                selected: _selected == 'value:typed',
+                selected: _showsKeyboardHighlight && _selected == 'value:typed',
                 showSelectionIndicator: false,
                 onPressed: () => pick(
                   GlobalSearchFilterChoice(
@@ -1309,7 +1313,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         key: ValueKey(id),
         size: DItemSize.sm,
         shape: DItemShape.menu,
-        selected: _selected == id,
+        selected: _showsKeyboardHighlight && _selected == id,
         showSelectionIndicator: false,
         onPressed: pick,
         children: [
@@ -1799,7 +1803,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         size: DItemSize.artwork,
         shape: DItemShape.menu,
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        selected: _selected == id && !phoneSheet,
+        selected: _showsKeyboardHighlight && _selected == id,
         selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
         onPressed: section.results.isEmpty ? null : open,
@@ -1921,7 +1925,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               DItem(
                 size: DItemSize.sm,
                 onPressed: widget.onApply,
-                selected: _selected == 'clear-filters',
+                selected:
+                    _showsKeyboardHighlight && _selected == 'clear-filters',
                 showSelectionIndicator: false,
                 children: [
                   const DItemMedia(child: DIcon(DIcons.filter, size: 16)),
@@ -1975,7 +1980,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     6,
                     4,
                   ),
-                  selected: _selected == 'recent:$query',
+                  selected:
+                      _showsKeyboardHighlight && _selected == 'recent:$query',
                   selectionStyle: DItemSelectionStyle.strongNeutral,
                   showSelectionIndicator: false,
                   onPressed: () {
@@ -2236,7 +2242,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           9,
           6,
         ),
-        selected: _selected == result.id,
+        selected: _showsKeyboardHighlight && _selected == result.id,
         selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
         onPressed: () => widget.onOpen(result),
@@ -2331,7 +2337,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         },
         link: true,
         selected:
-            _selected == result.id || widget.selectedResultId == result.id,
+            widget.selectedResultId == result.id ||
+            (_showsKeyboardHighlight && _selected == result.id),
         selectionStyle: DItemSelectionStyle.leadingAccent,
         showSelectionIndicator: false,
         children: [
@@ -2452,8 +2459,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     if (widget.footerControls && !individualPost && topic != null) {
       return KeyboardSelection.scope(
         key: ValueKey('global-search-result-${result.id}'),
-        selected:
-            _selected == result.id || widget.selectedResultId == result.id,
+        selected: widget.selectedResultId == result.id,
         child: TopicListRow(
           topic: topic,
           siteUrl: controller.siteUrl!,
@@ -2535,7 +2541,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         widget.onOpen(result);
       },
       link: true,
-      selected: _selected == result.id || widget.selectedResultId == result.id,
+      selected:
+          widget.selectedResultId == result.id ||
+          (_showsKeyboardHighlight && _selected == result.id),
       selectionStyle: DItemSelectionStyle.strongNeutral,
       showSelectionIndicator: false,
       children: [
