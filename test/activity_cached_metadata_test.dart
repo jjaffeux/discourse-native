@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -16,8 +19,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const site = 'https://meta.example';
 const otherSite = 'https://other.example';
@@ -58,7 +64,22 @@ const capture = ValueKey('activity-metadata-capture');
 
 class _MetadataGuardApi extends FakeDiscourseApi {
   _MetadataGuardApi({List<UserActivityItem>? items})
-    : super(user: user, userActivityItems: items ?? [action]);
+    : super(
+        user: user,
+        userActivityItems: items ?? [action],
+        emojisBySite: const {
+          site: [
+            SiteEmoji(
+              name: 'sparkles',
+              url: '/images/emoji/twitter/sparkles.png',
+            ),
+            SiteEmoji(
+              name: 'spiral_calendar',
+              url: '/images/emoji/twitter/spiral_calendar.png',
+            ),
+          ],
+        },
+      );
   final unexpected = <String>[];
   @override
   Future<TopicList> topicList({
@@ -184,6 +205,53 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
+  });
+
+  testWidgets('phone activity titles use a single 16 point side inset', (
+    tester,
+  ) async {
+    await host(tester, fullPage: true);
+
+    final title = tester.getRect(find.byType(DItemTitle));
+    expect([title.left, 390 - title.right], [16.0, 16.0]);
+  });
+
+  testWidgets('activity excerpts render both text and cooked emoji', (
+    tester,
+  ) async {
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==',
+    );
+    installTestMediaPipeline(
+      client: MockClient((_) async => http.Response.bytes(png, 200)),
+    );
+    const row = UserActivityItem(
+      actionType: 1,
+      topicId: 42,
+      postNumber: 7,
+      title: 'Weekly updates',
+      slug: 'updates',
+      username: 'alice',
+      excerpt:
+          ':sparkles: November 7-13 '
+          '<img class="emoji" alt=":spiral_calendar:" '
+          'src="/images/emoji/twitter/spiral_calendar.png">',
+    );
+    await host(tester, fullPage: true, row: row);
+
+    final description = find.byType(DItemDescription);
+    final emoji = find.descendant(
+      of: description,
+      matching: find.byType(EmojiImage),
+    );
+    expect(tester.widgetList<EmojiImage>(emoji).map((image) => image.url), [
+      '$site/images/emoji/twitter/sparkles.png',
+      '$site/images/emoji/twitter/spiral_calendar.png',
+    ]);
+    expect(
+      find.descendant(of: emoji, matching: find.byType(Image)),
+      findsNWidgets(2),
+    );
   });
 
   for (final width in [390.0, 1200.0]) {

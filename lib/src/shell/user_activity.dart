@@ -22,6 +22,7 @@ import 'content_reading_lane.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'site_emoji_text.dart';
 import 'skeleton_fill.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
@@ -617,7 +618,7 @@ class _ActivityListState extends State<_ActivityList> {
         ),
       ),
       bodyBuilder: (context, header) => ContentReadingLane(
-        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        basePadding: const EdgeInsets.only(top: 12, bottom: 24),
         builder: (context, lane) => AccountFeedViewport(
           identity: (siteUrl, widget.session, widget.username, _kind),
           rows: [for (final item in items) item.identity],
@@ -693,7 +694,11 @@ class _ActivityListState extends State<_ActivityList> {
                                         onTap: () => onOpen(item),
                                       ),
                                       if (index < items.length - 1)
-                                        const DSeparator(space: 1),
+                                        const DSeparator(
+                                          indent: 16,
+                                          endIndent: 16,
+                                          space: 1,
+                                        ),
                                     ],
                                   ),
                                 );
@@ -855,8 +860,9 @@ class UserActivityRow extends StatelessWidget {
                 if (item.excerpt.isNotEmpty) ...[
                   const SizedBox(height: 5),
                   DItemDescription(
-                    child: Text(
+                    child: SiteEmojiText.plain(
                       excerpt,
+                      siteUrl: siteUrl,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1056,7 +1062,7 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
     semanticsLabel: context.l10n.loadingActivity,
     color: skeletonFill(context),
     child: ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+      basePadding: const EdgeInsets.fromLTRB(16, 28, 16, 24),
       builder: (context, lane) => ListView.separated(
         padding: lane.padding,
         itemCount: 6,
