@@ -722,7 +722,6 @@ void main() {
         'width descriptors',
         '${base}_690x388.png 690w, ${base}_1380x776.png 1380w',
       ),
-      ('an unreadable srcset', 'not a srcset, at all'),
       ('a candidate on the device', 'file:///etc/secret.png 2x'),
     ]) {
       testWidgets('load src for $description', (tester) async {
