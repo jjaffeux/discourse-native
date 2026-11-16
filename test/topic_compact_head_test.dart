@@ -120,18 +120,6 @@ void main() {
   group('topicCompactTagsThatFit', () {
     double eachLetterSix(String text) => text.length * 6.0;
 
-    test('names every tag while the line has room', () {
-      expect(
-        topicCompactTagsThatFit(
-          width: 400,
-          path: const ['Baking'],
-          tags: const ['starter', 'fridge'],
-          measure: eachLetterSix,
-        ),
-        2,
-      );
-    });
-
     test('counts each piece with its gap and leaves room for the count', () {
       // Baking: 9 mark + 6 + 36 name + 6 = 57. #starter: 48 + 6 = 54, and
       // with one tag still to come, +1: 12 + 6 = 18. 57 + 54 + 18 = 129.
@@ -223,13 +211,15 @@ void main() {
         find.descendant(of: _metadata, matching: find.byType(Text)).first,
       );
       expect(line.style!.fontSize, 11);
-      expect(
-        find.descendant(
-          of: _metadata,
-          matching: find.textContaining('#a', findRichText: true),
-        ),
-        findsOneWidget,
-      );
+      for (final tag in ['#a', '#b']) {
+        expect(
+          find.descendant(
+            of: _metadata,
+            matching: find.textContaining(tag, findRichText: true),
+          ),
+          findsOneWidget,
+        );
+      }
       expect(
         find.descendant(
           of: _metadata,
