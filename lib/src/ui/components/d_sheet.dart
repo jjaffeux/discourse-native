@@ -121,6 +121,11 @@ class DSheet<T> extends StatelessWidget {
   /// Restores focus to the trigger or previous control after dismissal.
   final bool restoreFocus;
 
+  /// How a modal sheet recedes the page beneath it on a touch screen. Give a
+  /// route's page a [DDialogBackgroundHost] with this builder so that sheets
+  /// opened over it move the page without rebuilding it.
+  static const DDialogBackgroundBuilder routeBackground = _routeSheetBackground;
+
   bool get _focusAfterLayout =>
       content.variant == DSheetVariant.adaptiveMenu &&
       content.side == DSheetSide.bottom &&

@@ -166,12 +166,47 @@ class _DSheetBackgroundMotion extends StatelessWidget {
     );
     final surround = surroundingColor;
     if (surround == null) return scaled;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: tint == null ? null : Color.alphaBlend(tint, surround),
-      ),
+    return _DSheetSurroundFill(
+      color: tint == null ? null : Color.alphaBlend(tint, surround),
       child: scaled,
     );
+  }
+}
+
+// Fills the edges a receding page uncovers. It never takes a hit itself, so a
+// host left in place between sheets passes on every tap its page leaves.
+class _DSheetSurroundFill extends SingleChildRenderObjectWidget {
+  const _DSheetSurroundFill({required this.color, required super.child});
+
+  final Color? color;
+
+  @override
+  _RenderSheetSurroundFill createRenderObject(BuildContext context) =>
+      _RenderSheetSurroundFill(color);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSheetSurroundFill renderObject,
+  ) => renderObject.color = color;
+}
+
+class _RenderSheetSurroundFill extends RenderProxyBox {
+  _RenderSheetSurroundFill(this._color);
+
+  Color? _color;
+  set color(Color? value) {
+    if (value == _color) return;
+    _color = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (_color case final color?) {
+      context.canvas.drawRect(offset & size, Paint()..color = color);
+    }
+    super.paint(context, offset);
   }
 }
 
