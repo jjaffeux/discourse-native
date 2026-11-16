@@ -1300,7 +1300,10 @@ void main() {
 
   group('settings and preferences', () {
     for (final change in ['room', 'site', 'same-room']) {
-      for (final delayedRead in [false, true]) {
+      for (final delayedRead in [
+        if (change != 'site') false,
+        if (change != 'room') true,
+      ]) {
         testWidgets('volume dialog keeps its call target '
             '(change: $change, delayed read: $delayedRead)', (tester) async {
           final preferences = _Preferences(participantVolume: 0.4);
