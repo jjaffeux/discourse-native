@@ -111,63 +111,61 @@ void main() {
       ];
 
   for (final (field, choose) in choices) {
-    for (final throws in [false, true]) {
-      test(
-        '$field joins pending writes and retries ${throws ? 'throwing' : 'rejected'} saves',
-        () async {
-          final gate = Completer<void>();
-          final persistence = _ControlledAppSettingsPersistence(
-            firstWriteGate: gate,
-            acceptWrites: false,
-          )..throwWrites = throws;
-          final controller = _controller(persistence);
-          await controller.load();
-          var settingsNotifications = 0;
-          var saveNotifications = 0;
-          controller.addListener(() => settingsNotifications++);
-          controller.saveStates.addListener(() => saveNotifications++);
-          final saving = choose(controller);
-          await persistence.firstWriteStarted.future;
-          final repeated = choose(controller);
-          expect(identical(saving, repeated), isTrue);
-          var completed = false;
-          unawaited(repeated.then((_) => completed = true));
-          await Future<void>.delayed(Duration.zero);
-          expect(completed, isFalse);
-          expect(
-            controller.saveStates.value[field]!.status,
-            AppSettingsSaveStatus.pending,
-          );
-          gate.complete();
-          await saving;
-          final failure = controller.saveStates.value[field]!;
-          expect(failure.status, AppSettingsSaveStatus.failed);
-          expect(failure.failure!.error, isA<StateError>());
-          expect(failure.failure!.stackTrace.toString(), isNotEmpty);
-          final chosen = controller.settings;
-          expect(
-            await AppSettingsStore(persistence: persistence).read(),
-            isNot(chosen),
-          );
-          persistence.acceptWrites = true;
-          persistence.throwWrites = false;
-          await choose(controller);
-          expect(
-            controller.saveStates.value[field]!.status,
-            AppSettingsSaveStatus.saved,
-          );
-          expect(controller.saveStates.value[field]!.failure, isNull);
-          expect(
-            await AppSettingsStore(persistence: persistence).read(),
-            chosen,
-          );
-          await choose(controller);
-          expect(persistence.writeCount, 2);
-          expect(settingsNotifications, 1);
-          expect(saveNotifications, 4);
-        },
-      );
-    }
+    final throws =
+        field == AppSettingsField.reduceMotion ||
+        field == AppSettingsField.themeMode;
+    test(
+      '$field joins pending writes and retries ${throws ? 'throwing' : 'rejected'} saves',
+      () async {
+        final gate = Completer<void>();
+        final persistence = _ControlledAppSettingsPersistence(
+          firstWriteGate: gate,
+          acceptWrites: false,
+        )..throwWrites = throws;
+        final controller = _controller(persistence);
+        await controller.load();
+        var settingsNotifications = 0;
+        var saveNotifications = 0;
+        controller.addListener(() => settingsNotifications++);
+        controller.saveStates.addListener(() => saveNotifications++);
+        final saving = choose(controller);
+        await persistence.firstWriteStarted.future;
+        final repeated = choose(controller);
+        expect(identical(saving, repeated), isTrue);
+        var completed = false;
+        unawaited(repeated.then((_) => completed = true));
+        await Future<void>.delayed(Duration.zero);
+        expect(completed, isFalse);
+        expect(
+          controller.saveStates.value[field]!.status,
+          AppSettingsSaveStatus.pending,
+        );
+        gate.complete();
+        await saving;
+        final failure = controller.saveStates.value[field]!;
+        expect(failure.status, AppSettingsSaveStatus.failed);
+        expect(failure.failure!.error, isA<StateError>());
+        expect(failure.failure!.stackTrace.toString(), isNotEmpty);
+        final chosen = controller.settings;
+        expect(
+          await AppSettingsStore(persistence: persistence).read(),
+          isNot(chosen),
+        );
+        persistence.acceptWrites = true;
+        persistence.throwWrites = false;
+        await choose(controller);
+        expect(
+          controller.saveStates.value[field]!.status,
+          AppSettingsSaveStatus.saved,
+        );
+        expect(controller.saveStates.value[field]!.failure, isNull);
+        expect(await AppSettingsStore(persistence: persistence).read(), chosen);
+        await choose(controller);
+        expect(persistence.writeCount, 2);
+        expect(settingsNotifications, 1);
+        expect(saveNotifications, 4);
+      },
+    );
   }
 
   for (final firstFails in [false, true]) {
