@@ -234,8 +234,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Alpha').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
+      expect(
+        find.byKey(const ValueKey('topic-filter-done-tags')),
+        findsNothing,
+      );
+      await tester.showKeyboard(list_fixture.field);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
+      expect(list_fixture.field, findsNothing);
       expect(fixture.shell.topicListContent?.tagName, 'Alpha');
       expect(tester.takeException(), isNull);
     },

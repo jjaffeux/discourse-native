@@ -20,6 +20,7 @@ import 'd_popover.dart';
 import 'd_scroll_area.dart';
 import 'd_separator.dart';
 import 'd_sheet.dart';
+import 'd_sheet_scroll_body.dart';
 
 enum DComboboxChangeReason {
   input,
@@ -985,14 +986,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
             state: this,
             child: TextFieldTapRegion(
               child: _usesSheetFooter
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Flexible(child: combobox.content),
-                        _DComboboxSheetFooter<T>(),
-                      ],
-                    )
+                  ? _DComboboxSheetBody<T>(child: combobox.content)
                   : combobox.content,
             ),
           ),
@@ -1443,7 +1437,11 @@ class DComboboxContent extends StatelessWidget {
   );
 }
 
-class _DComboboxSheetFooter<T> extends StatelessWidget {
+class _DComboboxSheetBody<T> extends StatelessWidget {
+  const _DComboboxSheetBody({required this.child});
+
+  final Widget child;
+
   @override
   Widget build(BuildContext context) {
     final root = _DComboboxScope.of<T>(context);
@@ -1455,9 +1453,9 @@ class _DComboboxSheetFooter<T> extends StatelessWidget {
             if (available.contains(option)) option,
     ];
     if (root.selectedValues.isEmpty && options.isEmpty) {
-      return const SizedBox.shrink();
+      return DSheetScrollBody(child: child);
     }
-    return DSheetFooter(
+    final footer = DSheetFooter(
       padding: const EdgeInsets.symmetric(
         horizontal: DSpacing.lg,
         vertical: DSpacing.sm,
@@ -1513,6 +1511,7 @@ class _DComboboxSheetFooter<T> extends StatelessWidget {
         ),
       ],
     );
+    return DSheetScrollBody(footer: footer, child: child);
   }
 }
 

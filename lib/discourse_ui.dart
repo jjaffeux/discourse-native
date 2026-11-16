@@ -112,6 +112,7 @@ export 'src/ui/components/d_scroll_chrome.dart';
 export 'src/ui/components/d_select.dart';
 export 'src/ui/components/d_separator.dart';
 export 'src/ui/components/d_sheet.dart';
+export 'src/ui/components/d_sheet_scroll_body.dart';
 export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';
 export 'src/ui/components/d_slider.dart';

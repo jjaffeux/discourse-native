@@ -553,7 +553,13 @@ Future<void> _choose(
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
   if (menu == 'tag') {
-    await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
+    final input = find.byKey(const ValueKey('topic-filter-input'));
+    if (DControlStyle.isTouch(tester.element(input))) {
+      await tester.showKeyboard(input);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+    } else {
+      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
+    }
     await tester.pumpAndSettle();
   }
 }

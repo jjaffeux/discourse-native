@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/composer/recipients.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,6 +111,118 @@ void main() {
         closeTo(screenBottom - (inset < homeInset ? homeInset : inset), .01),
       );
     }
+  });
+
+  testWidgets('recipient chips retract and return above the keyboard', (
+    tester,
+  ) async {
+    final defaults = Completer<FoundUsersAndGroups>()
+      ..complete(
+        FoundUsersAndGroups(
+          users: [
+            for (var i = 1; i <= 28; i++) FoundUser(username: 'person$i'),
+          ],
+          groups: const [FoundGroup(name: 'team')],
+        ),
+      );
+    final composer = await _pump(
+      tester,
+      mobile: true,
+      api: _RecipientApi(Completer<FoundUsersAndGroups>(), defaults: defaults),
+      recipients: 'sam',
+    );
+    await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+    await tester.pumpAndSettle();
+    await sendKeyboardFrame(tester, inset: 320);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+    final chips = find.byKey(const ValueKey(('recipient-group', 'team')));
+    final list = find.descendant(
+      of: find.byType(DComboboxList<String>),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(list).position;
+    final atRest = tester.getRect(list);
+    expect(position.maxScrollExtent, greaterThan(200));
+    expect(chips.hitTestable(), findsOneWidget);
+    await tester.runAsync(() => _captureRecipient('footer-before-scroll'));
+
+    Future<void> scroll(double delta) async {
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: atRest.center,
+          scrollDelta: Offset(0, delta),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    final drag = await tester.startGesture(atRest.center);
+    await drag.moveBy(const Offset(0, -30));
+    await tester.pump(const Duration(milliseconds: 80));
+    await drag.moveBy(const Offset(0, -110));
+    await tester.pump(const Duration(milliseconds: 100));
+    await drag.up();
+    await tester.pumpAndSettle();
+    final afterDrag = position.pixels;
+    expect(afterDrag, greaterThan(60));
+    expect(chips.hitTestable(), findsNothing);
+    expect(tester.getRect(list).bottom, greaterThan(atRest.bottom));
+    expect(_editable(tester).focusNode.hasFocus, isTrue);
+    await tester.runAsync(() => _captureRecipient('footer-scrolling-down'));
+
+    await tester.pump(const Duration(milliseconds: 250));
+    await scroll(-50);
+    expect(position.pixels, closeTo(afterDrag - 50, 1));
+    expect(chips.hitTestable(), findsOneWidget);
+    await tester.runAsync(() => _captureRecipient('footer-scrolling-up'));
+
+    await tester.pump(const Duration(milliseconds: 250));
+    await scroll(70);
+    expect(chips.hitTestable(), findsNothing);
+    await scroll(5000);
+    expect(position.extentAfter, closeTo(0, 1));
+    expect(chips.hitTestable(), findsOneWidget);
+    expect(composer.target.targetRecipients, 'sam');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a first recipient becomes available in the footer mid-list', (
+    tester,
+  ) async {
+    final defaults = Completer<FoundUsersAndGroups>()
+      ..complete(
+        FoundUsersAndGroups(
+          users: [
+            for (var i = 1; i <= 28; i++) FoundUser(username: 'person$i'),
+          ],
+        ),
+      );
+    await _pump(
+      tester,
+      mobile: true,
+      api: _RecipientApi(Completer<FoundUsersAndGroups>(), defaults: defaults),
+    );
+    await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+    await tester.pumpAndSettle();
+    await sendKeyboardFrame(tester, inset: 320);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetFooter), findsNothing);
+    final results = find.byType(DComboboxList<String>);
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(results),
+        scrollDelta: const Offset(0, 130),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_option('person6'));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel('Remove person6').hitTestable(),
+      findsOneWidget,
+    );
   });
 
   for (final swipe in [false, true]) {

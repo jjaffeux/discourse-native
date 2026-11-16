@@ -231,7 +231,9 @@ extension _TopicFilterSheet on _TopicFilterInputState {
   Widget _buildSheet(BuildContext context) {
     final taxonomyScope = const {'tag', 'category'}.contains(widget.onlyKey);
     final searchPicker = widget.returnToSearch != null;
-    final tagsInFooter = searchPicker && _isTagStage;
+    final phoneTagPicker =
+        widget.onlyKey == 'tag' && DControlStyle.isTouch(context);
+    final tagsInFooter = phoneTagPicker || searchPicker && _isTagStage;
     final selectedTags = tagsInFooter ? _sheetTags : const <String>[];
     final clauseKey = topicFilterClauseKey(filter.text.text);
     final option = widget.options
@@ -461,7 +463,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                   child: widget.returnToSearch == null
                       ? DCommandInput<String>(
                           density: DCommandInputDensity.menuFilter,
-                          tokens: _buildTokenChips(),
+                          tokens: tagsInFooter ? const [] : _buildTokenChips(),
                           autofocus: widget.focusOnOpen,
                           key: widget.inputKey,
                           controller: widget.onlyKey == null
@@ -717,41 +719,36 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         ],
       ),
     );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Flexible(
-          fit: widget.returnToSearch != null ? FlexFit.tight : FlexFit.loose,
-          child:
-              option?.type == 'date' ||
-                  option?.type == 'number' ||
-                  MediaQuery.textScalerOf(context).scale(1) > 1.5
-              ? DScrollArea(child: command)
-              : command,
-        ),
-        if (searchPicker && _tokens.isNotEmpty)
-          DSheetFooter(
-            padding: EdgeInsets.zero,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-                child: DScrollArea(
-                  axes: DScrollAxes.horizontal,
-                  showScrollbar: false,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 5,
-                    children: [
-                      ..._buildTokenChips(splitTags: tagsInFooter),
-                      if (selectedTags.isNotEmpty) tagModes,
-                    ],
+    return DSheetScrollBody(
+      fill: searchPicker,
+      footer: (searchPicker || phoneTagPicker) && _tokens.isNotEmpty
+          ? DSheetFooter(
+              padding: EdgeInsets.zero,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                  child: DScrollArea(
+                    axes: DScrollAxes.horizontal,
+                    showScrollbar: false,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 5,
+                      children: [
+                        ..._buildTokenChips(splitTags: tagsInFooter),
+                        if (selectedTags.isNotEmpty) tagModes,
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-      ],
+              ],
+            )
+          : null,
+      child:
+          option?.type == 'date' ||
+              option?.type == 'number' ||
+              !tagsInFooter && MediaQuery.textScalerOf(context).scale(1) > 1.5
+          ? DScrollArea(child: command)
+          : command,
     );
   }
 }

@@ -3640,7 +3640,10 @@ void main() {
       await tester.pumpAndSettle();
       final pathsBeforeDone = [...setup.api.feedPaths];
       expect(pathsBeforeDone, hasLength(pathsBeforeTags.length + 3));
-      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
+      await tester.showKeyboard(
+        find.byKey(const ValueKey('topic-filter-input')),
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
       expect(setup.api.feedPaths, pathsBeforeDone);
       expect(shell.topicListContent?.topicFilterQuery, isEmpty);

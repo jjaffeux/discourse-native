@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/shell/topic_category_path_selector.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -126,24 +127,31 @@ void main() {
       expect(find.text('Match'), findsNothing);
       expect(find.byType(DToggleGroup<String>), findsNothing);
       expect(find.byType(DCheckbox), findsNothing);
-      expect(find.text('Done'), findsOneWidget);
-      expect(find.text('No tags yet'), findsOneWidget);
+      final mobile = platform == TargetPlatform.iOS;
+      expect(find.text('Done'), mobile ? findsNothing : findsOneWidget);
+      expect(find.text('No tags yet'), mobile ? findsNothing : findsOneWidget);
 
       final firstTag = find.byKey(const ValueKey('topic-filter-suggestion-0'));
       await tester.tap(firstTag);
       await tester.pumpAndSettle();
       expect(data.shell.topicListContent!.tagNames, ['vuln-status-create']);
-      expect(find.text('Match'), findsOneWidget);
+      expect(find.text('Match'), mobile ? findsNothing : findsOneWidget);
       expect(find.byType(DToggleGroup<String>), findsOneWidget);
-      expect(
-        tester
-            .widgetList<DCheckbox>(find.byType(DCheckbox))
-            .where((checkbox) => checkbox.value == true),
-        hasLength(1),
-      );
+      if (!mobile) {
+        expect(
+          tester
+              .widgetList<DCheckbox>(find.byType(DCheckbox))
+              .where((checkbox) => checkbox.value == true),
+          hasLength(1),
+        );
+      }
       await fixture.capture(tester, 'taxonomy-tags-selected-$platform');
 
-      await tester.tap(firstTag);
+      await tester.tap(
+        mobile
+            ? find.byTooltip('Remove vuln-status-create condition')
+            : firstTag,
+      );
       await tester.pumpAndSettle();
       expect(data.shell.topicListContent!.tagNames, isEmpty);
       expect(find.text('Match'), findsNothing);
@@ -210,7 +218,9 @@ void main() {
       // Removing the last tag publishes an empty scope without discarding
       // the category or status, and the same menu stays available.
       await tester.tap(
-        find.byKey(const ValueKey('topic-filter-token-remove-0')),
+        platform == TargetPlatform.iOS
+            ? find.byTooltip('Remove Alpha condition')
+            : find.byKey(const ValueKey('topic-filter-token-remove-0')),
       );
       await tester.pumpAndSettle();
       expect(data.shell.topicListContent!.tagNames, isEmpty);
@@ -229,7 +239,14 @@ void main() {
         data.shell.topicListContent!.topicFilterQuery,
         contains('status:open'),
       );
-      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
+      final done = find.byKey(const ValueKey('topic-filter-done-tags'));
+      if (platform == TargetPlatform.iOS) {
+        expect(done, findsNothing);
+        await tester.showKeyboard(fixture.field);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+      } else {
+        await tester.tap(done);
+      }
       await tester.pumpAndSettle();
       expect(_list, findsNothing);
       expect(tester.takeException(), isNull);
@@ -421,6 +438,69 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'phone feed Tags shows selected chips again on reverse and at the ends at ${scale}x',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final data = await fixture.fixture(
+          tester,
+          size: phone,
+          filterOptions: fixture.filterMenuOptions,
+          knownTags: [
+            for (var i = 1; i <= 30; i++)
+              SidebarTag(id: i, name: 'Tag $i', slug: 'tag-$i', count: 31 - i),
+          ],
+        );
+        await _open(tester, 'topic-list-tag-filter');
+        await tester.tap(_choice('Tag 1'));
+        await tester.pumpAndSettle();
+        final chip = find.byTooltip('Remove Tag 1 condition');
+        final list = find.descendant(
+          of: _list,
+          matching: find.byType(Scrollable),
+        );
+        final position = tester.state<ScrollableState>(list).position;
+        final rect = tester.getRect(list);
+        final before = position.pixels;
+        expect(position.maxScrollExtent, greaterThan(160));
+        expect(chip.hitTestable(), findsOneWidget);
+        await fixture.capture(tester, 'tag-footer-before-scroll-$scale');
+
+        Future<void> scroll(double delta) async {
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: rect.center,
+              scrollDelta: Offset(0, delta),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await scroll(100);
+        expect(position.pixels, closeTo(before + 100, 1));
+        expect(chip.hitTestable(), findsNothing);
+        await fixture.capture(tester, 'tag-footer-scrolling-down-$scale');
+
+        await tester.pump(const Duration(milliseconds: 250));
+        await scroll(-35);
+        expect(chip.hitTestable(), findsOneWidget);
+        await fixture.capture(tester, 'tag-footer-scrolling-up-$scale');
+
+        await tester.pump(const Duration(milliseconds: 250));
+        await scroll(60);
+        expect(chip.hitTestable(), findsNothing);
+        await scroll(-5000);
+        expect(position.extentBefore, closeTo(0, 1));
+        expect(chip.hitTestable(), findsOneWidget);
+        expect(data.shell.topicListContent!.tagNames, ['Tag 1']);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets(
       'scoped menus remain reachable at 200 percent text on $platform',
@@ -449,17 +529,23 @@ void main() {
         await tester.tap(_choice('Alpha'));
         await tester.pumpAndSettle();
         final toggles = find.descendant(
-          of: _list,
+          of: platform == TargetPlatform.iOS
+              ? find.byType(DSheetFooter)
+              : _list,
           matching: find.byType(DToggle),
         );
         final rects = [
           for (var i = 0; i < 4; i++) tester.getRect(toggles.at(i)),
         ];
-        expect(rects.map((rect) => rect.top).toSet().length, greaterThan(1));
-        final modes = tester.getRect(find.byType(DToggleGroup<String>));
-        for (final rect in rects) {
-          expect(rect.left, greaterThanOrEqualTo(modes.left - .001));
-          expect(rect.right, lessThanOrEqualTo(modes.right + .001));
+        if (platform == TargetPlatform.iOS) {
+          expect(rects.map((rect) => rect.top).toSet(), hasLength(1));
+        } else {
+          expect(rects.map((rect) => rect.top).toSet().length, greaterThan(1));
+          final modes = tester.getRect(find.byType(DToggleGroup<String>));
+          for (final rect in rects) {
+            expect(rect.left, greaterThanOrEqualTo(modes.left - .001));
+            expect(rect.right, lessThanOrEqualTo(modes.right + .001));
+          }
         }
         await tester.ensureVisible(find.text('Not all'));
         await tester.tap(find.text('Not all'));
@@ -468,10 +554,15 @@ void main() {
           data.shell.topicListContent!.topicFilterQuery,
           contains('-tag:Alpha'),
         );
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('topic-filter-done-tags')),
-        );
-        await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
+        final done = find.byKey(const ValueKey('topic-filter-done-tags'));
+        if (platform == TargetPlatform.iOS) {
+          expect(done, findsNothing);
+          await tester.showKeyboard(fixture.field);
+          await tester.testTextInput.receiveAction(TextInputAction.done);
+        } else {
+          await tester.ensureVisible(done);
+          await tester.tap(done);
+        }
         await tester.pumpAndSettle();
         expect(_list, findsNothing);
         expect(tester.takeException(), isNull);
