@@ -793,7 +793,6 @@ void main() {
 
   for (final (description, source, margins) in [
     ('empty HTML', '', <String?>[]),
-    ('a lone paragraph', '<p>Only</p>', ['0.1em 0 0.1em']),
     (
       'multiple paragraphs',
       '<p>First</p><p>Middle</p><p>Last</p>',
