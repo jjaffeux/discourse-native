@@ -73,6 +73,7 @@ const capture = ValueKey('activity-capture');
 
 Future<(ShellController, FakeDiscourseApi)> pumpCard(
   WidgetTester tester, {
+  bool connected = true,
   bool desktop = false,
   bool reduced = false,
   bool longHistory = false,
@@ -88,7 +89,7 @@ Future<(ShellController, FakeDiscourseApi)> pumpCard(
   tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
   addTearDown(tester.view.reset);
   final api = FakeDiscourseApi(
-    user: me,
+    user: connected ? me : null,
     cards: {'sam': profile},
     userActivityItems:
         activity ??
@@ -109,10 +110,11 @@ Future<(ShellController, FakeDiscourseApi)> pumpCard(
   );
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
-      instance('meta.example').copyWith(user: me),
+      instance('meta.example').copyWith(user: connected ? me : null),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[site] = 'key',
+    authenticator: FakeAuthenticator()
+      ..keys.addAll({if (connected) site: 'key'}),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
   );
@@ -178,6 +180,28 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
   });
+
+  testWidgets('signed-out phone card has no swipe-up activity', (tester) async {
+    final (_, api) = await pumpCard(tester, connected: false);
+    final name = find.text('Sam Example');
+    expect(name.hitTestable(), findsOneWidget);
+    expect(find.text('Swipe up to view activity'), findsNothing);
+    final restingTop = tester.getTopLeft(name).dy;
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 460));
+    expect(tester.getTopLeft(name).dy, closeTo(restingTop, .1));
+
+    final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+    await tester.drag(handle, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(name).dy, closeTo(restingTop, .1));
+    expect(api.userActivityRequests, isEmpty);
+
+    await tester.drag(handle, const Offset(0, 180));
+    await tester.pumpAndSettle();
+    expect(name, findsNothing);
+  });
+
   testWidgets(
     'phone rests below the card, peeks by 40, then settles and swipes into real activity',
     (tester) async {

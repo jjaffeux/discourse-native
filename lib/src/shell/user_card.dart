@@ -62,6 +62,8 @@ Future<void> showUserCard({
                 final controller = owner.controller;
                 final card = controller.userCard(username, siteUrl: targetSite);
                 final lease = controller.lifecycle.capture(targetSite);
+                final activityEnabled =
+                    controller.instanceFor(targetSite)?.isConnected == true;
                 return DSheetContent(
                   key: const ValueKey<String>('user-card-surface'),
                   card: true,
@@ -85,7 +87,7 @@ Future<void> showUserCard({
                           ),
                         ),
                   slivers: [
-                    if (card != null)
+                    if (card != null && activityEnabled)
                       UserActivityView(
                         siteUrl: targetSite,
                         username: card.username,
@@ -108,6 +110,7 @@ Future<void> showUserCard({
                     _ControllerUserCardPopup(
                       key: ValueKey(owner),
                       restAt: restAt,
+                      showActivityHint: activityEnabled,
                       controller: owner.controller,
                       username: username,
                       siteUrl: targetSite,
@@ -166,9 +169,11 @@ class _ControllerUserCardPopup extends StatefulWidget {
     required this.siteUrl,
     required this.close,
     this.restAt,
+    this.showActivityHint = false,
   });
 
   final GlobalKey? restAt;
+  final bool showActivityHint;
   final ShellController controller;
   final String username;
   final String siteUrl;
@@ -253,7 +258,8 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
                 close: widget.close,
               ),
             ),
-            DSheetSwipeHint(label: context.l10n.swipeUpToViewActivity),
+            if (widget.showActivityHint)
+              DSheetSwipeHint(label: context.l10n.swipeUpToViewActivity),
           ],
         );
       }
