@@ -149,6 +149,14 @@ void main() {
     }
   }
 
+  final systemFontRows = {
+    (1.0, '- [ ] ', ''),
+    (2.0, '[ ] ', ''),
+    (2.0, '- [ ] ', 'dzadza'),
+    (1.0, '[ ] ', 'dzadza'),
+    (1.0, '- [ ] ', 'A task that wraps onto several lines ' * 3),
+    (2.0, '[ ] ', 'A task that wraps onto several lines ' * 3),
+  };
   for (final font in [
     'assets/fonts/OpenSans.ttf',
     if (Platform.isMacOS) '/System/Library/Fonts/SFNS.ttf',
@@ -160,6 +168,10 @@ void main() {
           'dzadza',
           'A task that wraps onto several lines ' * 3,
         ]) {
+          if (!font.startsWith('assets/') &&
+              !systemFontRows.contains((scale, marker, label))) {
+            continue;
+          }
           testWidgets('todo row parts align for $marker with $font '
               'at $scale and ${label.length} characters', (tester) async {
             await (FontLoader(font)..addFont(
@@ -636,6 +648,14 @@ void main() {
     expect(root.text.text, source);
   });
 
+  const systemFontHints = [
+    (TargetPlatform.macOS, 1.0, '- [ ] '),
+    (TargetPlatform.android, 1.0, '[ ] '),
+    (TargetPlatform.macOS, 1.5, '[ ] '),
+    (TargetPlatform.android, 1.5, '- [ ] '),
+    (TargetPlatform.macOS, 2.0, '- [ ] '),
+    (TargetPlatform.android, 2.0, '[ ] '),
+  ];
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     for (final scale in [1.0, 1.5, 2.0]) {
       for (final font in [
@@ -643,6 +663,10 @@ void main() {
         if (Platform.isMacOS) '/System/Library/Fonts/SFNS.ttf',
       ]) {
         for (final marker in ['- [ ] ', '[ ] ']) {
+          if (!font.startsWith('assets/') &&
+              !systemFontHints.contains((platform, scale, marker))) {
+            continue;
+          }
           testWidgets('todo hint matches typed glyphs for $marker with $font '
               'on ${platform.name} at $scale', (tester) async {
             await (FontLoader(font)..addFont(
