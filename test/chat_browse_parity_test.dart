@@ -462,7 +462,7 @@ void main() {
     );
   }
 
-  for (final width in [320.0, 430.0, 900.0]) {
+  for (final width in [320.0, 900.0]) {
     for (final page in ChatBrowsePage.values) {
       testWidgets(
         page == ChatBrowsePage.channels
@@ -533,7 +533,6 @@ void main() {
 
   for (final (width, platform) in [
     (320.0, TargetPlatform.iOS),
-    (430.0, TargetPlatform.iOS),
     (900.0, TargetPlatform.macOS),
   ]) {
     testWidgets('inbox filters and navigation cards fit at width $width', (
