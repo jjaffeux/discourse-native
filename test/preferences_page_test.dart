@@ -387,23 +387,6 @@ void main() {
     );
     expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
   });
-  testWidgets('plugin preferences keep their real actions within their tab', (
-    tester,
-  ) async {
-    final fixture = await _fixture();
-    await _pumpPage(tester, fixture);
-    await _section(tester, chatPreferenceSection);
-    await tester.ensureVisible(
-      find.byType(DSelect<ChatSeparateSidebarPreference>),
-    );
-    await tester.tap(find.text('When chat is in fullscreen'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Always').last);
-    await tester.pumpAndSettle();
-    expect(fixture.api.userPreferenceUpdates.single.values, {
-      'chat_separate_sidebar_mode': 'always',
-    });
-  });
   testWidgets('quick reversal is saved after the pending first choice', (
     tester,
   ) async {
@@ -1931,6 +1914,17 @@ void main() {
       ),
       coreLabel,
     );
+
+    await tester.ensureVisible(
+      find.byType(DSelect<ChatSeparateSidebarPreference>),
+    );
+    await tester.tap(find.text('When chat is in fullscreen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Always').last);
+    await tester.pumpAndSettle();
+    expect(fixture.api.userPreferenceUpdates.single.values, {
+      'chat_separate_sidebar_mode': 'always',
+    });
   });
   testWidgets('hides Chat when the site setting disables it', (tester) async {
     final site = _chatSite.copyWith(
