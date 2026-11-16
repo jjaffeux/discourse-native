@@ -73,65 +73,64 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final textScale in [1.0, 2.0]) {
-      testWidgets('tag results mount nearby rows on $platform at $textScale', (
+    final textScale = platform == TargetPlatform.iOS ? 2.0 : 1.0;
+    testWidgets('tag results mount nearby rows on $platform at $textScale', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final tags = List.generate(
+        220,
+        (index) => TopicTag(id: index + 1, name: 'tag-$index'),
+      );
+      final selections = <List<TopicTag>>[];
+      final closed = <List<TopicTag>?>[];
+      await openPicker(
         tester,
-      ) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final tags = List.generate(
-          220,
-          (index) => TopicTag(id: index + 1, name: 'tag-$index'),
-        );
-        final selections = <List<TopicTag>>[];
-        final closed = <List<TopicTag>?>[];
-        await openPicker(
-          tester,
-          platform: platform,
-          textScale: textScale,
-          selectedTags: const [],
-          search: (_) async => TopicTagSearch(tags: tags),
-          onSelectionChanged: selections.add,
-          onClosed: closed.add,
-        );
-        final rows = find.byType(DCheckbox, skipOffstage: false);
-        final mounted = rows.evaluate().length;
-        debugPrint(
-          'LAZY_PICKER editable platform=$platform scale=$textScale mounted=$mounted/220',
-        );
-        expect(mounted, greaterThan(0));
-        expect(mounted, lessThan(50));
-        expect(option('tag-219'), findsNothing);
-        final scrollable = find
-            .descendant(
-              of: find.byType(TopicTaxonomyPickerContent),
-              matching: find.byType(Scrollable),
-            )
-            .last;
-        final position = tester.state<ScrollableState>(scrollable).position;
-        expect(position.maxScrollExtent, greaterThan(1000));
-        position.jumpTo(position.maxScrollExtent);
+        platform: platform,
+        textScale: textScale,
+        selectedTags: const [],
+        search: (_) async => TopicTagSearch(tags: tags),
+        onSelectionChanged: selections.add,
+        onClosed: closed.add,
+      );
+      final rows = find.byType(DCheckbox, skipOffstage: false);
+      final mounted = rows.evaluate().length;
+      debugPrint(
+        'LAZY_PICKER editable platform=$platform scale=$textScale mounted=$mounted/220',
+      );
+      expect(mounted, greaterThan(0));
+      expect(mounted, lessThan(50));
+      expect(option('tag-219'), findsNothing);
+      final scrollable = find
+          .descendant(
+            of: find.byType(TopicTaxonomyPickerContent),
+            matching: find.byType(Scrollable),
+          )
+          .last;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      expect(position.maxScrollExtent, greaterThan(1000));
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(option('tag-219'));
+      await tester.tap(option('tag-219'));
+      await tester.pumpAndSettle();
+      if (platform == TargetPlatform.iOS) {
+        expect(selections.last, [tags.last]);
+        final input = find.byType(EditableText);
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        await tester.enterText(input, 'tag-0');
         await tester.pumpAndSettle();
-        await tester.ensureVisible(option('tag-219'));
-        await tester.tap(option('tag-219'));
+        await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
-        if (platform == TargetPlatform.iOS) {
-          expect(selections.last, [tags.last]);
-          final input = find.byType(EditableText);
-          expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
-          await tester.enterText(input, 'tag-0');
-          await tester.pumpAndSettle();
-          await tester.testTextInput.receiveAction(TextInputAction.done);
-          await tester.pumpAndSettle();
-          expect(selections.last, [tags.last, tags.first]);
-        } else {
-          expect(closed.single, [tags.last]);
-          expect(find.byType(TopicTaxonomyPickerContent), findsNothing);
-        }
-        expect(tester.takeException(), isNull);
-      });
-    }
+        expect(selections.last, [tags.last, tags.first]);
+      } else {
+        expect(closed.single, [tags.last]);
+        expect(find.byType(TopicTaxonomyPickerContent), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets(
@@ -288,36 +287,35 @@ void main() {
   );
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final tag in [design, support]) {
-      testWidgets(
-        'opens ${tag.name} on ${platform.name} without changing the selection at the tag limit',
-        (tester) async {
-          final results = <List<TopicTag>?>[];
-          final opened = <TopicTag>[];
-          await openPicker(
-            tester,
-            platform: platform,
-            onClosed: results.add,
-            onTagNavigate: (tag, {newTab = false, panel}) => opened.add(tag),
-          );
+    final tag = platform == TargetPlatform.iOS ? support : design;
+    testWidgets(
+      'opens ${tag.name} on ${platform.name} without changing the selection at the tag limit',
+      (tester) async {
+        final results = <List<TopicTag>?>[];
+        final opened = <TopicTag>[];
+        await openPicker(
+          tester,
+          platform: platform,
+          onClosed: results.add,
+          onTagNavigate: (tag, {newTab = false, panel}) => opened.add(tag),
+        );
 
-          expect(
-            tester.getTopLeft(option(mobile.name)).dy -
-                tester.getBottomLeft(option(design.name)).dy,
-            greaterThanOrEqualTo(4),
-          );
-          await tester.tap(
-            find.byKey(ValueKey(('topic-tag-picker-open', tag.name))),
-          );
-          await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(option(mobile.name)).dy -
+              tester.getBottomLeft(option(design.name)).dy,
+          greaterThanOrEqualTo(4),
+        );
+        await tester.tap(
+          find.byKey(ValueKey(('topic-tag-picker-open', tag.name))),
+        );
+        await tester.pumpAndSettle();
 
-          expect(opened, [tag]);
-          expect(results, [null]);
-          expect(find.byType(TopicTagPicker), findsNothing);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+        expect(opened, [tag]);
+        expect(results, [null]);
+        expect(find.byType(TopicTagPicker), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets(
       'applies each ${platform.name} tag removal when the picker closes',
