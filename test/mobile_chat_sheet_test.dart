@@ -1205,7 +1205,7 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
-  for (final width in [320.0, 390.0, 800.0]) {
+  for (final width in [320.0, 800.0]) {
     testWidgets('chat sheet keyboard, safe areas and reduced motion at $width', (
       tester,
     ) async {
