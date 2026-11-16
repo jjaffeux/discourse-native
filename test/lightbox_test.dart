@@ -924,7 +924,17 @@ void main() {
     testWidgets('disables zoom controls at their scale bounds', (tester) async {
       await pumpGallery(tester);
 
-      expect(galleryButtonWidget(tester, 'Zoom out').onPressed, isNull);
+      final button = galleryButtonWidget(tester, 'Zoom out');
+      final icon = tester.widget<DIcon>(
+        find.descendant(
+          of: galleryButton('Zoom out'),
+          matching: find.byType(DIcon),
+        ),
+      );
+
+      expect(button.onPressed, isNull);
+      expect(button.variant, DButtonVariant.ghost);
+      expect(icon.color, isNull);
       expect(galleryButtonWidget(tester, 'Reset zoom').onPressed, isNull);
       expect(galleryButtonWidget(tester, 'Zoom in').onPressed, isNotNull);
 
@@ -945,23 +955,6 @@ void main() {
       expect(galleryButtonWidget(tester, 'Zoom in').onPressed, isNull);
       expect(galleryButtonWidget(tester, 'Zoom out').onPressed, isNotNull);
       expect(galleryButtonWidget(tester, 'Reset zoom').onPressed, isNotNull);
-    });
-
-    testWidgets('styles disabled zoom controls with inherited muted color', (
-      tester,
-    ) async {
-      await pumpGallery(tester);
-      final button = galleryButtonWidget(tester, 'Zoom out');
-      final icon = tester.widget<DIcon>(
-        find.descendant(
-          of: galleryButton('Zoom out'),
-          matching: find.byType(DIcon),
-        ),
-      );
-
-      expect(button.onPressed, isNull);
-      expect(button.variant, DButtonVariant.ghost);
-      expect(icon.color, isNull);
     });
 
     testWidgets('zooms with keyboard shortcuts', (tester) async {
