@@ -1070,6 +1070,7 @@ void main() {
     testWidgets('shows the addresses and requests a change by mail', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       final fixture = await _fixture(preferences: _withEmail);
       await _pumpPage(tester, fixture);
       await _section(tester, PreferenceSection.email);
@@ -1088,6 +1089,17 @@ void main() {
 
       await tester.enterText(_newEmailInput, ' new@example.org');
       await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(_newEmailInput),
+        isSemantics(
+          isTextField: true,
+          label: 'New email',
+          value: ' new@example.org',
+        ),
+      );
+      expect(find.bySemanticsLabel('Change email'), findsOneWidget);
+      semantics.dispose();
+
       await tester.ensureVisible(_changeEmailFinder);
       await tester.tap(_changeEmailFinder);
       await tester.pumpAndSettle();
@@ -1209,28 +1221,6 @@ void main() {
         find.byKey(const ValueKey('preferences-section-email')),
         findsNothing,
       );
-    });
-
-    testWidgets('the field and its button are named for a screen reader', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      final fixture = await _fixture(preferences: _withEmail);
-      await _pumpPage(tester, fixture);
-      await _section(tester, PreferenceSection.email);
-      await tester.enterText(_newEmailInput, 'new@example.org');
-      await tester.pumpAndSettle();
-
-      expect(
-        tester.getSemantics(_newEmailInput),
-        isSemantics(
-          isTextField: true,
-          label: 'New email',
-          value: 'new@example.org',
-        ),
-      );
-      expect(find.bySemanticsLabel('Change email'), findsOneWidget);
-      semantics.dispose();
     });
 
     testWidgets('fits a phone at twice the text size', (tester) async {
