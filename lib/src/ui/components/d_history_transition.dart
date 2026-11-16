@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../theme/tokens.dart';
+import '../foundation/d_route_scope.dart';
 
 /// A tab among ordered tabs: which one, and where it stands among them.
 typedef DHistoryTab = ({Object id, int index});
@@ -275,7 +276,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   double _distance = 0;
   int _generation = 0;
 
-  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+  ModalRoute<Object?>? _route;
+  Listenable? _routeStatus;
+
+  bool get _routeIsCurrent => _route?.isCurrent ?? true;
   bool get _coveringPage => _handingOff && _handoffCovers;
   bool get _rtl => Directionality.of(context) == TextDirection.rtl;
   double get _sign => _back != _rtl ? 1 : -1;
@@ -325,6 +329,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       _environment = environment;
       _clear();
     }
+    _route = DRouteScope.routeOf(context);
+    final status = DRouteScope.statusOf(context);
+    if (!identical(status, _routeStatus)) {
+      _routeStatus?.removeListener(_routeStatusChanged);
+      _routeStatus = status?..addListener(_routeStatusChanged);
+    }
+    _routeStatusChanged();
+  }
+
+  void _routeStatusChanged() {
     if (!_routeIsCurrent) _resetGesture();
   }
 
@@ -722,6 +736,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _routeStatus?.removeListener(_routeStatusChanged);
     _clear();
     _progress.dispose();
     super.dispose();

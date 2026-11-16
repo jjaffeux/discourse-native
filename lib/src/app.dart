@@ -411,10 +411,13 @@ class _DiscourseAppState extends State<DiscourseApp>
     ],
     supportedLocales: AppLocalizations.supportedLocales,
     localeListResolutionCallback: resolveAppLocale,
-    // Sheets recede the shell beneath them without rebuilding it.
-    home: const DDialogBackgroundHost(
-      builder: DSheet.routeBackground,
-      child: AdaptiveShell(),
+    // Sheets recede the shell beneath them, and cover and uncover its route,
+    // without rebuilding it.
+    home: const DRouteScope(
+      child: DDialogBackgroundHost(
+        builder: DSheet.routeBackground,
+        child: AdaptiveShell(),
+      ),
     ),
     builder: (context, child) => DTouchTargets(
       child: AppMotionRegion(

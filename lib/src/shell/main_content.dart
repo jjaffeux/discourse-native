@@ -562,7 +562,25 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
   @override
   void didUpdateWidget(_TopicInboxWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _dropRetainedPanes();
+    if (_keepsListPane(oldWidget)) {
+      _readerPane = null;
+    } else {
+      _dropRetainedPanes();
+    }
+  }
+
+  /// A phone keeps its list beneath the topics opened from it. A change that
+  /// only the reader reads leaves the list pane, and its rows, as they were.
+  bool _keepsListPane(_TopicInboxWorkspace oldWidget) {
+    final before = oldWidget.state;
+    final after = widget.state;
+    return ShellScope.read(context).mobileNavigationEnabled &&
+        oldWidget.layout == widget.layout &&
+        identical(oldWidget.registry, widget.registry) &&
+        identical(oldWidget.sourceRoute, widget.sourceRoute) &&
+        before.siteUrl == after.siteUrl &&
+        before.activeTabId == after.activeTabId &&
+        before.isConnected == after.isConnected;
   }
 
   final _listWidth = PanelWidthController(
@@ -634,11 +652,21 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final buttonTextScale =
             MediaQuery.textScalerOf(context).scale(buttonFontSize) /
             buttonFontSize;
+        final listHidden = topicOpen && !split && !mobileSheet;
+        // Touch screens draw no panel tabs.
+        final listTabs =
+            !context.isTouch &&
+            ForumTabScope.panelOf(context) == null &&
+            (!topicOpen || split);
         final paneInputs = (
           split,
           mobileSheet,
           maximumListWidth,
           context.isTouch && listWidth >= 440 * buttonTextScale,
+          listHidden,
+          listTabs,
+          controller.mobileNavigationEnabled,
+          controller.currentAccountIdentity,
         );
         if (_paneInputs != paneInputs) {
           _dropRetainedPanes();
@@ -718,7 +746,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     controller.currentAccountIdentity,
                     state.activeTabId,
                   )),
-                  hidden: topicOpen && !split && !mobileSheet,
+                  hidden: listHidden,
                   child: DPageSurface(
                     border: false,
                     borderRadius: WorkspacePanelCorner.borderRadiusOf(
@@ -735,11 +763,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     limitContentSize: ContentSettingsScope.limitContentSizeOf(
                       context,
                     ),
-                    tabs:
-                        ForumTabScope.panelOf(context) == null &&
-                            (!topicOpen || split)
-                        ? const TopicPanelTabs()
-                        : null,
+                    tabs: listTabs ? const TopicPanelTabs() : null,
                     footer:
                         (controller.mobileNavigationEnabled || !context.isTouch)
                         ? null

@@ -134,6 +134,7 @@ export 'src/ui/components/d_typography.dart';
 export 'src/ui/foundation/app_text_scaler.dart';
 export 'src/ui/foundation/code_source.dart' show CodeSource;
 export 'src/ui/foundation/control_style.dart' show DControlSize, DControlStyle;
+export 'src/ui/foundation/d_route_scope.dart';
 export 'src/ui/foundation/focus_highlight.dart';
 export 'src/ui/foundation/header_motion.dart'
     show DHeaderTuning, DHeaderSettle, DHeaderMotionSettings;

@@ -115,6 +115,9 @@ class _TopicListViewState extends State<TopicListView> {
   VoidCallback? _releaseFeed;
   bool _restored = false;
   int? _readingTopicId;
+  // The topic open beside this list. Its rows and separators follow it on
+  // their own, so opening a topic does not rebuild the list.
+  final _readingTopic = ValueNotifier<int?>(null);
   int _boundaryJumpRevision = 0;
 
   ShellController? _controller;
@@ -554,6 +557,7 @@ class _TopicListViewState extends State<TopicListView> {
     // any more, so it is written now.
     _controller?.flushAnchorPersist();
     _releaseFeed?.call();
+    _readingTopic.dispose();
     _disposeControllers();
     _prefetch.dispose();
     _keyboardFocus.dispose();
@@ -844,18 +848,9 @@ class _TopicListViewState extends State<TopicListView> {
       if (mounted && _feedIdentity == feedIdentity) _publishViewport();
     });
 
-    final readingTopicId = widget.inbox ? _tab!.readingTopicId : null;
     final hiddenCategoryId = _tab!.topicListContent?.categoryId;
-    if (_readingTopicId != readingTopicId) {
-      _readingTopicId = readingTopicId;
-      if (readingTopicId == null) {
-        if (context.isTouch && !controller.mobileNavigationEnabled) {
-          _revealCursor();
-        }
-      } else if (feed.topicIds.contains(readingTopicId)) {
-        _cursorOwner!.remember(readingTopicId);
-      }
-    }
+    _followReadingTopic(controller, _tab!.readingTopicId);
+    final rowSelection = Listenable.merge([_cursor, _readingTopic]);
 
     final sourceRows = _sourceRowsFor(feed);
     final content = Column(
@@ -959,33 +954,34 @@ class _TopicListViewState extends State<TopicListView> {
                             ? null
                             : feed.visibleRowForSource(source) * 2;
                       },
-                      separatorBuilder: (context, index) =>
-                          ValueListenableBuilder<TopicListCursor?>(
-                            valueListenable: _cursor!,
-                            builder: (context, cursor, _) {
-                              final current = feed.topicIdAt(index);
-                              final next = feed.topicIdAt(index + 1);
-                              final keyboardId =
-                                  cursor != null &&
-                                      (cursor.keyboard ||
-                                          readingTopicId == cursor.topicId)
-                                  ? cursor.topicId
-                                  : null;
-                              final selectedId = widget.inbox
-                                  ? readingTopicId
-                                  : null;
-                              return _StoredTopicListSeparator(
-                                siteUrl: feedIdentity.$1,
-                                topicId: current,
-                                nextTopicId: next,
-                                besideSelection:
-                                    current == keyboardId ||
-                                    next != null && next == keyboardId ||
-                                    current == selectedId ||
-                                    next != null && next == selectedId,
-                              );
-                            },
-                          ),
+                      separatorBuilder: (context, index) => ListenableBuilder(
+                        listenable: rowSelection,
+                        builder: (context, _) {
+                          final cursor = _cursor!.value;
+                          final readingTopicId = _readingTopic.value;
+                          final current = feed.topicIdAt(index);
+                          final next = feed.topicIdAt(index + 1);
+                          final keyboardId =
+                              cursor != null &&
+                                  (cursor.keyboard ||
+                                      readingTopicId == cursor.topicId)
+                              ? cursor.topicId
+                              : null;
+                          final selectedId = widget.inbox
+                              ? readingTopicId
+                              : null;
+                          return _StoredTopicListSeparator(
+                            siteUrl: feedIdentity.$1,
+                            topicId: current,
+                            nextTopicId: next,
+                            besideSelection:
+                                current == keyboardId ||
+                                next != null && next == keyboardId ||
+                                current == selectedId ||
+                                next != null && next == selectedId,
+                          );
+                        },
+                      ),
                       itemBuilder: (context, index) {
                         if (index >= feed.rowCount) {
                           if (feed.loadingMore) {
@@ -1031,18 +1027,20 @@ class _TopicListViewState extends State<TopicListView> {
                                 : _restoringRow(context),
                           );
                         }
-                        return ValueListenableBuilder<TopicListCursor?>(
+                        return ListenableBuilder(
                           key: ValueKey(topicId),
-                          valueListenable: _cursor!,
-                          builder: (context, cursor, child) =>
-                              KeyboardSelection.scope(
-                                key: ValueKey('topic-list-keyboard-$topicId'),
-                                selected:
-                                    cursor?.topicId == topicId &&
-                                    (cursor!.keyboard ||
-                                        readingTopicId == topicId),
-                                child: child!,
-                              ),
+                          listenable: rowSelection,
+                          builder: (context, child) {
+                            final cursor = _cursor!.value;
+                            return KeyboardSelection.scope(
+                              key: ValueKey('topic-list-keyboard-$topicId'),
+                              selected:
+                                  cursor?.topicId == topicId &&
+                                  (cursor!.keyboard ||
+                                      _readingTopic.value == topicId),
+                              child: child!,
+                            );
+                          },
                           child: _TopicRow(
                             topicId: topicId,
                             previousTopicId: index > 0
@@ -1071,8 +1069,30 @@ class _TopicListViewState extends State<TopicListView> {
     return DScrollChromePagination(
       hasMore: feed.hasMore,
       loading: feed.loadingMore,
-      child: content,
+      child: ForumTabSelector<int?>(
+        select: (_, tab) => tab.readingTopicId,
+        builder: (context, readingTopicId, child) {
+          _followReadingTopic(controller, readingTopicId);
+          return child!;
+        },
+        child: content,
+      ),
     );
+  }
+
+  void _followReadingTopic(ShellController controller, int? tabTopicId) {
+    final readingTopicId = widget.inbox ? tabTopicId : null;
+    if (_readingTopicId != readingTopicId) {
+      _readingTopicId = readingTopicId;
+      if (readingTopicId == null) {
+        if (context.isTouch && !controller.mobileNavigationEnabled) {
+          _revealCursor();
+        }
+      } else if (widget.feed.topicIds.contains(readingTopicId)) {
+        _cursorOwner!.remember(readingTopicId);
+      }
+    }
+    _readingTopic.value = readingTopicId;
   }
 
   Widget _loadingSkeleton(String destination) => ContentReadingLaneBox(
@@ -1831,7 +1851,6 @@ typedef _TopicListSnapshot = ({
   _TopicListIdentity feedIdentity,
   String destination,
   bool newTopicsOnly,
-  int? topicId,
 });
 
 _TopicListSnapshot _topicListSnapshot(
@@ -1845,7 +1864,6 @@ _TopicListSnapshot _topicListSnapshot(
     feedIdentity: _TopicListViewState._currentFeedIdentity(controller, tab),
     destination: destination,
     newTopicsOnly: tab.currentTopicListMode?.isNew ?? false,
-    topicId: tab.readingTopicId,
   );
 }
 

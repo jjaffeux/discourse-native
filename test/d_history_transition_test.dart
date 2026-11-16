@@ -28,6 +28,7 @@ Future<_HistoryHarnessState> _pump(
   bool livePreviews = false,
   bool framed = false,
   bool splitNavigation = false,
+  bool routeScope = false,
 }) async {
   await tester.binding.setSurfaceSize(const Size(400, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -38,19 +39,25 @@ Future<_HistoryHarnessState> _pump(
         data: MediaQuery.of(context).copyWith(disableAnimations: reducedMotion),
         child: Directionality(textDirection: direction, child: child!),
       ),
-      home: _HistoryHarness(
-        key: key,
-        tabTransitions: tabTransitions,
-        roundedPanel: roundedPanel,
-        livePreviews: livePreviews,
-        framed: framed,
-        splitNavigation: splitNavigation,
+      home: _wrapInRouteScope(
+        routeScope,
+        _HistoryHarness(
+          key: key,
+          tabTransitions: tabTransitions,
+          roundedPanel: roundedPanel,
+          livePreviews: livePreviews,
+          framed: framed,
+          splitNavigation: splitNavigation,
+        ),
       ),
     ),
   );
   await tester.pumpAndSettle();
   return key.currentState!;
 }
+
+Widget _wrapInRouteScope(bool routeScope, Widget page) =>
+    routeScope ? DRouteScope(child: page) : page;
 
 Future<TestGesture> _drag(
   WidgetTester tester, {
@@ -822,33 +829,40 @@ void main() {
     },
   );
 
-  testWidgets('modal routes cancel and block gestures on the covered page', (
-    tester,
-  ) async {
-    final state = await _pump(tester);
-    state.visit(1);
-    await tester.pumpAndSettle();
-    final gesture = await _drag(tester);
-    final result = showDDialog<void>(
-      context: tester.element(_live),
-      builder: (_, _) => const DDialogContent(
-        children: [
-          DDialogHeader(children: [DDialogTitle(child: Text('Modal'))]),
-        ],
-      ),
-    );
-    await tester.pump();
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(state.swipes, 0);
-    await tester.dragFrom(const Offset(5, 250), const Offset(140, 0));
-    await tester.pumpAndSettle();
-    expect(state.swipes, 0);
-    Navigator.of(tester.element(_live)).pop();
-    await result;
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(_live).dx, 0);
-  });
+  for (final routeScope in [false, true]) {
+    testWidgets('modal routes cancel and block gestures on the covered page'
+        '${routeScope ? ' under a route scope' : ''}', (tester) async {
+      final state = await _pump(tester, routeScope: routeScope);
+      state.visit(1);
+      await tester.pumpAndSettle();
+      final gesture = await _drag(tester);
+      expect(tester.getTopLeft(_live).dx, greaterThan(0));
+      final result = showDDialog<void>(
+        context: tester.element(_live),
+        builder: (_, _) => const DDialogContent(
+          children: [
+            DDialogHeader(children: [DDialogTitle(child: Text('Modal'))]),
+          ],
+        ),
+      );
+      await tester.pump();
+      expect(
+        tester.getTopLeft(_live).dx,
+        0,
+        reason: 'covering the route returns the swiped page at once',
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(state.swipes, 0);
+      await tester.dragFrom(const Offset(5, 250), const Offset(140, 0));
+      await tester.pumpAndSettle();
+      expect(state.swipes, 0);
+      Navigator.of(tester.element(_live)).pop();
+      await result;
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(_live).dx, 0);
+    });
+  }
 
   testWidgets('reduced motion navigates on release without moving the page', (
     tester,

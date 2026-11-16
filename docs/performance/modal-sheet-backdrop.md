@@ -85,15 +85,12 @@ Opening, going back from and swiping away a topic are unchanged.
 
 `RouteAwareSelectionArea` swaps its `SelectionArea` for a disabled container
 while its route is covered. The swap moves each visible post's content, about
-1,000 of the remaining rebuilds when a sheet opens and again when it starts to
+150 of the remaining rebuilds when a sheet opens and again when it starts to
 close. Keeping the area mounted would avoid them, but it changes when a
-selection and the area's focus history are dropped.
-
-Opening a topic rebuilds about 2,760 widgets in its first frame, and the reader
-is about 1,075 of them. The rest are the covered topic list and pages that are
-not on screen, such as the sidebars. Each is notified by a scope that changes
-with navigation: ticker modes, focus exclusion, page header registration and
-the mobile presentation. Going back rebuilds about 1,700 for the same reasons.
+selection and the area's focus history are dropped. Most of the other
+remaining rebuilds came from the reader and the page frame depending on their
+route's status, and from navigation; see
+[Phone navigation rebuilds](phone-navigation-rebuilds.md).
 
 The first topic opened in a session costs more than later ones. In the harness
 its first frame lands about 90 ms after the tap instead of about 26 ms, and it
