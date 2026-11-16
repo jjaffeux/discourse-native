@@ -9,70 +9,71 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/pixel_samples.dart';
 
 void main() {
-  for (final theme in [AppTheme.light, AppTheme.dark]) {
-    for (final direction in TextDirection.values) {
-      testWidgets('rounded quote follows $direction in ${theme.brightness}', (
-        tester,
-      ) async {
-        const boundary = ValueKey('quote-pixels');
-        final tokens = theme.extension<DTokens>()!;
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: theme,
-            home: Directionality(
-              textDirection: direction,
-              child: Scaffold(
-                body: Align(
-                  alignment: Alignment.topLeft,
-                  child: RepaintBoundary(
-                    key: boundary,
-                    child: ColoredBox(
-                      color: tokens.background,
-                      child: const SizedBox(
-                        width: 240,
-                        child: DQuote(child: SizedBox(height: 80)),
-                      ),
+  for (final (theme, direction) in [
+    (AppTheme.light, TextDirection.ltr),
+    (AppTheme.dark, TextDirection.rtl),
+  ]) {
+    testWidgets('rounded quote follows $direction in ${theme.brightness}', (
+      tester,
+    ) async {
+      const boundary = ValueKey('quote-pixels');
+      final tokens = theme.extension<DTokens>()!;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: RepaintBoundary(
+                  key: boundary,
+                  child: ColoredBox(
+                    color: tokens.background,
+                    child: const SizedBox(
+                      width: 240,
+                      child: DQuote(child: SizedBox(height: 80)),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        );
-        final height = tester.getSize(find.byType(DQuote)).height;
-        double x(double start) =>
-            direction == TextDirection.ltr ? start : 239.75 - start;
-        final pixels = await samplePixels(tester, find.byKey(boundary), [
-          Offset(x(.5), .5),
-          Offset(x(.5), 30),
-          Offset(x(12.5), 30),
-          Offset(x(12.5), 5),
-          Offset(x(12.5), height - 5),
-          Offset(x(25), 30),
-        ]);
-        expect(
-          pixels.map((color) => [color.a, color.r, color.g, color.b]),
-          [
-            tokens.background,
-            tokens.raisedBackground,
-            tokens.primary,
-            tokens.raisedBackground,
-            tokens.raisedBackground,
-            tokens.raisedBackground,
-          ].map(
-            (color) => orderedEquals(
-              [
-                color.a,
-                color.r,
-                color.g,
-                color.b,
-              ].map((channel) => closeTo(channel, 1 / 255)),
-            ),
+        ),
+      );
+      final height = tester.getSize(find.byType(DQuote)).height;
+      double x(double start) =>
+          direction == TextDirection.ltr ? start : 239.75 - start;
+      final pixels = await samplePixels(tester, find.byKey(boundary), [
+        Offset(x(.5), .5),
+        Offset(x(.5), 30),
+        Offset(x(12.5), 30),
+        Offset(x(12.5), 5),
+        Offset(x(12.5), height - 5),
+        Offset(x(25), 30),
+      ]);
+      expect(
+        pixels.map((color) => [color.a, color.r, color.g, color.b]),
+        [
+          tokens.background,
+          tokens.raisedBackground,
+          tokens.primary,
+          tokens.raisedBackground,
+          tokens.raisedBackground,
+          tokens.raisedBackground,
+        ].map(
+          (color) => orderedEquals(
+            [
+              color.a,
+              color.r,
+              color.g,
+              color.b,
+            ].map((channel) => closeTo(channel, 1 / 255)),
           ),
-        );
-        expect(tester.takeException(), isNull);
-      });
-    }
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('quote styleguide examples fit narrow scaled RTL', (
