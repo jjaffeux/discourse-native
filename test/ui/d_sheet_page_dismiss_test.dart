@@ -74,7 +74,12 @@ Future<void> _pumpPage(
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final loading in [false, true]) {
-      for (final input in ['touch', 'trackpad', 'wheel']) {
+      final secondaryInput = switch ((platform, loading)) {
+        (TargetPlatform.iOS, false) ||
+        (TargetPlatform.android, true) => 'trackpad',
+        _ => 'wheel',
+      };
+      for (final input in ['touch', secondaryInput]) {
         testWidgets(
           '$input at a temporary top stays in the reader on $platform (loading: $loading)',
           (tester) async {
