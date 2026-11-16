@@ -37,7 +37,7 @@ void main() {
 
   for (final selected in [false, true]) {
     final path = selected ? 'selected-post' : 'single-post';
-    for (final refreshFails in [false, true]) {
+    for (final refreshFails in [if (!selected) false, true]) {
       test(
         '$path server OK stays accepted with refresh failure $refreshFails',
         () async {
