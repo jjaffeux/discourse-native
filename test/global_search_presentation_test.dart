@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -31,6 +32,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/global_search_fixtures.dart';
+import 'support/keyboard_test_harness.dart';
 import 'support/shell_test_harness.dart';
 import 'support/topic_post_list.dart';
 
@@ -646,6 +648,75 @@ void main({bool useDeviceMetrics = false}) {
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.takeException(), isNull);
     });
+
+    // Device runs drive a real keyboard; these frames stand in for it.
+    for (final native in [
+      if (!_useDeviceMetrics) ...[true, false],
+    ]) {
+      _testPresentation(
+        'mobile $platform Search grows with the keyboard (native timing: $native)',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          const channel = MethodChannel('org.discourse.native/keyboard');
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            (_) async => native ? null : throw MissingPluginException(),
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(channel, null),
+          );
+          await _pumpSearch(tester, size: phone);
+          await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+          await tester.pumpAndSettle();
+          final surface = find.ancestor(
+            of: find.byKey(ForumSearch.panelKey),
+            matching: find.byType(DSheetContent),
+          );
+          final opened = tester.getRect(surface).top;
+          const shown = 8.0;
+          expect(opened, greaterThan(shown + 300));
+
+          if (native) await sendKeyboardFrame(tester, milliseconds: 256);
+          var previous = opened;
+          for (var frame = 1; frame <= 16; frame++) {
+            final inset = 300 * (1 - math.pow(1 - frame / 16, 3));
+            tester.view.viewInsets = FakeViewPadding(
+              bottom: inset * tester.view.devicePixelRatio,
+            );
+            await tester.pump(const Duration(milliseconds: 16));
+            final top = tester.getRect(surface).top;
+            if (native) {
+              expect(
+                top,
+                closeTo(opened + (shown - opened) * inset / 300, 1),
+                reason: 'the sheet rises with the keyboard at $inset',
+              );
+              expect(
+                tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,
+                closeTo(phone.height - inset, 1),
+              );
+            } else {
+              expect(top, opened, reason: 'the sheet waits for the keyboard');
+            }
+            previous = top;
+          }
+          for (var frame = 0; frame < 40 && previous > shown; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            final top = tester.getRect(surface).top;
+            expect(
+              previous - top,
+              lessThan((opened - shown) / 2),
+              reason: 'the sheet animates to its keyboard height',
+            );
+            previous = top;
+          }
+          expect(previous, closeTo(shown, .01));
+          expect(_editor(tester).focusNode.hasFocus, isTrue);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
 
     for (final canGoBack in [false, true]) {
       _testPresentation(

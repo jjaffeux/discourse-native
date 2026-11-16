@@ -38,6 +38,14 @@ class _DSheetKeyboardFrame {
         number(points[3])!,
       );
     }
+    final samples = value['samples'];
+    if (samples is List &&
+        samples.length >= 2 &&
+        samples.every((p) => number(p) != null)) {
+      curve = _DSheetKeyboardSampledCurve([
+        for (final sample in samples) number(sample)!,
+      ]);
+    }
     final spring = value['spring'];
     if (spring is Map) {
       final mass = number(spring['mass']);
@@ -92,6 +100,21 @@ class _DSheetKeyboardRemainingCurve extends Curve {
   }
 }
 
+// Android exposes its keyboard interpolator only as a function, so the runner
+// sends evenly spaced values of it.
+class _DSheetKeyboardSampledCurve extends Curve {
+  const _DSheetKeyboardSampledCurve(this.samples);
+  final List<double> samples;
+
+  @override
+  double transformInternal(double t) {
+    final position = t * (samples.length - 1);
+    final index = math.min(position.floor(), samples.length - 2);
+    final from = samples[index];
+    return from + (samples[index + 1] - from) * (position - index);
+  }
+}
+
 class _DSheetKeyboardSpring extends Curve {
   const _DSheetKeyboardSpring(
     this.simulation,
@@ -109,8 +132,9 @@ class _DSheetKeyboardSpring extends Curve {
       (simulation.x(t * seconds) / progressAtEnd).clamp(0.0, 1.0);
 }
 
-// iOS supplies its target frame and timing before the keyboard moves. Older
-// bridges and other hosts retain the settled-metrics fallback.
+// The iOS and Android 11+ runners supply the keyboard's target and timing
+// before it moves. Older bridges and other hosts retain the settled-metrics
+// fallback.
 abstract final class _DSheetKeyboardTransitions {
   static const _channel = MethodChannel('org.discourse.native/keyboard');
   static final ready = ValueNotifier<bool?>(null);
@@ -347,6 +371,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   _DSheetKeyboardFrame? _nativeKeyboardFrame;
   double _viewKeyboardInset = 0;
   ({double inset, double offset})? _keyboardRise;
+
+  // A held sheet reaches its keyboard height in step with the keyboard,
+  // starting from its height when the keyboard began to move.
+  ({double from, double to, double height})? _heldRise;
   late final _peekClock = AnimationController(
     vsync: this,
     duration: DSwipeHint.hold,
@@ -628,6 +656,22 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     owner?._attach(this);
   }
 
+  void _holdRise(double from, double to) {
+    final box = _surface.currentContext?.findRenderObject();
+    _heldRise =
+        widget.holdContentHeight && to > from && box is RenderBox && box.hasSize
+        ? (from: from, to: to, height: box.size.height)
+        : null;
+  }
+
+  double _heldHeight(double cap) {
+    final rise = _heldRise;
+    if (rise == null) return cap;
+    final progress = ((_keyboardInset - rise.from) / (rise.to - rise.from))
+        .clamp(0.0, 1.0);
+    return math.min(cap, rise.height + (cap - rise.height) * progress);
+  }
+
   void _keyboardTransition() {
     if (_nativeKeyboardFrame != null) return;
     if (_keyboard <= 0 || _keyboardSettled) return;
@@ -636,6 +680,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         (native == null && _keyboardMinimumElapsed && _keyboardMetricsStable)) {
       _keyboardSettled = true;
       _raiseForKeyboard = true;
+      _holdRise(_keyboardInset, _keyboard);
       _scheduleMeasure();
       if (mounted) setState(() {});
     }
@@ -664,6 +709,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _keyboardStability?.cancel();
     _raiseForKeyboard = false;
     _keyboardSettled = frame.inset > 0;
+    _holdRise(current, frame.inset);
     _interacted = true;
     if (_tracksViewKeyboard) {
       // The view publishes iOS's animated inset on each frame. Use it for both
@@ -722,6 +768,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _keyboardMinimum?.cancel();
       _keyboardSettled = false;
       _raiseForKeyboard = false;
+      _heldRise = null;
       if (_animate) {
         unawaited(
           _keyboardInsetAnimation.animateTo(
@@ -754,6 +801,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       if (opening) {
         _keyboardSettled = _DSheetKeyboardTransitions.ready.value == true;
         _raiseForKeyboard = _keyboardSettled;
+        if (_keyboardSettled) _holdRise(_keyboardInset, keyboard);
         _keyboardMinimumElapsed = false;
         _keyboardMinimum = Timer(const Duration(milliseconds: 300), () {
           _keyboardMinimumElapsed = true;
@@ -823,6 +871,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _keyboardRise = null;
       _travel.value = 0;
       _completeExpansion();
+    }
+    if (_heldRise case final rise? when _keyboardInset >= rise.to) {
+      _heldRise = null;
     }
     final tall = box.size.height;
     if (widget.holdContentHeight) {
@@ -1321,7 +1372,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
             final heldMinimum = !widget.holdContentHeight
                 ? 0.0
                 : _keyboardSettled
-                ? _laidCap
+                ? _heldHeight(_laidCap)
                 : math.min(_fullHeight, _laidCap);
             return Stack(
               clipBehavior: Clip.hardEdge,
