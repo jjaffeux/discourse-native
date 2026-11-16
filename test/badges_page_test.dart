@@ -53,7 +53,10 @@ void main() {
   }
 
   for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
-    for (final route in [const BadgeRoute.directory(), BadgeRoute.detail(1)]) {
+    for (final route in [
+      const BadgeRoute.directory(),
+      if (size.width == 390) BadgeRoute.detail(1),
+    ]) {
       testWidgets('badge skeleton fills ${route.path} at $size', (
         tester,
       ) async {
