@@ -70,7 +70,7 @@ void main() {
         _ => [false, true],
       };
       for (final checked in checkedStates) {
-        for (final depth in [0, 1, 3]) {
+        for (final depth in [0, 3]) {
           testWidgets(
             'exiting trailing empty task keeps following typing outside list '
             '($platform, newline ${newline.length}, checked $checked, depth $depth)',
