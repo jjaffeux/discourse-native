@@ -80,18 +80,19 @@ import 'support/keyboard_test_harness.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
-DiscourseUser _reader({bool staff = false}) => DiscourseUser(
-  id: 7,
-  username: 'reader',
-  hidePresence: false,
-  canCreateTopic: true,
-  canSendPrivateMessages: true,
-  staff: staff,
-  plugins: PluginData.none.withValue(
-    chatCurrentUserDataKey,
-    const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
-  ),
-);
+DiscourseUser _reader({bool staff = false, bool canCreateTopic = true}) =>
+    DiscourseUser(
+      id: 7,
+      username: 'reader',
+      hidePresence: false,
+      canCreateTopic: canCreateTopic,
+      canSendPrivateMessages: true,
+      staff: staff,
+      plugins: PluginData.none.withValue(
+        chatCurrentUserDataKey,
+        const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+      ),
+    );
 final _user = _reader();
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
@@ -3782,6 +3783,32 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(reply, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('Inbox fills the tab bar when New Topic is unavailable', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      user: _reader(canCreateTopic: false),
+    );
+    final inbox = find.byKey(const ValueKey('mobile-mode-messages'));
+    expect(find.byType(DMobileDockAction), findsNothing);
+    expect(_dockLabels(tester), ['Topics', 'Chat', 'Bookmarks', 'Inbox']);
+    expect(_notifications.hitTestable(), findsOneWidget);
+    expect(inbox.hitTestable(), findsOneWidget);
+
+    await openDockPanel(tester);
+    expect(_panelTile('Inbox'), findsNothing);
+    expect(_panelTile('Users'), findsOneWidget);
+    await tester.tap(find.byKey(DMobileDock.grabberKey));
+    await tester.pumpAndSettle();
+
+    await tester.tap(inbox);
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.tab, MobileTab.messages);
+    expect(_panel, findsNothing);
     expect(tester.takeException(), isNull);
   });
 

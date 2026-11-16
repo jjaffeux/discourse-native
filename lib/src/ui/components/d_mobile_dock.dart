@@ -75,12 +75,15 @@ sealed class DMobileDockCurrent {
   const factory DMobileDockCurrent.overflowed(int index) =
       DMobileDockOverflowed;
 
-  /// Where the selected one of [places] stands.
-  factory DMobileDockCurrent.of(List<DMobileDockPlace> places) {
+  /// Where the selected one of [places] stands with [placeColumns] available.
+  factory DMobileDockCurrent.of(
+    List<DMobileDockPlace> places, {
+    required int placeColumns,
+  }) {
     final index = places.indexWhere((place) => place.selected);
     return index < 0
         ? const DMobileDockCurrent.none()
-        : index < DMobileDockGeometry.placeColumns
+        : index < placeColumns
         ? DMobileDockCurrent.place(index)
         : DMobileDockCurrent.overflowed(index);
   }
@@ -96,13 +99,12 @@ final class DMobileDockNowhere extends DMobileDockCurrent {
 
 final class DMobileDockAtPlace extends DMobileDockCurrent {
   const DMobileDockAtPlace(this.index)
-    : assert(index >= 0 && index < DMobileDockGeometry.placeColumns);
+    : assert(index >= 0 && index < DMobileDockGeometry.columns);
   final int index;
 }
 
 final class DMobileDockOverflowed extends DMobileDockCurrent {
-  const DMobileDockOverflowed(this.index)
-    : assert(index >= DMobileDockGeometry.placeColumns);
+  const DMobileDockOverflowed(this.index) : assert(index >= 0);
   final int index;
 }
 
@@ -147,14 +149,12 @@ final class DMobileDockPeek {
   bool _taken = false;
 }
 
-/// A phone's bar, cut as its [DMobileDockGeometry] says. Its places take one
-/// column each of the row's five: the first three of the places a person
-/// orders, then [DMobileDock.notifications] fixed before the action, and the
-/// action in the last. Closed, the places are their glyphs alone, a count on
-/// its glyph's corner; the current place is marked by a short bar on the
-/// bar's top edge over its column. On a page the bar has no column for, that
-/// page is added before notifications, the places sharing the room, and
-/// pressing it grows the bar. Folded, the bar is a circle in the screen's
+/// A phone's bar, cut as its [DMobileDockGeometry] says. Ordered places fill
+/// the row's five columns, with space reserved for [DMobileDock.notifications]
+/// and the action when present. Closed, each place shows its glyph with a
+/// count in the corner. A mark above the glyph indicates the current place.
+/// An overflowed current page appears after the ordered places. Pressing
+/// it grows the bar. Folded, the bar is a circle in the screen's
 /// bottom-start corner.
 ///
 /// Pulled up, pressed on the page added to it, or asked by a screen reader's
@@ -192,8 +192,8 @@ class DMobileDock extends StatefulWidget {
 
   final DMobileDockGeometry geometry;
 
-  /// Every place in order; the bar shows the first
-  /// [DMobileDockGeometry.placeColumns] and the panel holds the rest.
+  /// Every place in order. The bar shows as many as fit beside the fixed
+  /// controls and the panel holds the rest.
   final List<DMobileDockPlace> places;
 
   /// The place fixed last before the action, which the person does not
@@ -459,7 +459,15 @@ class _DMobileDockState extends State<DMobileDock>
   /// The bar stands in the overlay while the panel is out or it peeks.
   bool get _layered => _out || _peek != _Peek.none;
 
-  bool get _hasPanel => widget.places.length > DMobileDockGeometry.placeColumns;
+  int get _placeColumns => DMobileDockGeometry.placeColumns(
+    fixed: widget.notifications != null,
+    action: widget.action != null,
+  );
+
+  DMobileDockCurrent get _current =>
+      DMobileDockCurrent.of(widget.places, placeColumns: _placeColumns);
+
+  bool get _hasPanel => _tiles > 0;
 
   /// With nothing past the bar's columns, or the bar put away, there is
   /// nothing to grow into.
@@ -473,10 +481,9 @@ class _DMobileDockState extends State<DMobileDock>
   /// keyboard open for whoever cannot pull it.
   bool get _opens => _grows && !_out;
 
-  List<DMobileDockPlace> get _rest =>
-      widget.places.skip(DMobileDockGeometry.placeColumns).toList();
+  Iterable<DMobileDockPlace> get _rest => widget.places.skip(_placeColumns);
 
-  int get _tiles => _rest.length;
+  int get _tiles => math.max(0, widget.places.length - _placeColumns);
 
   // A tap can open a menu or be ignored by the caller. The handle only
   // becomes a mark once the tapped place actually has one.
@@ -506,18 +513,21 @@ class _DMobileDockState extends State<DMobileDock>
       _dropPeek();
       if (_out) _putAway();
     }
-    // A move is of the places as they stood at the lift, and a place let go
-    // lands among them in their new order. Any other order under it, a
-    // place come or gone or the same places put otherwise, as a stored
-    // order read late or a screen reader's move brings them, is not the one
-    // the person took hold of: the move ends with nothing told.
+    // A move uses the order and slots captured at lift. End it if the
+    // order changes independently or a fixed control changes the slots.
     if (_reorder case final _Moving moving) {
       final keys = [for (final place in widget.places) place.key];
       final stands = switch (moving) {
         _Lifted() => [moving.keys],
         _Dropped() => [moving.keys, moving.order],
       };
-      if (!stands.any((order) => listEquals(order, keys))) _cancelMove();
+      final fixedControlsChanged =
+          (oldWidget.notifications != null) != (widget.notifications != null) ||
+          (oldWidget.action != null) != (widget.action != null);
+      if (fixedControlsChanged ||
+          !stands.any((order) => listEquals(order, keys))) {
+        _cancelMove();
+      }
     }
   }
 
@@ -876,7 +886,7 @@ class _DMobileDockState extends State<DMobileDock>
             before.enclosingScope != null &&
             before.canRequestFocus
         ? before
-        : DMobileDockCurrent.of(widget.places) is DMobileDockOverflowed
+        : _current is DMobileDockOverflowed
         ? _hereFocus
         : _headFocus;
     target.requestFocus();
@@ -925,6 +935,7 @@ class _DMobileDockState extends State<DMobileDock>
       .placeRects(
         places: widget.places.length,
         width: width,
+        fixed: widget.notifications != null,
         action: widget.action != null,
       );
 
@@ -1014,9 +1025,8 @@ class _DMobileDockState extends State<DMobileDock>
     };
   }
 
-  /// A move ends with nothing told when the panel goes under it or its
-  /// places change: the place is back where it was. Called where a build
-  /// follows.
+  /// A move ends with nothing told when the panel closes or its places or
+  /// slots change. Called where a build follows.
   void _cancelMove() {
     if (_reorder is _Still) return;
     _landing++;
@@ -1130,7 +1140,7 @@ class _DMobileDockState extends State<DMobileDock>
                 selected: place.selected,
                 customSemanticsActions: _readerActions(
                   context,
-                  index: DMobileDockGeometry.placeColumns + index,
+                  index: _placeColumns + index,
                 ),
                 onPressed: () {
                   _closeForPress(markPlace: place.key);
@@ -1535,8 +1545,8 @@ class _DMobileDockState extends State<DMobileDock>
 
       final well = tokens.wellFill;
       final places = widget.places;
-      final shown = places.take(DMobileDockGeometry.placeColumns).toList();
-      final current = DMobileDockCurrent.of(places);
+      final shown = places.take(_placeColumns).toList();
+      final current = _current;
       final here = switch (current) {
         DMobileDockOverflowed(:final index) => places[index],
         DMobileDockNowhere() || DMobileDockAtPlace() => null,

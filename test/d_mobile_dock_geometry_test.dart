@@ -241,19 +241,27 @@ void main() {
     });
 
     test('its places\' slots are the head\'s tiles, then the grid\'s', () {
-      final full = const DMobileDockGeometry(foot: 34).panel(tiles: 4);
-      expect(full.placeRects(places: 6, width: 390, action: true), const [
-        Rect.fromLTWH(6, 19, 72.4, 56),
-        Rect.fromLTWH(82.4, 19, 72.4, 56),
-        Rect.fromLTWH(158.8, 19, 72.4, 56),
-        Rect.fromLTWH(6, 92, 72.4, 56),
-        Rect.fromLTWH(82.4, 92, 72.4, 56),
-        Rect.fromLTWH(158.8, 92, 72.4, 56),
-      ]);
+      final full = const DMobileDockGeometry(foot: 34).panel(tiles: 3);
+      expect(
+        full.placeRects(places: 6, width: 390, fixed: true, action: true),
+        const [
+          Rect.fromLTWH(6, 19, 72.4, 56),
+          Rect.fromLTWH(82.4, 19, 72.4, 56),
+          Rect.fromLTWH(158.8, 19, 72.4, 56),
+          Rect.fromLTWH(6, 92, 72.4, 56),
+          Rect.fromLTWH(82.4, 92, 72.4, 56),
+          Rect.fromLTWH(158.8, 92, 72.4, 56),
+        ],
+      );
       // A capsule stands in from the panel's edges by its own margin, so the
       // head's tiles are set in and narrower than the grid's.
-      final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 4);
-      final slots = capsule.placeRects(places: 6, width: 390, action: true);
+      final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 3);
+      final slots = capsule.placeRects(
+        places: 6,
+        width: 390,
+        fixed: true,
+        action: true,
+      );
       expect(slots.take(3), const [
         Rect.fromLTWH(12, 19, 70, 56),
         Rect.fromLTWH(86, 19, 70, 56),

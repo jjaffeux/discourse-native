@@ -72,13 +72,14 @@ class DMobileDockGeometry {
   /// and larger text does not push the row down into the foot.
   static const capsuleRadius = 31.0;
 
-  /// The row is a grid of five columns with [columnGap] between them. The
-  /// places a person orders take one column each, so at most [placeColumns]
-  /// show; the fourth holds the place fixed before the action, and the fifth
-  /// the action.
+  /// The row is a grid of five columns with [columnGap] between them.
   static const columns = 5;
-  static const placeColumns = 3;
   static const columnGap = 4.0;
+
+  /// The columns available for ordered places after reserving one for each
+  /// fixed control that is present.
+  static int placeColumns({required bool fixed, required bool action}) =>
+      columns - (fixed ? 1 : 0) - (action ? 1 : 0);
 
   /// On the closed bar the action's middle stands this far in from the
   /// screen's end edge; grown, it travels to the last column's middle.
@@ -168,9 +169,8 @@ class DMobileDockGeometry {
   /// first columns and the [fixed] place the one after them; the action
   /// stands [actionInset] in from the screen's end edge, in the last column,
   /// which grows to hold it on a bar too narrow, the others sharing what is
-  /// left. With the current page added ([here]), it and the places before
-  /// the action share the room their columns had equally, each name cut
-  /// short like the others', the action standing where it stood.
+  /// left. With the current page added ([here]), the destinations share
+  /// all the room outside the action's column.
   DMobileDockRowSlots rowSlots(
     double barWidth, {
     required int places,
@@ -178,7 +178,7 @@ class DMobileDockGeometry {
     bool fixed = false,
     required bool action,
   }) {
-    assert(places <= placeColumns);
+    assert(places <= placeColumns(fixed: fixed, action: action));
     final inner = barWidth - padding.horizontal;
     final actionWidth = action ? rowHeight : 0.0;
     const gaps = (columns - 1) * columnGap;
@@ -193,26 +193,19 @@ class DMobileDockGeometry {
         : inner;
     final last = action ? math.max(column, inner - actionStart) : column;
     if (last > column) column = (inner - gaps - last) / (columns - 1);
-    DMobileDockSlot at(int index, double width) =>
+    final destinationColumns = columns - (action ? 1 : 0);
+    final room =
+        destinationColumns * column + (destinationColumns - 1) * columnGap;
+    final destinations = places + (here ? 1 : 0) + (fixed ? 1 : 0);
+    final width = here
+        ? (room - (destinations - 1) * columnGap) / destinations
+        : column;
+    DMobileDockSlot at(int index) =>
         (start: index * (width + columnGap), width: width);
-    if (!here) {
-      return (
-        places: [
-          for (var index = 0; index < places; index++) at(index, column),
-        ],
-        here: null,
-        fixed: fixed ? at(places, column) : null,
-        action: action ? (start: actionStart, width: actionWidth) : null,
-      );
-    }
-    // The room the four columns before the action's had, shared by one more.
-    final room = (columns - 1) * column + (columns - 2) * columnGap;
-    final shared = places + 1 + (fixed ? 1 : 0);
-    final width = (room - (shared - 1) * columnGap) / shared;
     return (
-      places: [for (var index = 0; index < places; index++) at(index, width)],
-      here: at(places, width),
-      fixed: fixed ? at(places + 1, width) : null,
+      places: [for (var index = 0; index < places; index++) at(index)],
+      here: here ? at(places) : null,
+      fixed: fixed ? at(places + (here ? 1 : 0)) : null,
       action: action ? (start: actionStart, width: actionWidth) : null,
     );
   }
@@ -326,20 +319,23 @@ class DMobileDockPanelGeometry {
       (growth * 1.6 - .6).clamp(0, 1).toDouble();
 
   /// Where each of [places] stands once the panel is open, from its top-start
-  /// corner and [width] across: the bar's first
-  /// [DMobileDockGeometry.placeColumns] as the tiles of its head, risen to
-  /// leave [grabberRoom] under the panel's top edge, with an [action] beside
-  /// them or not, then the rest on the grid. These are the slots a place
-  /// lifted to be moved is set down in; the place fixed in the head has none.
+  /// corner and [width] across. The head holds every place that fits beside
+  /// the [fixed] place and [action] when present. The grid holds the rest.
+  /// Only ordered places have a slot a lifted tile can be set down in.
   List<Rect> placeRects({
     required int places,
     required double width,
+    required bool fixed,
     required bool action,
   }) {
-    const columns = DMobileDockGeometry.placeColumns;
+    final columns = DMobileDockGeometry.placeColumns(
+      fixed: fixed,
+      action: action,
+    );
     final head = bar.rowSlots(
       width - bar.margin.horizontal,
       places: math.min(places, columns),
+      fixed: fixed,
       action: action,
     );
     final headTop = reveal - barRise(1) + bar.padding.top - bar.headOverflow;

@@ -277,7 +277,7 @@ Widget sendButtonFixture(ThemeData theme) => MaterialApp(
 void main() {
   for (final direction in TextDirection.values) {
     testWidgets(
-      'an actionless dock keeps notifications in the fourth column ($direction)',
+      'an actionless dock fills five columns with notifications last ($direction)',
       (tester) async {
         for (final scale in [1.0, 2.0]) {
           await tester.pumpWidget(
@@ -285,20 +285,88 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.byType(DMobileDockAction), findsNothing);
+          expect(_barLabels(tester), ['Start', 'Topics', 'Chat', 'Inbox']);
           final surface = tester.getRect(_surface);
           final notifications = tester.getRect(_notifications);
           // The capsule is 378 wide: 366 inside, columns of 70 and 4 gaps.
           expect(notifications.width, closeTo(70, .01));
           if (direction == TextDirection.ltr) {
-            expect(notifications.left, closeTo(surface.left + 6 + 222, .01));
+            expect(notifications.left, closeTo(surface.left + 6 + 296, .01));
           } else {
-            expect(notifications.right, closeTo(surface.right - 6 - 222, .01));
+            expect(notifications.right, closeTo(surface.right - 6 - 296, .01));
           }
           expect(tester.takeException(), isNull);
         }
       },
     );
   }
+
+  for (final (notifications, action, shown) in [
+    (true, false, 4),
+    (false, true, 4),
+    (false, false, 5),
+  ]) {
+    testWidgets('unused fixed slots show $shown places '
+        '(notifications: $notifications, action: $action)', (tester) async {
+      const places = ['Start', 'Topics', 'Chat', 'Inbox', 'Users', 'Events'];
+      final lastShown = places[shown - 1];
+      String? pressed;
+      final moves = <(int, int)>[];
+      await tester.pumpWidget(
+        fixture(
+          width: 320,
+          foot: 34,
+          scale: 2,
+          labels: places,
+          selected: lastShown,
+          notifications: notifications,
+          withAction: action,
+          onPlace: (label) => pressed = label,
+          onMoved: (from, to) => moves.add((from, to)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_barLabels(tester), places.take(shown));
+      final promoted = find.byKey(ValueKey(lastShown));
+      expect(promoted.hitTestable(), findsOneWidget);
+      await tester.tap(promoted);
+      await tester.pumpAndSettle();
+      expect(pressed, lastShown);
+      expect(_panel, findsNothing);
+
+      await openDockPanel(tester);
+      expect(_barLabels(tester), places.take(shown));
+      expect(_tileLabels(tester), places.skip(shown));
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(dockPanelTile(places[shown])),
+      );
+      await tester.pump(const Duration(milliseconds: 320));
+      await gesture.moveTo(tester.getCenter(promoted));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(moves, [(shown, shown - 1)]);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('the extended panel closes when the last tile fits in the bar', (
+    tester,
+  ) async {
+    const labels = ['Start', 'Topics', 'Chat', 'Inbox'];
+    await tester.pumpWidget(fixture(labels: labels));
+    await openDockPanel(tester);
+    expect(_tileLabels(tester), ['Inbox']);
+
+    await tester.pumpWidget(fixture(labels: labels, withAction: false));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(_barLabels(tester), labels);
+    await openDockPanel(tester, settlesOpen: false);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final brightness in Brightness.values) {
     testWidgets(
@@ -1417,7 +1485,14 @@ void main() {
                       geometry: geometry,
                       collapsed: hidden,
                       places: [
-                        for (final name in ['Start', 'Topics', 'Chat', 'Inbox'])
+                        for (final name in [
+                          'Start',
+                          'Topics',
+                          'Chat',
+                          'Inbox',
+                          'Users',
+                          'Events',
+                        ])
                           DMobileDockPlace(
                             key: ValueKey(name),
                             icon: const Icon(Icons.forum),
