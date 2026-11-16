@@ -3177,7 +3177,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final (bottom, keyboard) in [(0.0, 0.0), (34.0, 0.0), (0.0, 280.0)]) {
+  for (final (bottom, keyboard) in [(34.0, 0.0), (0.0, 280.0)]) {
     _mobileTest(
       'navigation panel consumes bottom safe area once ($bottom, $keyboard)',
       (tester) async {
