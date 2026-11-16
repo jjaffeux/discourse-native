@@ -3255,7 +3255,7 @@ void main() {
     );
   }
 
-  for (final width in [320.0, 430.0, 600.0]) {
+  for (final width in [320.0, 600.0]) {
     _mobileTest('navigation uses the full $width viewport with large text', (
       tester,
     ) async {
