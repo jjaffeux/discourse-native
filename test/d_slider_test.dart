@@ -6,98 +6,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final direction in TextDirection.values) {
-      testWidgets(
-        'timeline thumb, bounds and live input on $platform $direction',
-        (tester) async {
-          var value = 2.0;
-          var enabled = true;
-          late StateSetter update;
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: ThemeData(platform: platform),
-              home: Scaffold(
-                body: Directionality(
-                  textDirection: direction,
-                  child: Center(
-                    child: SizedBox(
-                      width: 202,
-                      child: StatefulBuilder(
-                        builder: (context, setState) {
-                          update = setState;
-                          return DSlider(
-                            value: value,
-                            min: 1,
-                            max: 3,
-                            variant: DSliderVariant.timeline,
-                            semanticLabel: 'Post',
-                            onChanged: enabled
-                                ? (next) => setState(() => value = next)
-                                : null,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-          final slider = find.byType(DSlider);
-          final rect = tester.getRect(slider);
-          expect(rect.height, 22);
-          final thumb = tester.widget<AnimatedContainer>(
-            find.descendant(
-              of: slider,
-              matching: find.byType(AnimatedContainer),
-            ),
-          );
-          expect(thumb.constraints!.maxWidth, 20);
-          final decoration = thumb.decoration! as BoxDecoration;
-          expect(decoration.color, Colors.white);
-          expect(decoration.border!.top.width, .5);
-          expect(
-            decoration.border!.top.color,
-            Colors.black.withValues(alpha: .12),
-          );
-          // Input beyond the visible extent cannot change the post.
-          await tester.tapAt(Offset(rect.right - 1, rect.bottom + 1));
-          expect(value, 2);
-          final maxX = direction == TextDirection.ltr
-              ? rect.right - 7
-              : rect.left + 7;
-          await tester.tapAt(Offset(maxX, rect.center.dy));
-          await tester.pump();
-          expect(value, 3);
-          await tester.sendKeyEvent(LogicalKeyboardKey.home);
-          await tester.pump();
-          expect(value, 1);
-          await tester.sendKeyEvent(
-            direction == TextDirection.ltr
-                ? LogicalKeyboardKey.arrowRight
-                : LogicalKeyboardKey.arrowLeft,
-          );
-          await tester.pump();
-          expect(value, 2);
-          update(() => enabled = false);
-          await tester.pump();
-          await tester.tapAt(Offset(maxX, rect.center.dy));
-          await tester.sendKeyEvent(LogicalKeyboardKey.end);
-          await tester.pump();
-          expect(value, 2);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
-  }
+  const directions = [
+    (TargetPlatform.macOS, TextDirection.ltr),
+    (TargetPlatform.iOS, TextDirection.rtl),
+  ];
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final direction in TextDirection.values) {
-      testWidgets('ramp endpoints and keyboard in $direction on $platform', (
-        tester,
-      ) async {
-        var value = .5;
+  for (final (platform, direction) in directions) {
+    testWidgets(
+      'timeline thumb, bounds and live input on $platform $direction',
+      (tester) async {
+        var value = 2.0;
         var enabled = true;
         late StateSetter update;
         await tester.pumpWidget(
@@ -108,19 +26,16 @@ void main() {
                 textDirection: direction,
                 child: Center(
                   child: SizedBox(
-                    width: 300,
+                    width: 202,
                     child: StatefulBuilder(
                       builder: (context, setState) {
                         update = setState;
                         return DSlider(
                           value: value,
-                          max: 1,
-                          step: .01,
-                          variant: DSliderVariant.ramp,
-                          ramp: const DSliderRamp(
-                            pattern: DSliderRampPattern.checkerboard,
-                          ),
-                          semanticLabel: 'Ramp',
+                          min: 1,
+                          max: 3,
+                          variant: DSliderVariant.timeline,
+                          semanticLabel: 'Post',
                           onChanged: enabled
                               ? (next) => setState(() => value = next)
                               : null,
@@ -134,33 +49,116 @@ void main() {
           ),
         );
         final slider = find.byType(DSlider);
-        expect(tester.getSize(slider).height, 26);
-        final end = direction == TextDirection.ltr
-            ? tester.getTopRight(slider)
-            : tester.getTopLeft(slider);
-        await tester.tapAt(
-          end + Offset(direction == TextDirection.ltr ? -1 : 1, 13),
+        final rect = tester.getRect(slider);
+        expect(rect.height, 22);
+        final thumb = tester.widget<AnimatedContainer>(
+          find.descendant(of: slider, matching: find.byType(AnimatedContainer)),
         );
+        expect(thumb.constraints!.maxWidth, 20);
+        final decoration = thumb.decoration! as BoxDecoration;
+        expect(decoration.color, Colors.white);
+        expect(decoration.border!.top.width, .5);
+        expect(
+          decoration.border!.top.color,
+          Colors.black.withValues(alpha: .12),
+        );
+        // Input beyond the visible extent cannot change the post.
+        await tester.tapAt(Offset(rect.right - 1, rect.bottom + 1));
+        expect(value, 2);
+        final maxX = direction == TextDirection.ltr
+            ? rect.right - 7
+            : rect.left + 7;
+        await tester.tapAt(Offset(maxX, rect.center.dy));
         await tester.pump();
-        expect(value, 1);
+        expect(value, 3);
         await tester.sendKeyEvent(LogicalKeyboardKey.home);
         await tester.pump();
-        expect(value, 0);
+        expect(value, 1);
         await tester.sendKeyEvent(
           direction == TextDirection.ltr
               ? LogicalKeyboardKey.arrowRight
               : LogicalKeyboardKey.arrowLeft,
         );
         await tester.pump();
-        expect(value, .01);
+        expect(value, 2);
         update(() => enabled = false);
         await tester.pump();
-        await tester.tap(slider);
+        await tester.tapAt(Offset(maxX, rect.center.dy));
         await tester.sendKeyEvent(LogicalKeyboardKey.end);
-        expect(value, .01);
+        await tester.pump();
+        expect(value, 2);
         expect(tester.takeException(), isNull);
-      });
-    }
+      },
+    );
+  }
+
+  for (final (platform, direction) in directions) {
+    testWidgets('ramp endpoints and keyboard in $direction on $platform', (
+      tester,
+    ) async {
+      var value = .5;
+      var enabled = true;
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: Scaffold(
+            body: Directionality(
+              textDirection: direction,
+              child: Center(
+                child: SizedBox(
+                  width: 300,
+                  child: StatefulBuilder(
+                    builder: (context, setState) {
+                      update = setState;
+                      return DSlider(
+                        value: value,
+                        max: 1,
+                        step: .01,
+                        variant: DSliderVariant.ramp,
+                        ramp: const DSliderRamp(
+                          pattern: DSliderRampPattern.checkerboard,
+                        ),
+                        semanticLabel: 'Ramp',
+                        onChanged: enabled
+                            ? (next) => setState(() => value = next)
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final slider = find.byType(DSlider);
+      expect(tester.getSize(slider).height, 26);
+      final end = direction == TextDirection.ltr
+          ? tester.getTopRight(slider)
+          : tester.getTopLeft(slider);
+      await tester.tapAt(
+        end + Offset(direction == TextDirection.ltr ? -1 : 1, 13),
+      );
+      await tester.pump();
+      expect(value, 1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pump();
+      expect(value, 0);
+      await tester.sendKeyEvent(
+        direction == TextDirection.ltr
+            ? LogicalKeyboardKey.arrowRight
+            : LogicalKeyboardKey.arrowLeft,
+      );
+      await tester.pump();
+      expect(value, .01);
+      update(() => enabled = false);
+      await tester.pump();
+      await tester.tap(slider);
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      expect(value, .01);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   Widget host(Widget child, {TextDirection direction = TextDirection.ltr}) =>

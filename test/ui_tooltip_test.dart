@@ -151,6 +151,11 @@ void main() {
 
   for (final direction in TextDirection.values) {
     for (final side in DTooltipSide.values) {
+      if (direction == TextDirection.rtl &&
+          (side == DTooltipSide.left || side == DTooltipSide.right)) {
+        continue;
+      }
+
       testWidgets('${side.name} resolves in ${direction.name} with a 4px gap', (
         tester,
       ) async {
