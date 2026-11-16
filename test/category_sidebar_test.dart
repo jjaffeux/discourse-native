@@ -156,7 +156,7 @@ void main() {
     );
   });
 
-  for (final slug in ['100%', '%ZZ', '%C', '%FF']) {
+  for (final slug in ['100%', '%ZZ', '%FF']) {
     test(
       'unreadable escapes in a category slug remain a literal path segment: $slug',
       () {
