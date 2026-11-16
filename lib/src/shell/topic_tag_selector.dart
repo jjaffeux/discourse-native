@@ -8,6 +8,7 @@ import '../foundation/icons/d_icons.dart';
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import 'platform.dart';
+import 'skeleton_fill.dart';
 import 'topic_taxonomy_button.dart';
 
 /// The tag button and searchable dropdown shared by filters and editors.
@@ -282,19 +283,19 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         maximumWidth: 210,
       ),
     );
-    final children = <Widget>[
-      Padding(
-        padding: DInsets.menu,
-        child: DComboboxInput<TopicTag>(
-          size: context.isTouch ? DControlSize.filter : DControlSize.regular,
-          key: ValueKey('$prefix-query'),
-          placeholder: context.l10n.searchTags,
-          semanticLabel: context.l10n.searchTagsTopictagselector,
-          registerAsAnchor: false,
-          autofocus: context.isTouch,
-          showTrigger: false,
-        ),
+    final input = Padding(
+      padding: DInsets.menu,
+      child: DComboboxInput<TopicTag>(
+        size: context.isTouch ? DControlSize.filter : DControlSize.regular,
+        key: ValueKey('$prefix-query'),
+        placeholder: context.l10n.searchTags,
+        semanticLabel: context.l10n.searchTagsTopictagselector,
+        registerAsAnchor: false,
+        autofocus: context.isTouch,
+        showTrigger: false,
       ),
+    );
+    final results = <Widget>[
       DComboboxList<TopicTag>(
         itemBuilder: (context, option) => Row(
           children: [
@@ -341,7 +342,14 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
             key: ValueKey('$prefix-popover'),
             semanticLabel: context.l10n.tags,
             width: 280,
-            children: children,
+            children: [
+              input,
+              Expanded(
+                child: _loading
+                    ? const _TagSearchSkeleton()
+                    : Column(children: results),
+              ),
+            ],
           )
         : DComboboxContent(
             sheetOnMobile: widget.sheetOnMobile,
@@ -349,7 +357,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
             key: ValueKey('$prefix-popover'),
             semanticLabel: context.l10n.tags,
             width: 280,
-            children: children,
+            children: [input, ...results],
           );
     if (widget.multiple) {
       return DCombobox<TopicTag>.multipleControlled(
@@ -424,4 +432,41 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       content: content,
     );
   }
+}
+
+class _TagSearchSkeleton extends StatelessWidget {
+  const _TagSearchSkeleton();
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    semanticsLabel: context.l10n.findingTags,
+    color: skeletonFill(context, on: SkeletonSurface.floating),
+    child: Padding(
+      padding: DInsets.menu,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            for (
+              var index = 0;
+              (index + 1) * DControlStyle.rowHeight <= constraints.maxHeight;
+              index++
+            )
+              SizedBox(
+                height: DControlStyle.rowHeight,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: DSpacing.sm),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: DSkeleton(
+                      width: index.isEven ? 104 : 72,
+                      height: 14,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

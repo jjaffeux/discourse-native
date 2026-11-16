@@ -109,6 +109,73 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('mobile tag sheet keeps its bounds as tags load on $platform', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+      tester.view.padding = tester.view.viewPadding;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final initial = Completer<TopicTagSearch>();
+      final empty = Completer<TopicTagSearch>();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: platform),
+          home: Scaffold(
+            body: SafeArea(
+              child: TopicTagSelector(
+                selectedTags: const [],
+                search: (query) =>
+                    query.isEmpty ? initial.future : empty.future,
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await open(tester, TopicTagSelector);
+      final sheet = find.byType(DSheetContent);
+      final skeleton = find.byType(DSkeletonRegion);
+      final emptyMessage = find.text('No matching tags.');
+      final loadingBounds = tester.getRect(sheet);
+      expect(skeleton, findsOneWidget);
+      expect(tagOption('design'), findsNothing);
+      expect(find.text('No tags are available.'), findsNothing);
+
+      initial.complete(const TopicTagSearch(tags: [design, mobile]));
+      await tester.pumpAndSettle();
+      expect(tagOption('design').hitTestable(), findsOneWidget);
+      expect(tester.getRect(sheet), loadingBounds);
+      expect(skeleton, findsNothing);
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      tester.view.padding = const FakeViewPadding(top: 47);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      final keyboardBounds = tester.getRect(sheet);
+      final query = find.byType(EditableText);
+      expect(tester.getRect(query).bottom, lessThan(544));
+      await tester.enterText(query, 'missing');
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(sheet), keyboardBounds);
+      expect(skeleton, findsOneWidget);
+      expect(emptyMessage, findsNothing);
+
+      empty.complete(const TopicTagSearch());
+      await tester.pumpAndSettle();
+      expect(tester.getRect(sheet), keyboardBounds);
+      expect(skeleton, findsNothing);
+      expect(emptyMessage.hitTestable(), findsOneWidget);
+    });
+
     testWidgets(
       'mobile tags retain focus and allow repeated toggles on $platform',
       (tester) async {
