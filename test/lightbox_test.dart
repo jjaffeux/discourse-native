@@ -1588,20 +1588,7 @@ void main() {
       });
     }
 
-    testWidgets('offers arrows to a pointer', (tester) async {
-      await pumpCookedOn(tester, threeImages, TargetPlatform.macOS);
-      await tester.tap(thumbnail(1));
-      await tester.pumpAndSettle();
-
-      expect(find.dIcon(DIcons.chevronLeft), findsOneWidget);
-      expect(find.dIcon(DIcons.chevronRight), findsOneWidget);
-
-      await tester.tap(find.dIcon(DIcons.chevronRight));
-      await tester.pumpAndSettle();
-      expect(barText('3 of 3'), findsOneWidget);
-    });
-
-    testWidgets('draws arrows as white 44px rounds inset from the sides', (
+    testWidgets('uses inset 44px pointer arrows to page through images', (
       tester,
     ) async {
       await pumpCookedOn(tester, threeImages, TargetPlatform.macOS);
@@ -1627,6 +1614,10 @@ void main() {
       expect(tester.getSize(find.dIcon(DIcons.chevronLeft)).height, 16);
       expect(tester.getTopLeft(previous).dx, 16);
       expect(width - tester.getTopRight(next).dx, 16);
+
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(barText('3 of 3'), findsOneWidget);
     });
 
     testWidgets('fades an arrow to a quarter at the end of the gallery', (
