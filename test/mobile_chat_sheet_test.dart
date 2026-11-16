@@ -347,6 +347,81 @@ void main() {
     }
   }
 
+  testWidgets(
+    'pulling down a restored topic reveals the previous chat conversation',
+    (tester) async {
+      final topic = ContentRoute.topic(
+        topicId: 7,
+        slug: 'shared',
+        title: 'Shared topic card',
+      );
+      final tab = ForumTab(
+        id: 'chat-tab',
+        rootDestinationId: topic.id,
+        contentStack: [topic],
+      );
+      final saved = ForumWorkspace(
+        siteUrl: _site,
+        accountIdentity: 'user:reader',
+        tabs: [tab],
+        activeTabId: tab.id,
+        mobile: MobileNavigationState(
+          place: 'panel/chat',
+          visits: [
+            null,
+            ForumTabLocation(
+              rootDestinationId: 'chat-c-10',
+              contentStack: const [
+                ContentRoute(
+                  destination: ExtensionDestination('chat-c-10'),
+                  title: 'Support',
+                  icon: DIcons.comment,
+                ),
+              ],
+            ),
+            tab.location,
+          ],
+          index: 2,
+        ),
+      );
+      final shell = await _fixture(
+        tester,
+        forumTabs: FakeForumTabStore([
+          ForumWorkspace.tryFromJson(jsonDecode(jsonEncode(saved)))!,
+        ]),
+      );
+      final previous = shell.mobileNavigation.previousEntryId;
+      expect(shell.currentContent?.topicId, 7);
+
+      final region = Rect.fromLTWH(
+        24,
+        tester.getRect(_header).bottom + 48,
+        342,
+        135,
+      );
+      final drag = await tester.startGesture(tester.getCenter(_handle));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 380));
+      await tester.pump();
+      expect(shell.currentContent?.topicId, 7);
+      final exposed = await _pixels(tester, region);
+      expect(
+        exposed.toSet().length,
+        greaterThan(8),
+        reason: 'The pull should expose the transcript above the topic sheet.',
+      );
+      expect(find.byType(ChatChannelView).hitTestable(), findsNothing);
+      await drag.cancel();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 7);
+      await _dismiss(tester);
+      expect(shell.mobileNavigation.entryId, same(previous));
+      expect(find.byType(ChatChannelView).hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
+
   for (final hasChannelVisit in [false, true]) {
     testWidgets(
       hasChannelVisit
@@ -755,7 +830,10 @@ void main() {
         await drag.moveBy(const Offset(0, 20));
         await drag.moveBy(const Offset(0, 60));
         await tester.pump();
-        expect(tester.getRect(_sheet).top, greaterThan(bounds.top));
+        expect(
+          tester.getRect(_sheet.hitTestable()).top,
+          greaterThan(bounds.top),
+        );
         await drag.cancel();
         await tester.pumpAndSettle();
         final shortPull = await tester.startGesture(tester.getCenter(_handle));

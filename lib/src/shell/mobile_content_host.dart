@@ -93,7 +93,8 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         shell.mobileNavigationEnabled &&
         mobilePresentation != null &&
         previousSheetEntry != null &&
-        currentRoute?.destination is ExtensionDestination &&
+        (currentRoute?.isTopic == true ||
+            currentRoute?.destination is ExtensionDestination) &&
         previousSheet?.destination is ExtensionDestination &&
         mobilePresentation.usesSheet(currentRoute!) &&
         mobilePresentation.usesSheet(previousSheet!);
@@ -258,23 +259,41 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           ),
       ],
     );
+    final previousSheetPreview = retainPreviousSheet
+        ? DHistoryTransition.previousPageUnderlayOf(context)
+        : null;
+    final useLiveUnderlay = retainPreviousSheet && previousSheetPreview == null;
     return Stack(
       fit: StackFit.expand,
       children: [
-        Offstage(
-          offstage: retainPreviousSheet,
-          child: TickerMode(
-            enabled: !retainPreviousSheet,
-            child: ExcludeFocus(
-              excluding: retainPreviousSheet,
-              child: DPageHeaderHost.exclude(
+        if (!useLiveUnderlay)
+          Offstage(
+            offstage: retainPreviousSheet,
+            child: TickerMode(
+              enabled: !retainPreviousSheet,
+              child: ExcludeFocus(
                 excluding: retainPreviousSheet,
-                child: basePages,
+                child: DPageHeaderHost.exclude(
+                  excluding: retainPreviousSheet,
+                  child: basePages,
+                ),
               ),
             ),
           ),
-        ),
-        if (retainPreviousSheet) widget.builder(current, null, null, null),
+        if (retainPreviousSheet)
+          widget.builder(
+            current,
+            null,
+            previousSheetPreview ??
+                // The underlay's tickers are muted while it is covered.
+                MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(disableAnimations: true),
+                  child: basePages,
+                ),
+            null,
+          ),
       ],
     );
   }
