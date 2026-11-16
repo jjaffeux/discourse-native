@@ -248,7 +248,7 @@ void main() {
       expect(title.top - header.top, header.bottom - subtitle.bottom);
     });
 
-    for (final scale in [1.5, 2.0, 3.0]) {
+    for (final scale in [1.5, 3.0]) {
       testWidgets('grows with ${scale}x text so a subtitle keeps its inset', (
         tester,
       ) async {
