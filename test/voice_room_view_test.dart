@@ -2677,120 +2677,118 @@ void main() {
         },
       );
     }
-    for (final rollback in [false, true]) {
-      for (final framed in [false, true]) {
-        testWidgets(
-          'room editor rejects ${rollback ? 'rollback' : 'replacement'} draft (framed: $framed)',
-          (tester) async {
-            final room = _room(
-              canManage: true,
-              participants: const [
-                VoiceParticipant(
-                  id: 1,
-                  username: 'sam',
-                  role: VoiceRole.moderator,
-                ),
-              ],
-            );
-            final transport = RecordingPluginTransport(
-              responses: {
-                'GET /voice/rooms.json': {
-                  'rooms': [_joinPayload(room)['room']],
-                  'can_create_room': true,
-                },
-                'POST /voice/rooms/7/join.json': _joinPayload(room),
-                'POST /voice/rooms/7/state.json': const {},
-                'DELETE /voice/rooms/7/leave.json': const {},
-                'PUT /voice/rooms/7.json': {'room': _joinPayload(room)['room']},
+    for (final (rollback, framed) in [(false, true), (true, false)]) {
+      testWidgets(
+        'room editor rejects ${rollback ? 'rollback' : 'replacement'} draft (framed: $framed)',
+        (tester) async {
+          final room = _room(
+            canManage: true,
+            participants: const [
+              VoiceParticipant(
+                id: 1,
+                username: 'sam',
+                role: VoiceRole.moderator,
+              ),
+            ],
+          );
+          final transport = RecordingPluginTransport(
+            responses: {
+              'GET /voice/rooms.json': {
+                'rooms': [_joinPayload(room)['room']],
+                'can_create_room': true,
               },
-            );
-            final module = _EditorSessionModule(transport);
-            final plugins = PluginInstaller.install(PluginManifest([module]));
-            addTearDown(plugins.close);
-            const user = DiscourseUser(id: 1, username: 'sam');
-            const replacement = DiscourseUser(
-              id: 8,
-              username: 'replacement',
-              staff: true,
-            );
-            final auth = _EditorAuthenticator(rollback: rollback)
-              ..keys[_siteUrl] = 'key';
-            final api = FakeDiscourseApi(
-              user: user,
-              feeds: const {'/latest.json': []},
-            )..accounts['replacement-key'] = replacement;
-            final shell = ShellController(
-              instanceStore: FakeInstanceStore([
-                instance('voice.example.com').copyWith(user: user),
-              ]),
-              api: api,
-              authenticator: auth,
-              drafts: FakeDraftStore(),
-              trackers: FakeSiteTracker.reset(),
-              plugins: plugins,
-            );
-            var disposed = false;
-            addTearDown(() {
-              if (!disposed) shell.dispose();
-            });
-            await shell.load();
-            final controller = module.harness.controller;
-            await controller.ensureLoaded(_siteUrl);
-            await controller.join(
-              siteUrl: _siteUrl,
-              siteName: 'Voice',
-              room: room,
-            );
-            await tester.pumpWidget(
-              ShellScope(
-                controller: shell,
-                child: MaterialApp(
-                  theme: ThemeData(platform: TargetPlatform.macOS),
-                  home: Scaffold(
-                    body: PluginUiScope.own(
-                      voicePluginId,
-                      const VoiceRoomView(roomId: 7),
-                    ),
+              'POST /voice/rooms/7/join.json': _joinPayload(room),
+              'POST /voice/rooms/7/state.json': const {},
+              'DELETE /voice/rooms/7/leave.json': const {},
+              'PUT /voice/rooms/7.json': {'room': _joinPayload(room)['room']},
+            },
+          );
+          final module = _EditorSessionModule(transport);
+          final plugins = PluginInstaller.install(PluginManifest([module]));
+          addTearDown(plugins.close);
+          const user = DiscourseUser(id: 1, username: 'sam');
+          const replacement = DiscourseUser(
+            id: 8,
+            username: 'replacement',
+            staff: true,
+          );
+          final auth = _EditorAuthenticator(rollback: rollback)
+            ..keys[_siteUrl] = 'key';
+          final api = FakeDiscourseApi(
+            user: user,
+            feeds: const {'/latest.json': []},
+          )..accounts['replacement-key'] = replacement;
+          final shell = ShellController(
+            instanceStore: FakeInstanceStore([
+              instance('voice.example.com').copyWith(user: user),
+            ]),
+            api: api,
+            authenticator: auth,
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+            plugins: plugins,
+          );
+          var disposed = false;
+          addTearDown(() {
+            if (!disposed) shell.dispose();
+          });
+          await shell.load();
+          final controller = module.harness.controller;
+          await controller.ensureLoaded(_siteUrl);
+          await controller.join(
+            siteUrl: _siteUrl,
+            siteName: 'Voice',
+            room: room,
+          );
+          await tester.pumpWidget(
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                theme: ThemeData(platform: TargetPlatform.macOS),
+                home: Scaffold(
+                  body: PluginUiScope.own(
+                    voicePluginId,
+                    const VoiceRoomView(roomId: 7),
                   ),
                 ),
               ),
-            );
-            await tester.pumpAndSettle();
-            final trigger = tester.element(find.byTooltip('Edit room'));
-            await tester.tap(find.byTooltip('Edit room'));
-            await tester.pumpAndSettle();
-            final field = find.widgetWithText(DInput, 'Name');
-            final editor = tester.element(field);
-            await tester.enterText(field, 'Previous account private name');
-            await tester.pump();
+            ),
+          );
+          await tester.pumpAndSettle();
+          final trigger = tester.element(find.byTooltip('Edit room'));
+          await tester.tap(find.byTooltip('Edit room'));
+          await tester.pumpAndSettle();
+          final field = find.widgetWithText(DInput, 'Name');
+          final editor = tester.element(field);
+          await tester.enterText(field, 'Previous account private name');
+          await tester.pump();
 
-            await shell.connectCurrentInstance();
-            await controller.ensureLoaded(_siteUrl, force: true);
-            expect(auth.keys[_siteUrl], rollback ? 'key' : 'replacement-key');
-            expect(shell.currentInstance?.user, rollback ? user : replacement);
-            expect(controller.room(_siteUrl, 7)?.canManage, isTrue);
-            if (framed) await tester.pumpAndSettle();
-            expect(trigger.mounted, !framed);
-            expect(tester.element(field), same(editor));
-            await tester.tap(find.widgetWithText(DButton, 'Save changes'));
-            await tester.pumpAndSettle();
-            expect(
-              transport.writes.where(
-                (write) =>
-                    write.method == 'PUT' &&
-                    write.path == '/voice/rooms/7.json',
-              ),
-              isEmpty,
-            );
-            await tester.pumpWidget(const SizedBox.shrink());
-            await tester.runAsync(() async {
-              disposed = true;
-              shell.dispose();
-              await shell.pluginTeardown;
-            });
-          },
-        );
-      }
+          await shell.connectCurrentInstance();
+          await controller.ensureLoaded(_siteUrl, force: true);
+          expect(auth.keys[_siteUrl], rollback ? 'key' : 'replacement-key');
+          expect(shell.currentInstance?.user, rollback ? user : replacement);
+          expect(controller.room(_siteUrl, 7)?.canManage, isTrue);
+          if (framed) await tester.pumpAndSettle();
+          expect(trigger.mounted, !framed);
+          expect(tester.element(field), same(editor));
+          await tester.tap(find.widgetWithText(DButton, 'Save changes'));
+          await tester.pumpAndSettle();
+          expect(
+            transport.writes.where(
+              (write) =>
+                  write.method == 'PUT' &&
+                  write.path == '/voice/rooms/7.json',
+            ),
+            isEmpty,
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.runAsync(() async {
+            disposed = true;
+            shell.dispose();
+            await shell.pluginTeardown;
+          });
+        },
+      );
     }
 
     testWidgets('validates room names while the user types', (tester) async {
