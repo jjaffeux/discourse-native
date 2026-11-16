@@ -1,3 +1,4 @@
+import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 
 /// The identity of a place the phone's bottom bar offers, including the
@@ -96,6 +97,14 @@ final class MobileNavigation {
   bool get atRoot => location == null;
   bool get canGoBack => _index > 0;
   bool get canGoForward => _index < _entries.length - 1;
+
+  bool canGoBackFrom(ContentRoute route) {
+    final visitIndex = _entries.lastIndexWhere(
+      (entry) => route.sameDestinationAs(entry.content?.contentStack.last),
+      _index,
+    );
+    return visitIndex > 0;
+  }
 
   /// Where Back lands, null when there is no earlier visit or it is the root.
   ForumTabLocation? get previousLocation =>

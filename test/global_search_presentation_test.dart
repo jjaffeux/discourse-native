@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -15,6 +16,7 @@ import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_panel.dart';
+import 'package:discourse_native/src/shell/mobile_navigation.dart';
 import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -607,6 +609,48 @@ void main({bool useDeviceMetrics = false}) {
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.takeException(), isNull);
     });
+
+    for (final canGoBack in [false, true]) {
+      _testPresentation(
+        'mobile $platform opening Search preserves Interface Back ($canGoBack)',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          final shell = await _pumpSearch(tester, size: phone);
+          if (canGoBack) {
+            shell.pushContent(ContentRoute.appearance());
+          } else {
+            shell.selectMobileDestination(
+              const MobileTab.destination('appearance'),
+              const SidebarDestination(
+                id: 'appearance',
+                label: 'Interface',
+                icon: DIcons.gear,
+              ),
+            );
+          }
+          await tester.pumpAndSettle();
+          final back = find.descendant(
+            of: find.byKey(const ValueKey('content-header')),
+            matching: find.byTooltip('Back'),
+          );
+          final expectedBack = canGoBack ? findsOneWidget : findsNothing;
+          expect(find.text('Display'), findsOneWidget);
+          expect(back, expectedBack);
+
+          await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+          await tester.pumpAndSettle();
+          expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+          expect(find.text('Display'), findsOneWidget);
+          expect(back, expectedBack);
+
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(find.byKey(ForumSearch.panelKey), findsNothing);
+          expect(find.text('Display'), findsOneWidget);
+          expect(back, expectedBack);
+        },
+      );
+    }
 
     _testPresentation(
       'mobile $platform keeps the Messages title hidden as Search opens',

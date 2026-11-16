@@ -266,11 +266,15 @@ final class ShellTabContext implements TopicListCursorTab, TopicNavigationTab {
   bool get canCreateTopicFromList =>
       topicListContent != null && currentFeed?.canCreateTopic == true;
 
-  bool get canPopContent =>
-      isCurrent &&
-      (shell.mobileNavigationEnabled
-          ? shell.mobileNavigation.canGoBack
-          : activeTab?.canGoBack ?? false);
+  bool get canPopContent {
+    if (!isCurrent) return false;
+    if (!shell.mobileNavigationEnabled) return activeTab?.canGoBack ?? false;
+    final navigation = shell.mobileNavigation;
+    final route = _contentRoute;
+    return route == null
+        ? navigation.canGoBack
+        : navigation.canGoBackFrom(route);
+  }
 
   bool get canReplyHere => currentTopic?.canCreatePost ?? false;
 
