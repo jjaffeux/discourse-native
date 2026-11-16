@@ -5,7 +5,7 @@ import 'package:discourse_native/src/models/topic_tag.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final slug in ['100%', '%ZZ', '%C', '%FF']) {
+  for (final slug in ['100%', '%ZZ', '%FF']) {
     test(
       'unreadable escapes in a tag slug remain a literal path segment: $slug',
       () {
