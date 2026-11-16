@@ -16,7 +16,6 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/plugins/discourse_lazy_videos/lazy_youtube_parser.dart': (5, 0),
   'lib/src/shell/mobile_presentation.dart': (46, 1),
   'lib/src/shell/forum_access_state.dart': (120, 1),
-  'lib/src/shell/site_capabilities.dart': (89, 0),
   'lib/src/shell/composer/recipient_lookup.dart': (114, 0),
 };
 
