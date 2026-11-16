@@ -1,6 +1,13 @@
 part of 'd_sheet.dart';
 
+const _sheetTouchEntrance = Duration(milliseconds: 320);
+const _sheetModalTransition = Duration(milliseconds: 200);
 const _sheetPageTransition = Duration(milliseconds: 280);
+
+Duration _sheetModalEntranceDuration(BuildContext context) =>
+    DControlStyle.isTouch(context)
+    ? _sheetTouchEntrance
+    : _sheetModalTransition;
 
 final _routeBackdropPulls = Expando<ValueNotifier<double>>();
 
@@ -52,7 +59,8 @@ class _DSheetBackdropState extends State<DSheetBackdrop>
     with SingleTickerProviderStateMixin {
   late final _cover = AnimationController(
     vsync: this,
-    duration: _sheetPageTransition,
+    duration: _sheetTouchEntrance,
+    reverseDuration: _sheetPageTransition,
     value: widget.covered ? 1 : 0,
   );
   ValueListenable<double>? _pull;

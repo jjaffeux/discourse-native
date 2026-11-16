@@ -117,6 +117,11 @@ void main() {
       expect(width(), 400);
 
       await tester.tap(find.text('Open sheet'));
+      await tester.pump();
+      await tester.pump();
+      expect(width(), 400);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(width(), inExclusiveRange(376.0, 400.0));
       await tester.pumpAndSettle();
       expect(width(), closeTo(376, .01));
       final drag = await tester.startGesture(tester.getCenter(_handle));
@@ -278,6 +283,12 @@ void main() {
     expect(tester.getTopLeft(_sheet).dy, openingTop);
     await tester.pump(const Duration(milliseconds: 70));
     expect(tester.getTopLeft(_sheet).dy, lessThan(openingTop));
+    await tester.pump(const Duration(milliseconds: 140));
+    expect(tester.getTopLeft(_sheet).dy, greaterThan(0));
+    expect(
+      _paintedRect(tester, _backgroundOf(tester)).width,
+      inExclusiveRange(376.0, backgroundBounds.width),
+    );
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(_sheet).dy, 0);
     expect(

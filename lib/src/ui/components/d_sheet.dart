@@ -143,8 +143,8 @@ class DSheet<T> extends StatelessWidget {
     finalFocusNode: finalFocusNode,
     restoreFocus: restoreFocus,
     mobileBackgroundBuilder: _routeSheetBackground,
-    transitionDuration: const Duration(milliseconds: 200),
-    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionDuration: _sheetModalEntranceDuration(context),
+    reverseTransitionDuration: _sheetModalTransition,
     presentationBuilder: (context, presentation) => _sheetPresentation(
       context,
       presentation,
@@ -267,10 +267,7 @@ class DSheetViewport extends StatefulWidget {
 class _DSheetViewportState extends State<DSheetViewport>
     with SingleTickerProviderStateMixin {
   late bool _retainsSource = widget.content == null;
-  late final _entrance = AnimationController(
-    vsync: this,
-    duration: _sheetPageTransition,
-  );
+  late final _entrance = AnimationController(vsync: this);
   bool _started = false;
   final _edge = ValueNotifier(0.0);
   late double _readerOffset = widget.readerStart == DSheetReaderStart.scrolled
@@ -292,6 +289,9 @@ class _DSheetViewportState extends State<DSheetViewport>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _entrance.duration = DControlStyle.isTouch(context)
+        ? _sheetTouchEntrance
+        : _sheetPageTransition;
     _edge.removeListener(_syncEdge);
     _edgeHost = context
         .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
@@ -3203,8 +3203,8 @@ Future<T?> showDSheet<T>({
       topBottomMaxWidth: topBottomMaxWidth,
       avoidKeyboard: avoidKeyboard,
     ),
-    transitionDuration: const Duration(milliseconds: 200),
-    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionDuration: _sheetModalEntranceDuration(context),
+    reverseTransitionDuration: _sheetModalTransition,
   );
 }
 
