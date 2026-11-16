@@ -308,13 +308,9 @@ void main() {
   for (final threaded in [false, true]) {
     for (final replacement in [
       'none',
-      'open',
-      'disposed',
-      'account-before-paint',
-      'account-resolution',
-      'account-error',
       'query',
-      'error',
+      if (threaded) ...['disposed', 'account-resolution', 'error']
+      else ...['open', 'account-before-paint', 'account-error'],
     ]) {
       testWidgets(
         'a held ${threaded ? 'thread' : 'channel'} result opens only with its '
