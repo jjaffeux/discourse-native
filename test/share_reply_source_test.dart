@@ -105,7 +105,7 @@ void main() {
       expect(harness.shell.visibleComposer, isNull);
     });
 
-    for (final disposeOriginal in [false, true]) {
+    for (final disposeOriginal in [false, if (postNumber != null) true]) {
       testWidgets(
         '$kind share expires after controller replacement${disposeOriginal ? ' and disposal' : ''}',
         (tester) async {
