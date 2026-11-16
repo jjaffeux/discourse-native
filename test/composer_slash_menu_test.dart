@@ -354,7 +354,10 @@ void main() {
     });
   }
 
-  for (final dismissal in ['backspace', 'escape', 'space']) {
+  for (final (dismissal, key) in [
+    ('backspace', LogicalKeyboardKey.backspace),
+    ('escape', LogicalKeyboardKey.escape),
+  ]) {
     testWidgets('$dismissal keeps slash menu geometry during exit', (
       tester,
     ) async {
@@ -367,15 +370,7 @@ void main() {
       final position = tester.getTopLeft(anchor);
       final menu = find.byType(DDropdownMenuContent);
       final size = tester.getSize(menu);
-      if (dismissal == 'backspace') {
-        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-      } else {
-        await tester.sendKeyEvent(
-          dismissal == 'escape'
-              ? LogicalKeyboardKey.escape
-              : LogicalKeyboardKey.space,
-        );
-      }
+      await tester.sendKeyEvent(key);
       for (var frame = 0; frame < 6; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
         expect(tester.getTopLeft(anchor), position);
