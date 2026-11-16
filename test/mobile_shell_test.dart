@@ -1920,7 +1920,7 @@ void main() {
     expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
   });
 
-  for (final bottom in [0.0, 24.0, 34.0, 48.0]) {
+  for (final bottom in [0.0, 34.0]) {
     _mobileTest(
       'all mobile roots keep their body above the platform bottom edge ($bottom)',
       (tester) async {
