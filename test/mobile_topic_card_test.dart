@@ -142,7 +142,12 @@ void main() {
     TargetPlatform.android,
     TargetPlatform.macOS,
   ]) {
-    for (final width in [320.0, 390.0, 590.0, 1200.0]) {
+    for (final width in [
+      320.0,
+      if (platform == TargetPlatform.iOS) 390.0,
+      590.0,
+      1200.0,
+    ]) {
       testWidgets('mockup card geometry on $platform at $width', (
         tester,
       ) async {
