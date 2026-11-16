@@ -45,6 +45,8 @@ void main() {
     await openDockPanel(tester);
     await tester.tap(find.byKey(DMobileDock.tileKey(destination)));
     await tester.pump();
+    // The settle's clock starts on the frame after the press's own.
+    await tester.pump();
 
     final icon = find.descendant(
       of: slot,

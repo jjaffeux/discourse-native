@@ -874,6 +874,8 @@ void main() {
       expect(find.byKey(DMobileDock.grabberKey), findsNothing);
       expect(tester.getRect(morph), handle);
 
+      // The settle's clock starts on the frame after the press's own.
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 96));
       final moving = tester.getRect(morph);
       expect(moving.top, greaterThan(handle.top));
@@ -901,6 +903,110 @@ void main() {
       );
     });
   }
+
+  testWidgets('a place pressed in the panel is drawn with the panel still open '
+      'on the frame after the press, however late that frame comes, and '
+      'settles from there', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await openDockPanel(tester);
+    final open = tester.getRect(_surface).top;
+
+    await tester.tap(dockPanelTile('Users'));
+    // The press's own frame, which builds what the press opens, and the next
+    // one arriving late behind it.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(tester.getRect(_surface).top, open);
+
+    await tester.pump(const Duration(milliseconds: 16));
+    final moved = tester.getRect(_surface).top - open;
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    final travel = tester.getRect(_surface).top - open;
+    // One frame into the settle, not the 96 ms since the press.
+    expect(moved, inExclusiveRange(0, travel * .15));
+  });
+
+  testWidgets('the grabber starts the panel settling with its own press', (
+    tester,
+  ) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await openDockPanel(tester);
+    final open = tester.getRect(_surface).top;
+
+    await tester.tap(find.byKey(DMobileDock.grabberKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(tester.getRect(_surface).top, greaterThan(open));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+  });
+
+  testWidgets('a frame of the bar growing or settling builds none of the '
+      'panel\'s tiles, nor its grabber', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await openDockPanel(tester);
+    Set<Element> within(Finder finder) => {
+      ...finder.evaluate(),
+      ...find
+          .descendant(of: finder, matching: find.byWidgetPredicate((_) => true))
+          .evaluate(),
+    };
+    final still = {
+      ...within(
+        find.descendant(of: _panel, matching: find.byType(DMobileDockItem)),
+      ),
+      ...within(find.byKey(DMobileDock.grabberKey)),
+    };
+    expect(still.length, greaterThan(100));
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+    // Under a finger: down the panel and back up.
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(find.byKey(const ValueKey('Topics'))),
+      timeStamp: Duration.zero,
+    );
+    await gesture.moveBy(
+      const Offset(0, 12),
+      timeStamp: const Duration(milliseconds: 16),
+    );
+    // The frame the drag takes the bar in builds the dock once.
+    await tester.pump();
+    rebuilt.clear();
+    for (var step = 2; step <= 7; step++) {
+      await gesture.moveBy(
+        Offset(0, step <= 4 ? 12 : -12),
+        timeStamp: Duration(milliseconds: 16 * step),
+      );
+      await tester.pump();
+    }
+    expect(rebuilt, isNotEmpty);
+    expect(rebuilt.intersection(still), isEmpty);
+    await gesture.up(timeStamp: const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+
+    // Let go to settle closed.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    rebuilt.clear();
+    for (var frame = 0; frame < 8; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(_panel, findsOneWidget);
+    expect(rebuilt, isNotEmpty);
+    expect(rebuilt.intersection(still), isEmpty);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('the page added to the bar carries the mark', (tester) async {
     await tester.pumpWidget(fixture(foot: 34, selected: 'Users'));
