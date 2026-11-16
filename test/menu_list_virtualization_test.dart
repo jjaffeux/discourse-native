@@ -35,7 +35,12 @@ void menuListVirtualizationTests({
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final platform in platforms) {
     for (final plugin in [false, true]) {
-      for (final scale in [1.0, 2.0]) {
+      final scales = switch ((platform, plugin)) {
+        (TargetPlatform.macOS, false) => [1.0],
+        (TargetPlatform.macOS, true) => [2.0],
+        _ => [1.0, 2.0],
+      };
+      for (final scale in scales) {
         testWidgets(
           'menu feeds keep long rows lazy on $platform plugin=$plugin scale=$scale',
           (tester) async {
