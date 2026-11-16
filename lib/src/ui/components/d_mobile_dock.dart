@@ -787,7 +787,9 @@ class _DMobileDockState extends State<DMobileDock>
     child: child,
   );
 
-  void _grow(bool opening, {Key? markPlace}) {
+  /// Settles the bar open or closed. [afterFrame] starts the settle once
+  /// the frame under way is drawn rather than at once.
+  void _grow(bool opening, {Key? markPlace, bool afterFrame = false}) {
     if (opening ? !_grows : !_out) return;
     _swipeRest?.cancel();
     _swipeRest = null;
@@ -808,26 +810,48 @@ class _DMobileDockState extends State<DMobileDock>
     _showLayer();
     _reportOut();
     if (opening) _takeFocus();
-    _fade.animateTo(
-      opening ? 1 : 0,
-      duration: reduced ? Duration.zero : DMobileDock.fadeDuration,
-      curve: Curves.ease,
-    );
-    _growth
-        .animateTo(
-          opening ? 1 : 0,
-          duration: reduced ? Duration.zero : DMobileDock.settleDuration,
-          curve: markMorph == null
-              ? DMobileDock.settleCurve
-              : const Cubic(.25, .6, .35, 1),
-        )
-        .whenCompleteOrCancel(() {
-          if (!mounted || token != _settle) return;
-          _settled(opening);
-        });
+    void settle() {
+      _fade.animateTo(
+        opening ? 1 : 0,
+        duration: reduced ? Duration.zero : DMobileDock.fadeDuration,
+        curve: Curves.ease,
+      );
+      _growth
+          .animateTo(
+            opening ? 1 : 0,
+            duration: reduced ? Duration.zero : DMobileDock.settleDuration,
+            curve: markMorph == null
+                ? DMobileDock.settleCurve
+                : const Cubic(.25, .6, .35, 1),
+          )
+          .whenCompleteOrCancel(() {
+            if (!mounted || token != _settle) return;
+            _settled(opening);
+          });
+    }
+
+    if (!afterFrame || reduced) {
+      settle();
+      return;
+    }
+    // Whatever settle was under way stops where it is for the frame.
+    _growth.stop();
+    _fade.stop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && token == _settle) settle();
+    });
   }
 
   void _close() => _grow(false);
+
+  /// Puts the panel away for a press on one of its places or its action,
+  /// which then does what it does: a page, a menu, a composer. That is built
+  /// in the frame the press lands in, however long the frame takes, so the
+  /// settle starts once it is drawn. Started with the press, the settle's
+  /// clock runs through that frame, and the next one draws the panel already
+  /// part of the way down.
+  void _closeForPress({Key? markPlace}) =>
+      _grow(false, markPlace: markPlace, afterFrame: true);
 
   /// The focus moves into the panel, to its first tile, once the panel is
   /// meant to be open: pressed open, or let go to settle open. Not under a
@@ -1056,6 +1080,16 @@ class _DMobileDockState extends State<DMobileDock>
     );
     if (!_out) return _peeking(context, slot);
     final panel = widget.geometry.panel(tiles: _tiles);
+    // Built here, once for each build of the dock, and handed to every frame
+    // of the growth: the grid and the grabber are the same however far the
+    // bar has grown, and only where they stand and how much of them shows
+    // moves.
+    final grid = _grid(
+      context,
+      panel,
+      slot.width + widget.geometry.margin.horizontal,
+    );
+    final grabber = _Grabber(key: DMobileDock.grabberKey, onPressed: _close);
     return PopScope(
       // The system back closes the panel, as Escape does.
       canPop: false,
@@ -1064,10 +1098,51 @@ class _DMobileDockState extends State<DMobileDock>
       },
       child: AnimatedBuilder(
         animation: Listenable.merge([_growth, _fade]),
-        builder: (context, _) => _layer(context, slot, panel),
+        builder: (context, _) => _layer(context, slot, panel, grid, grabber),
       ),
     );
   }
+
+  /// The panel's tiles, [width] across, each a place pressed as the bar's
+  /// own are. Each is painted on its own layer: the panel moving over them
+  /// and their fading in draw every one again from what is kept, and one
+  /// tile lighting under a finger paints itself alone.
+  Widget _grid(
+    BuildContext context,
+    DMobileDockPanelGeometry panel,
+    double width,
+  ) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      for (final (index, place) in _rest.indexed)
+        _tile(
+          panel.tileRect(index, width),
+          RepaintBoundary(
+            child: _whileStill(
+              DMobileDockItem(
+                key: DMobileDock.tileKey(place.key),
+                growth: 1,
+                focusNode: place.key == _firstTileKey ? _firstTile : null,
+                icon: place.icon,
+                label: place.label,
+                semanticLabel: place.semanticLabel,
+                badge: place.badge,
+                selected: place.selected,
+                customSemanticsActions: _readerActions(
+                  context,
+                  index: DMobileDockGeometry.placeColumns + index,
+                ),
+                onPressed: () {
+                  _closeForPress(markPlace: place.key);
+                  place.onPressed();
+                },
+              ),
+            ),
+          ),
+          key: _slotKey(place.key),
+        ),
+    ],
+  );
 
   /// The bar lifted off the panel under it as it peeks, with nothing over
   /// the page but the two: the panel shown from the screen's foot to the
@@ -1150,6 +1225,8 @@ class _DMobileDockState extends State<DMobileDock>
     BuildContext context,
     Rect slot,
     DMobileDockPanelGeometry panel,
+    Widget grid,
+    Widget grabber,
   ) {
     final geometry = widget.geometry;
     // The screen's edges, which the bar's margins keep it from: the
@@ -1174,33 +1251,6 @@ class _DMobileDockState extends State<DMobileDock>
     // The panel's box, where a lifted place and the places it displaces are
     // drawn, over the bar.
     final box = Rect.fromLTWH(left, foot - panel.height, width, panel.height);
-    final tiles = [
-      for (final (index, place) in _rest.indexed)
-        _tile(
-          panel.tileRect(index, width),
-          _whileStill(
-            DMobileDockItem(
-              key: DMobileDock.tileKey(place.key),
-              growth: 1,
-              focusNode: place.key == _firstTileKey ? _firstTile : null,
-              icon: place.icon,
-              label: place.label,
-              semanticLabel: place.semanticLabel,
-              badge: place.badge,
-              selected: place.selected,
-              customSemanticsActions: _readerActions(
-                context,
-                index: DMobileDockGeometry.placeColumns + index,
-              ),
-              onPressed: () {
-                _grow(false, markPlace: place.key);
-                place.onPressed();
-              },
-            ),
-          ),
-          key: _slotKey(place.key),
-        ),
-    ];
     final body = DecoratedBox(
       key: DMobileDock.panelKey,
       decoration: BoxDecoration(
@@ -1215,16 +1265,14 @@ class _DMobileDockState extends State<DMobileDock>
               top: panel.grabberTop(growth),
               start: 0,
               end: 0,
-              child: Center(
-                child: _Grabber(key: DMobileDock.grabberKey, onPressed: _close),
-              ),
+              child: Center(child: grabber),
             ),
           // A peek taken over by a pull: its hint going.
           if (_peek != _Peek.none) _hint(context),
           Positioned.fill(
             child: Opacity(
               opacity: DMobileDockPanelGeometry.gridOpacity(fade),
-              child: Stack(clipBehavior: Clip.none, children: tiles),
+              child: grid,
             ),
           ),
         ],
@@ -1583,7 +1631,7 @@ class _DMobileDockState extends State<DMobileDock>
         selected: place.selected,
         customSemanticsActions: _readerActions(context, index: index),
         onPressed: () {
-          if (_out) _grow(false, markPlace: place.key);
+          if (_out) _closeForPress(markPlace: place.key);
           place.onPressed();
         },
       );
@@ -1635,7 +1683,7 @@ class _DMobileDockState extends State<DMobileDock>
                 expanded: fixed.selected,
                 customSemanticsActions: _readerActions(context),
                 onPressed: () {
-                  if (_out) _grow(false, markPlace: fixed.key);
+                  if (_out) _closeForPress(markPlace: fixed.key);
                   fixed.onPressed();
                 },
               ),
@@ -1699,7 +1747,7 @@ class _DMobileDockState extends State<DMobileDock>
                           nameWidth: geometry.actionNameWidth(
                             constraints.maxWidth,
                           ),
-                          closePanel: _close,
+                          closePanel: _closeForPress,
                           child: widget.action!,
                         ),
                       ),

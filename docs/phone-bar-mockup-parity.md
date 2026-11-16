@@ -98,13 +98,17 @@ six tiles:
 | Panel | Full width from the screen's foot, `wellFill`, top corners 31. Five columns of `(width - 12 - 16) / 5` = 72.4 with a 4 gap, rows 56 with a 14 gap. 92 above the grid (16 for the grabber, the bar's 6, its row as a 56 tile, a row gap), the foot + 8 below. Two rows: 260 tall; one row of up to five: 190. |
 | Reveal | `(1 - g)` of the 174 above the bar's top edge is cut off the panel's top. The bar rises `g * 158`, leaving 16 for the grabber. The grid's opacity is `clamp(1.6 g - .6)`. |
 | Grabber | 36 × 5, radius 3, `subtleMark`, 6 below the panel's moving edge. A button named "Fewer places", its expanded state the panel's, that puts the panel away; drawn that small, the kit's 44 touch area applies. |
-| Settle | `Cubic(.3, 1.36, .5, 1)` over 460 ms for growth, which may pass open or closed and come back; the dim and the grid ease over 300 ms. Nothing animates under reduced motion. |
+| Settle | `Cubic(.3, 1.36, .5, 1)` over 460 ms for growth, which may pass open or closed and come back; the dim and the grid ease over 300 ms. Nothing animates under reduced motion. A place or the action pressed in the open panel starts the settle on the frame after the press's own: that frame builds the page, menu or composer the press opens and may run long, and a settle started with the press would be drawn next already part of the way down. |
 | Dim | Black at `.32 g` over the whole screen, under the panel and the bar. A pointer down on it closes the panel. |
 | Tiles | 56 tall, radius 16, hover `foreground` at 8%, the current one `foreground` at 10% (the mockup's `--primary` is its text colour), icon 18, name 11.5 in `mutedForeground`, 600 and `foreground` when current. |
 | Head | The bar's fill goes transparent and its places are tiles like the grid's, named again, the current one lit `10% g`, icons scaled `1 - .1 g`. The mark fades at `1 - 2 g`; the page added to the bar eases away and the rest return to their columns. The action moves to the centre of the fifth column, its circle fading, its icon risen 8 and in `primary`, its name 11.5 under it, 39 below its top, at most `72.4 - 8` wide on one line, cut short. |
 | You | A 22 face with a 1.5 ring set 1.5 outside it: `success` when present, `subtleMark` when notifications are paused, none otherwise. Named as the account menu names you; opens the header's account menu. |
 | Drag | Slop 8; a touch starting within 20 of the screen's bottom edge is the home gesture's. `g = start + dy / 174`. Released, a flick past .1 px/ms goes its way; still, from a start short of halfway (closed, or where the peek had lifted the bar) it opens past .25, and from past halfway past .75. The velocity is read over the last 100 ms of samples. |
 | Trackpad | A swipe moves `g` by its travel over 174 and settles 180 ms after it stops, opening if it moved up past .02 and closing on a push down unless it stayed past .98; momentum within 160 ms of settling is ignored. |
+
+A frame of the growth builds the bar's row and moves the panel, the dim and
+the grid's opacity. The grid's tiles and the grabber are built once for each
+build of the dock, and each tile paints on its own layer.
 
 The panel is an `OverlayPortal` from the dock, so it paints above the
 header and the page and below the sheets opened after it. Escape, the
