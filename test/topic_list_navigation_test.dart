@@ -1019,19 +1019,37 @@ void main() {
     );
   }
 
-  test('fresh settings preserve Latest before requesting topics', () async {
-    final gate = Completer<void>();
-    final setup = await _controller(
-      remoteConfig: const SiteConfig(defaultHomepage: 'hot'),
-      siteConfigGate: gate,
-    );
-    addTearDown(setup.controller.dispose);
-    expect(setup.api.feedPaths, isEmpty);
-    gate.complete();
-    await Future<void>.delayed(Duration.zero);
-    expect(setup.controller.currentTopicListMode, TopicListMode.latest);
-    expect(setup.api.feedPaths, ['/latest.json']);
-  });
+  test(
+    'fresh settings open an explicit Hot homepage before requesting topics',
+    () async {
+      final gate = Completer<void>();
+      final setup = await _controller(
+        remoteConfig: const SiteConfig(defaultHomepage: 'hot'),
+        siteConfigGate: gate,
+      );
+      addTearDown(setup.controller.dispose);
+      expect(setup.api.feedPaths, isEmpty);
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(setup.controller.currentTopicListMode, TopicListMode.popular);
+      expect(setup.api.feedPaths, ['/hot.json']);
+    },
+  );
+
+  test(
+    'an explicit Latest homepage takes precedence over the menu order',
+    () async {
+      final setup = await _controller(
+        remoteConfig: const SiteConfig(
+          defaultHomepage: 'latest',
+          topMenu: ['hot', 'latest'],
+        ),
+      );
+      addTearDown(setup.controller.dispose);
+      await Future<void>.delayed(Duration.zero);
+      expect(setup.api.feedPaths, ['/latest.json']);
+    },
+  );
 
   test(
     'late homepage settings preserve an explicit filter selection',

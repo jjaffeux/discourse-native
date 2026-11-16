@@ -8064,12 +8064,17 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     _workspace.consumeHomepage(initialTab.id);
+    final config = _presentation.accountConfigFor(instance.url);
+    final homepage = switch (config?.defaultHomepage) {
+      '' => config?.topMenu.firstOrNull,
+      final configured => configured,
+    };
+    final route = homepage == TopicListMode.popular.routeId
+        ? ContentRoute.topicList(TopicListMode.popular)
+        : ContentRoute.homepage();
     _workspace.replaceTab(
       instance.url,
-      initialTab.navigate(
-        rootDestinationId: initialTab.rootDestinationId,
-        contentStack: [ContentRoute.homepage()],
-      ),
+      initialTab.copyWith(contentStack: [route]),
     );
     _refreshMobileVisit(instance.url, initialTab.id);
     _notify();

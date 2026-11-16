@@ -24,6 +24,39 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('adding a forum opens Hot when Hot is first in its menu', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      siteConfigs: {
+        _secondSite: SiteConfig.fromSettings(const {
+          'default_homepage': '',
+          'top_menu': 'hot|latest',
+        }),
+      },
+      feeds: const {
+        '/latest.json': [_firstTopic],
+        '/hot.json': [_secondTopic],
+      },
+    );
+    await pumpShell(
+      tester,
+      phone,
+      api: api,
+      instances: [instance('one.example')],
+    );
+    final shell = ShellScope.read(tester.element(primaryMainContent));
+    expect(contentText(_firstTopic.title), findsOneWidget);
+    api.feedPaths.clear();
+
+    expect(await shell.addInstance(instance('two.example')), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(api.feedPaths, ['/hot.json']);
+    expect(contentText(_secondTopic.title), findsOneWidget);
+    expect(shell.handleBack(canReturnToSidebar: false), isFalse);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets(
       '${platform.name} shows loading throughout forum homepage hydration',
