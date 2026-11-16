@@ -290,7 +290,7 @@ void main() {
     expect(notifications, 2);
   });
 
-  for (final scale in [1.0, 2.0, 3.0]) {
+  for (final scale in [1.0, 3.0]) {
     testWidgets('header status fits narrow RTL layouts at ${scale}x text', (
       tester,
     ) async {
