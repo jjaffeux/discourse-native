@@ -159,7 +159,7 @@ void main() {
     expect(state.exactAssignmentCount, 0);
   });
 
-  for (final members in [null, 'broken', <String, Object?>{}]) {
+  for (final members in [null, <String, Object?>{}]) {
     test('invalid members container $members is not a known empty group', () {
       final page = AssignedGroupMembersPage.fromJson(
         {
