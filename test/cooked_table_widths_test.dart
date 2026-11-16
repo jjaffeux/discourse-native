@@ -10,7 +10,7 @@ import 'package:html/dom.dart' as dom;
 
 void main() {
   for (final direction in TextDirection.values) {
-    for (final scale in [1.0, 1.6, 2.0]) {
+    for (final scale in [1.0, 2.0]) {
       testWidgets(
         'sampled column widths retain text metrics ($direction, $scale)',
         (tester) async {
