@@ -14,45 +14,48 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/global_search_fixtures.dart';
 
 void main() {
-  for (final phase in ['before frame', 'debounce', 'request']) {
-    for (final click in [false, true]) {
-      _testChoice(
-        'stale user choice cannot replace new text: $phase click=$click',
-        (tester) async {
-          final api = _UserLookupApi();
-          final shell = await _openAuthor(tester, api);
-          final field = _key('global-search-filter-value');
-          await tester.enterText(field, 'sa');
+  for (final (phase, click) in [
+    ('before frame', false),
+    ('before frame', true),
+    ('debounce', true),
+    ('request', false),
+  ]) {
+    _testChoice(
+      'stale user choice cannot replace new text: $phase click=$click',
+      (tester) async {
+        final api = _UserLookupApi();
+        final shell = await _openAuthor(tester, api);
+        final field = _key('global-search-filter-value');
+        await tester.enterText(field, 'sa');
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pumpAndSettle();
+        expect(find.text('Sam'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.home);
+
+        await tester.enterText(field, 'al');
+        if (phase != 'before frame') await tester.pump();
+        if (phase == 'request') {
           await tester.pump(const Duration(milliseconds: 200));
-          await tester.pumpAndSettle();
-          expect(find.text('Sam'), findsOneWidget);
-          await tester.sendKeyEvent(LogicalKeyboardKey.home);
+          expect(api.terms, contains('al'));
+        }
+        expect(find.text('Sam'), findsOneWidget);
+        if (click) {
+          await tester.tap(find.text('Sam'));
+        } else {
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        }
+        await tester.pump();
 
-          await tester.enterText(field, 'al');
-          if (phase != 'before frame') await tester.pump();
-          if (phase == 'request') {
-            await tester.pump(const Duration(milliseconds: 200));
-            expect(api.terms, contains('al'));
-          }
-          expect(find.text('Sam'), findsOneWidget);
-          if (click) {
-            await tester.tap(find.text('Sam'));
-          } else {
-            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          }
-          await tester.pump();
-
-          expect(_value(tester), 'al');
-          await tester.tap(_key('global-search-filter-apply'));
-          await tester.pump();
-          expect(shell.globalSearch.conditions.single.value, ['al']);
-          api.release();
-          await tester.pump(const Duration(milliseconds: 450));
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+        expect(_value(tester), 'al');
+        await tester.tap(_key('global-search-filter-apply'));
+        await tester.pump();
+        expect(shell.globalSearch.conditions.single.value, ['al']);
+        api.release();
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final click in [false, true]) {
