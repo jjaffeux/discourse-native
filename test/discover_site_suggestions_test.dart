@@ -8,7 +8,6 @@ import 'package:discourse_native/src/data/discover_sites.dart';
 import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
-import 'package:discourse_native/src/shell/discover_site_suggestions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -239,10 +238,10 @@ void main() {
 
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
     testWidgets(
-      '${platform.name} builds more suggestions as they scroll above the keyboard',
+      '${platform.name} scrolls the form and suggestions together above the keyboard',
       (tester) async {
-        const size = Size(390, 844);
-        const keyboard = 336.0;
+        const size = Size(360, 680);
+        const keyboard = 300.0;
         final source = DiscoverSites(client: MockClient((_) async => batch()));
         await open(tester, source, size: size, platform: platform);
         await tester.pumpAndSettle();
@@ -254,16 +253,21 @@ void main() {
         await tester.tap(find.byType(EditableText));
         tester.view.viewInsets = const FakeViewPadding(bottom: keyboard);
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('Discover more communities'));
-        await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
-          last,
-          140,
-          scrollable: find.descendant(
-            of: find.byType(DiscoverSiteSuggestions),
-            matching: find.byType(Scrollable),
+        final sheet = find.byType(DSheetContent);
+        final scrollable = find.descendant(
+          of: sheet,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
           ),
         );
+        expect(scrollable, findsOneWidget);
+        expect(
+          find.descendant(of: sheet, matching: find.byType(DScrollBar)),
+          findsOneWidget,
+        );
+        await tester.scrollUntilVisible(last, 140, scrollable: scrollable);
         await tester.pumpAndSettle();
 
         expect(
@@ -271,6 +275,15 @@ void main() {
           lessThanOrEqualTo(size.height - keyboard),
         );
         expect(last.hitTestable(), findsOneWidget);
+        final discoverMore = find.text('Discover more communities');
+        await tester.scrollUntilVisible(
+          discoverMore,
+          140,
+          scrollable: scrollable,
+        );
+        await tester.pumpAndSettle();
+        expect(discoverMore.hitTestable(), findsOneWidget);
+        expect(tester.testTextInput.isVisible, isTrue);
         expect(tester.takeException(), isNull);
       },
     );
@@ -291,6 +304,8 @@ void main() {
           rtl: true,
           keyboard: 280,
         );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Suggested communities'));
         await tester.pumpAndSettle();
         final first = tester.getRect(
           find.byKey(

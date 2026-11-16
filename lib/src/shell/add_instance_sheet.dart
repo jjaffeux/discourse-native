@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../data/discourse_api.dart';
 import '../data/discover_sites.dart';
@@ -42,18 +43,11 @@ Future<void> showAddInstanceSheet(
           child: DSheetContent(
             side: DSheetSide.bottom,
             topBottomMaxHeightFactor: 1,
+            scrollWholeSheet: false,
             semanticLabel: title,
             children: [
               DSheetHeader(children: [DSheetTitle(child: Text(title))]),
-              DSheetBody(
-                padding: const EdgeInsets.fromLTRB(
-                  DSpacing.lg,
-                  0,
-                  DSpacing.lg,
-                  DSpacing.lg,
-                ),
-                child: form,
-              ),
+              Flexible(child: form),
             ],
           ),
         ),
@@ -65,10 +59,11 @@ Future<void> showAddInstanceSheet(
       builder: (context, controller) => AppHomeTheme(
         child: DDialogContent(
           maxWidth: 600,
+          maxHeight: 640,
           semanticLabel: title,
           children: [
             DDialogHeader(children: [DDialogTitle(child: Text(title))]),
-            form,
+            Flexible(child: form),
           ],
         ),
       ),
@@ -92,6 +87,7 @@ class _AddInstanceForm extends StatefulWidget {
 }
 
 class _AddInstanceFormState extends State<_AddInstanceForm> {
+  final _scroll = ScrollController();
   final TextEditingController _field = TextEditingController();
   final TextEditingController _username = TextEditingController();
   final TextEditingController _password = TextEditingController();
@@ -124,6 +120,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
   @override
   void dispose() {
     _lookupTimer?.cancel();
+    _scroll.dispose();
     _field.dispose();
     _username.dispose();
     _password.dispose();
@@ -426,8 +423,9 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final touch = context.isTouch;
 
-    return Column(
+    final fields = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -440,7 +438,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         const SizedBox(height: 16),
         DInput(
           controller: _field,
-          autofocus: !context.isTouch,
+          autofocus: !touch,
           enabled: !_connecting,
           keyboardType: TextInputType.url,
           autocorrect: false,
@@ -490,19 +488,48 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           loading: _connecting,
         ),
         const SizedBox(height: DSpacing.xl),
-        DiscoverSiteSuggestions(
-          source: widget.discoverSites,
-          enabled: !_connecting,
-          onSelected: (site) {
-            _field.value = TextEditingValue(
-              text: site.url,
-              selection: TextSelection.collapsed(offset: site.url.length),
-            );
-            _addressChanged(site.url);
-            unawaited(_connect());
-          },
-        ),
       ],
+    );
+    return DScrollBar(
+      controller: _scroll,
+      thumbVisibility: false,
+      child: CustomScrollView(
+        controller: _scroll,
+        primary: false,
+        shrinkWrap: true,
+        scrollCacheExtent: touch ? const ScrollCacheExtent.pixels(0) : null,
+        slivers: [
+          SliverPadding(
+            padding: touch
+                ? const EdgeInsets.fromLTRB(
+                    DSpacing.lg,
+                    0,
+                    DSpacing.lg,
+                    DSpacing.lg,
+                  )
+                : EdgeInsets.zero,
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(child: fields),
+                DiscoverSiteSuggestions(
+                  source: widget.discoverSites,
+                  enabled: !_connecting,
+                  onSelected: (site) {
+                    _field.value = TextEditingValue(
+                      text: site.url,
+                      selection: TextSelection.collapsed(
+                        offset: site.url.length,
+                      ),
+                    );
+                    _addressChanged(site.url);
+                    unawaited(_connect());
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
