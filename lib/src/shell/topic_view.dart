@@ -331,7 +331,7 @@ class _TopicViewState extends State<TopicView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      if (!mounted || DRouteScope.routeOf(context)?.isCurrent == false) return;
       final shell = ShellScope.read(context);
       if (shell.currentContent?.isTopic != true ||
           (widget.route != null &&

@@ -362,6 +362,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   bool _drawsPluginSections = false;
   ShellController? _controller;
   bool _navigationOpen = false;
+  bool _rootShown = true;
 
   _SidebarSnapshot get sidebar => widget.sidebar;
   SidebarSectionStore get sectionStore => widget.sectionStore;
@@ -422,6 +423,18 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     final registry = PluginScope.of(context).registry;
     final panels = registry.sidebarPanels(context);
     final routedPanel = _routedPanel(panels, controller);
+    if (widget.mobile && widget.panelOwner != null) {
+      // A tab's root page follows the navigations that show it or leave it.
+      // Between them it is out of sight and draws the same panel.
+      final shown =
+          controller.mobileNavigation.tab.panelOwner == widget.panelOwner;
+      final wasShown = _rootShown;
+      _rootShown = shown;
+      if (!shown && !wasShown) {
+        _navigation = _navigationTo(controller, routedPanel);
+        return;
+      }
+    }
     final staysOnForum =
         routedPanel == null &&
         _selectedOwner == null &&
