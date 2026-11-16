@@ -2087,7 +2087,7 @@ void main() {
       ],
     );
   });
-  testWidgets('bookmark choices name what happens to the bookmark', (
+  testWidgets('server bookmark preference still mirrors after confirmation', (
     tester,
   ) async {
     final fixture = await _fixture();
@@ -2109,13 +2109,7 @@ void main() {
         'Keep bookmark and clear reminder',
       ],
     );
-  });
-  testWidgets('server bookmark preference still mirrors after confirmation', (
-    tester,
-  ) async {
-    final fixture = await _fixture();
-    await _pumpPage(tester, fixture);
-    await _section(tester, PreferenceSection.interface);
+
     expect(find.byType(HeaderTuningPreferences), findsOneWidget);
     await tester.tap(find.text('Keep bookmark and clear reminder'));
     await tester.pumpAndSettle();
