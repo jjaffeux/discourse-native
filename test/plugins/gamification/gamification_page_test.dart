@@ -7,6 +7,7 @@ import 'package:discourse_native/src/plugins/gamification/gamification_navigatio
 import 'package:discourse_native/src/plugins/gamification/gamification_page.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_user_score.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../../support/native_ui_evidence.dart';
 import 'gamification_fixture.dart';
@@ -80,6 +81,39 @@ void main() {
       },
     );
   }
+  testWidgets('phone leaderboard truncates long member names to fit the row', (
+    tester,
+  ) async {
+    gameSize(tester, const Size(320, 844));
+    const name = 'A member with a very long display name';
+    const username = 'a_member_with_a_very_long_username';
+    final f = GamificationFixture();
+    addTearDown(f.dispose);
+    f.publicResponse = gameResponse(
+      users: [
+        {...gameUser(score: 1234), 'name': name, 'username': username},
+        {...gameUser(id: 2), 'name': 'Jo', 'username': 'jo'},
+      ],
+    );
+    await tester.pumpWidget(gameApp(page(f), platform: TargetPlatform.iOS));
+    await tester.pumpAndSettle();
+
+    Finder memberText(String text) =>
+        find.descendant(of: find.byType(DTable), matching: find.text(text));
+
+    expect(tester.getRect(memberText('1,234')).right, lessThan(320));
+    for (final label in [name, username]) {
+      final paragraph = tester.renderObject<RenderParagraph>(memberText(label));
+      expect(paragraph.overflow, TextOverflow.ellipsis);
+      expect(paragraph.didExceedMaxLines, isTrue);
+    }
+    expect(
+      tester.renderObject<RenderParagraph>(memberText('Jo')).didExceedMaxLines,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets(
     'pull refresh retains period and results until server data arrives',
     (tester) async {

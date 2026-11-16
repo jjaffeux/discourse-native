@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -151,6 +152,8 @@ class GamificationResults extends StatelessWidget {
   });
   final GamificationHandle handle;
   final bool compact;
+  static const _memberAvatarSize = DAvatarSize.lg;
+
   @override
   Widget build(BuildContext context) {
     final state = handle.state;
@@ -167,6 +170,11 @@ class GamificationResults extends StatelessWidget {
     }
     final snapshot = state.snapshot;
     final board = snapshot.board;
+    final mobile = switch (Theme.of(context).platform) {
+      TargetPlatform.android || TargetPlatform.iOS => true,
+      _ => false,
+    };
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: DSpacing.md,
@@ -300,6 +308,22 @@ class GamificationResults extends StatelessWidget {
           )
         else
           DTable(
+            columnWidths: mobile
+                ? {
+                    0: const IntrinsicColumnWidth(),
+                    1: MaxColumnWidth(
+                      // Leave room for the scaled avatar, cell padding, gap,
+                      // and an ellipsis when the rank and score are wide.
+                      FixedColumnWidth(
+                        _memberAvatarSize.dimension * math.max(1, textScale) +
+                            3 * DSpacing.sm +
+                            DSpacing.lg * textScale,
+                      ),
+                      const FlexColumnWidth(),
+                    ),
+                    2: const IntrinsicColumnWidth(),
+                  }
+                : const {},
             header: DTableHeader(
               rows: [
                 DTableRow(
@@ -322,7 +346,9 @@ class GamificationResults extends StatelessWidget {
                       DTableCell(
                         child: Text(gameNumber(context, user.position)),
                       ),
-                      DTableCell(child: _identity(context, user)),
+                      DTableCell(
+                        child: _identity(context, user, ellipsize: mobile),
+                      ),
                       DTableCell(
                         child: Text(gameNumber(context, user.totalScore)),
                       ),
@@ -351,7 +377,11 @@ class GamificationResults extends StatelessWidget {
     );
   }
 
-  Widget _identity(BuildContext context, GamificationRankedUser user) {
+  Widget _identity(
+    BuildContext context,
+    GamificationRankedUser user, {
+    bool ellipsize = false,
+  }) {
     final preferUsername = handle.owner.siteState
         .siteConfigFor(handle.site)
         .prioritizeUsernameInUx;
@@ -360,6 +390,11 @@ class GamificationResults extends StatelessWidget {
         : user.name!;
     final secondary = preferUsername ? user.name : user.username;
     final url = resolveAvatarUrl(user.avatarTemplate, handle.site, size: 80);
+    Text memberLabel(String value) => Text(
+      value,
+      maxLines: ellipsize ? 1 : null,
+      overflow: ellipsize ? TextOverflow.ellipsis : null,
+    );
     return UserCardTarget(
       username: user.username,
       siteUrl: handle.site,
@@ -372,7 +407,7 @@ class GamificationResults extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           DAvatar(
-            size: DAvatarSize.lg,
+            size: _memberAvatarSize,
             decorative: true,
             fallback: DAvatarFallback(
               child: Text(
@@ -397,9 +432,9 @@ class GamificationResults extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(primary),
+                memberLabel(primary),
                 if (secondary?.isNotEmpty == true && secondary != primary)
-                  Text(secondary!),
+                  memberLabel(secondary!),
               ],
             ),
           ),
