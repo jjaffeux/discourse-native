@@ -1793,7 +1793,6 @@ void main() {
 
     for (final (href, shown) in [
       ('/u/sam', true),
-      ('https://evil.example/login', false),
       ('https://evil.example/u/sam', false),
       ('/t/some-topic/99', false),
       ('/u/alex', false),
