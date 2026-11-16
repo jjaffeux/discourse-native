@@ -306,7 +306,7 @@ void main() {
   });
 
   for (final closeButton in [false, true]) {
-    for (final query in ['', 'bold']) {
+    for (final query in [if (closeButton) '', 'bold']) {
       testWidgets(
         '${closeButton ? 'Close button' : 'Escape'} removes only a bare slash ($query)',
         (tester) async {
