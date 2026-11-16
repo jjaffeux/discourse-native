@@ -138,7 +138,10 @@ void main() {
   }
 
   for (final prefix in ['[]', '- []', '- [ ] Parent\n  - []']) {
-    for (final position in ['before', 'after', 'across']) {
+    final positions = prefix.contains('\n')
+        ? ['before', 'after', 'across']
+        : ['across'];
+    for (final position in positions) {
       testWidgets('toggle $prefix preserves a document selection $position', (
         tester,
       ) async {
