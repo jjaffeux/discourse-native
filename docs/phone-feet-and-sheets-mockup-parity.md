@@ -75,7 +75,7 @@ as a 15pt heading, no close button. Every use of it, and what opens here:
 | Set custom status | Already a touch bottom sheet. |
 | Insert link | `showComposerLinkDialog` through `showShellSheet`. |
 | Poll, Date in post, Event, Emoji, GIFs | Already touch bottom sheets. |
-| Upload | The upload choice's `DDropdownMenu` opens its adaptive sheet on a phone. |
+| Upload | `showShellSheet` presents Files and Photo Library under the Upload heading. |
 
 `showShellSheet` on touch is the adaptive menu, as every phone menu is,
 and as tall as what it holds, as the mockup's sheet is. A tall one opens

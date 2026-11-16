@@ -1097,7 +1097,7 @@ void main() {
     );
 
     testWidgets(
-      'a phone chooses what to upload from a sheet, as the mockup does',
+      'the titled phone upload sheet opens the chosen picker',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(390, 844);
@@ -1110,30 +1110,51 @@ void main() {
         final shell = await _shell();
         addTearDown(composer.dispose);
         addTearDown(shell.dispose);
-        await _pumpPanel(tester, shell, composer, pickImages: () async => []);
-        await tester.tap(find.byKey(const ValueKey('composer-upload')));
-        await tester.pumpAndSettle();
-        final sheet = find.byType(DSheetContent);
-        expect(sheet, findsOneWidget);
-        expect(
-          find.descendant(
+        final picks = <String>[];
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          pickFiles: () async {
+            picks.add('files');
+            return [];
+          },
+          pickImages: () async {
+            picks.add('photos');
+            return [];
+          },
+        );
+        for (final source in ['files', 'photos']) {
+          await tester.tap(find.byKey(const ValueKey('composer-upload')));
+          await tester.pumpAndSettle();
+          final sheet = find.byType(DSheetContent);
+          expect(sheet, findsOneWidget);
+          final heading = find.descendant(
             of: sheet,
-            matching: find.byKey(const ValueKey('sheet-drag-handle')),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find
-              .descendant(
-                of: sheet,
-                matching: find.byKey(const ValueKey('composer-upload-files')),
-              )
-              .hitTestable(),
-          findsOneWidget,
-        );
+            matching: find.byType(DSheetTitle),
+          );
+          expect(
+            find.descendant(of: heading, matching: find.text('Upload')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: sheet,
+              matching: find.byKey(const ValueKey('sheet-drag-handle')),
+            ),
+            findsOneWidget,
+          );
+          await tester.tap(find.byKey(ValueKey('composer-upload-$source')));
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+        }
+        expect(picks, ['files', 'photos']);
         expect(tester.takeException(), isNull);
       },
-      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
     );
 
     testWidgets('the upload button follows composer availability', (

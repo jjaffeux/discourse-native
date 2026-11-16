@@ -28,6 +28,7 @@ import '../forum_theme_surfaces.dart';
 import '../platform.dart';
 import '../shell_metrics.dart';
 import '../shell_scope.dart';
+import '../shell_sheet.dart';
 import '../skeleton_fill.dart';
 import '../topic_category_selector.dart';
 import '../topic_tag_selector.dart';
@@ -4813,19 +4814,68 @@ class _ComposerUploadButton extends StatefulWidget {
   State<_ComposerUploadButton> createState() => _ComposerUploadButtonState();
 }
 
+enum _ComposerUploadSource { files, photos }
+
 class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
+  bool _choosingSource = false;
   bool _picking = false;
 
-  Future<void> _pick(ComposerFilePicker picker, {required bool photos}) async {
+  Future<_ComposerUploadSource?> _chooseSource() async {
+    setState(() => _choosingSource = true);
+    try {
+      return await showShellSheet<_ComposerUploadSource>(
+        context: context,
+        title: context.l10n.upload,
+        builder: (context) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DButton(
+              key: const ValueKey('composer-upload-files'),
+              label: Text(context.l10n.files),
+              icon: const DIcon(DIcons.fileLines),
+              variant: DButtonVariant.ghost,
+              alignment: AlignmentDirectional.centerStart,
+              onPressed: () =>
+                  DDialogClose.close(context, _ComposerUploadSource.files),
+            ),
+            DButton(
+              key: const ValueKey('composer-upload-photos'),
+              label: Text(context.l10n.photoLibrary),
+              icon: const DIcon(DNativeIcons.image),
+              variant: DButtonVariant.ghost,
+              alignment: AlignmentDirectional.centerStart,
+              onPressed: () =>
+                  DDialogClose.close(context, _ComposerUploadSource.photos),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _choosingSource = false);
+    }
+  }
+
+  Future<void> _pick([_ComposerUploadSource? source]) async {
     final composer = widget.composer;
-    if (!composer.canUpload || _picking) return;
-    // The dialog takes focus, so a later selection is not where the user
-    // asked for the files; later edits to the text still move that place.
+    if (!composer.canUpload || _choosingSource || _picking) return;
+    // Keep the insertion point from before a sheet or picker takes focus.
     final selection = composer.text.selection;
     final measuredAgainst = composer.text.text;
     final offset = selection.isValid
         ? selection.extentOffset
         : measuredAgainst.length;
+    final chosen = source ?? await _chooseSource();
+    if (chosen == null ||
+        !mounted ||
+        !identical(widget.composer, composer) ||
+        !composer.canUpload) {
+      return;
+    }
+    final photos = chosen == _ComposerUploadSource.photos;
+    final picker = photos
+        ? widget.pickImages ?? _sitePhotoLibrary(context, composer)
+        : widget.pickFiles;
     setState(() => _picking = true);
     try {
       final files = await picker();
@@ -4855,54 +4905,52 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => DDropdownMenu(
-    // On a phone the choice comes up from the foot as every other panel does.
-    sheetOnMobile: true,
-    mobileSheetVariant: DSheetVariant.adaptiveMenu,
-    content: DDropdownMenuContent(
-      semanticLabel: context.l10n.upload,
-      side: DPopoverSide.top,
-      children: [
-        DDropdownMenuItem(
-          key: const ValueKey('composer-upload-files'),
-          onPressed: widget.composer.canUpload && !_picking
-              ? () => unawaited(_pick(widget.pickFiles, photos: false))
-              : null,
-          child: Text(context.l10n.files),
-        ),
-        DDropdownMenuItem(
-          key: const ValueKey('composer-upload-photos'),
-          onPressed: widget.composer.canUpload && !_picking
-              ? () => unawaited(
-                  _pick(
-                    widget.pickImages ??
-                        _sitePhotoLibrary(context, widget.composer),
-                    photos: true,
-                  ),
-                )
-              : null,
-          child: Text(context.l10n.photoLibrary),
-        ),
-      ],
-    ),
-    child: DDropdownMenuTrigger(
-      builder: (context, trigger) => DButton.iconOnly(
+  Widget _trigger(BuildContext context, {DDropdownMenuTriggerState? menu}) =>
+      DButton.iconOnly(
         key: const ValueKey('composer-upload'),
         tooltip: context.l10n.upload,
         onPressed: !widget.composer.canUpload || _picking
             ? null
-            : trigger.toggle,
-        focusNode: trigger.focusNode,
+            : menu?.toggle ?? () => unawaited(_pick()),
+        focusNode: menu?.focusNode,
         hasPopup: true,
-        expanded: trigger.open,
+        expanded: menu?.open ?? _choosingSource,
         icon: const DIcon(DIcons.paperclip),
         variant: _composerToolbarVariant(context),
         foregroundColor: _composerToolForeground(context),
         size: _composerToolbarSize(context),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.isTouch) return _trigger(context);
+    final canPick = widget.composer.canUpload && !_picking;
+    return DDropdownMenu(
+      content: DDropdownMenuContent(
+        semanticLabel: context.l10n.upload,
+        side: DPopoverSide.top,
+        children: [
+          DDropdownMenuItem(
+            key: const ValueKey('composer-upload-files'),
+            onPressed: canPick
+                ? () => unawaited(_pick(_ComposerUploadSource.files))
+                : null,
+            child: Text(context.l10n.files),
+          ),
+          DDropdownMenuItem(
+            key: const ValueKey('composer-upload-photos'),
+            onPressed: canPick
+                ? () => unawaited(_pick(_ComposerUploadSource.photos))
+                : null,
+            child: Text(context.l10n.photoLibrary),
+          ),
+        ],
       ),
-    ),
-  );
+      child: DDropdownMenuTrigger(
+        builder: (context, menu) => _trigger(context, menu: menu),
+      ),
+    );
+  }
 }
 
 class ComposerUploadQueue extends StatelessWidget {
