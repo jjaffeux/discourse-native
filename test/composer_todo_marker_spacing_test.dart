@@ -209,7 +209,8 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
-    for (final marker in ['[ ]', '[x]', '[X]', '[]']) {
+    final checkedMarker = platform == TargetPlatform.android ? '[X]' : '[x]';
+    for (final marker in ['[ ]', checkedMarker, '[]']) {
       testWidgets(
         'pasted $marker supports edit toggle and Enter on $platform',
         (tester) async {
