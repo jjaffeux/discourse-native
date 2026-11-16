@@ -4,17 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../theme/app_theme.dart';
 import '../anchored_layout.dart';
 import '../avatar_image.dart';
 import '../emoji.dart';
 import '../emoji_picker.dart';
+import '../platform.dart';
 import '../shell_metrics.dart';
 import '../skeleton_fill.dart';
 import '../user_status.dart';
 import 'autocomplete.dart';
 import 'controller.dart';
+import 'identity_search_skeleton.dart';
 import 'triggers.dart';
 
 typedef ComposerSuggestionActionHandler =
@@ -119,7 +122,9 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
 
   void _syncPopup() {
     if (!mounted) return;
-    if (_popup.isOpen && widget.composer.isEditing) {
+    if (_showsMentionSheet) {
+      if (_portal.isShowing) _portal.hide();
+    } else if (_popup.isOpen && widget.composer.isEditing) {
       final opening = !_portal.isShowing;
       _anchor.value = _anchorRect();
       if (opening) _portal.show();
@@ -132,15 +137,18 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
           }
         });
       }
-    } else {
-      // Scrolls also synchronize the anchor. Hiding an already closed portal
-      // rebuilds and lays out nested editor content unnecessarily.
-      if (_portal.isShowing) _portal.hide();
+    } else if (_portal.isShowing) {
+      _portal.hide();
       if (_searchFocus.hasFocus && widget.composer.isEditing) {
         widget.composer.focus.requestFocus();
       }
     }
   }
+
+  bool get _showsMentionSheet =>
+      context.isTouch &&
+      widget.composer.isEditing &&
+      _popup.trigger?.kind == ComposerTriggerKind.mention;
 
   Rect? _anchorRect() {
     final overlay =
@@ -200,9 +208,14 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   }
 
   KeyEventResult _onSearchKey(FocusNode node, KeyEvent event) {
-    if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
-        (event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.tab && _showsMentionSheet) {
+      return _onKey(node, event);
+    }
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
       final keyboard = HardwareKeyboard.instance;
       if (keyboard.isMetaPressed || keyboard.isControlPressed) {
         // The mention input lives in an overlay. Forward send shortcuts to
@@ -287,7 +300,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
+    final field = Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: _onKey,
@@ -354,27 +367,64 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
         ),
       ),
     );
+    if (!context.isTouch) return field;
+    return ListenableBuilder(
+      listenable: _popup,
+      child: field,
+      builder: (context, child) => DPopover(
+        open: _showsMentionSheet,
+        sheetOnMobile: true,
+        mobileSheetVariant: DSheetVariant.adaptiveMenu,
+        mobileSheetKeepFootInView: true,
+        initialFocusNode: _searchFocus,
+        onOpenChange: (open, reason) {
+          if (open || !_showsMentionSheet) return;
+          if (reason == DPopoverChangeReason.lifecycle) {
+            _popup.dismiss();
+          } else {
+            _dismiss();
+          }
+        },
+        content: DPopoverContent(
+          semanticLabel: context.l10n.mentionUsersOrGroups,
+          padding: EdgeInsets.zero,
+          scrollable: false,
+          child: _Suggestions(
+            composer: widget.composer,
+            searchFocus: _searchFocus,
+            onQueryChanged: _filterMentions,
+            onEmptyBackspace: _removeEmptyMention,
+            onDismiss: _dismiss,
+            onTap: _activate,
+            inSheet: true,
+          ),
+        ),
+        child: child!,
+      ),
+    );
   }
 }
 
 class _Suggestions extends StatelessWidget {
   const _Suggestions({
     required this.composer,
-    required this.controller,
+    this.controller,
     required this.onTap,
     required this.searchFocus,
     required this.onQueryChanged,
     required this.onEmptyBackspace,
     required this.onDismiss,
+    this.inSheet = false,
   });
 
   final ComposerController composer;
-  final DCommandController<ComposerSuggestion> controller;
+  final DCommandController<ComposerSuggestion>? controller;
   final ValueChanged<ComposerSuggestion> onTap;
   final FocusNode searchFocus;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onEmptyBackspace;
   final VoidCallback onDismiss;
+  final bool inSheet;
 
   @override
   Widget build(BuildContext context) {
@@ -382,10 +432,23 @@ class _Suggestions extends StatelessWidget {
       listenable: composer.autocomplete,
       builder: (context, _) {
         final popup = composer.autocomplete;
-        if (!popup.isOpen) return const SizedBox.shrink();
-        final mention = popup.trigger?.kind == ComposerTriggerKind.mention;
+        final activeMention =
+            popup.trigger?.kind == ComposerTriggerKind.mention;
+        if (!inSheet && !popup.isOpen) return const SizedBox.shrink();
+        final mention = inSheet || activeMention;
+        final suggestions = inSheet && !activeMention
+            ? const <ComposerSuggestion>[]
+            : popup.suggestions;
+        final loading = activeMention && popup.isLoading && suggestions.isEmpty;
+        final input = DCommandInput<ComposerSuggestion>(
+          focusNode: searchFocus,
+          autofocus: !inSheet,
+          onEmptyBackspace: onEmptyBackspace,
+          placeholder: context.l10n.mentionSearchHint,
+          semanticLabel: context.l10n.searchUsersOrGroups,
+        );
         return SizedBox(
-          width: composerSuggestionsWidth,
+          width: inSheet ? double.infinity : composerSuggestionsWidth,
           child: DCommand<ComposerSuggestion>(
             controller: controller,
             query: mention ? popup.query : '',
@@ -396,113 +459,131 @@ class _Suggestions extends StatelessWidget {
             onSelected: onTap,
             shouldFilter: false,
             loop: true,
-            outlined: true,
-            backgroundColor: Theme.of(context).shell.floating,
-            depth: DSurfaceDepth.floating,
-            loading: popup.isLoading && popup.suggestions.isEmpty,
+            outlined: !inSheet,
+            backgroundColor: inSheet
+                ? Colors.transparent
+                : Theme.of(context).shell.floating,
+            depth: inSheet ? null : DSurfaceDepth.floating,
+            loading: loading,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (mention)
-                  DCommandInput<ComposerSuggestion>(
-                    focusNode: searchFocus,
-                    onEmptyBackspace: onEmptyBackspace,
-                    placeholder: context.l10n.mentionSearchHint,
-                    semanticLabel: context.l10n.searchUsersOrGroups,
-                  ),
-                Flexible(
-                  child: DCommandList<ComposerSuggestion>(
-                    height: mention ? 288 : null,
-                    children: [
-                      if (mention) ...[
-                        DCommandLoading(
-                          child: DSkeletonRegion(
-                            semanticsLabel: context.l10n.searching,
-                            color: skeletonFill(
-                              context,
-                              on: SkeletonSurface.floating,
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(DSpacing.md),
-                              child: Column(
-                                children: [
-                                  DSkeleton(height: 24),
-                                  SizedBox(height: DSpacing.sm),
-                                  DSkeleton(height: 24),
-                                  SizedBox(height: DSpacing.sm),
-                                  DSkeleton(height: 24),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        DCommandEmpty(
-                          child: Text(
-                            popup.hasError
-                                ? context.l10n.mentionSearchFailed
-                                : popup.query.isEmpty
-                                ? context.l10n.searchUsersOrGroups
-                                : context.l10n.noUsersOrGroupsFound,
-                            textAlign: TextAlign.center,
-                          ),
+                if (inSheet)
+                  Padding(
+                    padding: DInsets.menu,
+                    child: Row(
+                      spacing: DSpacing.sm,
+                      children: [
+                        Expanded(child: input),
+                        DButton.iconOnly(
+                          tooltip: context.l10n.close,
+                          icon: const DIcon(DIcons.xmark),
+                          variant: DButtonVariant.ghost,
+                          onPressed: onDismiss,
                         ),
                       ],
-                      for (final suggestion in popup.suggestions)
-                        DCommandItem<ComposerSuggestion>(
-                          value: suggestion,
-                          searchValue: suggestion.label,
-                          semanticLabel: [
-                            suggestion.label,
-                            ?suggestion.detail,
-                            ?suggestion.userStatus?.description,
-                          ].join(', '),
-                          leading: _SuggestionArt(suggestion: suggestion),
-                          trailing: switch ((
-                            suggestion.siteUrl,
-                            suggestion.userStatus,
-                          )) {
-                            (final siteUrl?, final status?) =>
-                              UserStatusMessage(
-                                siteUrl: siteUrl,
-                                userId: suggestion.userId,
-                                status: status,
-                                showDescription: true,
-                                size: 15,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            _ => null,
-                          },
-                          child: Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  suggestion.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                if (mention && !inSheet) input,
+                if (inSheet && loading)
+                  const Expanded(child: ComposerIdentitySearchSkeleton())
+                else
+                  Flexible(
+                    fit: inSheet ? FlexFit.tight : FlexFit.loose,
+                    child: DCommandList<ComposerSuggestion>(
+                      height: mention && !inSheet ? 288 : null,
+                      maxHeight: inSheet ? double.infinity : 288,
+                      children: [
+                        if (mention) ...[
+                          if (!inSheet)
+                            DCommandLoading(
+                              child: DSkeletonRegion(
+                                semanticsLabel: context.l10n.searching,
+                                color: skeletonFill(
+                                  context,
+                                  on: SkeletonSurface.floating,
                                 ),
-                              ),
-                              if (suggestion.detail case final detail?) ...[
-                                const SizedBox(width: DSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    detail,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: DTokens.of(
-                                        context,
-                                      ).mutedForeground,
-                                    ),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(DSpacing.md),
+                                  child: Column(
+                                    children: [
+                                      DSkeleton(height: 24),
+                                      SizedBox(height: DSpacing.sm),
+                                      DSkeleton(height: 24),
+                                      SizedBox(height: DSpacing.sm),
+                                      DSkeleton(height: 24),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ],
+                              ),
+                            ),
+                          DCommandEmpty(
+                            child: Text(
+                              popup.hasError
+                                  ? context.l10n.mentionSearchFailed
+                                  : popup.query.isEmpty
+                                  ? context.l10n.searchUsersOrGroups
+                                  : context.l10n.noUsersOrGroupsFound,
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                        ),
-                    ],
+                        ],
+                        for (final suggestion in suggestions)
+                          DCommandItem<ComposerSuggestion>(
+                            value: suggestion,
+                            searchValue: suggestion.label,
+                            semanticLabel: [
+                              suggestion.label,
+                              ?suggestion.detail,
+                              ?suggestion.userStatus?.description,
+                            ].join(', '),
+                            leading: _SuggestionArt(suggestion: suggestion),
+                            trailing: switch ((
+                              suggestion.siteUrl,
+                              suggestion.userStatus,
+                            )) {
+                              (final siteUrl?, final status?) =>
+                                UserStatusMessage(
+                                  siteUrl: siteUrl,
+                                  userId: suggestion.userId,
+                                  status: status,
+                                  showDescription: true,
+                                  size: 15,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              _ => null,
+                            },
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    suggestion.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (suggestion.detail case final detail?) ...[
+                                  const SizedBox(width: DSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      detail,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: DTokens.of(
+                                          context,
+                                        ).mutedForeground,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -519,14 +600,14 @@ class _SuggestionArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-    dimension: 22,
+    dimension: composerIdentityAvatarSize,
     child: switch (suggestion.art) {
       null => null,
       ArtImage(:final url) => EmojiImage(url: url, size: 20, alt: ''),
       ArtAvatar(:final url) => DAvatar.frame(
         child: AvatarImage(
           url: url,
-          size: 22,
+          size: composerIdentityAvatarSize,
           fallback: const SizedBox.shrink(),
         ),
       ),

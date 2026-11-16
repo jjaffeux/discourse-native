@@ -8,12 +8,10 @@ import '../avatar_image.dart';
 import '../platform.dart';
 import '../shell_controller.dart';
 import '../shell_scope.dart';
-import '../skeleton_fill.dart';
 import '../topic_taxonomy_button.dart';
 import 'controller.dart';
+import 'identity_search_skeleton.dart';
 import 'recipient_lookup.dart';
-
-const _recipientAvatarSize = 22.0;
 
 class ComposerRecipients extends StatefulWidget {
   const ComposerRecipients({super.key, required this.composer});
@@ -111,11 +109,11 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
                   spacing: DSpacing.sm,
                   children: [
                     DAvatar(
-                      dimension: _recipientAvatarSize,
+                      dimension: composerIdentityAvatarSize,
                       decorative: true,
                       child: AvatarImage(
                         url: user.avatarUrl,
-                        size: _recipientAvatarSize,
+                        size: composerIdentityAvatarSize,
                         fallback: DAvatarFallback(
                           child: Text(
                             user.username.characters.firstOrNull
@@ -223,7 +221,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
                 ),
                 Expanded(
                   child: lookup.isLoading
-                      ? const _RecipientSearchSkeleton()
+                      ? const ComposerIdentitySearchSkeleton()
                       : Column(children: results),
                 ),
               ],
@@ -255,33 +253,6 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
       ),
     );
   }
-}
-
-class _RecipientSearchSkeleton extends StatelessWidget {
-  const _RecipientSearchSkeleton();
-
-  @override
-  Widget build(BuildContext context) => DSkeletonRegion(
-    semanticsLabel: context.l10n.searching,
-    color: skeletonFill(context, on: SkeletonSurface.floating),
-    child: ListView.builder(
-      primary: false,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: DInsets.menu,
-      itemBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.all(DSpacing.sm),
-        child: Row(
-          spacing: DSpacing.sm,
-          children: [
-            const DSkeleton.circle(diameter: _recipientAvatarSize),
-            Flexible(
-              child: DSkeleton(width: index.isEven ? 150 : 112, height: 14),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 class _RecipientSearchField extends StatelessWidget {

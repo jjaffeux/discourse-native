@@ -526,7 +526,7 @@ void main() {
     );
 
     testWidgets(
-      'mobile mention button opens user and group search above the keyboard',
+      'mobile mention button opens a user and group search sheet',
       (tester) async {
         final queries = <String>[];
         final composer = ComposerController(
@@ -585,6 +585,10 @@ void main() {
           isTrue,
         );
         expect(find.text('Type to search users and groups'), findsOneWidget);
+        expect(
+          find.ancestor(of: search, matching: find.byType(DSheetContent)),
+          findsOneWidget,
+        );
         expect(queries, ['']);
         expect(
           tester.getRect(find.byType(DCommand<ComposerSuggestion>)).bottom,
@@ -630,12 +634,20 @@ void main() {
         expect(composer.text.text, '@staff @stan @');
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
     );
 
     testWidgets(
-      'mention search stays at its line through loading, filtering and backspace',
+      'mobile mention sheet keeps its bounds through loading and filtering',
       (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
         final requests = <(String, Completer<List<ComposerSuggestion>>)>[];
         final composer = ComposerController(
           _newTopicTarget,
@@ -674,31 +686,24 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        final menu = find.byType(DCommand<ComposerSuggestion>);
+        final menu = find.byType(DSheetContent);
         final input = find.descendant(
           of: find.byType(DCommandInput<ComposerSuggestion>),
           matching: find.byType(EditableText),
         );
+        expect(menu, findsOneWidget);
         final loadingBounds = tester.getRect(menu);
         expect(find.byType(DSkeletonRegion), findsOneWidget);
-        expect(find.byType(DSkeleton), findsWidgets);
-        expect(find.byType(DSpinner), findsNothing);
-        expect(loadingBounds.bottom, lessThanOrEqualTo(470));
-        final body = find.byWidgetPredicate(
-          (widget) =>
-              widget is EditableText && widget.controller == composer.text,
-        );
-        final render = tester.state<EditableTextState>(body).renderEditable;
-        final caret = render.getLocalRectForCaret(
-          const TextPosition(offset: prefix.length),
-        );
-        final caretBounds = caret.shift(render.localToGlobal(Offset.zero));
-        expect(loadingBounds.overlaps(caretBounds), isFalse);
         expect(
-          (loadingBounds.bottom - caretBounds.top).abs() < 10 ||
-              (loadingBounds.top - caretBounds.bottom).abs() < 10,
-          isTrue,
+          find.byWidgetPredicate(
+            (widget) => widget is DSkeleton && widget.shape == BoxShape.circle,
+          ),
+          findsWidgets,
         );
+        expect(find.byType(DSpinner), findsNothing);
+        expect(loadingBounds.width, greaterThan(360));
+        expect(loadingBounds.top, closeTo(8, 1));
+        final sameBounds = rectMoreOrLessEquals(loadingBounds, epsilon: .01);
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
         expect(requests.single.$1, '');
 
@@ -720,11 +725,12 @@ void main() {
         ];
         requests.last.$2.complete(people);
         await tester.pumpAndSettle();
-        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.getRect(menu), sameBounds);
+        expect(find.byType(DSkeletonRegion), findsNothing);
 
         await tester.enterText(input, 'sam');
         await tester.pump(ComposerAutocomplete.debounce);
-        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.getRect(menu), sameBounds);
         expect(tester.widget<EditableText>(input).controller.text, 'sam');
         expect(
           tester.getRect(input).intersect(loadingBounds),
@@ -734,26 +740,26 @@ void main() {
         expect(requests.last.$1, 'sam');
         requests.last.$2.complete([people.first]);
         await tester.pumpAndSettle();
-        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.getRect(menu), sameBounds);
 
-        // Delete the filter back to the bare @ while the same menu owns focus.
+        // Delete the filter back to the bare @ while the sheet owns focus.
         tester.testTextInput.updateEditingValue(
           const TextEditingValue(selection: TextSelection.collapsed(offset: 0)),
         );
         await tester.pump(ComposerAutocomplete.debounce);
         expect(composer.raw, '$prefix@');
         expect(requests.last.$1, '');
-        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.getRect(menu), sameBounds);
         requests.last.$2.complete(people);
         await tester.pumpAndSettle();
-        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.getRect(menu), sameBounds);
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
 
         await tester.enterText(input, 'missing');
         await tester.pump(ComposerAutocomplete.debounce);
         requests.last.$2.complete(const []);
         await tester.pumpAndSettle();
-        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.getRect(menu), sameBounds);
         expect(find.text('No users or groups found.'), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
