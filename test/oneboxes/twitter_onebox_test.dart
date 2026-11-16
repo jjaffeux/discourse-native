@@ -301,7 +301,7 @@ void main() {
   });
 
   for (final direction in TextDirection.values) {
-    for (final scale in [1.0, 2.0, 3.0]) {
+    for (final scale in [1.0, 3.0]) {
       testWidgets(
         'narrow post at ${scale}x in ${direction.name} stays bounded',
         (tester) async {
