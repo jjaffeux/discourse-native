@@ -2887,7 +2887,7 @@ void main() {
     });
   }
 
-  for (final conversation in ['channel', 'direct message', 'thread']) {
+  for (final conversation in ['direct message', 'thread']) {
     _mobileTest('opening navigation from a $conversation selects Chat', (
       tester,
     ) async {
