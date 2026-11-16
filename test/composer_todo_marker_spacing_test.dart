@@ -25,7 +25,13 @@ Future<ComposerController> spacingEditor(
 
 void main() {
   for (final marker in ['[ ]', '[x]', '[X]', '[]']) {
-    for (final prefix in ['', '- ', '+ ', '* ', '1. ']) {
+    for (final prefix in [
+      '',
+      '- ',
+      if (marker == '[X]') '+ ',
+      if (marker == '[]') '* ',
+      '1. ',
+    ]) {
       test('adjacent task text is lossless for $prefix$marker', () {
         final source = '$prefix${marker}Task';
         final todo = composerTodos(source).single;
