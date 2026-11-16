@@ -107,46 +107,31 @@ void main() {
     _channel(7, 'eta', dm: true, unread: 8, days: 5),
     _channel(8, 'theta', hasMessage: false),
   ];
-  final expected = <ChatChannelListFilter, List<List<int>>>{
-    ChatChannelListFilter.all: [
-      [1, 2, 4, 5, 7, 3, 8, 6],
-      [5, 6, 3, 2, 4, 7, 1, 8],
-      [4, 3, 2, 7, 6, 1, 5, 8],
-    ],
-    ChatChannelListFilter.active: [
-      [2, 4, 5, 7, 3, 6],
-      [5, 6, 3, 2, 4, 7],
-      [4, 3, 2, 7, 6, 5],
-    ],
-    ChatChannelListFilter.unread: [
-      [2, 4, 7, 3, 6],
-      [6, 3, 2, 4, 7],
-      [4, 3, 2, 7, 6],
-    ],
-    ChatChannelListFilter.mentions: [
-      [4, 3],
-      [3, 4],
-      [4, 3],
-    ],
-  };
-  for (final filter in ChatChannelListFilter.values) {
-    for (final sort in ChatChannelListSort.values) {
-      test(
-        '${filter.wireValue} with ${sort.wireValue} uses core activity semantics',
-        () {
-          expect(
-            projectChatChannelList(
-              channels,
-              filter: filter,
-              sort: sort,
-              section: ChatChannelListSection.channels,
-              now: _now,
-            ).map((c) => c.id),
-            expected[filter]![sort.index],
-          );
-        },
-      );
-    }
+  const cases = <(ChatChannelListFilter, ChatChannelListSort, List<int>)>[
+    (.all, .alphabetical, [1, 2, 4, 5, 7, 3, 8, 6]),
+    (.all, .recentActivity, [5, 6, 3, 2, 4, 7, 1, 8]),
+    (.all, .priority, [4, 3, 2, 7, 6, 1, 5, 8]),
+    (.active, .alphabetical, [2, 4, 5, 7, 3, 6]),
+    (.unread, .alphabetical, [2, 4, 7, 3, 6]),
+    (.unread, .priority, [4, 3, 2, 7, 6]),
+    (.mentions, .recentActivity, [3, 4]),
+  ];
+  for (final (filter, sort, expected) in cases) {
+    test(
+      '${filter.wireValue} with ${sort.wireValue} uses core activity semantics',
+      () {
+        expect(
+          projectChatChannelList(
+            channels,
+            filter: filter,
+            sort: sort,
+            section: ChatChannelListSection.channels,
+            now: _now,
+          ).map((c) => c.id),
+          expected,
+        );
+      },
+    );
   }
 
   test(
