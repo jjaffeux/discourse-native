@@ -75,11 +75,18 @@ void main() {
   testWidgets(
     'completed syntax becomes chips while the next token stays editable',
     (tester) async {
-      final shell = createGlobalSearchFixtureController();
+      final api = GlobalSearchFixtureApi();
+      final shell = createGlobalSearchFixtureController(api: api);
       addTearDown(shell.dispose);
       await shell.load();
       final search = shell.globalSearch
         ..configure(siteUrl: globalSearchFixtureSite, capabilities: caps);
+      search.setScope(GlobalSearchScope.forum);
+      search.setQuery('@sam ');
+      await tester.pump(const Duration(seconds: 1));
+      expect(api.requests.last.uri.queryParameters['q'], '@sam in:all-posts');
+      search.clearAllConditions();
+
       search.setQuery('@sam tags:design+keyboard after:2026-10-01 next');
       expect(search.query, 'next');
       expect(search.conditions.map((c) => c.filterId), [
@@ -103,29 +110,10 @@ void main() {
       ]);
       expect(search.conditionsFor(GlobalSearchScope.forum).length, 3);
       await tester.pump(const Duration(seconds: 1));
-    },
-  );
-
-  testWidgets(
-    'message filters reach the private endpoint and person search asks for posts',
-    (tester) async {
-      final api = GlobalSearchFixtureApi();
-      final shell = createGlobalSearchFixtureController(api: api);
-      addTearDown(shell.dispose);
-      await shell.load();
-      final search = shell.globalSearch
-        ..configure(siteUrl: globalSearchFixtureSite, capabilities: caps);
-      search.setScope(GlobalSearchScope.messages);
-      search.setQuery('@sam in:personal-direct ');
-      await tester.pump(const Duration(seconds: 1));
       expect(
         api.requests.last.uri.queryParameters['q'],
         contains('@sam in:personal-direct in:personal'),
       );
-      search.setScope(GlobalSearchScope.forum);
-      search.setQuery('@sam ');
-      await tester.pump(const Duration(seconds: 1));
-      expect(api.requests.last.uri.queryParameters['q'], '@sam in:all-posts');
     },
   );
 
