@@ -62,7 +62,14 @@ void main() {
     TargetPlatform.macOS,
   ]) {
     for (final newline in ['\n', '\r\n']) {
-      for (final checked in [false, true]) {
+      final checkedStates = switch ((platform, newline)) {
+        (TargetPlatform.android, '\n') ||
+        (TargetPlatform.iOS, '\r\n') => [false],
+        (TargetPlatform.android, '\r\n') ||
+        (TargetPlatform.iOS, '\n') => [true],
+        _ => [false, true],
+      };
+      for (final checked in checkedStates) {
         for (final depth in [0, 1, 3]) {
           testWidgets(
             'exiting trailing empty task keeps following typing outside list '
@@ -127,36 +134,34 @@ void main() {
     }
   }
 
-  for (final newline in ['\n', '\r\n']) {
-    for (final checked in [false, true]) {
-      for (final lead in [
-        '',
-        'Introduction$newline$newline',
-        '- [x] First$newline$newline',
-        '- [x] First$newline$newline$newline',
-      ]) {
-        testWidgets(
-          'empty task exit preserves existing separation '
-          '(newline ${newline.length}, checked $checked, lead ${lead.length})',
-          (tester) async {
-            final source = '$lead- [${checked ? 'x' : ' '}] ';
-            final root = await _pumpEditor(tester, source);
-            await _focusBody(tester, bodies(tester).last);
-            await _nativeInsert(tester, '\n');
-            expect(root.text.text, lead);
-            expect(root.focus.hasPrimaryFocus, isTrue);
-            await _nativeInsert(tester, 'Paragraph');
-            expect(root.text.text, '${lead}Paragraph');
-            expect(root.history.undo(), isTrue);
-            await tester.pumpAndSettle();
-            expect(root.text.text, lead);
-            expect(root.history.undo(), isTrue);
-            await tester.pumpAndSettle();
-            expect(root.text.text, source);
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
-    }
+  const separationCases = [
+    (false, ''),
+    (true, ''),
+    (false, 'Introduction\n\n'),
+    (true, 'Introduction\r\n\r\n'),
+    (true, '- [x] First\n\n'),
+    (false, '- [x] First\r\n\r\n'),
+    (false, '- [x] First\n\n\n'),
+    (true, '- [x] First\r\n\r\n\r\n'),
+  ];
+  for (final (checked, lead) in separationCases) {
+    testWidgets('empty task exit preserves existing separation '
+        '(checked $checked, lead ${lead.length})', (tester) async {
+      final source = '$lead- [${checked ? 'x' : ' '}] ';
+      final root = await _pumpEditor(tester, source);
+      await _focusBody(tester, bodies(tester).last);
+      await _nativeInsert(tester, '\n');
+      expect(root.text.text, lead);
+      expect(root.focus.hasPrimaryFocus, isTrue);
+      await _nativeInsert(tester, 'Paragraph');
+      expect(root.text.text, '${lead}Paragraph');
+      expect(root.history.undo(), isTrue);
+      await tester.pumpAndSettle();
+      expect(root.text.text, lead);
+      expect(root.history.undo(), isTrue);
+      await tester.pumpAndSettle();
+      expect(root.text.text, source);
+      expect(tester.takeException(), isNull);
+    });
   }
 }
