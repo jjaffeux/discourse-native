@@ -227,9 +227,14 @@ void main() {
       final skeletonAvatar = tester.getRect(
         find.descendant(of: region, matching: find.byType(DSkeleton)).first,
       );
-      final skeletonDivider = tester.getRect(
-        find.descendant(of: region, matching: find.byType(DSeparator)).first,
+      final skeletonDividers = find.descendant(
+        of: region,
+        matching: find.byType(DSeparator),
       );
+      final skeletonDividerPositions = [
+        tester.getRect(skeletonDividers.at(0)),
+        tester.getRect(skeletonDividers.at(1)),
+      ];
 
       final members = Completer<List<GroupMember>>();
       await _pump(
@@ -237,8 +242,12 @@ void main() {
         GroupsPage(
           siteUrl: 'https://example.invalid',
           data: const GroupsPageData(
-            groups: [_support, _moderators],
-            totalRows: 2,
+            groups: [
+              _support,
+              _moderators,
+              Group(id: 3, name: 'design'),
+            ],
+            totalRows: 3,
             loaded: true,
           ),
           loadMemberPreview: (_) => members.future,
@@ -251,15 +260,20 @@ void main() {
       final avatar = tester.getRect(
         find.descendant(of: row, matching: find.byType(DAvatar)).first,
       );
-      final divider = tester.getRect(find.byType(DSeparator).first);
+      final dividers = find.byType(DSeparator);
+      List<Rect> dividerPositions() => [
+        tester.getRect(dividers.at(0)),
+        tester.getRect(dividers.at(1)),
+      ];
+
       expect(avatar, skeletonAvatar);
-      expect(divider, skeletonDivider);
+      expect(dividerPositions(), skeletonDividerPositions);
 
       // The member preview arrives after the rows: it must not push them.
       members.complete(_members);
       await tester.pumpAndSettle();
       expect(find.byType(DAvatarGroup), findsOneWidget);
-      expect(tester.getRect(find.byType(DSeparator).first), divider);
+      expect(dividerPositions(), skeletonDividerPositions);
       expect(tester.takeException(), isNull);
     });
   }

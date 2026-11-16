@@ -149,9 +149,7 @@ class DirectorySkeleton extends StatelessWidget {
   }
 }
 
-/// The groups directory row's own geometry, so replacing the placeholder with
-/// loaded groups does not move the rows: the same item padding and spacing,
-/// and bars centred in slots as tall as the text lines they stand in for.
+/// Matches the padding, spacing, and text line heights of loaded group rows.
 class _GroupRowSkeleton extends StatelessWidget {
   const _GroupRowSkeleton({required this.index});
 
@@ -197,17 +195,8 @@ class _GroupRowSkeleton extends StatelessWidget {
                 ),
               ],
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _TextLineSkeleton(
-                  style: body,
-                  widthFactor: index.isEven ? .85 : 1,
-                ),
-                if (index.isOdd)
-                  _TextLineSkeleton(style: body, widthFactor: .5),
-              ],
-            ),
+            // Some groups have no bio, so alternate with compact rows.
+            if (index.isEven) _TextLineSkeleton(style: body, widthFactor: .85),
             ConstrainedBox(
               constraints: BoxConstraints(minHeight: DAvatarSize.sm.dimension),
               child: Row(
