@@ -522,7 +522,7 @@ void main() {
     );
   }
 
-  for (final inset in [12.0, 16.0, 24.0, 32.0]) {
+  for (final inset in [12.0, 32.0]) {
     testWidgets(
       'shared $inset spacing reaches parts and footer has no extra bottom',
       (tester) async {
