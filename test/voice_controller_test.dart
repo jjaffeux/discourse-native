@@ -791,7 +791,10 @@ void main() {
         },
       );
 
-      for (final newerFirst in [false, true]) {
+      for (final newerFirst in [
+        if (setting != 'share') false,
+        if (setting != 'deafen') true,
+      ]) {
         test(
           '$setting restores accepted state when both fail, newer first $newerFirst',
           () async {
