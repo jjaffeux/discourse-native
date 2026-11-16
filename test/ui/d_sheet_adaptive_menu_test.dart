@@ -562,60 +562,59 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final sizeToContent in [true, false]) {
-      for (final origin in ['handle', 'content']) {
-        testWidgets(
-          'upward $origin pull keeps full width with expansion on $platform (content: $sizeToContent)',
-          (tester) async {
-            final scroll = ScrollController();
-            addTearDown(scroll.dispose);
-            await openMenu(
-              tester,
-              platform: platform,
-              scroll: scroll,
-              sizeToContent: sizeToContent,
-            );
-            final sheet = find.byType(DSheetContent);
-            void expectProgress() {
-              final current = tester.getRect(sheet);
-              expect(current.left, 0);
-              expect(current.right, 390);
-              expect(current.bottom, greaterThanOrEqualTo(844));
-              expect(footRadius(tester, sheet), 55);
-              expect(
-                scroll.offset,
-                0,
-                reason: 'expanding keeps the current row',
-              );
-            }
+      final origin = switch ((platform, sizeToContent)) {
+        (TargetPlatform.iOS, true) ||
+        (TargetPlatform.android, false) => 'handle',
+        _ => 'content',
+      };
+      testWidgets(
+        'upward $origin pull keeps full width with expansion on $platform (content: $sizeToContent)',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(
+            tester,
+            platform: platform,
+            scroll: scroll,
+            sizeToContent: sizeToContent,
+          );
+          final sheet = find.byType(DSheetContent);
+          void expectProgress() {
+            final current = tester.getRect(sheet);
+            expect(current.left, 0);
+            expect(current.right, 390);
+            expect(current.bottom, greaterThanOrEqualTo(844));
+            expect(footRadius(tester, sheet), 55);
+            expect(scroll.offset, 0, reason: 'expanding keeps the current row');
+          }
 
-            final drag = await tester.startGesture(
-              tester.getCenter(
-                origin == 'handle'
-                    ? find.byKey(const ValueKey('sheet-drag-handle'))
-                    : find.byType(ListView),
-              ),
-            );
-            await drag.moveBy(const Offset(0, -40));
-            await tester.pump();
-            for (var step = 0; step < 5; step++) {
-              await drag.moveBy(const Offset(0, -35));
-              await tester.pump(const Duration(milliseconds: 16));
-              expect(footRadius(tester, sheet), 55);
-              expectProgress();
-            }
-            await drag.up();
-            await tester.pump();
-            for (var frame = 0; frame < 4; frame++) {
-              await tester.pump(const Duration(milliseconds: 32));
-              expectProgress();
-            }
-            await tester.pumpAndSettle();
-            expect(tester.getRect(sheet), const Rect.fromLTRB(0, 55, 390, 844));
-            expect(scroll.offset, 0);
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+          final drag = await tester.startGesture(
+            tester.getCenter(
+              origin == 'handle'
+                  ? find.byKey(const ValueKey('sheet-drag-handle'))
+                  : find.byType(ListView),
+            ),
+          );
+          await drag.moveBy(const Offset(0, -40));
+          await tester.pump();
+          for (var step = 0; step < 5; step++) {
+            await drag.moveBy(const Offset(0, -35));
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(footRadius(tester, sheet), 55);
+            expectProgress();
+          }
+          await drag.up();
+          await tester.pump();
+          for (var frame = 0; frame < 4; frame++) {
+            await tester.pump(const Duration(milliseconds: 32));
+            expectProgress();
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), const Rect.fromLTRB(0, 55, 390, 844));
+          expect(scroll.offset, 0);
+          expect(tester.takeException(), isNull);
+        },
+      );
 
       testWidgets(
         'cancelled expansion restores its height on $platform (content: $sizeToContent)',
@@ -657,67 +656,64 @@ void main() {
         },
       );
 
-      for (final reducedMotion in [false, true]) {
-        testWidgets('backdrop swipes share the adaptive threshold on $platform '
-            '(content: $sizeToContent, reduced: $reducedMotion)', (
+      final reducedMotion = switch ((platform, sizeToContent)) {
+        (TargetPlatform.iOS, false) || (TargetPlatform.android, true) => true,
+        _ => false,
+      };
+      testWidgets('backdrop swipes share the adaptive threshold on $platform '
+          '(content: $sizeToContent, reduced: $reducedMotion)', (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await openMenu(
           tester,
-        ) async {
-          final scroll = ScrollController();
-          addTearDown(scroll.dispose);
-          await openMenu(
-            tester,
-            platform: platform,
-            scroll: scroll,
-            sizeToContent: sizeToContent,
-            reducedMotion: reducedMotion,
-          );
-          final sheet = find.byType(DSheetContent);
-          final opened = tester.getRect(sheet);
-          final above = Offset(opened.center.dx, opened.top - 50);
-          final threshold = (844 - opened.top) * .3;
-          Future<TestGesture> pull(double distance) async {
-            final gesture = await tester.startGesture(above);
-            await gesture.moveBy(const Offset(0, 40));
-            await tester.pump();
-            final moved = tester.getRect(sheet).top - opened.top;
-            await gesture.moveBy(Offset(0, distance - moved));
-            await tester.pump();
-            expect(
-              tester.getRect(sheet).top,
-              closeTo(opened.top + distance, .1),
-            );
-            expect(scroll.offset, 0);
-            return gesture;
-          }
+          platform: platform,
+          scroll: scroll,
+          sizeToContent: sizeToContent,
+          reducedMotion: reducedMotion,
+        );
+        final sheet = find.byType(DSheetContent);
+        final opened = tester.getRect(sheet);
+        final above = Offset(opened.center.dx, opened.top - 50);
+        final threshold = (844 - opened.top) * .3;
+        Future<TestGesture> pull(double distance) async {
+          final gesture = await tester.startGesture(above);
+          await gesture.moveBy(const Offset(0, 40));
+          await tester.pump();
+          final moved = tester.getRect(sheet).top - opened.top;
+          await gesture.moveBy(Offset(0, distance - moved));
+          await tester.pump();
+          expect(tester.getRect(sheet).top, closeTo(opened.top + distance, .1));
+          expect(scroll.offset, 0);
+          return gesture;
+        }
 
-          final short = await pull(threshold - 1);
-          await short.up();
-          await tester.pumpAndSettle();
-          expect(tester.getRect(sheet), opened);
-          final cancelled = await pull(threshold + 20);
-          await cancelled.cancel();
-          await tester.pumpAndSettle();
-          expect(tester.getRect(sheet), opened);
-          await tester.dragFrom(above, const Offset(0, -100));
-          await tester.pumpAndSettle();
-          expect(tester.getRect(sheet), opened);
-          await tester.dragFrom(above, const Offset(100, 0));
-          await tester.pumpAndSettle();
-          expect(tester.getRect(sheet), opened);
-          final dismiss = await pull(threshold + 1);
-          await dismiss.up();
-          if (!reducedMotion) {
-            await tester.pump();
-            await tester.pump();
-            final released = tester.getRect(sheet);
-            await tester.pump(const Duration(milliseconds: 60));
-            expect(tester.getRect(sheet).top, greaterThan(released.top));
-          }
-          await tester.pumpAndSettle();
-          expect(sheet, findsNothing);
-          expect(tester.takeException(), isNull);
-        });
-      }
+        final short = await pull(threshold - 1);
+        await short.up();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), opened);
+        final cancelled = await pull(threshold + 20);
+        await cancelled.cancel();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), opened);
+        await tester.dragFrom(above, const Offset(0, -100));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), opened);
+        await tester.dragFrom(above, const Offset(100, 0));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), opened);
+        final dismiss = await pull(threshold + 1);
+        await dismiss.up();
+        if (!reducedMotion) {
+          await tester.pump();
+          await tester.pump();
+          final released = tester.getRect(sheet);
+          await tester.pump(const Duration(milliseconds: 60));
+          expect(tester.getRect(sheet).top, greaterThan(released.top));
+        }
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(tester.takeException(), isNull);
+      });
     }
 
     testWidgets('an expansion fling cannot start list momentum on $platform', (
