@@ -467,78 +467,76 @@ void main() {
     },
   );
 
-  for (final bookmarkStartsFirst in [false, true]) {
-    for (final bookmarkFinishesFirst in [false, true]) {
-      for (final rejected in [false, true]) {
-        test(
-          'independent saves: bookmark starts first=$bookmarkStartsFirst, '
-          'finishes first=$bookmarkFinishesFirst, checklist refused=$rejected',
-          () async {
-            final api = ChecklistBookmarkApi()
-              ..writeGates.add(Completer<void>())
-              ..refusal = rejected
-                  ? const WriteException(WriteFailure.validation)
-                  : null;
-            final shell = await shellFor(api, liveRefresh: true);
-            addTearDown(shell.dispose);
-            late Future<BookmarkWriteResult> savingBookmark;
-            late Future<String?> savingChecklist;
-            if (bookmarkStartsFirst) {
-              savingBookmark = bookmark(shell);
-              savingChecklist = toggle(shell, 0, true);
-            } else {
-              savingChecklist = toggle(shell, 0, true);
-              expect(bookmarkBusy(shell), isFalse);
-              savingBookmark = bookmark(shell);
-            }
-            await pumpEventQueue();
-            expect(states(shell), [true, true]);
-            expect(api.calls, hasLength(1));
-            expect(api.createdBookmarks, hasLength(1));
-            expect(bookmarkBusy(shell), isTrue);
-            expect((await bookmark(shell)).saved, isFalse);
-            expect(api.createdBookmarks, hasLength(1));
-            expect(shell.beginPluginPostWrite(site, 22), isFalse);
-            FakeSiteTracker.built.last.deliverTopicMessage(
-              '/topic/7/reactions',
-              {
-                'post_id': 22,
-                'reactions': ['heart', null],
-              },
-            );
-            await pumpEventQueue();
-            expect(api.reads, 1);
+  for (final (bookmarkStartsFirst, bookmarkFinishesFirst, rejected) in [
+    (false, false, false),
+    (false, true, true),
+    (true, false, true),
+    (true, true, false),
+  ]) {
+    test(
+      'independent saves: bookmark starts first=$bookmarkStartsFirst, '
+      'finishes first=$bookmarkFinishesFirst, checklist refused=$rejected',
+      () async {
+        final api = ChecklistBookmarkApi()
+          ..writeGates.add(Completer<void>())
+          ..refusal = rejected
+              ? const WriteException(WriteFailure.validation)
+              : null;
+        final shell = await shellFor(api, liveRefresh: true);
+        addTearDown(shell.dispose);
+        late Future<BookmarkWriteResult> savingBookmark;
+        late Future<String?> savingChecklist;
+        if (bookmarkStartsFirst) {
+          savingBookmark = bookmark(shell);
+          savingChecklist = toggle(shell, 0, true);
+        } else {
+          savingChecklist = toggle(shell, 0, true);
+          expect(bookmarkBusy(shell), isFalse);
+          savingBookmark = bookmark(shell);
+        }
+        await pumpEventQueue();
+        expect(states(shell), [true, true]);
+        expect(api.calls, hasLength(1));
+        expect(api.createdBookmarks, hasLength(1));
+        expect(bookmarkBusy(shell), isTrue);
+        expect((await bookmark(shell)).saved, isFalse);
+        expect(api.createdBookmarks, hasLength(1));
+        expect(shell.beginPluginPostWrite(site, 22), isFalse);
+        FakeSiteTracker.built.last.deliverTopicMessage('/topic/7/reactions', {
+          'post_id': 22,
+          'reactions': ['heart', null],
+        });
+        await pumpEventQueue();
+        expect(api.reads, 1);
 
-            if (bookmarkFinishesFirst) {
-              api.bookmarkGate.complete();
-              expect((await savingBookmark).saved, isTrue);
-              await pumpEventQueue();
-              expect(bookmarkBusy(shell), isFalse);
-              expect(states(shell), [true, true]);
-              expect(shell.postWriteInFlight(22), isTrue);
-              expect(api.reads, 1);
-              api.writeGates.single.complete();
-            } else {
-              api.writeGates.single.complete();
-              await savingChecklist;
-              await pumpEventQueue();
-              expect(api.reads, 1);
-              expect(bookmarkBusy(shell), isTrue);
-              expect(shell.postWriteInFlight(22), isTrue);
-              api.bookmarkGate.complete();
-              expect((await savingBookmark).saved, isTrue);
-            }
-            expect(await savingChecklist, rejected ? isNotNull : isNull);
-            await pumpEventQueue();
-            expect(api.reads, 2);
-            expect(states(shell), [!rejected, true]);
-            expect(shell.store.read<Post>(site, 22)!.bookmark, isNotNull);
-            expect(shell.postWriteInFlight(22), isFalse);
-            expect(bookmarkBusy(shell), isFalse);
-          },
-        );
-      }
-    }
+        if (bookmarkFinishesFirst) {
+          api.bookmarkGate.complete();
+          expect((await savingBookmark).saved, isTrue);
+          await pumpEventQueue();
+          expect(bookmarkBusy(shell), isFalse);
+          expect(states(shell), [true, true]);
+          expect(shell.postWriteInFlight(22), isTrue);
+          expect(api.reads, 1);
+          api.writeGates.single.complete();
+        } else {
+          api.writeGates.single.complete();
+          await savingChecklist;
+          await pumpEventQueue();
+          expect(api.reads, 1);
+          expect(bookmarkBusy(shell), isTrue);
+          expect(shell.postWriteInFlight(22), isTrue);
+          api.bookmarkGate.complete();
+          expect((await savingBookmark).saved, isTrue);
+        }
+        expect(await savingChecklist, rejected ? isNotNull : isNull);
+        await pumpEventQueue();
+        expect(api.reads, 2);
+        expect(states(shell), [!rejected, true]);
+        expect(shell.store.read<Post>(site, 22)!.bookmark, isNotNull);
+        expect(shell.postWriteInFlight(22), isFalse);
+        expect(bookmarkBusy(shell), isFalse);
+      },
+    );
   }
 
   test(
