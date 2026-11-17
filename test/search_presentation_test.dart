@@ -174,15 +174,14 @@ void main() {
     expect(valid(), isFalse);
   });
 
-  for (final taxonomy in [false, true]) {
-    test(
-      'delayed words require the exact opened tab and destination ($taxonomy)',
-      () {
-        final lifecycle = SiteLifecycle();
-        final previous = ContentRoute.searchList('before');
-        final route = ContentRoute.searchList('after');
-        final tab = Object();
-        final attempt = SearchResultActivation(
+  test('delayed words require the exact opened tab and destination', () {
+    final lifecycle = SiteLifecycle();
+    final previous = ContentRoute.searchList('before');
+    final route = ContentRoute.searchList('after');
+    final tab = Object();
+
+    SearchResultActivation activation({bool taxonomy = false}) =>
+        SearchResultActivation(
           host: Object(),
           lease: lifecycle.capture('site'),
           site: 'site',
@@ -199,26 +198,29 @@ void main() {
                 : null,
           ),
         );
-        String? transfer({
-          Object? currentTab,
-          bool ownsInput = true,
-          ContentRoute? destination,
-        }) => attempt.wordsForDestination(
-          ownsInput: ownsInput,
-          capturedTab: tab,
-          currentTab: currentTab ?? tab,
-          route: destination ?? route,
-          previousRoute: previous,
-        );
-        expect(transfer(), taxonomy ? '' : 'design');
-        expect(transfer(currentTab: Object()), isNull);
-        expect(transfer(ownsInput: false), isNull);
-        expect(transfer(destination: previous), isNull);
-        lifecycle.invalidate('site');
-        expect(transfer(), isNull);
-      },
+
+    final attempt = activation();
+    String? transfer({
+      SearchResultActivation? source,
+      Object? currentTab,
+      bool ownsInput = true,
+      ContentRoute? destination,
+    }) => (source ?? attempt).wordsForDestination(
+      ownsInput: ownsInput,
+      capturedTab: tab,
+      currentTab: currentTab ?? tab,
+      route: destination ?? route,
+      previousRoute: previous,
     );
-  }
+
+    expect(transfer(), 'design');
+    expect(transfer(source: activation(taxonomy: true)), '');
+    expect(transfer(currentTab: Object()), isNull);
+    expect(transfer(ownsInput: false), isNull);
+    expect(transfer(destination: previous), isNull);
+    lifecycle.invalidate('site');
+    expect(transfer(), isNull);
+  });
 }
 
 final class _OpeningSource implements SearchPresentationSource {
