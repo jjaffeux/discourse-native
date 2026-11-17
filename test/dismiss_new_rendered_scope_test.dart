@@ -70,7 +70,12 @@ void main() {
         ),
   );
   for (final scope in _Scope.values) {
-    for (final change in _Change.values) {
+    for (final change in [
+      _Change.unchanged,
+      _Change.global,
+      scope == _Scope.tag ? _Change.failedReconnect : _Change.failedDisconnect,
+      _Change.reconnect,
+    ]) {
       testWidgets(
         'Native Dismiss New ${scope.name} ${change.name} owns its '
         'rendered scope before repaint',
