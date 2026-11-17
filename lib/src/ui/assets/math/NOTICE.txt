@@ -1,4 +1,4 @@
-MathJax 4.1.0 and @mathjax/mathjax-newcm-font 4.1.3
+MathJax 4.1.3 and @mathjax/mathjax-newcm-font 4.1.3
 Copyright (c) 2024 MathJax, Inc. (www.mathjax.org)
 Distributed under Apache-2.0 as declared by the pinned packages.
 
@@ -204,7 +204,7 @@ Distributed under Apache-2.0 as declared by the pinned packages.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-KaTeX 0.16.27
+KaTeX 0.19.1
 The MIT License (MIT)
 
 Copyright (c) 2013-2020 Khan Academy and other contributors

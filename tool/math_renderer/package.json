@@ -6,7 +6,7 @@
     "verify": "node verify.mjs"
   },
   "dependencies": {
-    "mathjax": "4.1.0",
-    "katex": "0.16.27"
+    "katex": "0.19.1",
+    "mathjax": "4.1.3"
   }
 }
