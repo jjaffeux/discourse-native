@@ -17,6 +17,7 @@ import '../theme/app_theme.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
+import 'forum_theme_surfaces.dart';
 import 'message_archive_button.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
@@ -152,6 +153,8 @@ class TopicInboxHeader extends StatelessWidget {
       headerSuppressed: headerSuppressed,
       hideHeaderOnScroll: true,
       framed: false,
+      // A phone reader sits on its sheet's panel fill.
+      scrollBackdrop: mobile ? ForumWindowBackground.panelColor(context) : null,
       identity: (siteUrl, topicId),
       // The mockups draw every topic header control flat in either material.
       header: _morphHeader(context, rows: rows),

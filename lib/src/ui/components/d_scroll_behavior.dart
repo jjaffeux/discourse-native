@@ -84,6 +84,10 @@ class DScrollBehavior extends ScrollBehavior {
       foot: horizontal || local?.bottomInset != null
           ? null
           : DScrollFootScope.maybeOf(context),
+      backdrop: switch (local?.backdrop) {
+        final color? when !horizontal && color.a == 1 => color,
+        _ => null,
+      },
       child: decorated,
     );
   }
@@ -106,6 +110,7 @@ class DScrollFadeScope extends InheritedWidget {
     this.topInset,
     this.bottomInset,
     this.repaint,
+    this.backdrop,
     required super.child,
   }) : assert(topExtent >= 0 && topExtent < double.infinity),
        assert(bottomExtent >= 0 && bottomExtent < double.infinity),
@@ -124,6 +129,14 @@ class DScrollFadeScope extends InheritedWidget {
   /// Repaints changing insets without replacing the scroll position.
   final Listenable? repaint;
 
+  /// The opaque color painted directly behind the first viewport, if known.
+  /// Its vertical fades then cover the content's edges with this color
+  /// instead of masking them out. That draws what the mask would wherever
+  /// this color is what the mask reveals, without rendering the viewport
+  /// offscreen, which is most of a phone's raster time while pages move.
+  /// A translucent color is ignored.
+  final Color? backdrop;
+
   static DScrollFadeScope? _of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<DScrollFadeScope>();
 
@@ -134,7 +147,8 @@ class DScrollFadeScope extends InheritedWidget {
       horizontalExtent != oldWidget.horizontalExtent ||
       topInset != oldWidget.topInset ||
       bottomInset != oldWidget.bottomInset ||
-      repaint != oldWidget.repaint;
+      repaint != oldWidget.repaint ||
+      backdrop != oldWidget.backdrop;
 }
 
 /// A bar floating over the foot of the lists under this scope, [extent] tall
@@ -178,6 +192,7 @@ class _ScrollEdgeFade extends StatefulWidget {
     required this.bottomInset,
     required this.repaint,
     required this.foot,
+    required this.backdrop,
     required this.child,
   });
 
@@ -189,6 +204,7 @@ class _ScrollEdgeFade extends StatefulWidget {
   final ValueGetter<double>? bottomInset;
   final Listenable? repaint;
   final DScrollFoot? foot;
+  final Color? backdrop;
   final Widget child;
 
   @override
@@ -217,6 +233,7 @@ class _ScrollEdgeFadeState extends State<_ScrollEdgeFade> {
           bottomInset: widget.bottomInset,
           repaint: widget.repaint,
           foot: widget.foot,
+          backdrop: widget.backdrop,
           child: widget.child,
         ),
       );
@@ -233,6 +250,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
     required this.bottomInset,
     required this.repaint,
     required this.foot,
+    required this.backdrop,
     required super.child,
   });
 
@@ -244,6 +262,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
   final ValueGetter<double>? bottomInset;
   final Listenable? repaint;
   final DScrollFoot? foot;
+  final Color? backdrop;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
@@ -256,6 +275,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
         bottomInset,
         repaint,
         foot,
+        backdrop,
       );
 
   @override
@@ -272,6 +292,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
       bottomInset,
       repaint,
       foot,
+      backdrop,
     );
   }
 }
@@ -286,6 +307,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     this._bottomInset,
     this._repaint,
     this._foot,
+    this._backdrop,
   );
 
   ScrollController? _controller;
@@ -296,6 +318,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
   ValueGetter<double>? _bottomInset;
   Listenable? _repaint;
   DScrollFoot? _foot;
+  Color? _backdrop;
 
   void update(
     ScrollController? controller,
@@ -306,7 +329,12 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     ValueGetter<double>? bottomInset,
     Listenable? repaint,
     DScrollFoot? foot,
+    Color? backdrop,
   ) {
+    if ((backdrop == null) != (_backdrop == null)) {
+      markNeedsCompositingBitsUpdate();
+    }
+    _backdrop = backdrop;
     if (controller != _controller) {
       if (attached) _controller?.removeListener(markNeedsPaint);
       _controller = controller;
@@ -347,7 +375,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
   }
 
   @override
-  bool get alwaysNeedsCompositing => child != null;
+  bool get alwaysNeedsCompositing => child != null && _backdrop == null;
 
   @override
   ShaderMaskLayer? get layer => super.layer as ShaderMaskLayer?;
@@ -420,28 +448,23 @@ class _RenderScrollFadeMask extends RenderProxyBox {
       if (bottom) ...[end / extent, 1],
       if (foot > 0) 1,
     ];
-    // A scrolling list repaints this mask every frame with the same fades;
-    // building the gradient's shader each time showed up in frame profiles.
-    final cached = _shader;
-    final shader =
-        cached != null &&
-            cached.size == size &&
-            cached.horizontal == horizontal &&
-            listEquals(cached.colors, colors) &&
-            listEquals(cached.stops, stops)
-        ? cached.shader
-        : (_shader = (
-            size: size,
-            horizontal: horizontal,
-            colors: colors,
-            stops: stops,
-            shader: LinearGradient(
-              begin: horizontal ? Alignment.centerLeft : Alignment.topCenter,
-              end: horizontal ? Alignment.centerRight : Alignment.bottomCenter,
-              colors: colors,
-              stops: stops,
-            ).createShader(Offset.zero & size),
-          )).shader;
+    final backdrop = _backdrop;
+    if (backdrop != null) {
+      // Masking the content leaves the opaque backdrop showing through by the
+      // mask's complement, so covering the content with the backdrop by that
+      // complement draws the same pixels.
+      layer = null;
+      super.paint(context, offset);
+      final cover = [
+        for (final color in colors) backdrop.withValues(alpha: 1 - color.a),
+      ];
+      context.canvas.drawRect(
+        offset & size,
+        Paint()..shader = _gradient(horizontal, cover, stops, offset),
+      );
+      return;
+    }
+    final shader = _gradient(horizontal, colors, stops, Offset.zero);
     layer ??= ShaderMaskLayer();
     layer!
       ..shader = shader
@@ -450,8 +473,41 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     context.pushLayer(layer!, super.paint, offset);
   }
 
+  // A scrolling list repaints its fades every frame with the same gradient;
+  // building the gradient's shader each time showed up in frame profiles.
+  Shader _gradient(
+    bool horizontal,
+    List<Color> colors,
+    List<double> stops,
+    Offset origin,
+  ) {
+    final cached = _shader;
+    if (cached != null &&
+        cached.size == size &&
+        cached.origin == origin &&
+        cached.horizontal == horizontal &&
+        listEquals(cached.colors, colors) &&
+        listEquals(cached.stops, stops)) {
+      return cached.shader;
+    }
+    return (_shader = (
+      size: size,
+      origin: origin,
+      horizontal: horizontal,
+      colors: colors,
+      stops: stops,
+      shader: LinearGradient(
+        begin: horizontal ? Alignment.centerLeft : Alignment.topCenter,
+        end: horizontal ? Alignment.centerRight : Alignment.bottomCenter,
+        colors: colors,
+        stops: stops,
+      ).createShader(origin & size),
+    )).shader;
+  }
+
   ({
     Size size,
+    Offset origin,
     bool horizontal,
     List<Color> colors,
     List<double> stops,

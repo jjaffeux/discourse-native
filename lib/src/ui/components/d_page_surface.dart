@@ -81,6 +81,7 @@ class DPageSurface extends StatefulWidget {
        framed = false,
        border = false,
        backgroundColor = null,
+       scrollBackdrop = null,
        borderRadius = null,
        depth = null,
        hideHeaderOnScroll = true,
@@ -105,6 +106,7 @@ class DPageSurface extends StatefulWidget {
     this.framed = true,
     this.border = true,
     this.backgroundColor,
+    this.scrollBackdrop,
     this.clipBehavior = Clip.antiAlias,
     this.borderRadius,
     this.depth,
@@ -144,6 +146,7 @@ class DPageSurface extends StatefulWidget {
     this.framed = true,
     this.border = true,
     this.backgroundColor,
+    this.scrollBackdrop,
     this.clipBehavior = Clip.antiAlias,
     this.borderRadius,
     this.depth,
@@ -250,6 +253,11 @@ class DPageSurface extends StatefulWidget {
 
   /// Optional fill for the enclosing Card. Ignored when [framed] is false.
   final Color? backgroundColor;
+
+  /// The opaque color painted behind this page's scrolling content, by the
+  /// page or by what it is composed in. The page's viewport then fades into
+  /// it without rendering offscreen, as [DScrollFadeScope.backdrop] says.
+  final Color? scrollBackdrop;
 
   /// Lets an enclosing Native sheet clip a framed page at its moving edge.
   final Clip clipBehavior;
@@ -1110,6 +1118,7 @@ class _DPageSurfaceState extends State<DPageSurface>
             ? DScrollFadeScope(
                 topInset: _headerGeometry._readVisibleExtent,
                 repaint: _headerGeometry,
+                backdrop: widget.scrollBackdrop,
                 child: ScrollConfiguration(
                   behavior: DScrollBehavior(
                     delegate: ScrollConfiguration.of(context),
@@ -1130,12 +1139,19 @@ class _DPageSurfaceState extends State<DPageSurface>
                         ),
                 ),
               )
-            : ScrollConfiguration(
+            : switch (ScrollConfiguration(
                 behavior: DScrollBehavior(
                   delegate: ScrollConfiguration.of(context),
                 ),
                 child: widget.child!,
-              ),
+              )) {
+                final content when widget.scrollBackdrop != null =>
+                  DScrollFadeScope(
+                    backdrop: widget.scrollBackdrop,
+                    child: content,
+                  ),
+                final content => content,
+              },
       ),
     );
     final overlaidFooter = widget.floatingFooter && widget.footer != null;

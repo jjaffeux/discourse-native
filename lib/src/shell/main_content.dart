@@ -756,6 +756,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           Directionality.of(context) == TextDirection.rtl,
                     ),
                     backgroundColor: ForumWindowBackground.panelColor(context),
+                    // A phone's list sits on the mobile panel fill.
+                    scrollBackdrop: controller.mobileNavigationEnabled
+                        ? ForumWindowBackground.panelColor(context)
+                        : null,
                     depth: DSurfaceDepth.rim,
                     framed:
                         !context.isTouch &&

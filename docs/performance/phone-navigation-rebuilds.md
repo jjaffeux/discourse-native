@@ -88,9 +88,11 @@ measure this change.
 - On iOS the list pane moves beneath each topic sheet with its global key, so
   it is reactivated and rebuilds about 1,200 elements as a topic opens and as
   it closes. Android keeps the list in the topic sheet's source slot.
-- Raster time did not change. Skipping the history transition's transparent
-  color filters left raster time within its run-to-run spread, so the engine
-  already elides them, and that change was dropped.
+- Raster time did not change here. Skipping the history transition's
+  transparent color filters left raster time within its run-to-run spread, so
+  the engine already elides them, and that change was dropped. On a phone most
+  raster time went to the lists' edge fades; see
+  [Scroll fade backdrop](scroll-fade-backdrop.md).
 - The first frame of opening a topic is mostly the reader's own first build
   and layout.
 
