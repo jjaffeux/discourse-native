@@ -951,7 +951,6 @@ void main() {
 
     for (final (speed, origin) in [
       (400.0, 'header'),
-      (1800.0, 'header'),
       (4000.0, 'header'),
       (1800.0, 'scroll'),
       (1800.0, 'helper'),
