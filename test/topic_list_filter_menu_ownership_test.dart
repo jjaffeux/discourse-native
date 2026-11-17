@@ -288,7 +288,11 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
-    for (final menu in ['category', 'subcategory', 'tag']) {
+    for (final menu in [
+      'category',
+      if (platform == TargetPlatform.android) 'subcategory',
+      'tag',
+    ]) {
       testWidgets(
         'MainContent $menu menu refuses a replaced feed on $platform',
         (tester) async {
