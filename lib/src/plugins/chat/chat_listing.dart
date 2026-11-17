@@ -154,6 +154,12 @@ class _ChatListingState extends State<ChatListing> {
   Listenable? _sources;
   late _ChatListingLayout _layout;
   ChatListingView? _view;
+  Widget? _built;
+  ({Color color, Widget separator})? _separator;
+
+  // The last layout's rows by key, each with what it was drawn from, so a
+  // reorder hands back the rows whose inputs held as they stand.
+  var _kept = <Key, (Object, Widget)>{};
 
   String get _siteUrl => widget.siteUrl;
 
@@ -176,6 +182,8 @@ class _ChatListingState extends State<ChatListing> {
     }
     _layout = _read();
     _view = null;
+    _built = null;
+    _kept = {};
   }
 
   @override
@@ -185,12 +193,17 @@ class _ChatListingState extends State<ChatListing> {
       _expanded.clear();
       _roomsExpanded = false;
     }
-    // A parent that rebuilds hands over a new builder and nothing else. The
-    // rows stand as they are unless what they are laid out from changed.
+    // A parent that rebuilds with chat traffic hands over the same builder,
+    // and the list it built stands as it is unless what it is laid out from
+    // changed. A new builder may close over something new, so it builds again
+    // from the rows it already has.
     final layout = _read();
     if (layout != _layout || oldWidget.frame != widget.frame) {
       _layout = layout;
       _view = null;
+    }
+    if (_view == null || !identical(oldWidget.builder, widget.builder)) {
+      _built = null;
     }
   }
 
@@ -268,6 +281,7 @@ class _ChatListingState extends State<ChatListing> {
     setState(() {
       _layout = layout;
       _view = null;
+      _built = null;
     });
   }
 
@@ -277,6 +291,7 @@ class _ChatListingState extends State<ChatListing> {
   void _roomsChanged() => setState(() {
     _layout = _read();
     _view = null;
+    _built = null;
   });
 
   @override
@@ -288,11 +303,12 @@ class _ChatListingState extends State<ChatListing> {
 
   @override
   Widget build(BuildContext context) =>
-      widget.builder(context, _view ??= _buildView(context));
+      _built ??= widget.builder(context, _view ??= _buildView(context));
 
   void _toggle(ChatInboxSectionKind kind) => setState(() {
     if (!_expanded.add(kind)) _expanded.remove(kind);
     _view = null;
+    _built = null;
   });
 
   void _browse(String words) => unawaited(
@@ -304,9 +320,17 @@ class _ChatListingState extends State<ChatListing> {
     final layout = _layout;
     final frame = widget.frame;
     final l10n = context.l10n;
-    final rule = Padding(
+    final border = DTokens.of(context).border;
+    if (_separator?.color != border) {
+      _separator = (color: border, separator: DSeparator(color: border));
+    }
+    final separator = _separator!.separator;
+    // Each rule is keyed by the row over it and moves with that row, so a
+    // reorder finds it mounted and draws none again.
+    Widget rule(Object over) => Padding(
+      key: ValueKey(('chat-rule', over)),
       padding: EdgeInsets.symmetric(horizontal: frame.edge),
-      child: DSeparator(color: DTokens.of(context).border),
+      child: separator,
     );
     final sections = <ChatInboxSection>[];
     for (final entry in layout.order) {
@@ -332,17 +356,30 @@ class _ChatListingState extends State<ChatListing> {
     final alone = sections.length + (showRooms ? 1 : 0) == 1;
     final fresh = layout.freshIds.toSet();
     final entries = <Widget>[];
+    final kept = <Key, (Object, Widget)>{};
+    Widget keep(Key key, Object inputs, Widget Function(Key key) build) {
+      final row = switch (_kept[key]) {
+        (final drawnFrom, final row) when drawnFrom == inputs => row,
+        _ => build(key),
+      };
+      kept[key] = (inputs, row);
+      return row;
+    }
 
-    Widget threadsRow() => ChatInboxWayRow(
-      key: const ValueKey('chat-inbox-threads-card'),
-      frame: frame,
-      icon: DIcons.comments,
-      title: l10n.threads,
-      description: layout.unreadThreads > 0
-          ? l10n.chatThreadsNewReplies(layout.unreadThreads)
-          : l10n.chatThreadsWay,
-      count: layout.unreadThreads,
-      onPressed: () => _shell!.openMyThreads(),
+    Widget threadsRow() => keep(
+      const ValueKey('chat-inbox-threads-card'),
+      (frame, layout.unreadThreads),
+      (key) => ChatInboxWayRow(
+        key: key,
+        frame: frame,
+        icon: DIcons.comments,
+        title: l10n.threads,
+        description: layout.unreadThreads > 0
+            ? l10n.chatThreadsNewReplies(layout.unreadThreads)
+            : l10n.chatThreadsWay,
+        count: layout.unreadThreads,
+        onPressed: () => _shell!.openMyThreads(),
+      ),
     );
 
     for (final (at, section) in sections.indexed) {
@@ -373,33 +410,45 @@ class _ChatListingState extends State<ChatListing> {
           : 0;
       void addThreads() {
         entries.add(threadsRow());
-        if (list.isNotEmpty && layout.unreadThreads == 0) entries.add(rule);
+        if (list.isNotEmpty && layout.unreadThreads == 0) {
+          entries.add(rule('threads'));
+        }
       }
 
       entries.add(
-        ChatInboxSectionHeading(
-          key: ValueKey(('chat-inbox-heading', kind)),
-          kind: kind,
-          first: at == 0,
-          edge: frame.edge,
+        keep(
+          ValueKey(('chat-inbox-heading', kind)),
+          (at == 0, frame.edge),
+          (key) => ChatInboxSectionHeading(
+            key: key,
+            kind: kind,
+            first: at == 0,
+            edge: frame.edge,
+          ),
         ),
       );
       for (final (index, channel) in list.indexed) {
         if (index == threadsAt) addThreads();
+        final showStar = kind != ChatInboxSectionKind.starred;
+        final found = layout.lines[channel.id];
         entries.add(
-          ChatInboxEntry(
-            key: ValueKey(channel.id),
-            siteUrl: _siteUrl,
-            channelId: channel.id,
-            frame: frame,
-            showStar: kind != ChatInboxSectionKind.starred,
-            menuButton: widget.place == ChatInboxPlace.side,
-            found: layout.lines[channel.id],
+          keep(
+            ValueKey(channel.id),
+            (_siteUrl, frame, showStar, widget.place, found),
+            (key) => ChatInboxEntry(
+              key: key,
+              siteUrl: _siteUrl,
+              channelId: channel.id,
+              frame: frame,
+              showStar: showStar,
+              menuButton: widget.place == ChatInboxPlace.side,
+              found: found,
+            ),
           ),
         );
         final boxed =
             fresh.contains(channel.id) && channel.id != layout.activeChannelId;
-        if (index < list.length - 1 && !boxed) entries.add(rule);
+        if (index < list.length - 1 && !boxed) entries.add(rule(channel.id));
       }
       if (threadsAt >= list.length) addThreads();
       if (kind != ChatInboxSectionKind.results && slice.canFold) {
@@ -418,13 +467,17 @@ class _ChatListingState extends State<ChatListing> {
       }
       if (ways && layout.channelsWay) {
         entries.add(
-          ChatInboxWayRow(
-            key: const ValueKey('chat-inbox-channels-card'),
-            frame: frame,
-            icon: DIcons.hashtag,
-            title: l10n.browseChannels,
-            description: l10n.chatBrowseWay,
-            onPressed: () => _browse(''),
+          keep(
+            const ValueKey('chat-inbox-channels-card'),
+            frame,
+            (key) => ChatInboxWayRow(
+              key: key,
+              frame: frame,
+              icon: DIcons.hashtag,
+              title: l10n.browseChannels,
+              description: l10n.chatBrowseWay,
+              onPressed: () => _browse(''),
+            ),
           ),
         );
       }
@@ -452,7 +505,9 @@ class _ChatListingState extends State<ChatListing> {
             frame: frame,
           ),
         );
-        if (index < slice.visible.length - 1) entries.add(rule);
+        if (index < slice.visible.length - 1) {
+          entries.add(rule(('room', room.id)));
+        }
       }
       if (slice.canFold && !finding) {
         entries.add(
@@ -465,6 +520,7 @@ class _ChatListingState extends State<ChatListing> {
               onPressed: () => setState(() {
                 _roomsExpanded = !_roomsExpanded;
                 _view = null;
+                _built = null;
               }),
             ),
           ),
@@ -545,6 +601,7 @@ class _ChatListingState extends State<ChatListing> {
       );
     }
 
+    _kept = kept;
     return ChatListingView._(
       entries,
       {for (final (index, entry) in entries.indexed) ?entry.key: index},
@@ -664,14 +721,22 @@ class ChatSidebarInbox extends StatelessWidget {
     siteUrl: siteUrl,
     place: ChatInboxPlace.side,
     frame: frame,
-    builder: (context, view) => view.loading
-        ? const SliverToBoxAdapter(child: _ChatSidebarInboxSkeleton())
-        : SliverList.builder(
-            itemCount: view.entries.length,
-            findChildIndexCallback: view.indexOf,
-            itemBuilder: (context, index) => view.entries[index],
-          ),
+    builder: _sliver,
   );
+
+  // A static function stays identical across the panel's rebuilds, so the
+  // list it built is kept until the list itself changes.
+  static Widget _sliver(BuildContext context, ChatListingView view) =>
+      view.loading
+      ? const SliverToBoxAdapter(child: _ChatSidebarInboxSkeleton())
+      : SliverList.builder(
+          itemCount: view.entries.length,
+          // Rows keep nothing alive, and the wrapper for it would be drawn
+          // again for every row on screen at each reorder.
+          addAutomaticKeepAlives: false,
+          findChildIndexCallback: view.indexOf,
+          itemBuilder: (context, index) => view.entries[index],
+        );
 }
 
 /// Reserves the rows the inbox is about to draw; the filters above it are

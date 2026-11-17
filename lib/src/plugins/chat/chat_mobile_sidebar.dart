@@ -57,6 +57,10 @@ class ChatMobileSidebar extends StatelessWidget {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: padding,
                       itemCount: view.entries.length,
+                      // Rows keep nothing alive, and the wrapper for it would
+                      // be drawn again for every row on screen at each
+                      // reorder.
+                      addAutomaticKeepAlives: false,
                       // A chat that turns unread moves up its group. Finding
                       // a mounted row by its key keeps it, so only the row
                       // that changed is drawn again.
