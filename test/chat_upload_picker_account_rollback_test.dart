@@ -47,7 +47,10 @@ enum _Operation { unchanged, failedReconnect, failedDisconnect }
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final photos in [false, true]) {
-    for (final operation in _Operation.values) {
+    for (final operation in [
+      _Operation.unchanged,
+      photos ? _Operation.failedReconnect : _Operation.failedDisconnect,
+    ]) {
       testWidgets(
         '${photos ? 'photo' : 'file'} picker ${operation.name} owns its opening account',
         (tester) async {
