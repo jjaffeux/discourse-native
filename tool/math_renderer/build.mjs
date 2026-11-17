@@ -25,9 +25,9 @@ const fontPackage = JSON.parse(await readFile(resolve(root,'node_modules/@mathja
 const fontDefinition = await readFile(resolve(root,'node_modules/@mathjax/mathjax-newcm-font/def/mathjax-newcm.ts'),'utf8');
 const fontCopyright = fontDefinition.match(/addCopyright: '([^']+)'/)?.[1];
 if (!fontCopyright) throw Error('Pinned NewCM copyright notice missing');
-await writeFile(resolve(output,'NOTICE.txt'), 'MathJax 4.1.0 and '+fontPackage.name+' '+fontPackage.version+'\n'+
+await writeFile(resolve(output,'NOTICE.txt'), 'MathJax 4.1.3 and '+fontPackage.name+' '+fontPackage.version+'\n'+
   fontCopyright+'\nDistributed under Apache-2.0 as declared by the pinned packages.\n'+
-  await readFile(resolve(output,'mathjax/LICENSE'),'utf8')+'\nKaTeX 0.16.27\n'+await readFile(resolve(output,'katex/LICENSE'),'utf8'));
+  await readFile(resolve(output,'mathjax/LICENSE'),'utf8')+'\nKaTeX 0.19.1\n'+await readFile(resolve(output,'katex/LICENSE'),'utf8'));
 const files = [];
 async function visit(dir) {
   for (const item of await readdir(dir, {withFileTypes: true})) {
@@ -39,7 +39,7 @@ async function visit(dir) {
 await visit(output);
 files.sort();
 await writeFile(resolve(output, 'manifest.json'), JSON.stringify({
-  engines: {mathjax: '4.1.0', katex: '0.16.27'},
+  engines: {mathjax: '4.1.3', katex: '0.19.1'},
   files: Object.fromEntries(await Promise.all(files.map(async path => [relative(output,path), createHash('sha256').update(await readFile(path)).digest('hex')]))),
 }, null, 2)+'\n');
 const pubspec = resolve(root, '../../pubspec.yaml');

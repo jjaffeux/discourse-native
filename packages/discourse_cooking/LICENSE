@@ -534,7 +534,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 
 
---- moment-timezone 0.6.5 (MIT) ---
+--- moment-timezone 0.6.6 (MIT) ---
 
 The MIT License (MIT)
 
@@ -558,7 +558,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
---- parse5 8.0.1 (MIT) ---
+--- parse5 8.1.1 (MIT) ---
 
 Copyright (c) 2013-2019 Ivan Nikulin (ifaaan@gmail.com, https://github.com/inikulin)
 
@@ -632,7 +632,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 
---- xss 1.0.16 (MIT) ---
+--- xss 1.0.17 (MIT) ---
 
 Copyright (c) 2012-2018 Zongmin Lei(雷宗民) <leizongmin@gmail.com>
 http://ucdok.com

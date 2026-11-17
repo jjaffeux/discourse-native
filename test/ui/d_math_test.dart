@@ -59,7 +59,7 @@ void main() {
     );
     expect(
       await rootBundle.loadString('$prefix/katex/dist/katex.min.js'),
-      contains('0.16.27'),
+      contains('0.19.1'),
     );
   });
   testWidgets('empty math retains source without allocating a renderer', (
