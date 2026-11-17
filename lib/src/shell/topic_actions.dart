@@ -889,7 +889,6 @@ class TopicNotificationLevelButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.topic,
-    this.showChevron = false,
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
@@ -898,7 +897,6 @@ class TopicNotificationLevelButton extends StatelessWidget {
 
   final String siteUrl;
   final TopicDetail topic;
-  final bool showChevron;
   final DButtonVariant? variant;
   final DButtonSize size;
   final DButtonDensity density;
@@ -947,7 +945,6 @@ class TopicNotificationLevelButton extends StatelessWidget {
           sheetOnMobile: true,
           mobileSheetVariant: DSheetVariant.adaptiveMenu,
           buttonKey: buttonKey,
-          showChevron: showChevron,
           variant: variant,
           size: size,
           density: density,
@@ -971,13 +968,11 @@ class TopicNotificationLevelButton extends StatelessWidget {
 class TopicNotificationLevelPlaceholder extends StatelessWidget {
   const TopicNotificationLevelPlaceholder({
     super.key,
-    this.showChevron = false,
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
   });
 
-  final bool showChevron;
   final DButtonVariant? variant;
   final DButtonSize size;
   final DButtonDensity density;
@@ -986,7 +981,6 @@ class TopicNotificationLevelPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) =>
       DNotificationLevelMenu<TopicNotificationLevel>(
         semanticLabel: context.l10n.topicNotifications,
-        showChevron: showChevron,
         variant: variant,
         size: size,
         density: density,

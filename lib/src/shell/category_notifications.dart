@@ -52,7 +52,6 @@ class CategoryNotificationLevelButton extends StatelessWidget {
     required this.siteUrl,
     required this.categoryId,
     this.showLabel = false,
-    this.showChevron = false,
     this.size = DButtonSize.chip,
     this.quiet = false,
   });
@@ -60,7 +59,6 @@ class CategoryNotificationLevelButton extends StatelessWidget {
   final String siteUrl;
   final int categoryId;
   final bool showLabel;
-  final bool showChevron;
   final DButtonSize size;
   final bool quiet;
 
@@ -85,7 +83,6 @@ class CategoryNotificationLevelButton extends StatelessWidget {
               size: size,
               variant: quiet ? DButtonVariant.quiet : DButtonVariant.outline,
               showLabel: showLabel,
-              showChevron: showChevron,
               value: level,
               options: _levelOptions,
               onChanged: (selected) {
@@ -114,14 +111,12 @@ class TagNotificationLevelButton extends StatelessWidget {
     required this.tag,
     this.size = DButtonSize.chip,
     this.quiet = false,
-    this.showChevron = false,
   });
 
   final String siteUrl;
   final String tag;
   final DButtonSize size;
   final bool quiet;
-  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +131,6 @@ class TagNotificationLevelButton extends StatelessWidget {
           tag: tag,
           size: size,
           quiet: quiet,
-          showChevron: showChevron,
         );
       },
     );
@@ -150,14 +144,12 @@ class _TagNotificationMenu extends StatefulWidget {
     required this.tag,
     required this.size,
     required this.quiet,
-    required this.showChevron,
   });
 
   final String siteUrl;
   final String tag;
   final DButtonSize size;
   final bool quiet;
-  final bool showChevron;
 
   @override
   State<_TagNotificationMenu> createState() => _TagNotificationMenuState();
@@ -191,7 +183,6 @@ class _TagNotificationMenuState extends State<_TagNotificationMenu> {
           buttonKey: const ValueKey('tag-notification-level-button'),
           size: widget.size,
           variant: widget.quiet ? DButtonVariant.quiet : DButtonVariant.outline,
-          showChevron: widget.showChevron,
           value: preference.level,
           options: _levelOptions,
           onChanged: (selected) {
