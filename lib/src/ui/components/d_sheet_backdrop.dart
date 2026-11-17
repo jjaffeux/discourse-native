@@ -3,6 +3,7 @@ part of 'd_sheet.dart';
 const _sheetTouchEntrance = Duration(milliseconds: 320);
 const _sheetModalTransition = Duration(milliseconds: 200);
 const _sheetPageTransition = Duration(milliseconds: 280);
+const _sheetMotionCurve = Curves.easeInOut;
 
 Duration _sheetModalEntranceDuration(BuildContext context) =>
     DControlStyle.isTouch(context)
@@ -26,7 +27,7 @@ Widget _routeSheetBackground(
     child: child,
     builder: (context, child) => _DSheetBackgroundMotion(
       depth: animate
-          ? Curves.easeInOut.transform(animation.value) * (1 - pull.value)
+          ? _sheetMotionCurve.transform(animation.value) * (1 - pull.value)
           : 0,
       surroundingColor: DTokens.of(context).wellFill,
       child: child!,
@@ -117,7 +118,7 @@ class _DSheetBackdropState extends State<DSheetBackdrop>
       final pull = widget.covered ? _pull?.value ?? 0 : _exitPull;
       return _DSheetBackgroundMotion(
         depth: _animate
-            ? Curves.easeInOut.transform(_cover.value) * (1 - pull)
+            ? _sheetMotionCurve.transform(_cover.value) * (1 - pull)
             : 0,
         child: child!,
       );

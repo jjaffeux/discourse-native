@@ -24,6 +24,32 @@ Rect _paintedRect(WidgetTester tester, Finder finder) {
   );
 }
 
+Future<void> _expectSynchronizedEntrance(WidgetTester tester) async {
+  double width() => _paintedRect(tester, find.byKey(_underlay)).width;
+  double top() => tester.getTopLeft(_sheet).dy;
+  final startWidth = width();
+  final startTop = top();
+  final frames = <(double, double)>[];
+  for (var i = 0; i < 3; i++) {
+    await tester.pump(const Duration(milliseconds: 80));
+    frames.add((top(), width()));
+  }
+  await tester.pumpAndSettle();
+  final travel = startTop - top();
+  final shrink = startWidth - width();
+  expect(travel, greaterThan(0), reason: 'The sheet moves into position');
+  expect(shrink, greaterThan(0), reason: 'The page recedes behind the sheet');
+  for (final (index, (sheetTop, pageWidth)) in frames.indexed) {
+    final sheetProgress = (startTop - sheetTop) / travel;
+    final pageProgress = (startWidth - pageWidth) / shrink;
+    expect(
+      sheetProgress,
+      closeTo(pageProgress, .01),
+      reason: 'Sheet travel and page scale after ${(index + 1) * 80} ms',
+    );
+  }
+}
+
 Future<Color> _pixel(WidgetTester tester, Offset point) async =>
     (await tester.runAsync(() async {
       final builder = ui.SceneBuilder();
@@ -120,10 +146,9 @@ void main() {
       await tester.tap(find.text('Open sheet'));
       await tester.pump();
       await tester.pump();
+      await tester.pump();
       expect(width(), 400);
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(width(), inExclusiveRange(376.0, 400.0));
-      await tester.pumpAndSettle();
+      await _expectSynchronizedEntrance(tester);
       expect(width(), closeTo(376, .01));
       final drag = await tester.startGesture(tester.getCenter(_handle));
       await drag.moveBy(const Offset(0, 20));
@@ -140,6 +165,72 @@ void main() {
       expect(width(), inExclusiveRange(376.0, 400.0));
       await tester.pumpAndSettle();
       expect(width(), 400);
+    });
+  }
+
+  for (final variant in [DSheetVariant.menu, DSheetVariant.adaptiveMenu]) {
+    testWidgets('a retained phone $variant enters as its background recedes', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final open = ValueNotifier(false);
+      addTearDown(open.dispose);
+      final covering = ValueNotifier(false);
+      addTearDown(covering.dispose);
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: DSheetDragScope(
+            child: ValueListenableBuilder(
+              valueListenable: open,
+              builder: (context, open, _) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  DSheetBackdrop(
+                    covered: open,
+                    child: const ColoredBox(
+                      key: _underlay,
+                      color: _previousFill,
+                    ),
+                  ),
+                  if (open)
+                    DSheetViewport(
+                      covering: covering,
+                      content: DSheetContent(
+                        side: DSheetSide.bottom,
+                        variant: variant,
+                        fillAvailableHeight: variant == DSheetVariant.menu,
+                        showCloseButton: false,
+                        children: const [
+                          DSheetBody(
+                            child: SizedBox(
+                              height: 200,
+                              child: Text('Sheet body'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      open.value = true;
+      await tester.pump();
+      await tester.pump();
+      expect(covering.value, isFalse);
+      await _expectSynchronizedEntrance(tester);
+      if (variant == DSheetVariant.menu) {
+        expect(covering.value, isTrue);
+      }
+      open.value = false;
+      await tester.pumpAndSettle();
+      expect(covering.value, isFalse);
     });
   }
 

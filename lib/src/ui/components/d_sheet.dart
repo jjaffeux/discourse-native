@@ -303,7 +303,10 @@ class _DSheetViewportState extends State<DSheetViewport>
         ?.owner;
     _edge.addListener(_syncEdge);
     _syncEdge();
-    if (widget.content?.variant != DSheetVariant.page ||
+    final content = widget.content;
+    final sharesBackdrop = _edgeHost != null && DControlStyle.isTouch(context);
+    if (content == null ||
+        (content.variant != DSheetVariant.page && !sharesBackdrop) ||
         MediaQuery.disableAnimationsOf(context) ||
         !DHistoryTransition.shouldAnimatePageEntranceOf(context)) {
       if (_entrance.value != 1) _entrance.value = 1;
@@ -958,7 +961,8 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
 
   void _syncCovering() {
     widget.covering?.value =
-        (widget.opaque || widget.page && widget.animation.isCompleted) &&
+        (widget.opaque || widget.page) &&
+        widget.animation.isCompleted &&
         _swipeProgress.value == 0;
     widget.routePull?.value = _swipeProgress.value;
   }
@@ -967,8 +971,7 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
     widget.animation.addStatusListener(_animationChanged);
     _popup = CurvedAnimation(
       parent: widget.animation,
-      curve: Curves.easeInOut,
-      reverseCurve: Curves.easeInOut,
+      curve: _sheetMotionCurve,
     );
     _backdrop = CurvedAnimation(
       parent: widget.animation,
@@ -1204,8 +1207,7 @@ Widget _sheetLayout(
     _ => false,
   };
   final background = DTokens.of(context).background.withValues(alpha: 1);
-  // Full-height sheets start with an opaque canvas. A swipe reveals the
-  // underlying application as the sheet moves out of the viewport.
+  // An opaque canvas separates the settled full-height sheet from its host.
   final backdropColor = Color.lerp(
     background,
     Colors.black,
@@ -1218,8 +1220,11 @@ Widget _sheetLayout(
       : fillAvailableHeight
       ? presentation.buildBackdrop(color: backdropColor)
       : presentation.buildBackdrop();
-  if (animate && !fillAvailableHeight && !page) {
-    backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
+  if (animate && !page && (!fillAvailableHeight || retainKeyboardInsets)) {
+    backdrop = FadeTransition(
+      opacity: fillAvailableHeight ? popupCurve : backdropCurve,
+      child: backdrop,
+    );
   }
   if (page) {
     if (paintPageBackdrop) {

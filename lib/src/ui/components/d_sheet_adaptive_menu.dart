@@ -503,6 +503,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _draggedPastDetent = false;
 
   bool get _animate => !MediaQuery.disableAnimationsOf(context);
+  Curve get _presentationCurve =>
+      DControlStyle.isTouch(context) ? _sheetMotionCurve : _curve;
+
   bool get _tracksViewKeyboard =>
       widget.keepFootInView && _nativeKeyboardFrame != null;
 
@@ -588,7 +591,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final initialValue = math.max(.001, animationValue);
     _exit.geometry = (
       origin: origin,
-      curve: _curve.transform(animationValue),
+      curve: _presentationCurve.transform(animationValue),
       distance: distance,
       initialValue: initialValue,
       keyboard: _keyboardInset,
@@ -1325,6 +1328,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       return result;
     }
 
+    final presentationCurve = _presentationCurve;
     return LayoutBuilder(
       builder: (context, bounds) {
         _viewportHeight = widget.retained
@@ -1340,7 +1344,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
           animation: Listenable.merge([widget.presentation.animation, _travel]),
           builder: (context, child) {
             final curve = _animate
-                ? _curve.transform(widget.presentation.animation.value)
+                ? presentationCurve.transform(
+                    widget.presentation.animation.value,
+                  )
                 : 1.0;
             final dim =
                 (1 - math.max(0, _offset - _low) / math.max(1, _room - _low))
