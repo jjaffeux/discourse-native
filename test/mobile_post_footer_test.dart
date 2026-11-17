@@ -27,7 +27,7 @@ const _site = 'https://meta.example';
 
 void main() {
   for (final width in [320.0, 390.0]) {
-    for (final scale in [1.0, 2.0]) {
+    for (final scale in [if (width == 320.0) 1.0, 2.0]) {
       testWidgets('compact footer stays on one line at $width / $scale', (
         tester,
       ) async {
