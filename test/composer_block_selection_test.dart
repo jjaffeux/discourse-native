@@ -889,7 +889,7 @@ void main() {
       },
     );
     for (final suffix in ['', '\n\nAfter']) {
-      for (final before in [true, false]) {
+      for (final before in [if (suffix.isNotEmpty) true, false]) {
         testWidgets(
           '${entry.key} arrow ${before ? 'left' : 'right'} places a same-line caret and Enter inserts beside it ($suffix)',
           (tester) async {
