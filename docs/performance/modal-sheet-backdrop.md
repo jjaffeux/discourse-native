@@ -1,10 +1,14 @@
 # Modal sheet backdrop
 
-On a touch screen a modal sheet recedes the page beneath it. The page scales to
-94%, takes the scrim tint and rounds its corners, following the sheet's route
-animation and any pull on the sheet. This covers `DSheet`, `showDSheet` and the
-phone sheets of `DDropdownMenu` and `DPopover`, such as the topic and post
-action menus.
+This profile describes the earlier motion shared by all phone sheets.
+Today navigation sheets apply depth to the previous page. Modal bottom sheets
+slide over a stationary page with a scrim.
+
+In the profiled version, a modal sheet receded the page beneath it. The page
+scaled to 94%, took the scrim tint and rounded its corners, following the
+sheet's route animation and any pull on the sheet. This covered `DSheet`,
+`showDSheet` and the phone sheets of `DDropdownMenu` and `DPopover`, such
+as the topic and post action menus.
 
 ## What was slow
 

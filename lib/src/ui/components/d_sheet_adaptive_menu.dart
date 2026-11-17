@@ -309,7 +309,6 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     this.restAt,
     this.initialFocusNode,
     this.onDismissRequested,
-    this.routePull,
   });
 
   final DDialogPresentation presentation;
@@ -323,7 +322,6 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final GlobalKey? restAt;
   final FocusNode? initialFocusNode;
   final VoidCallback? onDismissRequested;
-  final ValueNotifier<double>? routePull;
 
   @override
   State<_DSheetAdaptiveMenu> createState() => _DSheetAdaptiveMenuState();
@@ -445,6 +443,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   // A sheet that keeps its foot in view is laid out no taller than what is in
   // view. Its full height is read whenever a layout was not cut short of it.
   double _fullHeight = 0;
+  double _measuredHeight = 0;
   double _laidHeightOffset = 0;
   double _laidCap = double.infinity;
   double _room = 0;
@@ -823,7 +822,6 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   void _travelChanged() {
     if (_travel.value <= _low) _draggedPastDetent = false;
-    widget.routePull?.value = _backgroundProgress;
     _dragOwner?._reportProgress(this);
     // Translation and backdrop dimming listen directly to travel. Rebuild the
     // content's inherited state only when the handle changes Expand/Collapse.
@@ -879,6 +877,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _heldRise = null;
     }
     final tall = box.size.height;
+    _measuredHeight = tall;
     if (widget.holdContentHeight) {
       if (!widget.contentLoading &&
           _keyboard == 0 &&
@@ -1290,20 +1289,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     );
     Widget backdrop(double progress) {
       const color = Color(0x52000000);
-      final sharesBackground =
-          _animate &&
-          (widget.routePull != null ||
-              widget.retained &&
-                  widget.onDismiss != null &&
-                  context
-                          .dependOnInheritedWidgetOfExactType<
-                            _DSheetDragHost
-                          >() !=
-                      null);
       Widget result = widget.presentation.buildBackdrop(
-        color: color.withValues(
-          alpha: sharesBackground ? 0 : color.a * progress,
-        ),
+        color: color.withValues(alpha: color.a * progress),
       );
       if (widget.presentation.modal &&
           (widget.onDismiss != null || widget.onDismissRequested != null)) {
@@ -1329,6 +1316,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
 
     final presentationCurve = _presentationCurve;
+    final slideFromBottom = DControlStyle.isTouch(context);
     return LayoutBuilder(
       builder: (context, bounds) {
         _viewportHeight = widget.retained
@@ -1348,6 +1336,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                     widget.presentation.animation.value,
                   )
                 : 1.0;
+            final remaining = 1 - (_exit.geometry?.curve ?? curve);
             final dim =
                 (1 - math.max(0, _offset - _low) / math.max(1, _room - _low))
                     .clamp(0.0, 1.0);
@@ -1380,6 +1369,19 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                 : _keyboardSettled
                 ? _heldHeight(_laidCap)
                 : math.min(_fullHeight, _laidCap);
+            final offset = _offset;
+            final position = offset - heightOffset;
+            final fixedHeight =
+                math.max(0.0, maximum - heightOffset) + keyboard;
+            final height = widget.sizeToContent
+                ? _measuredHeight.clamp(heldMinimum, _laidCap)
+                : fixedHeight;
+            // Start at the viewport edge even when the detent clips the foot.
+            final openingOffset = slideFromBottom
+                ? (height -
+                          ((_exit.geometry?.origin ?? offset) - heightOffset)) *
+                      remaining
+                : 40 * remaining;
             return Stack(
               clipBehavior: Clip.hardEdge,
               children: [
@@ -1389,16 +1391,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                   right: 0,
                   bottom: 0,
                   child: Transform.translate(
-                    offset: Offset(
-                      0,
-                      _offset -
-                          heightOffset +
-                          40 *
-                              (1 -
-                                  (_exit.geometry == null
-                                      ? curve
-                                      : _exit.geometry!.curve)),
-                    ),
+                    offset: Offset(0, position + openingOffset),
                     child: Offstage(
                       offstage: !_measured,
                       child:
@@ -1416,12 +1409,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                                         maxHeight: _laidCap,
                                       )
                                     : BoxConstraints.tightFor(
-                                        height:
-                                            math.max(
-                                              0,
-                                              maximum - heightOffset,
-                                            ) +
-                                            keyboard,
+                                        height: fixedHeight,
                                       ),
                                 child: child,
                               ),

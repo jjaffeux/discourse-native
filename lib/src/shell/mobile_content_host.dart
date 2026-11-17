@@ -322,16 +322,7 @@ class _MobileContentHostState extends State<_MobileContentHost> {
       fit: StackFit.expand,
       children: [
         if (searchBehindTopic) ?searchLayer,
-        DSheetBackdrop(
-          covered: searchOpen,
-          surfaceIdentity: searchOpen
-              ? previousSheetEntry
-              : shell.mobileNavigation.entryId,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [sourcePage, ?searchPreview],
-          ),
-        ),
+        Stack(fit: StackFit.expand, children: [sourcePage, ?searchPreview]),
         if (covered && !searchOpen)
           widget.builder(
             base,

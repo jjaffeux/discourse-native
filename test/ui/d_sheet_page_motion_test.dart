@@ -105,7 +105,7 @@ void main() {
     DSheetVariant.menu,
     DSheetVariant.adaptiveMenu,
   ]) {
-    testWidgets('a phone $variant restores its background on swipe and close', (
+    testWidgets('a phone $variant slides over a stationary background', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(400, 600);
@@ -140,31 +140,42 @@ void main() {
           ),
         ),
       );
-      double width() => _paintedRect(tester, find.byKey(_underlay)).width;
-      expect(width(), 400);
+      Rect background() => _paintedRect(tester, find.byKey(_underlay));
+      final initialBackground = background();
 
       await tester.tap(find.text('Open sheet'));
       await tester.pump();
       await tester.pump();
       await tester.pump();
-      expect(width(), 400);
-      await _expectSynchronizedEntrance(tester);
-      expect(width(), closeTo(376, .01));
+      expect(background(), initialBackground);
+      expect(tester.getTopLeft(_sheet).dy, closeTo(600, .01));
+      await tester.pump(const Duration(milliseconds: 160));
+      final openingTop = tester.getTopLeft(_sheet).dy;
+      expect(openingTop, lessThan(600));
+      expect(background(), initialBackground);
+      await tester.pumpAndSettle();
+      final openTop = tester.getTopLeft(_sheet).dy;
+      expect(openTop, lessThan(openingTop));
+      expect(background(), initialBackground);
       final drag = await tester.startGesture(tester.getCenter(_handle));
       await drag.moveBy(const Offset(0, 20));
       await drag.moveBy(const Offset(0, 48));
       await tester.pump();
-      expect(width(), inExclusiveRange(376.0, 400.0));
+      expect(tester.getTopLeft(_sheet).dy, greaterThan(openTop));
+      expect(background(), initialBackground);
       await drag.cancel();
       await tester.pumpAndSettle();
-      expect(width(), closeTo(376, .01));
+      expect(tester.getTopLeft(_sheet).dy, closeTo(openTop, .01));
+      expect(background(), initialBackground);
 
       controller.close();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 70));
-      expect(width(), inExclusiveRange(376.0, 400.0));
+      expect(tester.getTopLeft(_sheet).dy, greaterThan(openTop));
+      expect(background(), initialBackground);
       await tester.pumpAndSettle();
-      expect(width(), 400);
+      expect(_sheet, findsNothing);
+      expect(background(), initialBackground);
     });
   }
 

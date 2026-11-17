@@ -1407,6 +1407,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: Builder(
               builder: (context) => DButton(
@@ -1440,11 +1441,15 @@ void main() {
         ),
       );
       await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      final sheet = find.byType(DSheetContent);
+      expect(tester.getTopLeft(sheet).dy, closeTo(844, .01));
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(tester.getTopLeft(sheet).dy, lessThan(844));
       await tester.pumpAndSettle();
-      expect(
-        tester.getRect(find.byType(DSheetContent)).top,
-        closeTo(844 * .45, 1),
-      );
+      expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
       expect(
         tester.getRect(find.text('Foot')).bottom,
         keepFootInView ? lessThan(844) : greaterThan(844),

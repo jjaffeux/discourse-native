@@ -32,7 +32,7 @@ Widget _app({
                   ),
                   content: const DSheetContent(
                     side: DSheetSide.bottom,
-                    variant: DSheetVariant.adaptiveMenu,
+                    variant: DSheetVariant.page,
                     showCloseButton: false,
                     semanticLabel: 'Sheet',
                     children: [
@@ -76,7 +76,7 @@ void main() {
   ) async {
     final frames = <bool, List<Uint8List>>{};
     final pageRects = <bool, List<Rect>>{};
-    Color? margin;
+    late DTokens tokens;
     for (final hosted in [false, true]) {
       final controller = DSheetController<void>();
       addTearDown(controller.dispose);
@@ -97,11 +97,7 @@ void main() {
       await tester.pumpAndSettle();
       await capture();
       if (hosted) {
-        final tokens = DTokens.of(tester.element(find.byKey(_page)));
-        margin = Color.alphaBlend(
-          tokens.colors.scrim.withValues(alpha: .24),
-          tokens.wellFill,
-        );
+        tokens = DTokens.of(tester.element(find.byKey(_page)));
       }
       controller.close();
       await tester.pump();
@@ -119,15 +115,25 @@ void main() {
     expect(pageRects[true]![2].width, lessThan(full.width * .99));
     expect(pageRects[true], pageRects[false]);
     // The receded page uncovers the well, tinted as the page is.
-    final open = frames[true]![1];
+    final opening = frames[true]!.first;
     final width = full.width.round();
+    final depth = (1 - pageRects[true]!.first.width / full.width) / .06;
+    final margin = Color.alphaBlend(
+      tokens.colors.scrim.withValues(alpha: .24 * depth),
+      tokens.wellFill,
+    );
     Color pixel(int x, int y) {
       final i = (y * width + x) * 4;
-      return Color.fromARGB(open[i + 3], open[i], open[i + 1], open[i + 2]);
+      return Color.fromARGB(
+        opening[i + 3],
+        opening[i],
+        opening[i + 1],
+        opening[i + 2],
+      );
     }
 
     final corner = pixel(2, 2);
-    expect(corner.r, closeTo(margin!.r, 1 / 255));
+    expect(corner.r, closeTo(margin.r, 1 / 255));
     expect(corner.g, closeTo(margin.g, 1 / 255));
     expect(corner.b, closeTo(margin.b, 1 / 255));
     for (var i = 0; i < frames[true]!.length; i++) {
@@ -147,7 +153,7 @@ void main() {
       await tester.pumpAndSettle();
       final captured = frames[hosted] = [];
       final gesture = await tester.startGesture(
-        tester.getCenter(find.text('Body')),
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
       );
       for (final step in [20.0, 40.0, 40.0]) {
         await gesture.moveBy(Offset(0, step));
@@ -271,8 +277,7 @@ void main() {
       if (element.widget is DSheetContent) contentBuilds++;
     };
     addTearDown(() => debugOnRebuildDirtyWidget = null);
-    // The trigger's press settles over the opening frames while the page
-    // beneath it recedes, moving the trigger on every one of them.
+    // The trigger's press settles over the sheet's opening frames.
     await tester.tap(find.byKey(const ValueKey('trigger')));
     await tester.pump();
     await tester.pump();

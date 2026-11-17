@@ -5241,6 +5241,8 @@ void main() {
       expect(find.byKey(ForumSearch.inputKey), findsNothing);
       expect(find.text('Filter'), findsNothing);
       expect(find.byKey(const ValueKey('sidebar-panel-tabs')), findsNothing);
+      final topics = find.byKey(const ValueKey('mobile-content-panel'));
+      final topicsBounds = tester.getRect(topics);
       await tester.tap(_notifications);
       await tester.pumpAndSettle();
       final notificationsSheet = find.ancestor(
@@ -5253,11 +5255,14 @@ void main() {
         DSheetVariant.adaptiveMenu,
       );
       expect(find.byType(UserMenuPanel), findsOneWidget);
+      expect(tester.getRect(topics), topicsBounds);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsNothing);
       await _toggleNavigation(tester);
       await tester.pumpAndSettle();
+      final sidebar = find.byType(InstanceRail);
+      final sidebarBounds = tester.getRect(sidebar);
       await tester.tap(find.byKey(UserMenuButton.avatarKey));
       await tester.pumpAndSettle();
       final profileSheet = find.ancestor(
@@ -5269,6 +5274,7 @@ void main() {
         tester.widget<DSheetContent>(profileSheet).variant,
         DSheetVariant.adaptiveMenu,
       );
+      expect(tester.getRect(sidebar), sidebarBounds);
       expect(find.text('Summary'), findsOneWidget);
       expect(find.text('Preferences'), findsOneWidget);
       await tester.drag(
@@ -5280,7 +5286,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(profileSheet, findsNothing);
-      // Dismissing the profile sheet returns to the sidebar it stacked over.
       expect(shell.mobileNavigation.sidebarOpen, isTrue);
       expect(find.byType(InstanceRail), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
@@ -5632,7 +5637,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('pulling Search down reveals the Chat title before release', (
+  _mobileTest('Search slides over Chat and reveals its title on a pull', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
@@ -5643,12 +5648,14 @@ void main() {
     final fullWidth = tester.getRect(chat).width;
 
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
     addTearDown(tester.view.resetViewInsets);
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     await tester.pumpAndSettle();
     expect(title, findsNothing);
-    final coveredWidth = tester.getRect(chat).width;
-    expect(coveredWidth, closeTo(fullWidth * .94, .01));
+    expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
 
     final handle = find.byKey(const ValueKey('sheet-drag-handle'));
     final start = tester.getCenter(handle);
@@ -5657,10 +5664,7 @@ void main() {
     await swipe.moveBy(const Offset(0, 100));
     await tester.pump();
     expect(tester.getCenter(handle).dy, greaterThan(start.dy));
-    expect(
-      tester.getRect(chat).width,
-      inExclusiveRange(coveredWidth, fullWidth),
-    );
+    expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
     expect(shell.currentContent?.isGlobalSearch, isTrue);
     expect(title, findsOneWidget);
     expect(tester.getRect(_header).contains(tester.getCenter(title)), isTrue);
@@ -5669,7 +5673,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     expect(title, findsNothing);
-    expect(tester.getRect(chat).width, closeTo(coveredWidth, .01));
+    expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
 
     await tester.drag(handle, const Offset(0, 400));
     tester.view.resetViewInsets();
@@ -5683,10 +5687,7 @@ void main() {
     expect(shell.handleBack(), isTrue);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 90));
-    expect(
-      tester.getRect(chat).width,
-      inExclusiveRange(coveredWidth, fullWidth),
-    );
+    expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
     await tester.pumpAndSettle();
     expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
   });
@@ -6900,8 +6901,17 @@ void main() {
         ),
       ],
     );
+    final topics = find.byKey(const ValueKey('mobile-content-panel'));
+    final before = tester.getRect(topics);
+    final composerSheet = find.byKey(const ValueKey('composer-mobile-sheet'));
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 160));
+    final enteringTop = tester.getTopLeft(composerSheet).dy;
+    expect(tester.getRect(topics), before);
     await tester.pumpAndSettle();
+    expect(tester.getTopLeft(composerSheet).dy, lessThan(enteringTop));
+    expect(tester.getRect(topics), before);
 
     await _loadChromeCaptureFonts(tester);
     await tester.pumpAndSettle();

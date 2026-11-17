@@ -391,18 +391,15 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
             fit: StackFit.expand,
             children: [
               Positioned.fill(
-                child: DSheetBackdrop(
-                  covered: mobileSheet != null,
-                  child: ExcludeFocus(
+                child: ExcludeFocus(
+                  excluding: mobileSheet != null,
+                  child: ExcludeSemantics(
                     excluding: mobileSheet != null,
-                    child: ExcludeSemantics(
-                      excluding: mobileSheet != null,
-                      child: _CoveredContent(
-                        covering: _sheetCovers,
-                        child: ComposerActivityScope(
-                          activity: _activity,
-                          child: widget.child,
-                        ),
+                    child: _CoveredContent(
+                      covering: _sheetCovers,
+                      child: ComposerActivityScope(
+                        activity: _activity,
+                        child: widget.child,
                       ),
                     ),
                   ),

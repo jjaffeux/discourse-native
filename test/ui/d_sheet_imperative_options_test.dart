@@ -97,6 +97,7 @@ Future<void> _open(
   bool Function()? canDismiss,
   ValueChanged<DSheetController<void>>? onController,
 }) async {
+  const pageKey = ValueKey('sheet-source-page');
   Widget content(BuildContext context, DSheetController<void> controller) {
     onController?.call(controller);
     return DSheetContent(
@@ -112,6 +113,7 @@ Future<void> _open(
     MaterialApp(
       theme: ThemeData(platform: platform),
       home: Scaffold(
+        key: pageKey,
         body: Builder(
           builder: (context) => DButton(
             label: const Text('Open'),
@@ -138,6 +140,9 @@ Future<void> _open(
       ),
     ),
   );
+  final page = find.byKey(pageKey);
+  final pageBounds = tester.getRect(page);
   await tester.tap(find.text('Open'));
   await tester.pumpAndSettle();
+  expect(tester.getRect(page), pageBounds);
 }

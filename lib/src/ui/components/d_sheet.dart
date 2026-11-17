@@ -40,7 +40,7 @@ enum DSheetVariant {
   standard,
   menu,
 
-  /// A bottom page filling [DSheetViewport], with a handle when swipe-dismissible.
+  /// A navigation page that fills the viewport and recedes the previous page.
   page,
 
   /// A full-width mobile menu with a lower opening height, pull-to-expand,
@@ -121,9 +121,8 @@ class DSheet<T> extends StatelessWidget {
   /// Restores focus to the trigger or previous control after dismissal.
   final bool restoreFocus;
 
-  /// How a modal sheet recedes the page beneath it on a touch screen. Give a
-  /// route's page a [DDialogBackgroundHost] with this builder so that sheets
-  /// opened over it move the page without rebuilding it.
+  /// How a page sheet recedes the route beneath it on a touch screen.
+  /// A [DDialogBackgroundHost] with this builder avoids rebuilding that route.
   static const DDialogBackgroundBuilder routeBackground = _routeSheetBackground;
 
   bool get _focusAfterLayout =>
@@ -147,7 +146,9 @@ class DSheet<T> extends StatelessWidget {
     initialFocusNode: _focusAfterLayout ? null : initialFocusNode,
     finalFocusNode: finalFocusNode,
     restoreFocus: restoreFocus,
-    mobileBackgroundBuilder: _routeSheetBackground,
+    mobileBackgroundBuilder: content.variant == DSheetVariant.page
+        ? _routeSheetBackground
+        : null,
     transitionDuration: _sheetModalEntranceDuration(context),
     reverseTransitionDuration: _sheetModalTransition,
     presentationBuilder: (context, presentation) => _sheetPresentation(
@@ -304,9 +305,12 @@ class _DSheetViewportState extends State<DSheetViewport>
     _edge.addListener(_syncEdge);
     _syncEdge();
     final content = widget.content;
-    final sharesBackdrop = _edgeHost != null && DControlStyle.isTouch(context);
+    final retainedBottomSheet =
+        content?.side == DSheetSide.bottom &&
+        _edgeHost != null &&
+        DControlStyle.isTouch(context);
     if (content == null ||
-        (content.variant != DSheetVariant.page && !sharesBackdrop) ||
+        (content.variant != DSheetVariant.page && !retainedBottomSheet) ||
         MediaQuery.disableAnimationsOf(context) ||
         !DHistoryTransition.shouldAnimatePageEntranceOf(context)) {
       if (_entrance.value != 1) _entrance.value = 1;
@@ -1044,7 +1048,10 @@ Widget _sheetPresentation(
   Widget? underlay,
   ValueNotifier<bool>? covering,
 }) {
-  final routePull = !retainKeyboardInsets && DControlStyle.isTouch(context)
+  final routePull =
+      variant == DSheetVariant.page &&
+          !retainKeyboardInsets &&
+          DControlStyle.isTouch(context)
       ? _routeBackdropPull(presentation.animation)
       : null;
   if (variant == DSheetVariant.adaptiveMenu &&
@@ -1061,7 +1068,6 @@ Widget _sheetPresentation(
       contentLoading: contentLoading,
       restAt: restAt,
       initialFocusNode: adaptiveInitialFocus,
-      routePull: routePull,
     );
     return _DSheetKeyboardInsets(
       child: retainKeyboardInsets
@@ -1200,12 +1206,10 @@ Widget _sheetLayout(
   final page = variant == DSheetVariant.page;
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
-  final mobile = switch (Theme.of(context).platform) {
-    TargetPlatform.iOS ||
-    TargetPlatform.android ||
-    TargetPlatform.fuchsia => true,
-    _ => false,
-  };
+  final mobile = DControlStyle.isTouch(context);
+  final slideFromBottom = page || (mobile && side == DSheetSide.bottom);
+  final opaqueBackdrop =
+      fillAvailableHeight && (!mobile || retainKeyboardInsets);
   final background = DTokens.of(context).background.withValues(alpha: 1);
   // An opaque canvas separates the settled full-height sheet from its host.
   final backdropColor = Color.lerp(
@@ -1215,12 +1219,10 @@ Widget _sheetLayout(
   )!;
   Widget backdrop = page
       ? const SizedBox.expand()
-      : mobile && animate && !retainKeyboardInsets
-      ? presentation.buildBackdrop(color: Colors.transparent)
-      : fillAvailableHeight
+      : opaqueBackdrop
       ? presentation.buildBackdrop(color: backdropColor)
       : presentation.buildBackdrop();
-  if (animate && !page && (!fillAvailableHeight || retainKeyboardInsets)) {
+  if (animate && !page && (!opaqueBackdrop || retainKeyboardInsets)) {
     backdrop = FadeTransition(
       opacity: fillAvailableHeight ? popupCurve : backdropCurve,
       child: backdrop,
@@ -1369,7 +1371,6 @@ Widget _sheetLayout(
           retained: retained,
           routeAnimation: presentation.animation,
           popupCurve: popupCurve,
-          scale: fillAvailableHeight,
           swipeProgress: swipeProgress,
           page: page,
           child: content,
@@ -1382,7 +1383,7 @@ Widget _sheetLayout(
       curve: popupCurve,
       beginOffset: beginOffset,
       scale: fillAvailableHeight,
-      page: page,
+      slideFromBottom: slideFromBottom,
       child: popup,
     );
   }
@@ -1508,20 +1509,20 @@ class _DSheetMotion extends StatelessWidget {
     required this.curve,
     required this.beginOffset,
     required this.scale,
-    this.page = false,
+    this.slideFromBottom = false,
     required this.child,
   });
 
   final Animation<double> curve;
   final Offset beginOffset;
   final bool scale;
-  final bool page;
+  final bool slideFromBottom;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) return child;
-    if (page) {
+    if (slideFromBottom) {
       return AnimatedBuilder(
         animation: curve,
         child: child,
@@ -1901,7 +1902,6 @@ class _DSheetSwipeDismiss extends StatefulWidget {
     required this.retained,
     required this.routeAnimation,
     required this.popupCurve,
-    required this.scale,
     required this.swipeProgress,
     this.page = false,
     required this.child,
@@ -1912,7 +1912,6 @@ class _DSheetSwipeDismiss extends StatefulWidget {
   final bool retained;
   final Animation<double> routeAnimation;
   final Animation<double> popupCurve;
-  final bool scale;
   final ValueNotifier<double> swipeProgress;
   final bool page;
   final Widget child;
@@ -2387,8 +2386,8 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
               ? widget.popupCurve
               : AlwaysStoppedAnimation(geometry.curve),
           beginOffset: const Offset(0, 40),
-          scale: widget.scale,
-          page: widget.page,
+          scale: false,
+          slideFromBottom: true,
           child: child!,
         ),
       );
@@ -3216,7 +3215,9 @@ Future<T?> showDSheet<T>({
   return showDDialog<T>(
     context: context,
     builder: builder,
-    mobileBackgroundBuilder: _routeSheetBackground,
+    mobileBackgroundBuilder: variant == DSheetVariant.page
+        ? _routeSheetBackground
+        : null,
     useRootNavigator: useRootNavigator,
     modal: true,
     dismissOnBarrier: true,
