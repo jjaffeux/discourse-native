@@ -319,7 +319,19 @@ void main() {
 
     test('falls back to core defaults for everything absent', () {
       const unknown = SiteConfig.unknown();
-      expect(SiteConfig.fromSettings(const {}), unknown);
+      final defaults = SiteConfig.fromSettings(const {});
+      expect(defaults, unknown);
+      final optimization = defaults.composerImageOptimization;
+      expect(optimization, const ComposerImageOptimization());
+      expect(optimization.resizeWidth(ios: true), 1920);
+      expect(optimization.resizeWidth(ios: false), 1920);
+      expect(optimization.quality, 90);
+      expect(unknown.canUploadImage('photo.png', staff: false), isTrue);
+      expect(unknown.canUploadImage('photo.bmp', staff: false), isFalse);
+      expect(unknown.simultaneousUploads, 15);
+      expect(unknown.chatUploadsEnabled, isTrue);
+      expect(unknown.maxImageWidth, 690);
+      expect(unknown.maxImageHeight, 500);
       expect(unknown.emojiSet, 'twitter');
       expect(unknown.emojiEnabled, isTrue);
       expect(unknown.enableAutoGridImages, isTrue);
@@ -707,17 +719,6 @@ void main() {
       expect(zero.resizeDimensionsThreshold, 0);
     });
 
-    test('defaults to core optimisation when settings are absent', () {
-      final optimization = SiteConfig.fromSettings(
-        const {},
-      ).composerImageOptimization;
-
-      expect(optimization, const ComposerImageOptimization());
-      expect(optimization.resizeWidth(ios: true), 1920);
-      expect(optimization.resizeWidth(ios: false), 1920);
-      expect(optimization.quality, 90);
-    });
-
     test('reads the resize target and encode quality', () {
       final optimization = SiteConfig.fromSettings(const {
         'composer_media_optimization_image_resize_width_target': 1600,
@@ -1022,17 +1023,6 @@ void main() {
       expect(config.canUploadFile('archive.zip', staff: false), isTrue);
       expect(config.canUploadFile('screen.mov', staff: false), isTrue);
       expect(config.canUploadImage('no-extension', staff: false), isFalse);
-    });
-
-    test('uses core-compatible defaults when settings are absent', () {
-      const config = SiteConfig.unknown();
-
-      expect(config.canUploadImage('photo.png', staff: false), isTrue);
-      expect(config.canUploadImage('photo.bmp', staff: false), isFalse);
-      expect(config.simultaneousUploads, 15);
-      expect(config.chatUploadsEnabled, isTrue);
-      expect(config.maxImageWidth, 690);
-      expect(config.maxImageHeight, 500);
     });
 
     test('reads and persists the chat upload gate', () {
