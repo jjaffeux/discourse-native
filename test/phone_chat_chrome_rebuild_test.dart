@@ -179,7 +179,11 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(rebuilds, lessThanOrEqualTo(714));
+      // The chat counted is drawn: unread, it leads its group on the page and
+      // in the forum surface's side panel behind it. Its first count redraws
+      // the row boxed in both and re-lays their lists (228 over the chrome's
+      // 637); each later one redraws two count chips and the chrome (41).
+      expect(rebuilds, lessThanOrEqualTo(1235));
     }, variant: _ios);
 
     testWidgets('on the Forum tab redraws the chrome only for the indicator', (
@@ -199,7 +203,7 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(rebuilds, lessThanOrEqualTo(2152));
+      expect(rebuilds, lessThanOrEqualTo(1577));
     }, variant: _ios);
   });
 
