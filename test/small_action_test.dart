@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/small_action.dart';
@@ -122,6 +123,57 @@ void main() {
 
       expect(renderedText('martin closed this topic'), findsOneWidget);
       expect(find.dIcon(DIcons.lock), findsOneWidget);
+    });
+
+    testWidgets('is a mark and one quiet line, with the time after a dot, '
+        'keeping a post card\'s room', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: SmallActionTile(
+                post: Post(
+                  id: 1,
+                  postNumber: 2,
+                  username: 'martin',
+                  cooked: '',
+                  postType: Post.smallActionPostType,
+                  actionCode: 'closed.enabled',
+                  createdAt: DateTime.now().subtract(const Duration(days: 3)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      TextStyle styleOf(Finder text) => DefaultTextStyle.of(
+        tester.element(text),
+      ).style.merge(tester.widget<Text>(text).style);
+
+      expect(find.byType(DAvatar), findsNothing);
+      final line = find.text('martin closed this topic');
+      final style = styleOf(line);
+      expect(style.fontSize, 13);
+      expect(style.fontWeight, FontWeight.w400);
+      final tokens = DTokens.of(tester.element(line));
+      expect(
+        style.color,
+        Color.lerp(tokens.background, tokens.foreground, .62),
+      );
+      final dot = find.text(' · ');
+      expect(styleOf(dot).color, tokens.mutedForeground);
+      final time = find.text('3d');
+      expect(styleOf(time).color, tokens.mutedForeground);
+      expect(tester.getTopLeft(time).dx, tester.getTopRight(dot).dx);
+
+      final mark = find.dIcon(DIcons.lock);
+      expect(tester.getSize(mark), const Size.square(15));
+      expect(tester.getRect(line).left - tester.getCenter(mark).dx, 15 + 9);
+      final tile = tester.getRect(find.byType(SmallActionTile));
+      expect(tester.getCenter(mark).dy - tile.top, 32 + 15);
+      expect(tile.bottom - tester.getCenter(mark).dy, 15 + 10);
     });
 
     testWidgets('draws a custom message underneath', (tester) async {

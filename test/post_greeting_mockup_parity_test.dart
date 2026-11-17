@@ -131,18 +131,27 @@ void main() {
         );
         expect(greeting, findsOneWidget);
         expect(find.text('Change post notice'), findsNothing);
+        // The emoji alone stands in a face's 30-point room, with no disc.
+        expect(
+          find.descendant(of: notice, matching: find.byType(DAvatar)),
+          findsNothing,
+        );
         final mark = find.descendant(
           of: notice,
-          matching: find.byType(DAvatar),
+          matching: find.byType(SvgPicture),
         );
-        expect(tester.getSize(mark), const Size(30, 30));
+        expect(tester.getSize(mark), const Size(16, 16));
         final textStyle = DefaultTextStyle.of(tester.element(greeting)).style;
-        expect(textStyle.fontSize, 14);
-        expect(textStyle.fontWeight, FontWeight.w600);
-        expect(textStyle.height, 1.5);
+        expect(textStyle.fontSize, 13);
+        expect(textStyle.fontWeight, FontWeight.w400);
+        final tokens = DTokens.of(tester.element(greeting));
+        expect(
+          textStyle.color,
+          Color.lerp(tokens.background, tokens.foreground, .62),
+        );
         final markRect = tester.getRect(mark);
         final textRect = tester.getRect(greeting);
-        expect(textRect.left - markRect.right, 9);
+        expect(textRect.left - (markRect.center.dx + 15), 9);
         expect(textRect.center.dy, closeTo(markRect.center.dy, .01));
         expect(tester.takeException(), isNull);
       });

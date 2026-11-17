@@ -17090,12 +17090,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/topic_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'This post is a private whisper'**
-  String get thisPostIsAPrivateWhisper;
-
-  /// English UI message used by shell/topic_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'This is the first time {postUsername} has posted — let’s welcome them to our community!'**
   String thisIsTheFirstTimeHasPostedLetSWelcomeThem(String postUsername);
 
@@ -18500,12 +18494,6 @@ abstract class AppLocalizations {
   /// **'Continue the discussion from [{escaped}]({url})'**
   String continueTheDiscussionFrom(String escaped, String url);
 
-  /// English UI message used by shell/topic_share.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Share this topic'**
-  String get shareThisTopic;
-
   /// English UI message used by shell/topic_share.dart. Label of the share surface's entry that opens the invite editor for the shared topic.
   ///
   /// In en, this message translates to:
@@ -18541,12 +18529,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'\'t open sharing.'**
   String get couldnTOpenSharing;
-
-  /// English UI message used by shell/topic_share.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Share to another app'**
-  String get shareToAnotherApp;
 
   /// English UI message used by shell/badges_page.dart. Keep placeholders intact.
   ///
@@ -19556,6 +19538,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New since your last visit'**
   String get newSinceLastVisit;
+
+  /// First line of a whispered post's news, saying who can read it.
+  ///
+  /// In en, this message translates to:
+  /// **'Whisper, only staff can see this'**
+  String get whisperOnlyStaffCanSee;
+
+  /// How many posts follow the last-visit marker, said after its line.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 post} other{{count} posts}}'**
+  String newSinceLastVisitPosts(int count);
 
   /// App accessibility setting description.
   ///

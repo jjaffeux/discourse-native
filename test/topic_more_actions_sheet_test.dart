@@ -204,12 +204,11 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets('Share topic on desktop leaves the share menu open at More', (
+  testWidgets('Share topic on desktop opens the share sheet over the page', (
     tester,
   ) async {
     await _openTopic(tester, size: desktop);
     await _openMore(tester);
-    final more = tester.getRect(_more);
 
     await tester.tap(find.byKey(const ValueKey('topic-share-action')));
     await tester.pumpAndSettle();
@@ -217,8 +216,8 @@ void main() {
     final copy = find.byKey(const ValueKey('topic-share-copy'));
     expect(find.byKey(const ValueKey('topic-share-action')), findsNothing);
     expect(copy, findsOneWidget);
-    expect(find.text('Share this topic'), findsOneWidget);
-    expect(tester.getRect(copy).top, greaterThan(more.bottom));
+    expect(find.text('Share topic'), findsOneWidget);
+    expect(find.byType(DDropdownMenuContent), findsNothing);
 
     final copied = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(

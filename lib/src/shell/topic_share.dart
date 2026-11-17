@@ -9,7 +9,6 @@ import '../foundation/icons/d_icons.dart';
 import '../foundation/native_media_download_environment.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
-import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -81,15 +80,15 @@ Future<void> Function()? _captureShareAction({
   };
 }
 
-/// What a share surface is about: both the sheet and the anchored menu render
-/// from one of these, so they cannot disagree on what is being shared.
+/// What a share sheet is about: what is being shared, its title and link,
+/// and what else can be done from there.
 class _ShareSubject {
   const _ShareSubject({
     required this.heading,
     required this.title,
     required this.url,
     required this.privateMessage,
-    required this.onReplyAsNewTopic,
+    this.onReplyAsNewTopic,
     this.onInvite,
   });
 
@@ -128,27 +127,27 @@ Future<bool> _shareSystem(_ShareSubject subject, Rect? origin) async {
   }
 }
 
+/// The topic shared from its own menu. Inviting stays here, as the one way
+/// into the invite editor.
 Future<void> showTopicShareSheet({
   required BuildContext context,
   required String title,
   required String url,
-  Future<void> Function()? onReplyAsNewTopic,
   Future<void> Function()? onInvite,
   bool privateMessage = false,
-  Rect? anchor,
 }) => _showShare(
   context,
   _ShareSubject(
-    heading: appL10n.shareThisTopic,
+    heading: appL10n.shareTopic,
     title: title,
     url: url,
     privateMessage: privateMessage,
-    onReplyAsNewTopic: onReplyAsNewTopic,
     onInvite: onInvite,
   ),
-  anchor,
 );
 
+/// A post shared from its menu or its date. The opening post is the topic,
+/// so it is shared as the topic is, with nothing to continue elsewhere.
 Future<void> showPostShareSheet({
   required BuildContext context,
   required String topicTitle,
@@ -156,160 +155,41 @@ Future<void> showPostShareSheet({
   required int postNumber,
   Future<void> Function()? onReplyAsNewTopic,
   bool privateMessage = false,
-  Rect? anchor,
 }) => _showShare(
   context,
   _ShareSubject(
-    heading: appL10n.sharePost((postNumber).toString()),
+    heading: postNumber == 1
+        ? appL10n.shareTopic
+        : appL10n.sharePost('$postNumber'),
     title: topicTitle,
     url: url,
     privateMessage: privateMessage,
-    onReplyAsNewTopic: onReplyAsNewTopic,
+    onReplyAsNewTopic: postNumber == 1 ? null : onReplyAsNewTopic,
   ),
-  anchor,
 );
 
-Future<void> _showShare(
-  BuildContext context,
-  _ShareSubject subject,
-  Rect? anchor,
-) {
-  if (anchor == null || context.isTouch) {
-    return showShellSheet<void>(
+Future<void> _showShare(BuildContext context, _ShareSubject subject) =>
+    showShellSheet<void>(
       context: context,
       title: subject.heading,
       dialogOnDesktop: true,
       builder: (context) => _ShareSheetBody(subject: subject),
     );
-  }
-  return _showShareMenu(context, subject, anchor);
-}
 
-enum _ShareMenuChoice { copy, system, invite, reply }
-
-Future<void> _showShareMenu(
-  BuildContext context,
-  _ShareSubject subject,
-  Rect anchor,
-) async {
-  _ShareMenuChoice? choice;
-  await showDDropdownMenu<void>(
-    context: context,
-    anchorRect: anchor,
-    restoreFocus: false,
-    builder: (menuContext) {
-      final muted = DTokens.of(menuContext).mutedForeground;
-      Widget icon(DIconData data) => DIcon(data, size: 13, color: muted);
-      return DDropdownMenuContent(
-        semanticLabel: subject.heading,
-        width: 280,
-        children: [
-          DDropdownMenuLabel(child: Text(subject.heading)),
-          DDropdownMenuItem(
-            key: const ValueKey('topic-share-copy'),
-            leading: icon(DIcons.link),
-            leadingGap: 9,
-            semanticLabel: appL10n.copyLink,
-            onPressed: () => choice = _ShareMenuChoice.copy,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(appL10n.copyLink),
-                Text(
-                  subject.url,
-                  key: const ValueKey('topic-share-url'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: DiscourseTypography.xs,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          DDropdownMenuItem(
-            key: const ValueKey('topic-share-system'),
-            leading: icon(DIcons.upRightFromSquare),
-            leadingGap: 9,
-            onPressed: () => choice = _ShareMenuChoice.system,
-            child: Text(appL10n.shareToAnotherApp),
-          ),
-          if (subject.onInvite != null)
-            DDropdownMenuItem(
-              key: const ValueKey('topic-share-invite'),
-              leading: icon(DIcons.userPlus),
-              leadingGap: 9,
-              onPressed: () => choice = _ShareMenuChoice.invite,
-              child: Text(appL10n.inviteToTopicEntry),
-            ),
-          if (subject.onReplyAsNewTopic != null) ...[
-            const DDropdownMenuSeparator(),
-            DDropdownMenuItem(
-              key: const ValueKey('topic-share-reply-as-new-topic'),
-              leading: icon(DIcons.plus),
-              leadingGap: 9,
-              onPressed: () => choice = _ShareMenuChoice.reply,
-              child: Text(subject.replyLabel),
-            ),
-          ],
-        ],
-      );
-    },
-  );
-  switch (choice) {
-    case null:
-      return;
-    case _ShareMenuChoice.copy:
-      final copied = await _copyUrl(subject.url);
-      if (!context.mounted) return;
-      DToast.show(
-        context,
-        copied ? appL10n.linkCopied : appL10n.couldnTCopyLink,
-        type: copied ? DToastType.success : DToastType.error,
-      );
-    case _ShareMenuChoice.system:
-      if (await _shareSystem(subject, anchor) || !context.mounted) return;
-      DToast.show(context, appL10n.couldnTOpenSharing);
-    case _ShareMenuChoice.invite:
-      await subject.onInvite!();
-    case _ShareMenuChoice.reply:
-      await subject.onReplyAsNewTopic!();
-  }
-}
-
-class _ShareSheetBody extends StatefulWidget {
+class _ShareSheetBody extends StatelessWidget {
   const _ShareSheetBody({required this.subject});
 
   final _ShareSubject subject;
 
-  @override
-  State<_ShareSheetBody> createState() => _ShareSheetBodyState();
-}
-
-class _ShareSheetBodyState extends State<_ShareSheetBody> {
-  Timer? _copiedTimer;
-  bool _copied = false;
-
-  @override
-  void dispose() {
-    _copiedTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _copy() async {
-    final copied = await _copyUrl(widget.subject.url);
-    if (!mounted) return;
-    if (!copied) {
-      DToast.show(context, appL10n.couldnTCopyLink);
-      return;
-    }
-    _copiedTimer?.cancel();
-    setState(() => _copied = true);
-    _copiedTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _copied = false);
-    });
+  Future<void> _copy(BuildContext context) async {
+    final copied = await _copyUrl(subject.url);
+    if (!context.mounted) return;
+    if (copied) DDialogClose.close<void>(context);
+    DToast.show(
+      context,
+      copied ? appL10n.linkCopied : appL10n.couldnTCopyLink,
+      type: copied ? DToastType.success : DToastType.error,
+    );
   }
 
   Future<void> _share(BuildContext context) async {
@@ -317,26 +197,41 @@ class _ShareSheetBodyState extends State<_ShareSheetBody> {
     final origin = renderObject is RenderBox && renderObject.hasSize
         ? renderObject.localToGlobal(Offset.zero) & renderObject.size
         : null;
-    if (await _shareSystem(widget.subject, origin) || !mounted) return;
-    DToast.show(this.context, appL10n.couldnTOpenSharing);
+    if (!await _shareSystem(subject, origin)) {
+      if (context.mounted) DToast.show(context, appL10n.couldnTOpenSharing);
+      return;
+    }
+    if (context.mounted) DDialogClose.close<void>(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final subject = widget.subject;
+    final tokens = DTokens.of(context);
     final reply = subject.onReplyAsNewTopic;
     final invite = subject.onInvite;
-    final copy = DButton(
-      key: const ValueKey('topic-share-copy'),
-      label: Semantics(
-        liveRegion: true,
-        child: Text(
-          _copied ? context.l10n.copiedInviteeditor : context.l10n.copyLink,
-        ),
+    Widget onward(
+      Key key,
+      DIconData icon,
+      String label,
+      Future<void> Function() run,
+    ) => DButton(
+      key: key,
+      variant: DButtonVariant.secondary,
+      icon: DIcon(icon),
+      label: Text(label),
+      onPressed: () {
+        DDialogClose.close<void>(context);
+        unawaited(run());
+      },
+    );
+    final copy = Builder(
+      builder: (buttonContext) => DButton(
+        key: const ValueKey('topic-share-copy'),
+        label: Text(context.l10n.copyLink),
+        onPressed: () => unawaited(_copy(buttonContext)),
+        icon: const DIcon(DIcons.copy),
+        variant: DButtonVariant.primary,
       ),
-      onPressed: () => unawaited(_copy()),
-      icon: DIcon(_copied ? DIcons.check : DIcons.copy),
-      variant: DButtonVariant.primary,
     );
     final share = Builder(
       builder: (buttonContext) => DButton(
@@ -351,27 +246,37 @@ class _ShareSheetBodyState extends State<_ShareSheetBody> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            subject.title,
+            key: const ValueKey('topic-share-title'),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontSize: DiscourseTypography.lg,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+              letterSpacing: 0,
+              color: tokens.foreground,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         DCard(
           key: const ValueKey('topic-share-url'),
           variant: DCardVariant.well,
-          children: [
-            DCardContent(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DCardTitle(
-                    child: Text(
-                      subject.title,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(height: DSpacing.xs),
-                  DCardDescription(child: SelectableText(subject.url)),
-                ],
+          spacing: 0,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: SelectableText(
+              subject.url,
+              style: TextStyle(
+                fontSize: DiscourseTypography.xs,
+                height: 1.45,
+                color: tokens.mutedForeground,
               ),
             ),
-          ],
+          ),
         ),
         const SizedBox(height: 12),
         LayoutBuilder(
@@ -391,44 +296,20 @@ class _ShareSheetBodyState extends State<_ShareSheetBody> {
         ),
         if (invite != null) ...[
           const SizedBox(height: 8),
-          DItem(
-            key: const ValueKey('topic-share-invite'),
-            variant: DItemVariant.outline,
-            onPressed: () {
-              DDialogClose.close<void>(context);
-              unawaited(invite());
-            },
-            children: [
-              const DItemMedia(
-                variant: DItemMediaVariant.icon,
-                child: DIcon(DIcons.userPlus),
-              ),
-              DItemContent(
-                children: [
-                  DItemTitle(child: Text(context.l10n.inviteToTopicEntry)),
-                ],
-              ),
-            ],
+          onward(
+            const ValueKey('topic-share-invite'),
+            DIcons.userPlus,
+            context.l10n.inviteToTopicEntry,
+            invite,
           ),
         ],
         if (reply != null) ...[
           const SizedBox(height: 8),
-          DItem(
-            key: const ValueKey('topic-share-reply-as-new-topic'),
-            variant: DItemVariant.outline,
-            onPressed: () {
-              DDialogClose.close<void>(context);
-              unawaited(reply());
-            },
-            children: [
-              const DItemMedia(
-                variant: DItemMediaVariant.icon,
-                child: DIcon(DIcons.plus),
-              ),
-              DItemContent(
-                children: [DItemTitle(child: Text(subject.replyLabel))],
-              ),
-            ],
+          onward(
+            const ValueKey('topic-share-reply-as-new-topic'),
+            DIcons.plus,
+            subject.replyLabel,
+            reply,
           ),
         ],
       ],

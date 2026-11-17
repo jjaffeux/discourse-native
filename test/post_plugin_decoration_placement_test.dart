@@ -117,8 +117,8 @@ void main() {
     expect(find.byKey(const ValueKey('post-news-card-3')), findsOneWidget);
     expect(
       tester
-          .widget<DCard>(find.byKey(const ValueKey('post-news-card-3')))
-          .backgroundColor,
+          .widget<DCardTint>(find.byKey(const ValueKey('post-news-head-3')))
+          .color,
       DTokens.of(
         tester.element(find.byType(TopicView)),
       ).success.withValues(alpha: .08),

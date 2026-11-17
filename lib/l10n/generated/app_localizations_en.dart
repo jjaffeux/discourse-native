@@ -9996,9 +9996,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get thisPostIsAPrivateWhisper => 'This post is a private whisper';
-
-  @override
   String thisIsTheFirstTimeHasPostedLetSWelcomeThem(String postUsername) {
     return 'This is the first time $postUsername has posted — let’s welcome them to our community!';
   }
@@ -10807,9 +10804,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get shareThisTopic => 'Share this topic';
-
-  @override
   String get inviteToTopicEntry => 'Invite people';
 
   @override
@@ -10828,9 +10822,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get couldnTOpenSharing => 'Couldn\'t open sharing.';
-
-  @override
-  String get shareToAnotherApp => 'Share to another app';
 
   @override
   String get allBadges => 'All badges';
@@ -11431,6 +11422,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get newSinceLastVisit => 'New since your last visit';
+
+  @override
+  String get whisperOnlyStaffCanSee => 'Whisper, only staff can see this';
+
+  @override
+  String newSinceLastVisitPosts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posts',
+      one: '1 post',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get reduceMotionDescription =>

@@ -186,29 +186,21 @@ final class SolvedPlugin
     if (post.plugins.get(solvedPostKey)?.accepted != true) return const [];
     final action = _action(context, siteUrl, topic, post);
     return [
-      DItem(
+      DAlert.postNotice(
         key: ValueKey('solved-post-${post.id}'),
-        size: DItemSize.sm,
-        children: [
-          const DItemMedia(
-            variant: DItemMediaVariant.icon,
-            child: DIcon(DIcons.check),
-          ),
-          DItemContent(
-            children: [DItemTitle(child: Text(context.l10n.solution))],
-          ),
-          if (action != null)
-            DItemActions(
-              children: [
-                DButton(
+        icon: const DIcon(DIcons.circleCheck),
+        tone: DTokens.of(context).success,
+        message: Text(context.l10n.solution),
+        action: action == null
+            ? null
+            : DAlertAction(
+                child: DButton(
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.chip,
                   onPressed: action.enabled ? action.onInvoke : null,
                   label: Text(action.label),
                 ),
-              ],
-            ),
-        ],
+              ),
       ),
     ];
   }

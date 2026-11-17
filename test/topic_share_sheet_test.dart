@@ -17,10 +17,10 @@ const _shareKey = ValueKey('topic-share-system');
 const _replyKey = ValueKey('topic-share-reply-as-new-topic');
 const _inviteKey = ValueKey('topic-share-invite');
 const _cardKey = ValueKey('topic-share-url');
-const _anchor = Rect.fromLTWH(300, 100, 36, 32);
+const _titleKey = ValueKey('topic-share-title');
 
 void main() {
-  testWidgets('shares the topic URL, subject and button origin', (
+  testWidgets('shares the topic URL, subject and button origin, then closes', (
     tester,
   ) async {
     final previous = SharePlatform.instance;
@@ -39,49 +39,28 @@ void main() {
     expect(request.subject, _title);
     expect(request.sharePositionOrigin, origin);
     expect(find.text(appL10n.couldnTOpenSharing), findsNothing);
+    expect(find.byKey(_shareKey), findsNothing);
   });
 
-  testWidgets('copies the link and resets inline feedback', (tester) async {
+  testWidgets('copying writes the link, closes the sheet and confirms', (
+    tester,
+  ) async {
     final copied = <String>[];
     _mockClipboard(tester, (call) async {
       copied.add((call.arguments as Map)['text'] as String);
       return null;
     });
-    final semantics = tester.ensureSemantics();
-    try {
-      await _openShare(tester);
+    await _openShare(tester);
 
-      final copy = find.byKey(_copyKey);
-      expect(find.byKey(_replyKey), findsNothing);
+    await tester.tap(find.byKey(_copyKey));
+    await tester.pumpAndSettle();
 
-      await tester.tap(copy);
-      await tester.pump();
-
-      expect(copied, [_url]);
-      expect(find.text('Copied!'), findsOneWidget);
-      expect(
-        tester.getSemantics(find.bySemanticsLabel('Copied!')),
-        isSemantics(
-          label: 'Copied!',
-          isButton: true,
-          isFocusable: true,
-          hasEnabledState: true,
-          isEnabled: true,
-          isLiveRegion: true,
-          hasTapAction: true,
-          hasFocusAction: true,
-        ),
-      );
-
-      await tester.pump(const Duration(seconds: 3));
-      expect(find.text('Copy link'), findsOneWidget);
-      expect(find.text('Copied!'), findsNothing);
-    } finally {
-      semantics.dispose();
-    }
+    expect(copied, [_url]);
+    expect(find.byKey(_copyKey), findsNothing);
+    expect(find.text('Link copied!'), findsOneWidget);
   });
 
-  testWidgets('clipboard failures keep copy available and show an error', (
+  testWidgets('a clipboard failure keeps the sheet and says so', (
     tester,
   ) async {
     _mockClipboard(tester, (_) async {
@@ -93,25 +72,50 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text("Couldn't copy link."), findsOneWidget);
-    expect(find.text('Copy link'), findsOneWidget);
-    expect(find.text('Copied!'), findsNothing);
+    expect(find.byKey(_copyKey), findsOneWidget);
+    expect(find.text('Link copied!'), findsNothing);
   });
 
-  testWidgets('a phone sheet previews the whole link above equal buttons', (
+  testWidgets('a desktop opens the same sheet as a dialog, not a menu', (
     tester,
   ) async {
-    await _openShare(
-      tester,
-      platform: TargetPlatform.iOS,
-      size: const Size(390, 844),
-    );
+    await _openShare(tester, postNumber: 2, onReplyAsNewTopic: () async {});
 
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(find.text('Share post #2'), findsOneWidget);
+    expect(find.byKey(_titleKey), findsOneWidget);
+    expect(find.byKey(_cardKey), findsOneWidget);
+    expect(find.byKey(_replyKey), findsOneWidget);
+  });
+
+  testWidgets('the title heads the sheet, then the whole link, then equal '
+      'buttons', (tester) async {
+    await _openShare(tester, size: const Size(800, 900));
+
+    expect(find.text('Share topic'), findsOneWidget);
+    final title = find.byKey(_titleKey);
+    expect(tester.widget<Text>(title).data, _title);
+    final titleStyle = tester.widget<Text>(title).style!;
+    expect(titleStyle.fontSize, 17);
+    expect(titleStyle.fontWeight, FontWeight.w700);
     final card = tester.getRect(find.byKey(_cardKey));
     final copy = tester.getRect(find.byKey(_copyKey));
     final share = tester.getRect(find.byKey(_shareKey));
-    expect(find.text(_title), findsOneWidget);
-    expect(find.text('Share'), findsOneWidget);
-    expect(card.bottom, lessThan(copy.top));
+    expect(
+      find.descendant(of: find.byKey(_cardKey), matching: find.text(_title)),
+      findsNothing,
+    );
+    expect(tester.getRect(title).bottom + 10, closeTo(card.top, .01));
+    final copySurface = tester.getRect(
+      find.descendant(
+        of: find.byKey(_copyKey),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox && widget.decoration is DButtonDecoration,
+        ),
+      ),
+    );
+    expect(card.bottom + 12, closeTo(copySurface.top, .01));
     expect(copy.width, closeTo(share.width, .01));
     expect(copy.top, closeTo(share.top, .01));
     expect(share.left, greaterThan(copy.right));
@@ -127,63 +131,27 @@ void main() {
     expect(link.plainText, _url);
     expect(link.maxLines, isNull);
     expect(link.size.height, greaterThan(link.preferredLineHeight * 1.5));
-    expect(
-      tester.getRect(find.byType(EditableText)).bottom,
-      lessThan(card.bottom),
-    );
-    expect(
-      tester.getRect(find.byType(EditableText)).left,
-      greaterThanOrEqualTo(card.left),
-    );
-    expect(
-      tester.getRect(find.byType(EditableText)).right,
-      lessThanOrEqualTo(card.right),
-    );
+    final linkRect = tester.getRect(find.byType(EditableText));
+    expect(linkRect.top - card.top, closeTo(10, .01));
+    expect(linkRect.left - card.left, closeTo(12, .01));
   });
 
-  testWidgets('a phone sheet offers the reply row below the buttons', (
+  testWidgets('a topic offers neither a reply as a new topic nor, without a '
+      'callback, an invite', (tester) async {
+    await _openShare(tester, onReplyAsNewTopic: () async {});
+
+    expect(find.byKey(_replyKey), findsNothing);
+    expect(find.byKey(_inviteKey), findsNothing);
+  });
+
+  testWidgets('a topic offers invite under the buttons when given one', (
     tester,
   ) async {
-    var replies = 0;
-    await _openShare(
-      tester,
-      platform: TargetPlatform.iOS,
-      size: const Size(390, 844),
-      onReplyAsNewTopic: () async => replies++,
-    );
-
-    final reply = tester.getRect(find.byKey(_replyKey));
-    expect(
-      reply.top,
-      greaterThan(tester.getRect(find.byKey(_shareKey)).bottom),
-    );
-    expect(reply.left, closeTo(tester.getRect(find.byKey(_cardKey)).left, .01));
-
-    await tester.tap(find.byKey(_replyKey));
-    await tester.pumpAndSettle();
-
-    expect(replies, 1);
-    expect(find.byKey(_replyKey), findsNothing);
-  });
-
-  testWidgets('a phone sheet offers invite above the reply row, only when '
-      'given a callback', (tester) async {
-    await _openShare(
-      tester,
-      platform: TargetPlatform.iOS,
-      size: const Size(390, 844),
-      onReplyAsNewTopic: () async {},
-    );
-    expect(find.byKey(_inviteKey), findsNothing);
-    expect(find.text('Invite people'), findsNothing);
-
     var invites = 0;
-    await tester.pumpWidget(const SizedBox());
     await _openShare(
       tester,
       platform: TargetPlatform.iOS,
       size: const Size(390, 844),
-      onReplyAsNewTopic: () async {},
       onInvite: () async => invites++,
     );
 
@@ -193,154 +161,80 @@ void main() {
       invite.top,
       greaterThan(tester.getRect(find.byKey(_shareKey)).bottom),
     );
-    expect(invite.bottom, lessThan(tester.getRect(find.byKey(_replyKey)).top));
     expect(
       invite.left,
       closeTo(tester.getRect(find.byKey(_cardKey)).left, .01),
+    );
+    expect(
+      invite.width,
+      closeTo(tester.getRect(find.byKey(_cardKey)).width, .01),
     );
 
     await tester.tap(find.byKey(_inviteKey));
     await tester.pumpAndSettle();
 
     expect(invites, 1);
-    expect(find.byKey(_inviteKey), findsNothing);
     expect(find.byKey(_copyKey), findsNothing);
   });
 
-  group('anchored desktop menu', () {
-    testWidgets('lists invite after system share and before the reply '
-        'separator, only when given a callback', (tester) async {
-      await _openShare(tester, anchor: _anchor, onReplyAsNewTopic: () async {});
-      expect(find.byKey(_inviteKey), findsNothing);
+  testWidgets('the opening post is shared as the topic', (tester) async {
+    await _openShare(tester, postNumber: 1, onReplyAsNewTopic: () async {});
 
-      await tester.pumpWidget(const SizedBox());
-      var invites = 0;
-      await _openShare(
-        tester,
-        anchor: _anchor,
-        onReplyAsNewTopic: () async {},
-        onInvite: () async => invites++,
-      );
+    expect(find.text('Share topic'), findsOneWidget);
+    expect(find.text('Share post #1'), findsNothing);
+    expect(find.byKey(_replyKey), findsNothing);
+  });
 
-      final system = tester.getRect(find.byKey(_shareKey));
-      final invite = tester.getRect(find.byKey(_inviteKey));
-      final reply = tester.getRect(find.byKey(_replyKey));
-      expect(find.text('Invite people'), findsOneWidget);
-      expect(invite.top, greaterThanOrEqualTo(system.bottom));
-      expect(invite.bottom, lessThan(reply.top));
-      expect(find.byType(DDropdownMenuSeparator), findsOneWidget);
-      expect(
-        tester.getRect(find.byType(DDropdownMenuSeparator)).top,
-        greaterThanOrEqualTo(invite.bottom),
-      );
-
-      await tester.tap(find.byKey(_inviteKey));
-      await tester.pumpAndSettle();
-
-      expect(invites, 1);
-      expect(find.byKey(_inviteKey), findsNothing);
-    });
-
-    testWidgets('lists copy with the full link, system share and reply', (
+  testWidgets('a reply is continued as a new topic from a full-width row '
+      'under the buttons, once', (tester) async {
+    var replies = 0;
+    await _openShare(
       tester,
-    ) async {
-      await _openShare(
-        tester,
-        anchor: _anchor,
-        postNumber: 2,
-        onReplyAsNewTopic: () async {},
-      );
+      platform: TargetPlatform.iOS,
+      size: const Size(390, 844),
+      postNumber: 2,
+      onReplyAsNewTopic: () async => replies++,
+    );
 
-      expect(find.text('Share post #2'), findsOneWidget);
-      expect(find.byKey(_copyKey), findsOneWidget);
-      expect(find.byKey(_shareKey), findsOneWidget);
-      expect(find.byKey(_replyKey), findsOneWidget);
-      expect(find.text('Share to another app'), findsOneWidget);
-      final url = find.text(_url);
-      expect(url, findsOneWidget);
-      expect(tester.widget<Text>(url).maxLines, 1);
-      expect(find.byType(ModalBarrier).hitTestable(), findsNothing);
-    });
+    final reply = tester.getRect(find.byKey(_replyKey));
+    final card = tester.getRect(find.byKey(_cardKey));
+    expect(
+      reply.top,
+      greaterThan(tester.getRect(find.byKey(_shareKey)).bottom),
+    );
+    expect(reply.left, closeTo(card.left, .01));
+    expect(reply.width, closeTo(card.width, .01));
 
-    testWidgets('omits the reply row when there is nothing to continue', (
-      tester,
-    ) async {
-      await _openShare(tester, anchor: _anchor);
+    await tester.tap(find.byKey(_replyKey));
+    await tester.pumpAndSettle();
 
-      expect(find.byKey(_copyKey), findsOneWidget);
-      expect(find.byKey(_replyKey), findsNothing);
-    });
+    expect(replies, 1);
+    expect(find.byKey(_replyKey), findsNothing);
+  });
 
-    testWidgets('copying writes the link, closes the menu and confirms', (
-      tester,
-    ) async {
-      final copied = <String>[];
-      _mockClipboard(tester, (call) async {
-        copied.add((call.arguments as Map)['text'] as String);
-        return null;
-      });
-      await _openShare(tester, anchor: _anchor);
-
-      await tester.tap(find.byKey(_copyKey));
-      await tester.pumpAndSettle();
-
-      expect(copied, [_url]);
-      expect(find.byKey(_copyKey), findsNothing);
-      expect(find.text('Link copied!'), findsOneWidget);
-    });
-
-    testWidgets('a clipboard failure is reported as an error', (tester) async {
-      _mockClipboard(tester, (_) async {
-        throw PlatformException(code: 'clipboard-unavailable');
-      });
-      await _openShare(tester, anchor: _anchor);
-
-      await tester.tap(find.byKey(_copyKey));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(_copyKey), findsNothing);
-      expect(find.text("Couldn't copy link."), findsOneWidget);
-      expect(find.text('Link copied!'), findsNothing);
-    });
-
+  testWidgets('post sharing continues a message as a message, never a topic', (
+    tester,
+  ) async {
     for (final privateMessage in [false, true]) {
-      testWidgets(
-        'reply closes the menu and continues ${privateMessage ? 'a message' : 'a topic'} once',
-        (tester) async {
-          var replies = 0;
-          await _openShare(
-            tester,
-            anchor: _anchor,
-            privateMessage: privateMessage,
-            onReplyAsNewTopic: () async => replies++,
-          );
-
-          expect(
-            find.text(
-              privateMessage ? 'Reply as new message' : 'Reply as new topic',
-            ),
-            findsOneWidget,
-          );
-          await tester.tap(find.byKey(_replyKey));
-          await tester.pumpAndSettle();
-
-          expect(replies, 1);
-          expect(find.byKey(_replyKey), findsNothing);
-        },
-      );
-    }
-
-    testWidgets('a phone with an anchor still gets the sheet', (tester) async {
       await _openShare(
         tester,
-        platform: TargetPlatform.iOS,
-        size: const Size(390, 844),
-        anchor: _anchor,
+        postNumber: 2,
+        privateMessage: privateMessage,
+        onReplyAsNewTopic: () async {},
       );
 
-      expect(find.byKey(_cardKey), findsOneWidget);
-      expect(find.text('Share'), findsOneWidget);
-    });
+      expect(
+        find.descendant(
+          of: find.byKey(_replyKey),
+          matching: find.text(
+            privateMessage ? 'Reply as new message' : 'Reply as new topic',
+          ),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('closing before the clipboard responds is safe', (tester) async {
@@ -361,76 +255,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('closing after copying cancels its feedback timer', (
-    tester,
-  ) async {
-    _mockClipboard(tester, (_) async => null);
-    await _openShare(tester);
-
-    await tester.tap(find.byKey(_copyKey));
-    await tester.pump();
-    expect(find.text('Copied!'), findsOneWidget);
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(_copyKey), findsNothing);
-  });
-
-  for (final postNumber in <int?>[null, 2]) {
-    testWidgets(
-      'the reply footer closes ${postNumber == null ? 'topic' : 'post'} sharing before continuing',
-      (tester) async {
-        var replies = 0;
-        await _openShare(
-          tester,
-          postNumber: postNumber,
-          onReplyAsNewTopic: () async => replies++,
-        );
-
-        expect(
-          find.text(postNumber == null ? 'Share this topic' : 'Share post #2'),
-          findsOneWidget,
-        );
-        expect(
-          tester.getRect(find.byKey(_replyKey)).top,
-          greaterThan(tester.getRect(find.byKey(_shareKey)).bottom),
-        );
-
-        await tester.tap(find.byKey(_replyKey));
-        await tester.pumpAndSettle();
-
-        expect(replies, 1);
-        expect(find.byKey(_shareKey), findsNothing);
-      },
-    );
-
-    testWidgets(
-      '${postNumber == null ? 'topic' : 'post'} sharing continues a message as a message, never a topic',
-      (tester) async {
-        for (final privateMessage in [false, true]) {
-          await _openShare(
-            tester,
-            postNumber: postNumber,
-            privateMessage: privateMessage,
-            onReplyAsNewTopic: () async {},
-          );
-
-          expect(
-            find.descendant(
-              of: find.byKey(_replyKey),
-              matching: find.text(
-                privateMessage ? 'Reply as new message' : 'Reply as new topic',
-              ),
-            ),
-            findsOneWidget,
-          );
-          await tester.tap(find.byTooltip('Close'));
-          await tester.pumpAndSettle();
-        }
-      },
-    );
-  }
-
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final textScale in [1.0, 2.0]) {
       testWidgets(
@@ -441,6 +265,7 @@ void main() {
             platform: platform,
             size: const Size(320, 700),
             textScale: textScale,
+            postNumber: 2,
             onReplyAsNewTopic: () async {},
           );
 
@@ -462,7 +287,7 @@ void main() {
             expect(rect.left, greaterThanOrEqualTo(0));
             expect(rect.right, lessThanOrEqualTo(320));
             expect(button.hitTestable(), findsOneWidget);
-            if (platform == TargetPlatform.iOS && key != _replyKey) {
+            if (platform == TargetPlatform.iOS) {
               final surface = find.descendant(
                 of: button,
                 matching: find.byWidgetPredicate(
@@ -501,7 +326,6 @@ Future<void> _openShare(
   double textScale = 1,
   int? postNumber,
   bool privateMessage = false,
-  Rect? anchor,
   Future<void> Function()? onReplyAsNewTopic,
   Future<void> Function()? onInvite,
 }) async {
@@ -528,10 +352,8 @@ Future<void> _openShare(
                       context: context,
                       title: _title,
                       url: _url,
-                      onReplyAsNewTopic: onReplyAsNewTopic,
                       onInvite: onInvite,
                       privateMessage: privateMessage,
-                      anchor: anchor,
                     )
                   : showPostShareSheet(
                       context: context,
@@ -540,7 +362,6 @@ Future<void> _openShare(
                       postNumber: postNumber,
                       onReplyAsNewTopic: onReplyAsNewTopic,
                       privateMessage: privateMessage,
-                      anchor: anchor,
                     ),
             ),
             child: const Text('Open share'),
