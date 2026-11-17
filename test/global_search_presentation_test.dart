@@ -761,7 +761,7 @@ void main({bool useDeviceMetrics = false}) {
     }
 
     _testPresentation(
-      'mobile $platform keeps the Messages title visible as Search opens',
+      'mobile $platform keeps the Messages title visible through Search',
       (tester) async {
         debugDefaultTargetPlatformOverride = platform;
         final shell = await _pumpSearch(tester, size: phone);
@@ -774,6 +774,26 @@ void main({bool useDeviceMetrics = false}) {
         expect(title, findsOneWidget);
         final titlePosition = tester.getTopLeft(title);
 
+        void expectUnchangedTitle(String phase, int frame) {
+          final reason = 'Search $phase frame $frame';
+          expect(title, findsOneWidget, reason: reason);
+          expect(tester.getTopLeft(title), titlePosition, reason: reason);
+          final fades = find.ancestor(
+            of: title,
+            matching: find.byWidgetPredicate(
+              (widget) => widget is Opacity || widget is AnimatedOpacity,
+            ),
+          );
+          for (final fade in tester.renderObjectList(fades)) {
+            final opacity = switch (fade) {
+              RenderOpacity(:final opacity) => opacity,
+              RenderAnimatedOpacity(:final opacity) => opacity.value,
+              _ => throw StateError('Expected a rendered opacity'),
+            };
+            expect(opacity, 1, reason: reason);
+          }
+        }
+
         await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 80));
@@ -784,33 +804,21 @@ void main({bool useDeviceMetrics = false}) {
         }
         for (var frame = 0; frame < 45; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
-          expect(title, findsOneWidget, reason: 'Search opening frame $frame');
-          expect(tester.getTopLeft(title), titlePosition);
-          final fade = tester.renderObject<RenderAnimatedOpacity>(
-            find
-                .ancestor(of: title, matching: find.byType(AnimatedOpacity))
-                .first,
-          );
-          expect(fade.opacity.value, 1);
+          expectUnchangedTitle('opening', frame);
         }
         expect(_editor(tester).focusNode.hasFocus, isTrue);
         if (_useDeviceMetrics) {
           expect(tester.view.viewInsets.bottom, greaterThan(0));
         }
 
-        await tester.binding.handlePopRoute();
-        if (_useDeviceMetrics) {
-          for (
-            var frame = 0;
-            frame < 30 && tester.view.viewInsets.bottom > 0;
-            frame++
-          ) {
-            await tester.pump(const Duration(milliseconds: 16));
-          }
-          expect(tester.view.viewInsets.bottom, 0);
-        } else {
-          tester.view.resetViewInsets();
+        final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+        await tester.drag(handle, const Offset(0, 400));
+        for (var frame = 0; frame < 35; frame++) {
+          if (!_useDeviceMetrics && frame == 4) tester.view.resetViewInsets();
+          await tester.pump(const Duration(milliseconds: 16));
+          expectUnchangedTitle('closing', frame);
         }
+        expect(tester.view.viewInsets.bottom, 0);
         await tester.pumpAndSettle();
         expect(find.byKey(ForumSearch.panelKey), findsNothing);
         expect(title.hitTestable(), findsOneWidget);

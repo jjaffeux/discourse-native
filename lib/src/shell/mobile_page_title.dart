@@ -65,6 +65,35 @@ typedef _TitlePresentation = ({
 
 class _MobilePageTitleState extends State<MobilePageTitle> {
   final _presentations = <Object, _TitlePresentation>{};
+  ValueListenable<double>? _sheetPull;
+  (Object history, Object entry)? _sheetPullVisit;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pull = DSheetDragScope.dismissProgressOf(context);
+    if (pull == _sheetPull) return;
+    _sheetPull?.removeListener(_trackSheetPull);
+    _sheetPull = pull;
+    _sheetPullVisit = null;
+    _sheetPull?.addListener(_trackSheetPull);
+    _trackSheetPull();
+  }
+
+  void _trackSheetPull() {
+    // The drag scope can clear the dismissed sheet after the next visit builds.
+    if ((_sheetPull?.value ?? 0) == 0) {
+      _sheetPullVisit = null;
+    } else {
+      _sheetPullVisit ??= (widget.history, widget.entry);
+    }
+  }
+
+  @override
+  void dispose() {
+    _sheetPull?.removeListener(_trackSheetPull);
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(MobilePageTitle oldWidget) {
@@ -215,7 +244,7 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
   }
 
   Widget _withSheetPull(BuildContext context, Widget? current) {
-    final progress = DSheetDragScope.dismissProgressOf(context);
+    final progress = _sheetPull;
     final previous = DPageHeaderHost.previousTitleOf(context);
     final cached = previous == null ? _previousPresentation : null;
     final title = previous?.title ?? cached?.title;
@@ -230,36 +259,41 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
       context,
       ValueListenableBuilder<double>(
         valueListenable: progress,
-        builder: (context, pull, child) => Stack(
-          alignment: AlignmentDirectional.centerStart,
-          children: [
-            if (child != null)
-              IgnorePointer(
-                ignoring: pull >= .5,
-                child: ExcludeSemantics(
-                  excluding: pull >= .5,
-                  child: ExcludeFocus(
+        builder: (context, progress, child) {
+          final pull = _sheetPullVisit == (widget.history, widget.entry)
+              ? progress
+              : 0.0;
+          return Stack(
+            alignment: AlignmentDirectional.centerStart,
+            children: [
+              if (child != null)
+                IgnorePointer(
+                  ignoring: pull >= .5,
+                  child: ExcludeSemantics(
                     excluding: pull >= .5,
-                    child: Opacity(opacity: 1 - pull, child: child),
-                  ),
-                ),
-              ),
-            if (pull > 0)
-              IgnorePointer(
-                child: ExcludeSemantics(
-                  child: Opacity(
-                    opacity: pull * (cached?.opacity ?? 1),
-                    child: _identity(
-                      context,
-                      title,
-                      previous?.leading ?? cached?.leading,
-                      previous?.metadata ?? cached?.metadata,
+                    child: ExcludeFocus(
+                      excluding: pull >= .5,
+                      child: Opacity(opacity: 1 - pull, child: child),
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
+              if (pull > 0)
+                IgnorePointer(
+                  child: ExcludeSemantics(
+                    child: Opacity(
+                      opacity: pull * (cached?.opacity ?? 1),
+                      child: _identity(
+                        context,
+                        title,
+                        previous?.leading ?? cached?.leading,
+                        previous?.metadata ?? cached?.metadata,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
         child: current,
       ),
     );
