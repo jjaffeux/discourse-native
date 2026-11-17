@@ -163,9 +163,9 @@ void main() {
           expect(tester.takeException(), isNull);
           await tester.pump(const Duration(seconds: 5));
         },
-        variant: const TargetPlatformVariant({
-          TargetPlatform.iOS,
-          TargetPlatform.android,
+        variant: TargetPlatformVariant({
+          if (operation != _Operation.failedDisconnect) TargetPlatform.iOS,
+          if (operation != _Operation.failedReconnect) TargetPlatform.android,
           TargetPlatform.macOS,
         }),
       );
