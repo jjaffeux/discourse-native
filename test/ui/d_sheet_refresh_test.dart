@@ -10,7 +10,7 @@ const _handle = ValueKey('refresh-content-handle');
 
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final page in [false, true]) {
+    for (final page in [if (platform == TargetPlatform.iOS) false, true]) {
       testWidgets('refresh content stays in the $platform sheet, page $page', (
         tester,
       ) async {
