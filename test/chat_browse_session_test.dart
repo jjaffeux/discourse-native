@@ -13,6 +13,37 @@ const _site = 'https://meta.discourse.org';
 
 void main() {
   testWidgets(
+    'it opens on the words it is given and on what can be joined, and keeps '
+    'what it is narrowed to for the next one',
+    (tester) async {
+      final (session, api, chat) = _fixture(narrowed: true, query: 'des');
+      final loaded = session.refresh();
+      await tester.pump();
+      expect(api.calls.single, (
+        filter: 'des',
+        status: ChatChannelBrowseStatus.open,
+        offset: 0,
+      ));
+      api.responses.single.complete(
+        ChatChannelBrowsePage(
+          channels: [_channel(1, following: true), _channel(2)],
+        ),
+      );
+      await loaded;
+      expect(session.membership, ChatChannelJoinedFilter.notJoined);
+      expect(session.visibleChannels.single.id, 2);
+
+      session.changeMembership(ChatChannelJoinedFilter.all);
+      session.changeStatus(ChatChannelBrowseStatus.archived);
+      final next = ChatBrowseSession(chat: chat, siteUrl: _site);
+      addTearDown(next.dispose);
+      expect(next.query, isEmpty, reason: 'Words are for one opening');
+      expect(next.membership, ChatChannelJoinedFilter.all);
+      expect(next.status, ChatChannelBrowseStatus.archived);
+    },
+  );
+
+  testWidgets(
     'account retirement clears retained directory rows and pending search',
     (tester) async {
       final requests = FakePluginRequestHost(
@@ -203,7 +234,7 @@ void main() {
   testWidgets('pending query cannot borrow the previous cursor', (
     tester,
   ) async {
-    final (session, api, chat) = _fixture();
+    final (session, api, _) = _fixture();
     final first = session.refresh();
     await tester.pump();
     api.responses[0].complete(
@@ -222,7 +253,7 @@ void main() {
       status: ChatChannelBrowseStatus.all,
       offset: 0,
     ));
-    expect(chat.inboxFilters.browseFor(_site).query, 'new');
+    expect(session.query, 'new');
     api.responses[1].complete(ChatChannelBrowsePage(channels: [_channel(3)]));
     await tester.pump();
     expect(session.visibleChannels.single.id, 3);
@@ -302,7 +333,7 @@ void main() {
     session.dispose();
     final replacement = ChatBrowseSession(chat: chat, siteUrl: _site);
     addTearDown(replacement.dispose);
-    expect(replacement.query, 'saved');
+    expect(replacement.query, isEmpty);
     final current = replacement.refresh();
     await tester.pump();
     api.responses[1].complete(ChatChannelBrowsePage(channels: [_channel(2)]));
@@ -338,6 +369,8 @@ void main() {
 
 (ChatBrowseSession, _BrowseApi, ChatController) _fixture({
   bool disposeSession = true,
+  bool narrowed = false,
+  String query = '',
   FakePluginRequestHost? requests,
 }) {
   final api = _BrowseApi();
@@ -351,7 +384,14 @@ void main() {
     store: Store(),
   );
   addTearDown(chat.dispose);
-  final session = ChatBrowseSession(chat: chat, siteUrl: _site);
+  // These cases are about ordering and paging, whatever the directory is
+  // narrowed to; what it opens narrowed to has its own case.
+  if (!narrowed) {
+    chat.inboxFilters.browseFor(_site)
+      ..status = ChatChannelBrowseStatus.all
+      ..membership = ChatChannelJoinedFilter.all;
+  }
+  final session = ChatBrowseSession(chat: chat, siteUrl: _site, query: query);
   if (disposeSession) addTearDown(session.dispose);
   return (session, api, chat);
 }

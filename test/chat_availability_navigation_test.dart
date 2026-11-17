@@ -163,7 +163,8 @@ void main() {
             keys.contains(
               const ValueKey('mobile-mode-destination/chat-browse'),
             ),
-            channels,
+            isFalse,
+            reason: 'Channels are browsed in a panel, which is no place',
           );
           expect(
             keys.contains(

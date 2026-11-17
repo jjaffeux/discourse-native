@@ -898,7 +898,7 @@ void main() {
               } else {
                 expect(
                   gated.currentContent?.id,
-                  stage == 'snapshot' ? ChatRoute.browseRouteId : 'chat-c-21',
+                  stage == 'snapshot' ? ChatRoute.inboxRouteId : 'chat-c-21',
                 );
                 expect(
                   gated.currentWorkspace!.tabById(otherTab),
@@ -1796,11 +1796,7 @@ void main() {
         ]);
         expect(
           sections.first.destinations.map((destination) => destination.id),
-          [
-            ChatRoute.inboxRouteId,
-            ChatRoute.browseRouteId,
-            ChatRoute.myThreadsRouteId,
-          ],
+          [ChatRoute.inboxRouteId, ChatRoute.myThreadsRouteId],
         );
         final inbox = sections.last;
         expect(inbox.id, 'chat-inbox');
@@ -1819,7 +1815,6 @@ void main() {
         // directories sit between them and the inbox's conversations.
         for (final routeId in [
           ChatRoute.inboxRouteId,
-          ChatRoute.browseRouteId,
           ChatRoute.myThreadsRouteId,
         ]) {
           final destination = find.byKey(ValueKey(routeId));

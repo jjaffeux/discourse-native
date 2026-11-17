@@ -52,7 +52,6 @@ void main() {
     final directoryTabs = <String>{};
     for (final (label, route) in [
       ('Chats', ChatRoute.inboxRouteId),
-      ('Channels', ChatRoute.browseRouteId),
       ('Threads', ChatRoute.myThreadsRouteId),
     ]) {
       if (directoryTabs.isNotEmpty) {
@@ -75,7 +74,7 @@ void main() {
       expect(tester.widget<DTabs<String>>(panels.tabs).value, 'chat');
       expect(tester.takeException(), isNull);
     }
-    expect(directoryTabs, hasLength(3));
+    expect(directoryTabs, hasLength(2));
     final tabCount = shell.currentWorkspace!.tabs.length;
     shell.pluginSession.require(chatShellService).openChats(newTab: true);
     await tester.pumpAndSettle();
@@ -126,9 +125,10 @@ void main() {
         );
         await capture(tester, 'chat-sidebar-conversation-${panel.name}');
         final conversation = shell.activeTabId!;
-        for (final label in ['Chats', 'Channels', 'Threads']) {
+        for (final label in ['Chats', 'Threads']) {
           expect(_directory(label), findsOneWidget);
         }
+        expect(_directory('Channels'), findsNothing);
         await tester.tap(_directory('Threads'));
         await tester.pumpAndSettle();
         expect(
@@ -149,7 +149,7 @@ void main() {
               .selected,
           isTrue,
         );
-        for (final label in ['Chats', 'Channels', 'Threads']) {
+        for (final label in ['Chats', 'Threads']) {
           expect(_directory(label), findsOneWidget);
         }
       }
@@ -177,7 +177,6 @@ void main() {
     await tester.pumpAndSettle();
     for (final (label, route) in [
       ('Threads', ChatRoute.myThreadsRouteId),
-      ('Channels', ChatRoute.browseRouteId),
       ('Chats', ChatRoute.inboxRouteId),
     ]) {
       if (label == 'Threads') {
@@ -189,15 +188,6 @@ void main() {
             matching: find.byKey(const ValueKey('chat-inbox-back')),
           ),
         );
-        await tester.pumpAndSettle();
-        if (label == 'Channels') {
-          await tester.tap(
-            find.descendant(
-              of: primaryMainContent,
-              matching: find.byKey(const ValueKey('chat-inbox-channels-card')),
-            ),
-          );
-        }
       }
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, route);
@@ -212,7 +202,7 @@ void main() {
     }
     expect(shell.handleBack(canReturnToSidebar: false), isTrue);
     await tester.pumpAndSettle();
-    expect(shell.currentContent?.id, ChatRoute.browseRouteId);
+    expect(shell.currentContent?.id, ChatRoute.myThreadsRouteId);
     expect(shell.handleForward(), isTrue);
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, ChatRoute.inboxRouteId);

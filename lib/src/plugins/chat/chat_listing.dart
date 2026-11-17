@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
+import 'chat_channel_panel.dart';
 import 'chat_controller.dart';
 import 'chat_find_field.dart';
 import 'chat_inbox.dart';
@@ -310,11 +311,9 @@ class _ChatListingState extends State<ChatListing> {
     _view = null;
   });
 
-  void _browse(String query) {
-    final chat = _chat!;
-    if (query.isNotEmpty) chat.inboxFilters.browseFor(_siteUrl).query = query;
-    _shell!.openBrowseChannels();
-  }
+  void _browse(String words) => unawaited(
+    showChatChannelBrowser(context, siteUrl: _siteUrl, words: words),
+  );
 
   ChatListingView _buildView(BuildContext context) {
     final chat = _chat!;

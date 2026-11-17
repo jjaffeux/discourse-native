@@ -9,11 +9,17 @@ import 'chat_inbox_filters.dart';
 
 typedef _BrowseQuery = ({String filter, ChatChannelBrowseStatus status});
 
-/// The query and server cursor for one mounted channel directory.
+/// The query and server cursor for one open channel panel. It opens on the
+/// words it is given; which channels its chips narrow it to is kept for the
+/// forum between one opening and the next.
 final class ChatBrowseSession extends ChangeNotifier {
-  ChatBrowseSession({required this.chat, required this.siteUrl}) {
+  ChatBrowseSession({
+    required this.chat,
+    required this.siteUrl,
+    String query = '',
+  }) {
     final saved = chat.inboxFilters.browseFor(siteUrl);
-    _query = (filter: saved.query, status: saved.status);
+    _query = (filter: query, status: saved.status);
     _membership = saved.membership;
     _account = _BrowseAccount(chat.captureAccount(siteUrl));
     _observeAccount(_account);
@@ -63,7 +69,7 @@ final class ChatBrowseSession extends ChangeNotifier {
     for (final channel in visibleChannels) channel.id,
   ];
 
-  /// The controller notifies for every message in every channel. Each card
+  /// The controller notifies for every message in every channel. Each row
   /// follows its own record, so only a membership filter can make one of
   /// those notifications change this list.
   void _chatChanged() {
@@ -78,7 +84,6 @@ final class ChatBrowseSession extends ChangeNotifier {
   void changeQuery(String value) {
     if (_retired || value == query) return;
     _query = (filter: value, status: status);
-    chat.inboxFilters.browseFor(siteUrl).query = value;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () {
       _debounce = null;

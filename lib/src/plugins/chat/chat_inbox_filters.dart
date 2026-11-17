@@ -9,11 +9,14 @@ enum ChatInboxKind { all, channels, directMessages, voiceRooms }
 
 enum ChatChannelJoinedFilter { all, joined, notJoined }
 
-/// Directory choices survive moving between the peer chat routes.
+/// What the channel panel and the Threads page are narrowed to, kept for a
+/// forum between one visit and the next.
 final class ChatBrowseFilters {
-  String query = '';
-  ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all;
-  ChatChannelJoinedFilter membership = ChatChannelJoinedFilter.all;
+  /// Open channels unless asked for the rest, as those are the ones to join.
+  ChatChannelBrowseStatus status = ChatChannelBrowseStatus.open;
+
+  /// What can be joined, as the chats a reader is in are already listed.
+  ChatChannelJoinedFilter membership = ChatChannelJoinedFilter.notJoined;
   int? threadChannelId;
 }
 

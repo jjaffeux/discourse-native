@@ -73,6 +73,10 @@ final class ChatRoute {
 
   static const String searchRouteId = 'chat-search';
   static const String myThreadsRouteId = 'chat-my-threads';
+
+  /// No page has this id. Channels were once browsed on a page of their own,
+  /// and a tab kept from then still carries it: it shows the Chats page with
+  /// the channel panel over it.
   static const String browseRouteId = 'chat-browse';
   static const String inboxRouteId = 'chat-inbox';
   static const String channelsRouteId = 'chat-channels';
@@ -200,6 +204,14 @@ final class ChatLink {
     return parsed != null && parsed > 0 ? parsed : null;
   }
 }
+
+/// One asking for the channel panel over the Chats page, made by something
+/// that has no page of its own to show the panel over.
+typedef ChatChannelPanelRequest = ({
+  String siteUrl,
+  String words,
+  PluginSiteLease lease,
+});
 
 /// Keeps one-shot message-anchor intent out of durable [ChatRoute] history.
 @immutable

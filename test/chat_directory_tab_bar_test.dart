@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
@@ -57,7 +56,6 @@ void main() {
 
   for (final (label, pageType) in [
     ('Chats', ChatMobileSidebar),
-    ('Browse channels', ChatBrowseChannelsView),
     ('Threads', ChatMyThreadsView),
   ]) {
     testWidgets(
@@ -98,10 +96,9 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
         await tester.pumpAndSettle();
         if (label != 'Chats') {
-          // The ways close a list of forty channels; this test is about the
-          // page they lead to.
-          final chat = shell.pluginSession.require(chatShellService);
-          label == 'Threads' ? chat.openMyThreads() : chat.openBrowseChannels();
+          // The way to the threads stands in a list of forty channels; this
+          // test is about the page it leads to.
+          shell.pluginSession.require(chatShellService).openMyThreads();
           await tester.pumpAndSettle();
         }
         final page = find.byType(pageType);

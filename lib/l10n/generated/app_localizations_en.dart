@@ -299,6 +299,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String chatNoChannelsMatch(String query) {
+    return 'No channels match “$query”';
+  }
+
+  @override
+  String chatJoinChannelNamed(String channel) {
+    return 'Join $channel';
+  }
+
+  @override
+  String chatLeaveChannelNamed(String channel) {
+    return 'Leave $channel';
+  }
+
+  @override
   String chatNoneMatch(String query) {
     return 'None of your chats match “$query”';
   }
@@ -11898,50 +11913,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String unreadChatbrowsechannelsview(
-    String unread,
-    num unreadValue2,
-    String statusNull,
-    String appL10nNo,
-    String status,
-    String unreadValue6,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(statusNull, {
-      'true': '$appL10nNo unread messages',
-      'other': '$appL10nNo unread messages · $status',
-    });
-    String _temp1 = intl.Intl.selectLogic(statusNull, {
-      'true': '$appL10nNo unread message',
-      'other': '$appL10nNo unread message · $status',
-    });
-    String _temp2 = intl.Intl.pluralLogic(
-      unreadValue2,
-      locale: localeName,
-      other: '$_temp0',
-      one: '$_temp1',
-    );
-    String _temp3 = intl.Intl.selectLogic(statusNull, {
-      'true': '$unreadValue6 unread messages',
-      'other': '$unreadValue6 unread messages · $status',
-    });
-    String _temp4 = intl.Intl.selectLogic(statusNull, {
-      'true': '$unreadValue6 unread message',
-      'other': '$unreadValue6 unread message · $status',
-    });
-    String _temp5 = intl.Intl.pluralLogic(
-      unreadValue2,
-      locale: localeName,
-      other: '$_temp3',
-      one: '$_temp4',
-    );
-    String _temp6 = intl.Intl.selectLogic(unread, {
-      'true': '$_temp2',
-      'other': '$_temp5',
-    });
-    return '$_temp6';
-  }
-
-  @override
   String menu(String channelTitle) {
     return '$channelTitle menu';
   }
@@ -12646,20 +12617,6 @@ class AppLocalizationsEn extends AppLocalizations {
           '$appL10nExpand $groupStatusLabel: $groupHeading ($groupAlertsLength)',
       'other':
           '$appL10nCollapse $groupStatusLabel: $groupHeading ($groupAlertsLength)',
-    });
-    return '$_temp0';
-  }
-
-  @override
-  String messageChatbrowsechannelsview(
-    String following,
-    String appL10nLeave,
-    String channelTitle,
-    String appL10nJoin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(following, {
-      'true': '$appL10nLeave $channelTitle',
-      'other': '$appL10nJoin $channelTitle',
     });
     return '$_temp0';
   }

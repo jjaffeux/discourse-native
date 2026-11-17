@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -736,47 +737,48 @@ void main() {
     expect(tester.getSize(dock).width, closeTo(foldedWidth, 1));
   }, variant: _platforms);
 
-  testWidgets('dismissing a channel preserves Browse channels results', (
-    tester,
-  ) async {
+  testWidgets('a channel opened from the channel panel is dismissed back to '
+      'the Chats page', (tester) async {
     late FakeDiscourseApi api;
     final shell = await _fixture(
       tester,
       browse: true,
       onApi: (value) => api = value,
     );
-    shell.pluginSession.require(chatShellService).openBrowseChannels();
-    await tester.pumpAndSettle();
-    final filter = find.byKey(const ValueKey('chat-browse-filter'));
-    final card = find.byKey(const ValueKey('chat-browse-channel-10'));
     api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
-          filter: 'Support',
+          status: ChatChannelBrowseStatus.open,
         )] =
         api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()]!;
-    await tester.enterText(filter, 'Support');
-    await tester.pump(const Duration(milliseconds: 350));
+    shell.pluginSession.require(chatShellService).openBrowseChannels();
     await tester.pumpAndSettle();
-    expect(card.hitTestable(), findsOneWidget);
+    final field = find.byKey(const ValueKey('chat-channel-panel-field'));
+    final row = find.byKey(const ValueKey('chat-channel-panel-channel-10'));
+    expect(field, findsOneWidget);
+    expect(shell.currentContent?.id, ChatRoute.inboxRouteId);
+    // The panel opens on what can still be joined, and this one already is.
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-channel-panel-membership')),
+        matching: find.text('All'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(row.hitTestable(), findsOneWidget);
     api.chatBrowseRequested.clear();
 
-    await tester.tap(card);
+    await tester.tap(
+      find.descendant(of: row, matching: find.textContaining('Support')),
+    );
     await tester.pumpAndSettle();
+    expect(field, findsNothing, reason: 'Opening a channel puts it away');
     expect(_sheet, findsOneWidget);
     await _dismiss(tester);
 
     expect(_sheet, findsNothing);
-    expect(shell.currentContent?.id, ChatRoute.browseRouteId);
+    expect(shell.currentContent?.id, ChatRoute.inboxRouteId);
+    expect(find.byType(ChatMobileSidebar), findsOneWidget);
+    expect(field, findsNothing, reason: 'Asked for once, shown once');
     expect(api.chatBrowseRequested, isEmpty);
-    expect(
-      tester
-          .widget<EditableText>(
-            find.descendant(of: filter, matching: find.byType(EditableText)),
-          )
-          .controller
-          .text,
-      'Support',
-    );
-    expect(card.hitTestable(), findsOneWidget);
   }, variant: _platforms);
 
   for (final origin in [

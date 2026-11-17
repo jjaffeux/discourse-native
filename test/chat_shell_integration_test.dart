@@ -3115,61 +3115,10 @@ void _registerChatShellTests() {
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
-      testWidgets('refreshes browse results with the current channel filter', (
+      testWidgets('browses, finds and joins public channels in the panel', (
         tester,
       ) async {
-        final api = FakeDiscourseApi(
-          totals: withChat,
-          user: me,
-          chatChannelsBySite: {
-            site: ChatChannels(public: [channel(9)]),
-          },
-          chatBrowsePagesByKey: {
-            FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
-              channels: [],
-            ),
-            FakeDiscourseApi.chatBrowseKey(filter: 'sup'):
-                const ChatChannelBrowsePage(channels: []),
-          },
-        );
-        await pumpChat(tester, api: api);
-        await tester.tap(sidebarDestination('Channels'));
-        await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(const ValueKey('chat-browse-filter')),
-          'sup',
-        );
-        await tester.pump(const Duration(milliseconds: 350));
-        await tester.pumpAndSettle();
-        final shell = ShellScope.read(tester.element(primaryMainContent));
-        api.chatBrowseRequested.clear();
-        api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
-          filter: 'sup',
-        )] = ChatChannelBrowsePage(
-          channels: [channel(10, title: 'Support')],
-        );
-
-        unawaited(shell.refreshCurrentTab());
-        await tester.pumpAndSettle();
-
-        expect(api.chatBrowseRequested, const [
-          (
-            filter: 'sup',
-            status: ChatChannelBrowseStatus.all,
-            offset: 0,
-            limit: ChatChannelBrowsePage.pageSize,
-          ),
-        ]);
-        expect(
-          find.byKey(const ValueKey('chat-browse-channel-10')),
-          findsOneWidget,
-        );
-        expect(shell.currentContent?.id, ChatRoute.browseRouteId);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-      testWidgets('browses, filters, and joins public channels', (
-        tester,
-      ) async {
+        const open = ChatChannelBrowseStatus.open;
         final joined = channel(9, membershipsCount: 42);
         final support = channel(
           10,
@@ -3186,59 +3135,72 @@ void _registerChatShellTests() {
             site: ChatChannels(public: [joined]),
           },
           chatBrowsePagesByKey: {
-            FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            FakeDiscourseApi.chatBrowseKey(status: open): ChatChannelBrowsePage(
               channels: [joined, support],
             ),
-            FakeDiscourseApi.chatBrowseKey(filter: 'sup'):
+            FakeDiscourseApi.chatBrowseKey(filter: 'sup', status: open):
                 ChatChannelBrowsePage(channels: [support]),
           },
         );
         await pumpChat(tester, api: api);
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        final page = shell.currentContent?.id;
+        Finder row(int id) =>
+            find.byKey(ValueKey('chat-channel-panel-channel-$id'));
 
-        await tester.tap(sidebarDestination('Channels'));
+        await tester.tap(
+          find.byKey(const ValueKey('chat-inbox-channels-card')),
+        );
         await tester.pumpAndSettle();
 
         expect(
           find.descendant(
-            of: primaryMainContent,
-            matching: find.text('Browse channels'),
+            of: find.byType(DDialogContent),
+            matching: find.text('Channels'),
           ),
           findsOneWidget,
         );
-        for (final id in [9, 10]) {
-          expect(
-            find.byKey(ValueKey('chat-browse-channel-$id')),
-            findsOneWidget,
-          );
-        }
+        expect(
+          shell.currentContent?.id,
+          page,
+          reason: 'The panel stands over where it was asked for',
+        );
+        expect(row(9), findsNothing, reason: 'Already joined');
+        expect(row(10), findsOneWidget);
+        expect(
+          find.descendant(
+            of: row(10),
+            matching: find.text('Ask the community for help.'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: row(10), matching: find.textContaining('· 7')),
+          findsOneWidget,
+        );
         await tester.enterText(
-          find.byKey(const ValueKey('chat-browse-filter')),
+          find.byKey(const ValueKey('chat-channel-panel-field')),
           'sup',
         );
         await tester.pump(const Duration(milliseconds: 350));
         await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('chat-browse-channel-9')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('chat-browse-channel-10')),
-          findsOneWidget,
-        );
+        expect(row(10), findsOneWidget);
 
-        await tester.tap(find.byKey(const ValueKey('chat-join-10')));
+        await tester.tap(
+          find.byKey(const ValueKey('chat-channel-panel-join-10')),
+        );
         await tester.pumpAndSettle();
 
         expect(api.chatBrowseRequested, const [
           (
             filter: '',
-            status: ChatChannelBrowseStatus.all,
+            status: open,
             offset: 0,
             limit: ChatChannelBrowsePage.pageSize,
           ),
           (
             filter: 'sup',
-            status: ChatChannelBrowseStatus.all,
+            status: open,
             offset: 0,
             limit: ChatChannelBrowsePage.pageSize,
           ),
@@ -3246,41 +3208,86 @@ void _registerChatShellTests() {
         expect(api.chatChannelFollowsUpdated, const [
           (channelId: 10, following: true),
         ]);
+        expect(row(10), findsNothing, reason: 'Joined, so no longer listed');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(DDialogContent), findsNothing);
         expect(sidebarDestination('Support'), findsOneWidget);
-        expect(find.byKey(const ValueKey('chat-unfollow-10')), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-      testWidgets('tabs through the browse channel filters in order', (
-        tester,
-      ) async {
-        await pumpChat(tester);
+      testWidgets('a tab kept from when channels had a page of their own '
+          'shows the Chats page with the panel over it, once', (tester) async {
+        final api = FakeDiscourseApi(
+          totals: withChat,
+          user: me,
+          chatChannelsBySite: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+          chatBrowsePagesByKey: {
+            FakeDiscourseApi.chatBrowseKey(
+              status: ChatChannelBrowseStatus.open,
+            ): ChatChannelBrowsePage(
+              channels: [
+                channel(10, title: 'Support', following: false, canJoin: true),
+              ],
+            ),
+          },
+        );
+        await pumpChat(tester, api: api);
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        final panel = find.byKey(const ValueKey('chat-channel-panel-field'));
 
-        await tester.tap(sidebarDestination('Channels'));
+        shell.openPageTab(
+          const ContentRoute(
+            destination: ExtensionDestination(ChatRoute.browseRouteId),
+            title: 'Channels',
+            icon: DIcons.hashtag,
+          ),
+        );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('chat-browse-filter')));
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
+        expect(shell.currentContent?.id, ChatRoute.browseRouteId);
         expect(
-          _primaryFocusIsWithin(find.byKey(const ValueKey('chat-inbox-back'))),
-          isTrue,
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-
-        expect(
-          _primaryFocusIsWithin(
-            find.byKey(const ValueKey('chat-browse-status')),
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(const ValueKey('chat-inbox-title')),
           ),
-          isTrue,
+          findsOneWidget,
+        );
+        expect(panel, findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-channel-panel-channel-10')),
+          findsOneWidget,
         );
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(panel, findsNothing);
+        await shell.chat.loadChannels(site, force: true);
+        await tester.pumpAndSettle();
+        expect(panel, findsNothing, reason: 'Put away, it stays away');
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('the panel asked for from elsewhere opens over the Chats '
+          'page, holding the words', (tester) async {
+        await pumpChat(tester);
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        final chat = shell.pluginSession.require(chatShellService);
+        chat.openBrowseChannels(words: 'design');
+        expect(chat.channelPanelRequest.value?.words, 'design');
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, ChatRoute.inboxRouteId);
+        expect(chat.channelPanelRequest.value, isNull, reason: 'Taken once');
         expect(
-          _primaryFocusIsWithin(
-            find.byKey(const ValueKey('chat-browse-joined')),
-          ),
-          isTrue,
+          tester
+              .widget<EditableText>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('chat-channel-panel-field')),
+                  matching: find.byType(EditableText),
+                ),
+              )
+              .controller
+              .text,
+          'design',
         );
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -4372,9 +4379,8 @@ void _registerChatShellTests() {
         expect(find.textContaining('Until '), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-      testWidgets('leaves a public channel from settings and opens browse', (
-        tester,
-      ) async {
+      testWidgets('leaves a public channel from settings and is shown the '
+          'rest in the channel panel', (tester) async {
         final api = FakeDiscourseApi(
           totals: withChat,
           user: me,
@@ -4409,7 +4415,11 @@ void _registerChatShellTests() {
         expect(api.chatChannelFollowsUpdated, const [
           (channelId: 9, following: false),
         ]);
-        expect(shell.currentContent?.id, 'chat-browse');
+        expect(shell.currentContent?.id, ChatRoute.inboxRouteId);
+        expect(
+          find.byKey(const ValueKey('chat-channel-panel-field')),
+          findsOneWidget,
+        );
         expect(sidebarDestination('Bugs'), findsNothing);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

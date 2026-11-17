@@ -568,6 +568,24 @@ abstract class AppLocalizations {
   /// **'Channels you are not in, for “{query}”'**
   String chatBrowseAllChannelsFor(String query);
 
+  /// Empty result for the words typed in the channel panel's field.
+  ///
+  /// In en, this message translates to:
+  /// **'No channels match “{query}”'**
+  String chatNoChannelsMatch(String query);
+
+  /// Accessible name of a channel row's Join chip in the channel panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Join {channel}'**
+  String chatJoinChannelNamed(String channel);
+
+  /// Accessible name of a channel row's Leave chip in the channel panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave {channel}'**
+  String chatLeaveChannelNamed(String channel);
+
   /// Empty result for the words typed in chat's own field.
   ///
   /// In en, this message translates to:
@@ -20219,19 +20237,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'{unread, select, true{{unreadValue2, plural, =1{{statusNull, select, true{{appL10nNo} unread message} other{{appL10nNo} unread message · {status}}}} other{{statusNull, select, true{{appL10nNo} unread messages} other{{appL10nNo} unread messages · {status}}}}}} other{{unreadValue2, plural, =1{{statusNull, select, true{{unreadValue6} unread message} other{{unreadValue6} unread message · {status}}}} other{{statusNull, select, true{{unreadValue6} unread messages} other{{unreadValue6} unread messages · {status}}}}}}}'**
-  String unreadChatbrowsechannelsview(
-    String unread,
-    num unreadValue2,
-    String statusNull,
-    String appL10nNo,
-    String status,
-    String unreadValue6,
-  );
-
-  /// English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'{channelTitle} menu'**
   String menu(String channelTitle);
 
@@ -21071,17 +21076,6 @@ abstract class AppLocalizations {
     String groupHeading,
     String groupAlertsLength,
     String appL10nCollapse,
-  );
-
-  /// English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{following, select, true{{appL10nLeave} {channelTitle}} other{{appL10nJoin} {channelTitle}}}'**
-  String messageChatbrowsechannelsview(
-    String following,
-    String appL10nLeave,
-    String channelTitle,
-    String appL10nJoin,
   );
 
   /// English UI message used by plugins/chat/chat_message_tile.dart. Keep placeholders intact.

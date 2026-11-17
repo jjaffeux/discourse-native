@@ -133,8 +133,6 @@ void main() {
         // The Chat drawer's search entry stands in for the shared search
         // field it opens, so its prompt keeps that field's muted hint color.
         'lib/src/plugins/chat/chat_inbox_section.dart': {'foregroundColor': 1},
-        // Browse's Join/Joined row action is the mockup's pill.
-        'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
         // Chat's jump-to-latest action shares the floating stream chip palette.
         'lib/src/plugins/chat/chat_channel_view.dart': {
           'shape': 1,
