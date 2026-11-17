@@ -145,7 +145,7 @@
   "@nestedRepliesBulkPartial": {"description": "Nested replies plugin. Some selected topics could not be changed."},
   "chatViewMore": "View {count} more",
   "@chatViewMore": {"description": "Expand the remaining rows in a Chat section.", "placeholders": {"count": {"type": "int"}}},
-  "chatViewLess": "View less",
+  "chatViewLess": "Show fewer",
   "@chatViewLess": {"description": "Fold an expanded Chat section back to its first rows."},
   "chatViewUnreadAndRead": "View {unread} unread & {read, plural, =1{1 read chat} other{{read} read chats}}",
   "@chatViewUnreadAndRead": {"description": "Expand a Chat section whose folded rows include unread chats.", "placeholders": {"unread": {"type": "int"}, "read": {"type": "int"}}},

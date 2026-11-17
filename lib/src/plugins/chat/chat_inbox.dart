@@ -57,7 +57,7 @@ class ChatInboxFilterBar extends StatelessWidget {
           items: [
             DToggleGroupItem.iconOnly(
               value: ChatInboxSort.byType,
-              icon: const DIcon(DIcons.tableList, size: 13),
+              icon: const DIcon(DIcons.folder, size: 13),
               semanticLabel: context.l10n.chatOrderByType,
               tooltip: context.l10n.chatOrderByType,
             ),

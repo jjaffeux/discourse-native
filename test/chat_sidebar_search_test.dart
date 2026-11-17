@@ -44,7 +44,7 @@ void main() {
       channels: {
         panels.site: ChatChannels(
           public: [
-            for (var id = 1; id <= 7; id++)
+            for (var id = 1; id <= 8; id++)
               ChatChannel(
                 id: id,
                 title: 'Signal channel $id',
@@ -76,7 +76,9 @@ void main() {
         .inboxFilters;
     final bounds = tester.getRect(find.byType(DSidebar));
     expect(tester.getRect(_field).left - bounds.left, 4);
-    expect(tester.getRect(_field).right - bounds.right, -4);
+    final sort = find.byKey(const ValueKey('chat-inbox-sort-filter'));
+    expect(tester.getRect(sort).right - bounds.right, -4);
+    expect(tester.getRect(sort).center.dy, tester.getRect(_field).center.dy);
     expect(tester.getSize(_field).height, 30);
     await _reveal(tester, find.text('View 2 read chats'));
 
@@ -156,12 +158,12 @@ void main() {
       await _reveal(tester, more);
       await tester.tap(more);
       await tester.pumpAndSettle();
-      await _reveal(tester, find.text('View less'));
+      await _reveal(tester, find.text('Show fewer'));
       await tester.enterText(_field, 'no-such-room-or-chat');
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Clear search'));
       await tester.pumpAndSettle();
-      await _reveal(tester, find.text('View less'));
+      await _reveal(tester, find.text('Show fewer'));
       await tester.enterText(_field, 'VoIcE room');
       await tester.pumpAndSettle();
       expect(find.textContaining('None of your chats match'), findsNothing);

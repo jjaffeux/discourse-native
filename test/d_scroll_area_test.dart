@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -9,11 +10,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Widget host(Widget child) => MaterialApp(
-    home: Scaffold(
-      body: Center(child: SizedBox(width: 200, height: 180, child: child)),
-    ),
-  );
+  Widget host(Widget child, {TargetPlatform platform = TargetPlatform.macOS}) =>
+      MaterialApp(
+        theme: ThemeData(platform: platform),
+        home: Scaffold(
+          body: Center(child: SizedBox(width: 200, height: 180, child: child)),
+        ),
+      );
   testWidgets('page scrollbar clears its header while nested bars stay local', (
     tester,
   ) async {
@@ -23,6 +26,7 @@ void main() {
     addTearDown(nestedScroll.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
         home: DPageSurface.scrollable(
           framed: false,
           hideHeaderOnScroll: true,
@@ -81,6 +85,42 @@ void main() {
     expect(painters.last.padding.resolve(TextDirection.ltr).top, 0);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'phones scroll with no visible or interactive scrollbar',
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        host(
+          DScrollArea(
+            controller: controller,
+            child: const SizedBox(height: 1000),
+          ),
+          platform: defaultTargetPlatform,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final thumb = tester.widget<RawScrollbar>(
+        find.byWidgetPredicate((widget) => widget is RawScrollbar),
+      );
+      expect(thumb.thumbVisibility, isFalse);
+      expect(thumb.interactive, isFalse);
+      expect(thumb.thumbColor, Colors.transparent);
+      final viewport = find.byType(SingleChildScrollView);
+      final bounds = tester.getRect(viewport);
+      await tester.tapAt(bounds.topRight + const Offset(-4, 130));
+      await tester.pumpAndSettle();
+      expect(controller.offset, 0);
+      await tester.drag(viewport, const Offset(0, -80));
+      await tester.pumpAndSettle();
+      expect(controller.offset, greaterThan(0));
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   testWidgets('touch scrollbar gestures stay inside the painted track', (
     tester,
@@ -322,7 +362,7 @@ void main() {
       ]) {
         await tester.pumpWidget(
           MaterialApp(
-            theme: AppTheme.light,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
             home: Center(
               child: SizedBox(
                 width: 200,

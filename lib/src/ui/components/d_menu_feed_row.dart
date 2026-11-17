@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
+import '../foundation/menu_content_scale.dart';
 import 'd_badge.dart';
 import 'd_item.dart';
-import 'd_notification_dot.dart';
 
 /// A two-line header-menu row. Item owns activation, focus and its 8px surface.
-/// The trailing time and unread marker share a column; read rows keep its width.
-/// An unread row rests in the unread fill every unread row has.
+/// A count sits beside the title and the timestamp sits beside the excerpt.
+/// The row tint shows unread state even when there is no count.
 class DMenuFeedRow extends StatelessWidget {
   const DMenuFeedRow({
     super.key,
@@ -34,28 +34,28 @@ class DMenuFeedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final muted = Color.lerp(tokens.colors.surface, tokens.foreground, .50)!;
+    final muted = tokens.mutedForeground;
     final scaler = MediaQuery.textScalerOf(context);
-    final largeText = scaler.scale(13) > 19.5;
-    final titleHeight = scaler.scale(13) * 1.35;
-    final subjectHeight = scaler.scale(12.5) * 1.4;
-    // Flutter rounds each paragraph's line box up. Balance that extra leading
-    // across the insets so the two-line row retains the reference's 52.05px.
-    final verticalInset = description != null && !largeText
-        ? 8 -
-              (titleHeight.ceilToDouble() -
-                      titleHeight +
-                      subjectHeight.ceilToDouble() -
-                      subjectHeight) /
-                  2
-        : 8.0;
-    Widget line(Widget child, double size, double height, Color color) =>
+    final reading = Theme.of(context).textTheme.bodyLarge;
+    final sheetScale = DMenuContentScale.isActiveOf(context)
+        ? DMenuContentScale.factor
+        : 1.0;
+    final titleSize = DiscourseTypography.rowTitle / sheetScale;
+    final excerptSize = DiscourseTypography.preview / sheetScale;
+    final timeSize = DiscourseTypography.xs / sheetScale;
+    final largeText = scaler.scale(titleSize) / titleSize > 1.5;
+    final showCount = unread && count > 0;
+    const titleHeight = DiscourseTypography.lineHeightRowTitle;
+    const excerptHeight = DiscourseTypography.lineHeightPreview;
+    Widget line(Widget child, double size, double height) =>
         DefaultTextStyle.merge(
           style: TextStyle(
+            fontFamily: reading?.fontFamily,
+            fontFamilyFallback: reading?.fontFamilyFallback,
             fontSize: size,
             height: height,
             fontWeight: FontWeight.w400,
-            color: color,
+            color: muted,
           ),
           maxLines: largeText ? null : 1,
           overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
@@ -65,7 +65,7 @@ class DMenuFeedRow extends StatelessWidget {
       size: DItemSize.xs,
       shape: DItemShape.menu,
       variant: unread ? DItemVariant.unread : DItemVariant.standard,
-      padding: EdgeInsets.symmetric(horizontal: 9, vertical: verticalInset),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       semanticLabel: semanticLabel,
       onPressed: onPressed,
       children: [
@@ -85,57 +85,44 @@ class DMenuFeedRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         spacing: 1,
                         children: [
-                          line(title, 13, 1.35, muted),
+                          line(title, titleSize, titleHeight),
                           if (description != null)
-                            line(
-                              description!,
-                              12.5,
-                              1.4,
-                              unread
-                                  ? Color.lerp(
-                                      tokens.colors.surface,
-                                      tokens.foreground,
-                                      .90,
-                                    )!
-                                  : muted,
-                            ),
+                            line(description!, excerptSize, excerptHeight),
                         ],
                       ),
                     ),
-                    if (time != null || unread)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2, bottom: 2),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (time != null)
-                              Text(
-                                time!,
-                                style: TextStyle(
-                                  fontSize: DiscourseTypography.micro,
-                                  height: 1.5,
-                                  color: Color.lerp(
-                                    tokens.colors.surface,
-                                    tokens.foreground,
-                                    .4,
-                                  ),
+                    if (time != null || showCount)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (showCount)
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight:
+                                    scaler.scale(titleSize) * titleHeight,
+                              ),
+                              child: Center(
+                                widthFactor: 1,
+                                child: DBadge(
+                                  child: Text(count > 99 ? '99+' : '$count'),
                                 ),
                               ),
-                            if (unread) ...[
-                              const Spacer(),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 3),
-                                child: count > 0
-                                    ? DBadge(
-                                        child: Text(
-                                          count > 99 ? '99+' : '$count',
-                                        ),
-                                      )
-                                    : const DNotificationDot(),
+                            ),
+                          if (time != null) ...[
+                            const Spacer(),
+                            Text(
+                              time!,
+                              style: TextStyle(
+                                fontSize: timeSize,
+                                height:
+                                    scaler.scale(excerptSize) /
+                                    scaler.scale(timeSize) *
+                                    excerptHeight,
+                                color: muted,
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                   ],
                 ),

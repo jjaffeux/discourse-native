@@ -493,7 +493,7 @@ abstract class AppLocalizations {
   /// Fold an expanded Chat section back to its first rows.
   ///
   /// In en, this message translates to:
-  /// **'View less'**
+  /// **'Show fewer'**
   String get chatViewLess;
 
   /// Expand a Chat section whose folded rows include unread chats.

@@ -209,13 +209,17 @@ void main() {
     );
   });
 
-  testWidgets('a row marks what is private, muted and starred after its '
-      'name', (tester) async {
+  testWidgets('a private channel leads with its lock and keeps other marks', (
+    tester,
+  ) async {
     final fixture = await _pump(tester);
     await fixture.show(const ChatMobileSidebar(siteUrl: _site));
     Finder icon(int id, DIconData glyph) =>
         _in(id, find.byWidgetPredicate((w) => w is DIcon && w.icon == glyph));
-    expect(icon(3, DIcons.lock), findsOneWidget);
+    expect(
+      tester.getRect(icon(3, DIcons.lock)).right,
+      lessThan(tester.getRect(_in(3, find.text('secret-ops'))).left),
+    );
     expect(icon(1, DIcons.lock), findsNothing);
     expect(icon(4, DNativeIcons.bellSlash), findsOneWidget);
     expect(
@@ -311,12 +315,8 @@ void main() {
     final field = find.byKey(const ValueKey('chat-search-entry'));
     final order = find.byKey(const ValueKey('chat-inbox-sort-filter'));
     expect(find.text('Find a chat'), findsOneWidget);
-    expect(
-      tester.getRect(order).top - tester.getRect(field).bottom,
-      8,
-      reason: 'The switch on the line under the field',
-    );
-    expect(tester.getRect(order).left, tester.getRect(field).left);
+    expect(tester.getRect(order).center.dy, tester.getRect(field).center.dy);
+    expect(tester.getRect(order).left, tester.getRect(field).right + 8);
     expect(find.byTooltip('By type'), findsOneWidget);
     expect(find.byTooltip('Newest'), findsOneWidget);
     expect(

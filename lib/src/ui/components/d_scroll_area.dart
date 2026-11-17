@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/scroll_thumb.dart';
 import '../../theme/tokens.dart';
+import '../foundation/control_style.dart';
 import 'd_page_surface.dart';
 import 'd_scroll_behavior.dart';
 
@@ -30,7 +31,7 @@ class DScrollBar extends StatelessWidget {
   final ScrollController? controller;
   final Axis axis;
 
-  /// Whether to paint the thumb and allow scrollbar dragging or track clicks.
+  /// Whether to paint and enable the desktop scrollbar.
   /// Hiding it preserves the viewport, its state and native scrolling.
   final bool showScrollbar;
 
@@ -45,46 +46,49 @@ class DScrollBar extends StatelessWidget {
   final int notificationDepth;
 
   @override
-  Widget build(BuildContext context) => ScrollConfiguration(
-    behavior: DScrollBehavior(
-      delegate: ScrollConfiguration.of(context),
-    ).copyWith(scrollbars: false),
-    // Keep the viewport subtree mounted when the scrollbar is hidden.
-    child: _NaturalScrollbar(
-      pageHeader: axis == Axis.vertical
-          ? DPageSurface.headerGeometryOf(context)
-          : null,
-      controller: controller,
-      thumbVisibility: showScrollbar && thumbVisibility,
-      interactive: showScrollbar,
-      thickness: DScrollThumb.defaultThickness,
-      crossAxisMargin: DScrollThumb.containerInset,
-      mainAxisMargin: DScrollThumb.containerInset,
-      padding: axis == Axis.vertical
-          ? EdgeInsets.only(bottom: cornerExtent)
-          : EdgeInsetsDirectional.only(end: cornerExtent),
-      radius: const Radius.circular(999),
-      minThumbLength: 16,
-      thumbColor: showScrollbar
-          ? DScrollThumb.color(DTokens.of(context).foreground)
-          : Colors.transparent,
-      activeThumbColor: showScrollbar
-          ? DScrollThumb.activeColor(DTokens.of(context).foreground)
-          : Colors.transparent,
-      fadeDuration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 150),
-      notificationPredicate: (notification) =>
-          notification.metrics.axis == axis &&
-          notification.depth == notificationDepth,
-      scrollbarOrientation: axis == Axis.horizontal
-          ? ScrollbarOrientation.bottom
-          : Directionality.of(context) == TextDirection.rtl
-          ? ScrollbarOrientation.left
-          : ScrollbarOrientation.right,
-      child: child,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final enabled = showScrollbar && !DControlStyle.isTouch(context);
+    return ScrollConfiguration(
+      behavior: DScrollBehavior(
+        delegate: ScrollConfiguration.of(context),
+      ).copyWith(scrollbars: false),
+      // Keep the viewport subtree mounted when the scrollbar is hidden.
+      child: _NaturalScrollbar(
+        pageHeader: axis == Axis.vertical
+            ? DPageSurface.headerGeometryOf(context)
+            : null,
+        controller: controller,
+        thumbVisibility: enabled && thumbVisibility,
+        interactive: enabled,
+        thickness: DScrollThumb.defaultThickness,
+        crossAxisMargin: DScrollThumb.containerInset,
+        mainAxisMargin: DScrollThumb.containerInset,
+        padding: axis == Axis.vertical
+            ? EdgeInsets.only(bottom: cornerExtent)
+            : EdgeInsetsDirectional.only(end: cornerExtent),
+        radius: const Radius.circular(999),
+        minThumbLength: 16,
+        thumbColor: enabled
+            ? DScrollThumb.color(DTokens.of(context).foreground)
+            : Colors.transparent,
+        activeThumbColor: showScrollbar
+            ? DScrollThumb.activeColor(DTokens.of(context).foreground)
+            : Colors.transparent,
+        fadeDuration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 150),
+        notificationPredicate: (notification) =>
+            notification.metrics.axis == axis &&
+            notification.depth == notificationDepth,
+        scrollbarOrientation: axis == Axis.horizontal
+            ? ScrollbarOrientation.bottom
+            : Directionality.of(context) == TextDirection.rtl
+            ? ScrollbarOrientation.left
+            : ScrollbarOrientation.right,
+        child: child,
+      ),
+    );
+  }
 }
 
 /// The native single-axis viewport used by DScrollArea. Its controller is
@@ -228,7 +232,8 @@ class _DScrollAreaState extends State<DScrollArea> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final both = widget.axes == DScrollAxes.both;
-    final showCorner = widget.showScrollbar && _hasCorner;
+    final showCorner =
+        widget.showScrollbar && _hasCorner && !DControlStyle.isTouch(context);
     final primary = widget.controller ?? _owned;
     final horizontal = (_ownedHorizontal);
     Widget content = widget.child;

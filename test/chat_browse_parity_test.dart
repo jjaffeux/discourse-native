@@ -464,7 +464,8 @@ void main() {
         find.byKey(const ValueKey('chat-inbox-threads-card')),
       );
       expect(field.top, greaterThan(title.bottom));
-      expect(sort.top, greaterThan(field.bottom));
+      expect(sort.center.dy, field.center.dy);
+      expect(sort.left, field.right + 8);
       expect(sort.right, lessThanOrEqualTo(width));
       expect(cards.top, greaterThan(sort.bottom));
       expect(find.byType(DToggleGroup<ChatBrowsePage>), findsNothing);
@@ -739,12 +740,15 @@ void main() {
                 lastMessageAt: DateTime.utc(2026, 10, 17, 0, 7 - id),
               ),
           ],
-          direct: const [
-            ChatChannel(
-              id: 99,
-              title: 'Ada',
-              kind: ChatChannelKind.directMessage,
-            ),
+          direct: [
+            for (var id = 1; id <= 6; id++)
+              ChatChannel(
+                id: 90 + id,
+                title: 'Direct chat $id',
+                kind: ChatChannelKind.directMessage,
+                lastMessageId: 200 + id,
+                lastMessageAt: DateTime.utc(2026, 10, 17, 0, 6 - id),
+              ),
           ],
         );
         await fixture.chat.loadChannels(_site, force: true);
@@ -752,38 +756,43 @@ void main() {
           sidebar ? _sidebarInbox() : const ChatMobileSidebar(siteUrl: _site),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Channel 7'), findsNothing);
+        expect(find.text('Direct chat 3'), findsOneWidget);
+        expect(find.text('Direct chat 4'), findsNothing);
         expect(find.text('View 3 read chats'), findsOneWidget);
+        expect(find.text('Channel 5'), findsOneWidget);
+        expect(find.text('Channel 6'), findsNothing);
+        expect(find.text('Channel 7'), findsNothing);
+        expect(find.text('View 2 read chats'), findsOneWidget);
         final scope = tester.element(find.byType(ChatInboxFilterBar));
         PluginUiScope.require(scope, chatShellService).openChannel(7);
         await tester.pumpAndSettle();
         expect(find.text('Channel 7'), findsOneWidget);
-        expect(find.text('View 2 read chats'), findsOneWidget);
+        expect(find.text('View 1 read chat'), findsOneWidget);
         expect(
           tester
-              .getSemantics(find.widgetWithText(DButton, 'View 2 read chats'))
+              .getSemantics(find.widgetWithText(DButton, 'View 1 read chat'))
               .flagsCollection
               .isExpanded,
           ui.Tristate.isFalse,
         );
-        await tester.tap(find.text('View 2 read chats'));
+        await tester.tap(find.text('View 1 read chat'));
         await tester.pumpAndSettle();
         expect(find.text('Channel 5'), findsOneWidget);
         expect(find.text('Channel 6'), findsOneWidget);
         expect(
           tester
-              .getSemantics(find.widgetWithText(DButton, 'View less'))
+              .getSemantics(find.widgetWithText(DButton, 'Show fewer'))
               .flagsCollection
               .isExpanded,
           ui.Tristate.isTrue,
         );
-        await tester.tap(find.text('View less'));
+        await tester.tap(find.text('Show fewer'));
         await tester.pumpAndSettle();
-        expect(find.text('Channel 5'), findsNothing);
+        expect(find.text('Channel 6'), findsNothing);
         expect(find.text('Channel 7'), findsOneWidget);
-        expect(find.text('View 2 read chats'), findsOneWidget);
+        expect(find.text('View 1 read chat'), findsOneWidget);
         expect(
-          tester.getTopLeft(find.text('Ada')).dy,
+          tester.getTopLeft(find.text('Direct chat 1')).dy,
           lessThan(tester.getTopLeft(find.text('Channel 1')).dy),
         );
         expect(tester.takeException(), isNull);
@@ -1063,7 +1072,7 @@ void main() {
 
       final capture = find.byKey(const ValueKey('inbox-filter-canvas'));
       final gap =
-          Offset(kind.right + 8, bar.center.dy) - tester.getTopLeft(capture);
+          Offset(kind.left - 4, bar.center.dy) - tester.getTopLeft(capture);
       final pixels = await tester.runAsync(() async {
         final image = await tester
             .renderObject<RenderRepaintBoundary>(capture)

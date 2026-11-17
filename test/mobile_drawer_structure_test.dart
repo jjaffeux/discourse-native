@@ -448,7 +448,7 @@ void main() {
     expect(tester.getRect(filters).top, atRest.top);
     final search = find.byKey(const ValueKey('chat-search-entry'));
     expect(tester.getRect(search).top - tester.getRect(_panel).top, 10);
-    expect(atRest.left - tester.getRect(_panel).left, 10);
+    expect(tester.getRect(_panel).right - atRest.right, 10);
     expect(_tabs.hitTestable(), findsOneWidget);
     await _capture(tester, 'chat-drawer-scrolled');
     final scroll = tester.widget<CustomScrollView>(list()).controller!;
