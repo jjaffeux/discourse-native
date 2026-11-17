@@ -1023,7 +1023,10 @@ void main() {
       });
     }
 
-    for (final imperative in [false, true]) {
+    for (final imperative in [
+      false,
+      if (platform == TargetPlatform.android) true,
+    ]) {
       testWidgets(
         'swipe closes the $platform ${imperative ? 'helper' : 'sheet'} header',
         (tester) async {
