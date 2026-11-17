@@ -71,9 +71,11 @@ void main() {
         ),
   );
   for (final operation in _Operation.values) {
-    final timings = operation == _Operation.unchanged
-        ? const [_Timing.afterClick, _Timing.afterRepaint]
-        : _Timing.values;
+    final timings = [
+      if (operation != _Operation.unchanged) _Timing.beforeClick,
+      _Timing.afterClick,
+      if (operation != _Operation.failedReconnect) _Timing.afterRepaint,
+    ];
     for (final timing in timings) {
       testWidgets(
         'Native Chat Delete ${operation.name} ${timing.name} owns its menu',
