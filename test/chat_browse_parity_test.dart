@@ -1175,6 +1175,22 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
     expect(find.byType(DDropdownMenuContent), findsNothing);
     return;
   }
+  if (key == 'chat-threads-channel-filter') {
+    // The pill opens the channel panel, where the one pressed is the choice.
+    await tester.tap(find.byKey(ValueKey(key)));
+    await tester.pumpAndSettle();
+    expect(_channelPanel, findsOneWidget);
+    await _capture(tester, key);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-channel-panel-list')),
+        matching: find.text(value),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_channelPanel, findsNothing);
+    return;
+  }
   await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
   final mobile = switch (Theme.of(
@@ -1187,7 +1203,6 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
   if (mobile) {
     final label = switch (key) {
       'chat-inbox-sort-filter' => 'Chat order',
-      'chat-threads-channel-filter' => 'Channel',
       _ => throw StateError('Unknown chat filter: $key'),
     };
     expect(
@@ -1202,19 +1217,13 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
       label,
     );
   }
-  final channel = key == 'chat-threads-channel-filter';
-  expect(
-    channel
-        ? find.byType(DCommandList<int>)
-        : find.byType(DDropdownMenuContent),
-    findsOneWidget,
-  );
+  expect(find.byType(DDropdownMenuContent), findsOneWidget);
   await _capture(tester, key);
   await tester.tap(
     find.byWidgetPredicate(
       (widget) =>
           widget is Semantics &&
-          (channel || widget.properties.inMutuallyExclusiveGroup == true) &&
+          widget.properties.inMutuallyExclusiveGroup == true &&
           widget.properties.label == value,
     ),
   );

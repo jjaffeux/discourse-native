@@ -633,6 +633,7 @@ class _ChatChannelPickRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: _rowInset, vertical: 6),
       gap: 10,
       selected: picked,
+      selectionStyle: DItemSelectionStyle.strongNeutral,
       showSelectionIndicator: false,
       semanticLabel: name,
       onPressed: onPressed,
