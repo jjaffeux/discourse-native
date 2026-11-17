@@ -989,7 +989,6 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       }
       final rows = _lazyRows!;
       return DScrollBar(
-        backgroundColor: DTokens.of(context).surface,
         controller: _scrollController,
         child: CustomScrollView(
           controller: _scrollController,
@@ -1085,7 +1084,6 @@ class _DropdownMenuOverflowViewportState
   Widget build(BuildContext context) {
     if (_overflows) {
       return DScrollBar(
-        backgroundColor: DTokens.of(context).surface,
         controller: widget.controller,
         child: DScrollViewport(
           controller: widget.controller,

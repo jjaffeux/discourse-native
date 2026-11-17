@@ -468,10 +468,6 @@ void main() {
             find.descendant(of: command, matching: find.byType(Material)).first,
           );
           expect(surface.color, Colors.transparent);
-          final scrollbar = tester.widget<DScrollBar>(
-            find.descendant(of: command, matching: find.byType(DScrollBar)),
-          );
-          expect(scrollbar.backgroundColor, Colors.transparent);
           final content = tester.widget<DSheetContent>(sheet);
           expect(content.variant, DSheetVariant.adaptiveMenu);
           expect(content.sizeToContent, isFalse);

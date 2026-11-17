@@ -1474,7 +1474,6 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       onKeyEvent: (_, event) => _popupKey(event),
       child: lazy
           ? DScrollBar(
-              backgroundColor: DTokens.of(context).surface,
               controller: _scroll,
               thumbVisibility: false,
               child: CustomScrollView(
@@ -1483,7 +1482,6 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
               ),
             )
           : DScrollArea(
-              backgroundColor: DTokens.of(context).surface,
               controller: _scroll,
               thumbVisibility: false,
               child: Column(

@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import '../../theme/code_typography.dart';
 import '../../theme/discourse_colors.dart';
 import '../../theme/discourse_typography.dart';
-import '../foundation/code_editor_theme.dart';
 import '../foundation/code_source.dart';
 import 'd_scroll_area.dart';
 
@@ -85,7 +84,6 @@ class _DCodeViewerState extends State<DCodeViewer> {
         builder: (context, constraints) => DScrollBar(
           axis: Axis.horizontal,
           controller: horizontal,
-          backgroundColor: codeEditorColors(theme).blockBackground,
           child: SingleChildScrollView(
             controller: horizontal,
             scrollDirection: Axis.horizontal,

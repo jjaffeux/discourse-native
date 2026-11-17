@@ -20,8 +20,6 @@ class DScrollBar extends StatelessWidget {
     this.axis = Axis.vertical,
     this.showScrollbar = true,
     this.thumbVisibility = true,
-
-    this.backgroundColor,
     this.cornerExtent = 0,
     this.notificationDepth = 0,
   });
@@ -39,9 +37,6 @@ class DScrollBar extends StatelessWidget {
   /// Keeps a shown thumb visible at rest. False enables native fading;
   /// use [showScrollbar] to hide it even during scrolling and hover.
   final bool thumbVisibility;
-
-  /// Painted container surface. Defaults to the current theme background.
-  final Color? backgroundColor;
 
   /// Space reserved for the perpendicular scrollbar in a two-axis viewport.
   final double cornerExtent;
@@ -71,10 +66,10 @@ class DScrollBar extends StatelessWidget {
       radius: const Radius.circular(999),
       minThumbLength: 16,
       thumbColor: showScrollbar
-          ? (DScrollThumb.colorOn(
-              backgroundColor ?? DTokens.of(context).background,
-              foreground: DTokens.of(context).foreground,
-            ))
+          ? DScrollThumb.color(DTokens.of(context).foreground)
+          : Colors.transparent,
+      activeThumbColor: showScrollbar
+          ? DScrollThumb.activeColor(DTokens.of(context).foreground)
           : Colors.transparent,
       fadeDuration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
@@ -141,9 +136,6 @@ class DScrollArea extends StatefulWidget {
     this.padding = EdgeInsets.zero,
     this.showScrollbar = true,
     this.thumbVisibility = true,
-
-    this.backgroundColor,
-
     this.physics,
   });
 
@@ -162,9 +154,6 @@ class DScrollArea extends StatefulWidget {
 
   /// Keeps shown thumbs visible at rest; false enables native fading.
   final bool thumbVisibility;
-
-  /// Painted container surface used to choose contrasting scrollbar thumbs.
-  final Color? backgroundColor;
 
   final ScrollPhysics? physics;
 
@@ -268,7 +257,6 @@ class _DScrollAreaState extends State<DScrollArea> {
           : Axis.vertical,
       showScrollbar: widget.showScrollbar,
       thumbVisibility: widget.thumbVisibility,
-      backgroundColor: widget.backgroundColor,
       cornerExtent: showCorner ? 10 : 0,
       child: content,
     );
@@ -279,7 +267,6 @@ class _DScrollAreaState extends State<DScrollArea> {
         notificationDepth: 1,
         showScrollbar: widget.showScrollbar,
         thumbVisibility: widget.thumbVisibility,
-        backgroundColor: widget.backgroundColor,
         cornerExtent: showCorner ? 10 : 0,
         child: content,
       );
@@ -430,9 +417,12 @@ class _NaturalScrollbar extends RawScrollbar {
     super.fadeDuration,
     super.notificationPredicate,
     super.scrollbarOrientation,
+    required this.activeThumbColor,
     this.pageHeader,
   });
 
+  /// The thumb under the pointer or dragged.
+  final Color activeThumbColor;
   final DPageHeaderGeometry? pageHeader;
 
   @override
@@ -444,6 +434,34 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   late final _NaturalScrollbarPainter _naturalPainter;
   _HeaderThumbGrip? _headerGrip;
   int? _eventPointer;
+  bool _thumbHovered = false;
+  bool _thumbDragged = false;
+
+  // Pointer callbacks can arrive after a cancelled drag has disposed the
+  // painter with its scrollbar.
+  void _paintThumb() {
+    if (!mounted) return;
+    scrollbarPainter.color = _thumbHovered || _thumbDragged
+        ? widget.activeThumbColor
+        : widget.thumbColor!;
+  }
+
+  @override
+  void handleHover(PointerHoverEvent event) {
+    super.handleHover(event);
+    final hovered = isPointerOverThumb(event.position, event.kind);
+    if (hovered == _thumbHovered) return;
+    _thumbHovered = hovered;
+    _paintThumb();
+  }
+
+  @override
+  void handleHoverExit(PointerExitEvent event) {
+    super.handleHoverExit(event);
+    if (!_thumbHovered) return;
+    _thumbHovered = false;
+    _paintThumb();
+  }
 
   @override
   ScrollbarPainter get scrollbarPainter => _naturalPainter;
@@ -521,6 +539,8 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   void handleThumbPressStart(Offset localPosition) {
     final pointer = _eventPointer;
     super.handleThumbPressStart(localPosition);
+    _thumbDragged = true;
+    _paintThumb();
     _headerGrip = null;
     final controller = _controller;
     final header = widget.pageHeader;
@@ -572,6 +592,8 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   void handleThumbPressEnd(Offset localPosition, Velocity velocity) {
     _finishHeaderGrip();
     super.handleThumbPressEnd(localPosition, velocity);
+    _thumbDragged = false;
+    _paintThumb();
   }
 
   @override
@@ -592,6 +614,11 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
       if (event.pointer == _headerGrip?.pointer) {
         _headerGrip = null;
       }
+      // A cancelled thumb drag never reaches handleThumbPressEnd.
+      if (_thumbDragged) {
+        _thumbDragged = false;
+        _paintThumb();
+      }
     },
     child: super.build(context),
   );
@@ -599,6 +626,7 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   @override
   void updateScrollbarPainter() {
     super.updateScrollbarPainter();
+    _paintThumb();
     _updateHeaderInset();
   }
 

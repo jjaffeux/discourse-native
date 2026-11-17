@@ -87,6 +87,22 @@ void main() {
       expect(loading, findsNothing);
       expect(find.byKey(const ValueKey('gif-category-0')), findsOneWidget);
       final search = find.byKey(const ValueKey('gif-picker-search'));
+      // The sheet's search: a capsule led by a magnifier on a phone, the
+      // dialog's line on a desktop.
+      final capsule = find.ancestor(
+        of: search,
+        matching: find.byType(DInputGroup),
+      );
+      if (platform == TargetPlatform.android) {
+        expect(capsule, findsOneWidget);
+        expect(tester.getRect(capsule).height, closeTo(40, 0.5));
+        expect(
+          find.descendant(of: capsule, matching: find.byType(DIcon)),
+          findsOneWidget,
+        );
+      } else {
+        expect(capsule, findsNothing);
+      }
       await tester.enterText(search, 'ca');
       await tester.pump();
       expect(find.byKey(const ValueKey('gif-category-0')), findsOneWidget);

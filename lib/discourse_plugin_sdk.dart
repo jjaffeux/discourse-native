@@ -104,6 +104,7 @@ export 'src/shell/relative_time.dart'
 export 'src/shell/route_aware_selection_area.dart' show RouteAwareSelectionArea;
 export 'src/shell/search_words.dart'
     show SearchWords, SearchText, searchSnippet;
+export 'src/shell/sheet_search.dart' show SheetSearch, SheetSearchHold;
 export 'src/shell/shell_metrics.dart' show ShellLayout, shellHeaderHeight;
 export 'src/shell/shell_sheet.dart'
     show ShellSheetActions, ShellSheetForm, showShellSheet;

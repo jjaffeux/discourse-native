@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/sheet_search.dart';
 import 'package:discourse_native/src/shell/shell_sheet.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -347,6 +348,62 @@ void main() {
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets(
+      'a sheet that looks something up opens on its field on $platform',
+      (tester) async {
+        tester.view.physicalSize = platform == TargetPlatform.iOS
+            ? const Size(390, 844)
+            : const Size(1000, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final field = FocusNode();
+        addTearDown(field.dispose);
+        await _pumpSurface(
+          tester,
+          dialog: true,
+          platform: platform,
+          search: true,
+          builder: (_) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SheetSearch(
+                key: const ValueKey('search'),
+                focusNode: field,
+                hintText: 'Search users',
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final sheet = find.byWidgetPredicate(
+          (widget) =>
+              (widget is DSheetContent && widget.semanticLabel == _title) ||
+              (widget is DDialogContent && widget.semanticLabel == _title),
+        );
+        expect(sheet, findsOneWidget, reason: 'The title still names it');
+        if (platform == TargetPlatform.iOS) {
+          expect(find.text(_title), findsNothing);
+          final grabber = tester.getRect(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+          );
+          final search = tester.getRect(find.byKey(const ValueKey('search')));
+          expect(search.top - grabber.bottom, lessThan(24));
+          expect(
+            tester.widget<DSheetContent>(sheet).fillAvailableHeight,
+            isTrue,
+            reason: 'It keeps its height as results come and go',
+          );
+        } else {
+          expect(find.text(_title), findsOneWidget);
+        }
+      },
+      variant: TargetPlatformVariant.only(platform),
     );
   }
 
@@ -763,6 +820,7 @@ Future<FocusNode> _pumpSurface(
   ValueNotifier<double>? keyboard,
   TextScaler textScaler = TextScaler.noScaling,
   bool fillAvailableHeight = false,
+  bool search = false,
   BoxConstraints constraints = const BoxConstraints(
     maxWidth: 480,
     maxHeight: 560,
@@ -809,6 +867,7 @@ Future<FocusNode> _pumpSurface(
                   dialogOnDesktop: dialog,
                   enableDrag: enableDrag,
                   fillAvailableHeight: fillAvailableHeight,
+                  search: search,
                   desktopDialogConstraints: constraints,
                   builder: builder ?? (_) => const Text('Body'),
                   footerBuilder: footerBuilder,
