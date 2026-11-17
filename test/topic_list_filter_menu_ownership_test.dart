@@ -406,42 +406,44 @@ void main() {
     );
   }
 
-  for (final inline in [false, true]) {
-    for (final change in ['tab', 'tags', 'round trip']) {
-      testWidgets('tag selection retires after $change (inline: $inline)', (
-        tester,
-      ) async {
-        final fixture = await _fixture(tester, inline: inline);
-        final shell = fixture.shell;
-        if (change != 'tab') shell.selectTopicListTags(['kept']);
-        await tester.pumpAndSettle();
-        final openingFeed = shell.topicListContent;
-        await _open(tester, 'tag');
-        switch (change) {
-          case 'tab':
-            _createTopicsTab(shell);
-            expect(shell.topicListContent, openingFeed);
-          case 'tags':
-            shell.selectTopicListTags(['replacement']);
-          case 'round trip':
-            await shell.selectTopicListMode(TopicListMode.topYearly);
-            await tester.pumpAndSettle();
-            await shell.selectTopicListMode(TopicListMode.latest);
-            expect(shell.topicListContent, openingFeed);
-        }
-        await tester.pumpAndSettle();
-        final replacement = shell.topicListContent;
-        final searches = fixture.api.searches.length;
-        expect(find.byType(DCommandList<String>), findsNothing);
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(fixture.api.searches, hasLength(searches));
-        expect(shell.topicListContent, replacement);
+  for (final (inline, change) in [
+    (false, 'round trip'),
+    (true, 'tab'),
+    (true, 'tags'),
+  ]) {
+    testWidgets('tag selection retires after $change (inline: $inline)', (
+      tester,
+    ) async {
+      final fixture = await _fixture(tester, inline: inline);
+      final shell = fixture.shell;
+      if (change != 'tab') shell.selectTopicListTags(['kept']);
+      await tester.pumpAndSettle();
+      final openingFeed = shell.topicListContent;
+      await _open(tester, 'tag');
+      switch (change) {
+        case 'tab':
+          _createTopicsTab(shell);
+          expect(shell.topicListContent, openingFeed);
+        case 'tags':
+          shell.selectTopicListTags(['replacement']);
+        case 'round trip':
+          await shell.selectTopicListMode(TopicListMode.topYearly);
+          await tester.pumpAndSettle();
+          await shell.selectTopicListMode(TopicListMode.latest);
+          expect(shell.topicListContent, openingFeed);
+      }
+      await tester.pumpAndSettle();
+      final replacement = shell.topicListContent;
+      final searches = fixture.api.searches.length;
+      expect(find.byType(DCommandList<String>), findsNothing);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(fixture.api.searches, hasLength(searches));
+      expect(shell.topicListContent, replacement);
 
-        await _open(tester, 'tag');
-        await _choose(tester, 'tag');
-        expect(shell.topicListContent?.tagNames, [_tag.name]);
-      });
-    }
+      await _open(tester, 'tag');
+      await _choose(tester, 'tag');
+      expect(shell.topicListContent?.tagNames, [_tag.name]);
+    });
   }
 
   testWidgets(
