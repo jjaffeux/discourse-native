@@ -406,7 +406,6 @@ class _CodeBlockState extends State<CodeBlock> {
                   gutterWidth == null &&
                   data.lines.every((line) => !line.isSelected);
               return DScrollBar(
-                backgroundColor: theme.code.blockBackground,
                 axis: Axis.horizontal,
                 controller: _horizontal,
                 thumbVisibility: true,

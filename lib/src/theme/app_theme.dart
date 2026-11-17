@@ -632,11 +632,12 @@ abstract final class AppTheme {
         thickness: const WidgetStatePropertyAll(DScrollThumb.defaultThickness),
         crossAxisMargin: DScrollThumb.containerInset,
         mainAxisMargin: DScrollThumb.containerInset,
-        thumbColor: WidgetStatePropertyAll(
-          DScrollThumb.colorOn(
-            shell.content,
-            foreground: resolvedColorScheme.onSurface,
-          ),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.dragged)
+              ? DScrollThumb.activeColor(resolvedColorScheme.onSurface)
+              : DScrollThumb.color(resolvedColorScheme.onSurface),
         ),
       ),
       cardTheme: CardThemeData(

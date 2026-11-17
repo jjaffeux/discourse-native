@@ -110,8 +110,8 @@ void main() {
       PointerDeviceKind.trackpad,
     ]) {
       expect(painter.hitTestInteractive(const Offset(184, 100), kind), isFalse);
-      expect(painter.hitTestInteractive(const Offset(193, 100), kind), isFalse);
-      expect(painter.hitTestInteractive(const Offset(199, 100), kind), isFalse);
+      expect(painter.hitTestInteractive(const Offset(192, 100), kind), isFalse);
+      expect(painter.hitTestInteractive(const Offset(198, 100), kind), isFalse);
       expect(
         painter.hitTestOnlyThumbInteractive(const Offset(184, 10), kind),
         isFalse,
@@ -159,7 +159,7 @@ void main() {
                     as ScrollbarPainter)
                 .fadeoutOpacityAnimation;
         final bounds = tester.getRect(paint);
-        // The 4px band sits 2px inside the 200px-wide area's trailing edge.
+        // The 4px band sits 3px inside the 200px-wide area's trailing edge.
         Offset at(double x) =>
             bounds.topLeft +
             Offset(direction == TextDirection.ltr ? x : 200 - x, 100);
@@ -169,7 +169,7 @@ void main() {
         await mouse.addPointer(location: at(100));
         // Flutter's faded hover target spans 48px around the thumb and its
         // track includes the unpainted margins on both sides of the band.
-        for (final x in [184.0, 193.0, 199.0]) {
+        for (final x in [184.0, 192.0, 198.0]) {
           await mouse.moveTo(at(x));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
@@ -190,31 +190,153 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
-  testWidgets('automatic desktop scrollbars retain a clear side gap on hover', (
+  // Reads pixels of a RepaintBoundary, at [ratio] device pixels per point.
+  Future<List<Color>> pixelsAt(
+    WidgetTester tester,
+    GlobalKey boundary,
+    List<Offset> points, {
+    double ratio = 1,
+  }) async => (await tester.runAsync(() async {
+    final image =
+        await (boundary.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary)
+            .toImage(pixelRatio: ratio);
+    final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+    final colors = [
+      for (final point in points)
+        () {
+          final rgba = bytes.getUint32(
+            ((point.dy * ratio).floor() * image.width +
+                    (point.dx * ratio).floor()) *
+                4,
+          );
+          return Color.fromARGB(
+            rgba & 0xff,
+            rgba >> 24,
+            (rgba >> 16) & 0xff,
+            (rgba >> 8) & 0xff,
+          );
+        }(),
+    ];
+    image.dispose();
+    return colors;
+  }))!;
+
+  Matcher drawn(Color expected, {String? reason}) => predicate<Color>(
+    (color) =>
+        (color.r - expected.r).abs() * 255 <= 2 &&
+        (color.g - expected.g).abs() * 255 <= 2 &&
+        (color.b - expected.b).abs() * 255 <= 2,
+    'within 2 of $expected',
+  );
+
+  Color thumbOn(Color background, Color ink, {bool active = false}) =>
+      Color.alphaBlend(ink.withValues(alpha: active ? .36 : .24), background);
+
+  testWidgets(
+    'automatic desktop scrollbars are a thumb with no track on hover',
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final boundaryKey = GlobalKey();
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        for (final direction in TextDirection.values) {
+          final tokens = theme.extension<DTokens>()!;
+          final background = tokens.background;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme.copyWith(platform: TargetPlatform.macOS),
+              home: Directionality(
+                textDirection: direction,
+                child: Center(
+                  child: SizedBox(
+                    width: 200,
+                    height: 180,
+                    child: RepaintBoundary(
+                      key: boundaryKey,
+                      child: ColoredBox(
+                        color: background,
+                        child: ListView(
+                          controller: controller,
+                          children: const [SizedBox(height: 2000)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(Scrollbar), findsOneWidget);
+          final rect = tester.getRect(find.byKey(boundaryKey));
+          double x(double fromEnd) =>
+              direction == TextDirection.ltr ? 200 - fromEnd : fromEnd;
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: rect.topLeft + Offset(x(50), 10));
+          await mouse.moveTo(rect.topLeft + Offset(x(5), 10));
+          controller.jumpTo(controller.offset == 0 ? 10 : 0);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+          final pixels = await pixelsAt(tester, boundaryKey, [
+            Offset(x(2.75), 10),
+            Offset(x(5), 10),
+            Offset(x(5), 150),
+          ], ratio: 2);
+          expect(
+            pixels[0],
+            drawn(background),
+            reason: 'The full 3px inset stays clear at 2x scale',
+          );
+          expect(
+            pixels[1],
+            drawn(thumbOn(background, tokens.foreground, active: true)),
+            reason: 'The hovered thumb is the ink at 36%',
+          );
+          expect(
+            pixels[2],
+            drawn(background),
+            reason: 'No track is drawn under a hovered scrollbar',
+          );
+          await mouse.removePointer();
+        }
+      }
+    },
+  );
+
+  testWidgets('thumbs are the ink at 24% on any surface and keep a 3px inset', (
     tester,
   ) async {
     final controller = ScrollController();
     addTearDown(controller.dispose);
     final boundaryKey = GlobalKey();
-    for (final theme in [AppTheme.light, AppTheme.dark]) {
-      for (final direction in TextDirection.values) {
-        final background = theme.extension<DTokens>()!.background;
+    final ink = AppTheme.light.extension<DTokens>()!.foreground;
+    for (final direction in TextDirection.values) {
+      for (final background in [
+        Colors.white,
+        Colors.black,
+        const Color(0xff777777),
+        const Color(0xff173852),
+      ]) {
         await tester.pumpWidget(
           MaterialApp(
-            theme: theme.copyWith(platform: TargetPlatform.macOS),
-            home: Directionality(
-              textDirection: direction,
-              child: Center(
-                child: SizedBox(
-                  width: 200,
-                  height: 180,
+            theme: AppTheme.light,
+            home: Center(
+              child: SizedBox(
+                width: 200,
+                height: 180,
+                child: Directionality(
+                  textDirection: direction,
                   child: RepaintBoundary(
                     key: boundaryKey,
                     child: ColoredBox(
                       color: background,
-                      child: ListView(
+                      child: DScrollArea(
                         controller: controller,
-                        children: const [SizedBox(height: 2000)],
+                        axes: DScrollAxes.both,
+                        child: const SizedBox(width: 1000, height: 1000),
                       ),
                     ),
                   ),
@@ -224,122 +346,106 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.byType(Scrollbar), findsOneWidget);
-        final rect = tester.getRect(find.byKey(boundaryKey));
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(
-          location: Offset(
-            direction == TextDirection.ltr ? rect.right - 3 : rect.left + 3,
-            rect.top + 10,
-          ),
-        );
-        controller.jumpTo(controller.offset == 0 ? 10 : 0);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 250));
-        final pixels = await tester.runAsync(() async {
-          final image =
-              await (boundaryKey.currentContext!.findRenderObject()!
-                      as RenderRepaintBoundary)
-                  .toImage(pixelRatio: 2);
-          final bytes = (await image.toByteData(
-            format: ui.ImageByteFormat.rawRgba,
-          ))!;
-          final x = direction == TextDirection.ltr ? image.width - 4 : 3;
-          final inside = direction == TextDirection.ltr ? image.width - 6 : 5;
-          final result = [
-            bytes.getUint32((20 * image.width + x) * 4),
-            bytes.getUint32((20 * image.width + inside) * 4),
-          ];
-          image.dispose();
-          return result;
-        });
-        final rgba = ((background.toARGB32() & 0xffffff) << 8) | 0xff;
-        expect(
-          pixels![0],
-          rgba,
-          reason: 'The full 2px inset stays clear at 2x scale',
-        );
+        double x(double fromEnd) =>
+            direction == TextDirection.ltr ? 200 - fromEnd : fromEnd;
+        final pixels = await pixelsAt(tester, boundaryKey, [
+          Offset(x(2.5), 20),
+          Offset(x(5), 20),
+          Offset(x(5), 170),
+          const Offset(100, 177.5),
+          Offset(x(180), 175),
+        ]);
+        expect(pixels[0], drawn(background), reason: 'Clear vertical edge');
         expect(
           pixels[1],
-          isNot(rgba),
-          reason: 'The automatic thumb is visible',
+          drawn(thumbOn(background, ink)),
+          reason: 'The vertical thumb is the ink at 24%',
         );
-        await mouse.removePointer();
+        expect(pixels[2], drawn(background), reason: 'No vertical track');
+        expect(pixels[3], drawn(background), reason: 'Clear bottom edge');
+        expect(
+          pixels[4],
+          isNot(drawn(background)),
+          reason: 'The horizontal thumb inside the inset',
+        );
       }
     }
   });
 
-  testWidgets('thumbs contrast with changing surfaces and keep a 2px inset', (
-    tester,
-  ) async {
-    final controller = ScrollController();
-    addTearDown(controller.dispose);
-    final boundaryKey = GlobalKey();
-    for (final direction in TextDirection.values) {
-      for (final background in [
-        Colors.white,
-        Colors.black,
-        const Color(0xff777777),
-        const Color(0xff173852),
-      ]) {
-        await tester.pumpWidget(
-          host(
-            Directionality(
-              textDirection: direction,
+  testWidgets(
+    'a kit thumb darkens under the pointer and while dragged, with no track',
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final boundaryKey = GlobalKey();
+      final tokens = AppTheme.dark.extension<DTokens>()!;
+      final background = tokens.background;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+          home: Center(
+            child: SizedBox(
+              width: 200,
+              height: 180,
               child: RepaintBoundary(
                 key: boundaryKey,
                 child: ColoredBox(
                   color: background,
                   child: DScrollArea(
                     controller: controller,
-                    axes: DScrollAxes.both,
-                    backgroundColor: background,
-                    child: const SizedBox(width: 1000, height: 1000),
+                    child: const SizedBox(height: 1000),
                   ),
                 ),
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
-        for (final bar in tester.widgetList<RawScrollbar>(
-          find.byWidgetPredicate((widget) => widget is RawScrollbar),
-        )) {
-          final thumb = bar.thumbColor!;
-          final a = thumb.computeLuminance();
-          final b = background.computeLuminance();
-          final ratio = a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
-          expect(ratio, greaterThanOrEqualTo(3));
-        }
-        final pixels = await tester.runAsync(() async {
-          final image =
-              await (boundaryKey.currentContext!.findRenderObject()!
-                      as RenderRepaintBoundary)
-                  .toImage();
-          final bytes = (await image.toByteData(
-            format: ui.ImageByteFormat.rawRgba,
-          ))!;
-          final x = direction == TextDirection.ltr ? image.width - 2 : 1;
-          final insetX = direction == TextDirection.ltr ? image.width - 3 : 2;
-          final result = [
-            bytes.getUint32((20 * image.width + x) * 4),
-            bytes.getUint32((20 * image.width + insetX) * 4),
-            bytes.getUint32(((image.height - 2) * image.width + 100) * 4),
-          ];
-          image.dispose();
-          return result;
-        });
-        final rgba = ((background.toARGB32() & 0xffffff) << 8) | 0xff;
-        expect(pixels![0], rgba, reason: 'Clear space at the vertical edge');
-        expect(
-          pixels[1],
-          isNot(rgba),
-          reason: 'Visible thumb inside the inset',
-        );
-        expect(pixels[2], rgba, reason: 'Clear space at the bottom edge');
-      }
-    }
-  });
+        ),
+      );
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(find.byKey(boundaryKey));
+      final rest = thumbOn(background, tokens.foreground);
+      final active = thumbOn(background, tokens.foreground, active: true);
+      Future<List<Color>> sample(double thumbY) => pixelsAt(
+        tester,
+        boundaryKey,
+        [Offset(195, thumbY), const Offset(195, 160), Offset(198.5, thumbY)],
+      );
+
+      var pixels = await sample(10);
+      expect(pixels[0], drawn(rest), reason: 'At rest, the ink at 24%');
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: rect.topLeft + const Offset(150, 10));
+      await mouse.moveTo(rect.topLeft + const Offset(195, 10));
+      await tester.pump();
+      pixels = await sample(10);
+      expect(pixels[0], drawn(active), reason: 'Hovered, the ink at 36%');
+      expect(pixels[1], drawn(background), reason: 'No track on hover');
+      expect(pixels[2], drawn(background), reason: 'Gutter clear on hover');
+
+      await mouse.moveTo(rect.topLeft + const Offset(195, 120));
+      await tester.pump();
+      pixels = await sample(10);
+      expect(pixels[0], drawn(rest), reason: 'Off the thumb, back to 24%');
+
+      await mouse.moveTo(rect.topLeft + const Offset(195, 10));
+      await mouse.down(rect.topLeft + const Offset(195, 10));
+      await tester.pump();
+      await mouse.moveBy(const Offset(0, 40));
+      await tester.pump();
+      expect(controller.offset, greaterThan(0));
+      pixels = await sample(50);
+      expect(pixels[0], drawn(active), reason: 'Dragged, the ink at 36%');
+      expect(pixels[1], drawn(background), reason: 'No track while dragged');
+
+      await mouse.up();
+      await mouse.moveTo(rect.topLeft + const Offset(100, 100));
+      await tester.pump();
+      pixels = await sample(50);
+      expect(pixels[0], drawn(rest), reason: 'Let go and left, back to 24%');
+      await mouse.removePointer();
+    },
+  );
 
   testWidgets(
     'hidden scrollbars preserve touch, keyboard and position when shown again',
