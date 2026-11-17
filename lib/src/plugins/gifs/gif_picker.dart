@@ -150,8 +150,8 @@ class _GifPickerState extends State<GifPicker> {
     children: [
       AnimatedBuilder(
         animation: widget.controller,
-        builder: (context, _) => DInput(
-          key: const ValueKey('gif-picker-search'),
+        builder: (context, _) => SheetSearch(
+          inputKey: const ValueKey('gif-picker-search'),
           controller: _search,
           focusNode: _searchFocus,
           autofocus: true,
@@ -159,15 +159,18 @@ class _GifPickerState extends State<GifPicker> {
           textInputAction: TextInputAction.search,
           onChanged: widget.controller.updateQuery,
           hintText: context.l10n.searchGIFs,
-          prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
-          suffix: _searchSuffix(),
+          trailing: _searchSuffix(),
         ),
       ),
       const SizedBox(height: 12),
       Expanded(
-        child: AnimatedBuilder(
-          animation: widget.controller,
-          builder: (context, _) => _buildContent(context),
+        // A press on a GIF or a category leaves the keyboard where it is.
+        child: SheetSearchHold(
+          focusNode: _searchFocus,
+          child: AnimatedBuilder(
+            animation: widget.controller,
+            builder: (context, _) => _buildContent(context),
+          ),
         ),
       ),
       const SizedBox(height: 8),

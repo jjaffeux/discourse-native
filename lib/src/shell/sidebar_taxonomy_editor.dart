@@ -13,6 +13,7 @@ import '../models/user_preferences.dart';
 import '../theme/discourse_typography.dart';
 import 'category_icon.dart';
 import 'platform.dart';
+import 'sheet_search.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 
@@ -78,6 +79,7 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
   String? _error;
   String _query = '';
   var _selection = _Selection.all;
+  final _search = FocusNode();
   Set<int> _selected = {};
   List<TopicCategory> _categories = const [];
   List<SidebarTag> _tags = const [];
@@ -113,6 +115,7 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
         (draft) => draft.withSectionFrom(_section, state!.confirmed!),
       );
     }
+    _search.dispose();
     super.dispose();
   }
 
@@ -352,26 +355,7 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
         onPressed: () => setState(() => _selection = value),
       ),
     );
-    final fixed = <Widget>[
-      DecoratedBox(
-        key: const ValueKey('sidebar-taxonomy-search'),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: tokens.border)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: DInput(
-            borderless: true,
-            semanticLabel: label,
-            hintText: label,
-            style: const TextStyle(
-              fontSize: DiscourseTypography.sheetSearch,
-              height: 1.4,
-            ),
-            onChanged: (value) => setState(() => _query = value),
-          ),
-        ),
-      ),
+    final filters = <Widget>[
       const SizedBox(height: 10),
       Wrap(
         spacing: 6,
@@ -393,23 +377,43 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ...fixed,
-        if (context.isTouch)
-          list
-        else
-          Flexible(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * .45,
-              ),
-              child: DScrollArea(child: list),
+        SheetSearch(
+          key: const ValueKey('sidebar-taxonomy-search'),
+          focusNode: _search,
+          hintText: label,
+          onChanged: (value) => setState(() => _query = value),
+        ),
+        Flexible(
+          child: SheetSearchHold(
+            focusNode: _search,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...filters,
+                if (context.isTouch)
+                  list
+                else
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.sizeOf(context).height * .45,
+                      ),
+                      child: DScrollArea(child: list),
+                    ),
+                  ),
+              ],
             ),
           ),
+        ),
       ],
     );
   }
 
-  Widget _footer(BuildContext context) => ShellSheetActions(
+  Widget _footer(BuildContext context) =>
+      SheetSearchHold(focusNode: _search, child: _actions(context));
+
+  Widget _actions(BuildContext context) => ShellSheetActions(
     key: const ValueKey('sidebar-taxonomy-actions'),
     children: [
       DButton(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_mutation_outcome.dart';
@@ -154,6 +155,87 @@ void main() {
     expect(api.movedTopicPosts.single.title, 'A new topic');
     expect(phoneSheet('Move posts'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'a phone searches destinations in the sheet capsule, keeping the keyboard',
+    (tester) async {
+      final api = _MoveApi();
+      await pumpShell(
+        tester,
+        phone,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: api.me),
+        ],
+        authenticator: _GatedAuthenticator()..keys[_siteA] = 'a-key',
+      );
+      await tester.tap(topicListTitle('Source topic'));
+      await tester.pumpAndSettle();
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      _select(shell, _siteA, 7, const [1]);
+      unawaited(
+        showTopicMovePosts(
+          context: tester.element(find.byType(AdaptiveShell)),
+          controller: shell,
+          siteUrl: _siteA,
+          topic: shell.currentTopic!,
+          selectedPosts: shell.selectedTopicPosts(_siteA, 7),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Existing topic'));
+      await tester.pumpAndSettle();
+      final capsule = find.ancestor(
+        of: find.byKey(_search),
+        matching: find.byType(DInputGroup),
+      );
+      expect(capsule, findsOneWidget);
+      expect(tester.getRect(capsule).height, closeTo(40, 0.5));
+      expect(
+        find.descendant(
+          of: capsule,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is DIcon && widget.icon == DIcons.magnifyingGlass,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Search by topic title or ID'), findsOneWidget);
+      await _searchDestination(tester);
+      final field = find.descendant(
+        of: find.byKey(_search),
+        matching: find.byType(EditableText),
+      );
+      expect(tester.widget<EditableText>(field).focusNode.hasFocus, isTrue);
+      await tester.tap(find.text('Destination topic'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<DButton>(find.byKey(_submit)).onPressed, isNotNull);
+      expect(
+        tester.widget<EditableText>(field).focusNode.hasFocus,
+        isTrue,
+        reason: 'Picking a destination leaves the keyboard up',
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets('a desktop searches destinations on the dialog\'s line', (
+    tester,
+  ) async {
+    await _openDialog(tester, _MoveApi());
+    await tester.tap(find.text('Existing topic'));
+    await tester.pumpAndSettle();
+    expect(
+      find.ancestor(
+        of: find.byKey(_search),
+        matching: find.byType(DInputGroup),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Search by topic title or ID'), findsOneWidget);
+    await _searchDestination(tester);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('new topic move remains available during destination search', (
     tester,

@@ -533,11 +533,25 @@ void main() {
     expect(find.byTooltip('Back'), findsNothing);
 
     final search = find.byKey(const ValueKey('sidebar-taxonomy-search'));
-    expect(tester.getRect(search).height, closeTo(49.4, 1.5));
-    expect(tester.getRect(search).width, closeTo(351, 1.5));
+    final capsule = find.descendant(
+      of: search,
+      matching: find.byType(DInputGroup),
+    );
+    // The mockup's phone SheetSearch: a 40 tall filled capsule on the sheet's
+    // inset, led by a magnifier.
+    expect(tester.getRect(capsule).height, closeTo(40, 0.5));
+    expect(tester.getRect(capsule).left, closeTo(19.6, 1));
+    expect(tester.getRect(capsule).width, closeTo(351, 1.5));
+    final magnifier = find.descendant(
+      of: capsule,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.magnifyingGlass,
+      ),
+    );
+    expect(magnifier, findsOneWidget);
     expect(
-      find.descendant(of: search, matching: find.byType(DIcon)),
-      findsNothing,
+      tester.getCenter(magnifier).dx,
+      lessThan(tester.getRect(capsule).left + 24),
     );
 
     Finder filter(String name) =>
@@ -594,6 +608,68 @@ void main() {
     expect(save.height, closeTo(45.8, 1.5));
     expect(reset.height, closeTo(45.8, 1.5));
     semantics.dispose();
+  });
+
+  testWidgets(
+    'phone search types from anywhere in its field and keeps focus through the list',
+    (tester) async {
+      await _fixture(tester, phone: true);
+      await tester.ensureVisible(_edit(true));
+      await tester.tap(_edit(true));
+      await tester.pumpAndSettle();
+      final search = find.byKey(const ValueKey('sidebar-taxonomy-search'));
+      final field = find.descendant(
+        of: search,
+        matching: find.byType(EditableText),
+      );
+      bool focused() => tester.widget<EditableText>(field).focusNode.hasFocus;
+      tester.widget<EditableText>(field).focusNode.unfocus();
+      await tester.pumpAndSettle();
+      expect(focused(), isFalse);
+
+      final capsule = tester.getRect(
+        find.descendant(of: search, matching: find.byType(DInputGroup)),
+      );
+      await tester.tapAt(capsule.centerLeft + const Offset(14, 0));
+      await tester.pumpAndSettle();
+      expect(focused(), isTrue, reason: 'The magnifier types in the field');
+
+      expect(tester.widget<DCheckbox>(_choice(1)).value, isTrue);
+      await tester.tap(_choice(1));
+      await tester.pumpAndSettle();
+      expect(tester.widget<DCheckbox>(_choice(1)).value, isFalse);
+      expect(focused(), isTrue, reason: 'A row leaves the keyboard up');
+
+      await tester.tap(find.widgetWithText(DButton, 'Selected'));
+      await tester.pumpAndSettle();
+      expect(focused(), isTrue, reason: 'A filter leaves the keyboard up');
+
+      await tester.tap(find.widgetWithText(DButton, 'Reset to default'));
+      await tester.pumpAndSettle();
+      expect(focused(), isTrue, reason: 'Reset leaves the keyboard up');
+      expect(find.byType(SidebarTaxonomyEditor), findsOneWidget);
+    },
+  );
+
+  testWidgets('desktop search is the sheet\'s hairline line', (tester) async {
+    await _fixture(tester);
+    await tester.tap(_edit(true));
+    await tester.pumpAndSettle();
+    final search = find.byKey(const ValueKey('sidebar-taxonomy-search'));
+    expect(
+      find.descendant(of: search, matching: find.byType(DInputGroup)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: search, matching: find.byType(DIcon)),
+      findsNothing,
+    );
+    final line = tester.widget<DecoratedBox>(
+      find.descendant(of: search, matching: find.byType(DecoratedBox)).first,
+    );
+    final border = (line.decoration as BoxDecoration).border! as Border;
+    expect(border.bottom.width, 1);
+    expect(border.top, BorderSide.none);
   });
 
   testWidgets('empty results name what was searched for', (tester) async {
