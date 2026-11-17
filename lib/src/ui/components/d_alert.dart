@@ -5,7 +5,6 @@ import 'package:flutter/rendering.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
-import 'd_avatar.dart';
 
 enum DAlertVariant { normal, destructive }
 
@@ -28,17 +27,32 @@ class DAlert extends StatelessWidget {
     this.foregroundColor,
     this.descriptionColor,
     this.borderColor,
-  }) : _postNoticeMessage = null;
+  }) : _postNoticeMessage = null,
+       _postNoticeTone = null,
+       _postNoticeBody = null;
 
-  /// A heading inside a post card, with a tinted mark and wrapping message.
+  /// One line of what is said about a post at its head, bare: the [icon]
+  /// alone in a face's 30-point room, a quiet wrapping [message], and an
+  /// optional [action] at the line's end, which goes under the line when
+  /// the two would not fit side by side. A [body] is said under the line at
+  /// reading size.
+  ///
+  /// The icon is drawn at 15 points in [tone] softened 70% toward the
+  /// secondary text colour, or in that colour when [tone] is null. Artwork
+  /// that is not an icon sizes itself within the room. The line has no
+  /// inset of its own; its container sets it in the post's column.
   const DAlert.postNotice({
     super.key,
     required Widget this.icon,
     required Widget message,
+    Color? tone,
+    this.action,
+    Widget? body,
   }) : _postNoticeMessage = message,
+       _postNoticeTone = tone,
+       _postNoticeBody = body,
        title = null,
        description = null,
-       action = null,
        variant = DAlertVariant.normal,
        liveRegion = false,
        backgroundColor = null,
@@ -46,7 +60,23 @@ class DAlert extends StatelessWidget {
        descriptionColor = null,
        borderColor = null;
 
+  /// The room a post notice's mark stands in, and the gap after it.
+  static const double postNoticeMarkExtent = 30;
+  static const double postNoticeMarkGap = 9;
+
+  /// The narrowest a post notice keeps its action beside its line, at
+  /// unscaled text.
+  static const double _postNoticeRowWidth = 260;
+
+  /// The colour a post notice's line is said in.
+  static Color postNoticeColorOf(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return Color.lerp(tokens.background, tokens.foreground, .62)!;
+  }
+
   final Widget? _postNoticeMessage;
+  final Color? _postNoticeTone;
+  final Widget? _postNoticeBody;
 
   final Widget? icon;
   final DAlertTitle? title;
@@ -63,38 +93,7 @@ class DAlert extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     if (_postNoticeMessage case final message?) {
-      return Semantics(
-        container: true,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Row(
-            spacing: 9,
-            children: [
-              DAvatar(
-                dimension: 30,
-                border: false,
-                decorative: true,
-                fallback: DAvatarFallback(
-                  backgroundColor: tokens.primary.withValues(alpha: .22),
-                  child: SizedBox.square(dimension: 16, child: icon),
-                ),
-              ),
-              Expanded(
-                child: DefaultTextStyle(
-                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                    color: tokens.foreground,
-                    fontSize: DiscourseTypography.base,
-                    height: 1.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
-                  ),
-                  child: message,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _postNotice(context, message);
     }
     final destructive = variant == DAlertVariant.destructive;
     final foreground =
@@ -160,6 +159,100 @@ class DAlert extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+extension on DAlert {
+  Widget _postNotice(BuildContext context, Widget message) {
+    final tokens = DTokens.of(context);
+    final secondary = DAlert.postNoticeColorOf(context);
+    final tone = _postNoticeTone;
+    final action = this.action;
+    final body = _postNoticeBody;
+    final textTheme = Theme.of(context).textTheme;
+    return Semantics(
+      container: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  action != null &&
+                  constraints.maxWidth <
+                      MediaQuery.textScalerOf(
+                        context,
+                      ).scale(DAlert._postNoticeRowWidth);
+              final line = Row(
+                children: [
+                  SizedBox.square(
+                    dimension: DAlert.postNoticeMarkExtent,
+                    child: ExcludeSemantics(
+                      child: IconTheme.merge(
+                        data: IconThemeData(
+                          size: 15,
+                          color: tone == null
+                              ? secondary
+                              : Color.lerp(secondary, tone, .7),
+                        ),
+                        child: Center(child: icon),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: DAlert.postNoticeMarkGap),
+                  Expanded(
+                    child: DefaultTextStyle(
+                      style: textTheme.bodyMedium!.copyWith(
+                        fontSize: DiscourseTypography.control,
+                        height: 18 / 13,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0,
+                        color: secondary,
+                      ),
+                      child: message,
+                    ),
+                  ),
+                  if (action != null && !stacked) ...[
+                    const SizedBox(width: 8),
+                    action,
+                  ],
+                ],
+              );
+              if (!stacked) return line;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  line,
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      start:
+                          DAlert.postNoticeMarkExtent +
+                          DAlert.postNoticeMarkGap,
+                      top: 4,
+                    ),
+                    child: action,
+                  ),
+                ],
+              );
+            },
+          ),
+          if (body != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: DefaultTextStyle(
+                style: textTheme.bodyMedium!.copyWith(
+                  fontSize: DiscourseTypography.sm,
+                  height: 1.65,
+                  letterSpacing: 0,
+                  color: tokens.foreground,
+                ),
+                child: body,
+              ),
+            ),
+        ],
       ),
     );
   }

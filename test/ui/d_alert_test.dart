@@ -31,39 +31,89 @@ void main() {
     description: DAlertDescription(child: Text('Description')),
   );
 
-  testWidgets('post notice owns its mark, spacing and static semantics', (
-    tester,
-  ) async {
+  testWidgets('post notice is a bare line: its icon alone in a face\'s room, '
+      'a quiet message and static semantics', (tester) async {
     final semantics = tester.ensureSemantics();
     for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
       await tester.pumpWidget(
         host(
           const DAlert.postNotice(
-            icon: Text('Decorative mark'),
+            icon: Icon(Icons.lock, semanticLabel: 'Decorative mark'),
             message: Text('Welcome'),
           ),
           direction: direction,
         ),
       );
       final alert = tester.getRect(find.byType(DAlert));
-      final mark = tester.getRect(find.byType(DAvatar));
+      final mark = tester.getRect(find.byIcon(Icons.lock));
       final message = tester.getRect(find.text('Welcome'));
-      expect(alert.height, 56);
-      expect(mark.size, const Size(30, 30));
-      expect(mark.top - alert.top, 14);
-      expect(alert.bottom - mark.bottom, 12);
-      expect(message.center.dy, mark.center.dy);
+      expect(alert.height, 30);
+      expect(mark.size, const Size.square(15));
+      expect(find.byType(DAvatar), findsNothing);
+      expect(message.center.dy, closeTo(mark.center.dy, .01));
       expect(
         direction == TextDirection.ltr
-            ? message.left - mark.right
-            : mark.left - message.right,
-        9,
+            ? message.left - mark.center.dx
+            : mark.center.dx - message.right,
+        15 + 9,
+      );
+      final context = tester.element(find.text('Welcome'));
+      final tokens = DTokens.of(context);
+      final secondary = Color.lerp(tokens.background, tokens.foreground, .62);
+      final style = DefaultTextStyle.of(context).style;
+      expect(style.fontSize, 13);
+      expect(style.fontWeight, FontWeight.w400);
+      expect(style.color, secondary);
+      expect(
+        IconTheme.of(tester.element(find.byIcon(Icons.lock))).color,
+        secondary,
       );
       final node = tester.getSemantics(find.byType(DAlert));
       expect(node.flagsCollection.isLiveRegion, isFalse);
       expect(find.bySemanticsLabel('Decorative mark'), findsNothing);
     }
     semantics.dispose();
+  });
+
+  testWidgets('post notice tints its icon toward its tone and keeps its '
+      'action beside it until the line is too narrow', (tester) async {
+    final tone = Colors.green.shade700;
+    Widget notice() => DAlert.postNotice(
+      icon: const Icon(Icons.check),
+      tone: tone,
+      message: const Text('Marked as the solution'),
+      action: DAlertAction(
+        child: DButton(
+          size: DButtonSize.chip,
+          variant: DButtonVariant.ghost,
+          label: const Text('Unmark'),
+          onPressed: () {},
+        ),
+      ),
+      body: const Text('Said under the line'),
+    );
+    await tester.pumpWidget(host(notice()));
+    final context = tester.element(find.byIcon(Icons.check));
+    final tokens = DTokens.of(context);
+    final secondary = Color.lerp(tokens.background, tokens.foreground, .62);
+    expect(IconTheme.of(context).color, Color.lerp(secondary, tone, .7));
+    final message = tester.getRect(find.text('Marked as the solution'));
+    final action = tester.getRect(find.text('Unmark'));
+    expect(action.left, greaterThan(message.right));
+    final body = tester.getRect(find.text('Said under the line'));
+    expect(body.top, greaterThan(message.bottom));
+    expect(
+      DefaultTextStyle.of(
+        tester.element(find.text('Said under the line')),
+      ).style.color,
+      tokens.foreground,
+    );
+
+    await tester.pumpWidget(host(notice(), width: 240));
+    final narrowMessage = tester.getRect(find.text('Marked as the solution'));
+    final narrowAction = tester.getRect(find.text('Unmark'));
+    expect(narrowAction.top, greaterThan(narrowMessage.bottom - 1));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('source grid metrics and live-region semantics', (tester) async {

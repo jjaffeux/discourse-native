@@ -8,7 +8,6 @@ import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
-import 'package:discourse_native/src/shell/post_news_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -86,15 +85,15 @@ void main() {
         of: locked,
         matching: find.dIcon(DIcons.lock),
       );
-      expect(tester.widget<DIcon>(lockMark).color, secondary);
+      expect(IconTheme.of(tester.element(lockMark)).color, secondary);
 
       // The whisper card takes the head tint in the text colour, with its
       // dashed edge.
-      final head = tester.widget<PostNewsTint>(
+      final head = tester.widget<DCardTint>(
         find.byKey(const ValueKey('post-news-head-2')),
       );
       expect(
-        head.tint,
+        head.color,
         Theme.of(
           tester.element(card),
         ).colorScheme.onSurface.withValues(alpha: .08),

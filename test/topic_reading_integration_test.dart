@@ -5226,7 +5226,7 @@ void _registerTopicReadingTests() {
       expect(_postBackground(tester), background);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('whisper posts use core styling and an indicator', (
+    testWidgets('whisper posts say so first as news, in a dashed card', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -5255,7 +5255,14 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.dIcon(DIcons.farEyeSlash), findsOneWidget);
-      expect(find.byTooltip('This post is a private whisper'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('post-whisper-2')),
+          matching: find.text('Whisper, only staff can see this'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('This post is a private whisper'), findsNothing);
 
       final whisper = tester.widget<RichText>(renderedText('A private aside'));
       expect(whisper.text.style?.fontStyle, isNot(FontStyle.italic));

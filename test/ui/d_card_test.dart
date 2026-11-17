@@ -32,6 +32,57 @@ Widget host(
 );
 
 void main() {
+  testWidgets('a head tint is full down to its fade, then gone by its foot', (
+    tester,
+  ) async {
+    const tint = Color(0xFF00AA00);
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: RepaintBoundary(
+              key: key,
+              child: const ColoredBox(
+                color: Colors.white,
+                child: SizedBox(
+                  width: 100,
+                  height: 160,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: DCardTint(
+                      color: tint,
+                      child: SizedBox(width: 100, height: 100),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final pixels = await tester.runAsync(() async {
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage();
+      final bytes = await image.toByteData();
+      image.dispose();
+      return bytes!;
+    });
+    int green(int y) => pixels!.getUint8((y * 100 + 50) * 4 + 1);
+    int red(int y) => pixels!.getUint8((y * 100 + 50) * 4);
+    expect(red(2), 0, reason: 'full tint at the head');
+    expect(red(58), 0, reason: 'still full just above the fade');
+    expect(red(80), inExclusiveRange(0, 255), reason: 'fading');
+    expect(red(99), greaterThan(240), reason: 'gone by the foot');
+    expect(red(130), 255, reason: 'nothing below it');
+    expect(green(2), greaterThan(160));
+  });
+
   testWidgets('tone sheen fades from the top-right within the card outline', (
     tester,
   ) async {

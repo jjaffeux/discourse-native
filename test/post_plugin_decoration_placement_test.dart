@@ -4,7 +4,6 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_tables.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
-import 'package:discourse_native/src/shell/post_news_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -118,8 +117,8 @@ void main() {
     expect(find.byKey(const ValueKey('post-news-card-3')), findsOneWidget);
     expect(
       tester
-          .widget<PostNewsTint>(find.byKey(const ValueKey('post-news-head-3')))
-          .tint,
+          .widget<DCardTint>(find.byKey(const ValueKey('post-news-head-3')))
+          .color,
       DTokens.of(
         tester.element(find.byType(TopicView)),
       ).success.withValues(alpha: .08),

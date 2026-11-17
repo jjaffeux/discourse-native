@@ -120,9 +120,10 @@ class PostNewsCard extends StatelessWidget {
             child: DCollapsibleContent(duration: DMotion.change, child: child),
           );
     final ruled = heading == null;
-    final news = PostNewsTint(
+    final news = DCardTint(
       key: ValueKey('post-news-head-${post.id}'),
-      tint: says ? tone.withValues(alpha: .08) : Colors.transparent,
+      color: says ? tone.withValues(alpha: .08) : Colors.transparent,
+      fade: tintFade,
       child: DReveal(
         visible: says,
         child: Padding(
@@ -132,10 +133,10 @@ class PostNewsCard extends StatelessWidget {
             spacing: ruledGap,
             children: [
               if (post.isWhisper)
-                PostBanner(
+                DAlert.postNotice(
                   key: ValueKey('post-whisper-${post.id}'),
-                  mark: const PostBannerMark(icon: DIcons.farEyeSlash),
-                  title: Text(context.l10n.whisperOnlyStaffCanSee),
+                  icon: const DIcon(DIcons.farEyeSlash),
+                  message: Text(context.l10n.whisperOnlyStaffCanSee),
                 ),
               ?notice,
               ..._PostNewsLines(
@@ -212,213 +213,16 @@ class PostNewsCard extends StatelessWidget {
   }
 }
 
-/// The news's tint behind the card's head: full until [PostNewsCard.tintFade]
-/// above the head's end, then fading to nothing at it.
-class PostNewsTint extends StatelessWidget {
-  const PostNewsTint({super.key, required this.tint, required this.child});
-
-  final Color tint;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
-    tween: ColorTween(end: tint),
-    duration: DMotion.duration(context, DMotion.change),
-    builder: (context, tint, child) => CustomPaint(
-      painter: _NewsTintPainter(tint ?? Colors.transparent),
-      child: child,
-    ),
-    child: child,
-  );
-}
-
-class _NewsTintPainter extends CustomPainter {
-  const _NewsTintPainter(this.tint);
-
-  final Color tint;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (tint.a == 0 || size.isEmpty) return;
-    final rect = Offset.zero & size;
-    final solid = ((size.height - PostNewsCard.tintFade) / size.height).clamp(
-      0.0,
-      1.0,
-    );
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [tint, tint, tint.withValues(alpha: 0)],
-          stops: [0, solid, 1],
-        ).createShader(rect),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_NewsTintPainter oldDelegate) => oldDelegate.tint != tint;
-}
-
-/// The secondary text colour a post's news is said in.
-Color postNewsSecondary(BuildContext context) {
-  final tokens = DTokens.of(context);
-  return Color.lerp(tokens.background, tokens.foreground, .62)!;
-}
-
-/// What has been said about or done to a post, said at its head as one of
-/// its bare lines: a mark for who or what, a quiet line saying it, and what
-/// can be done about it at the end; anything more under that.
-///
-/// Plugins supply these through `PostHeaderPlugin.postHeaders`, which places
-/// them among the post's other news, with a [PostBannerMark] for the mark.
-class PostBanner extends StatelessWidget {
-  const PostBanner({
-    super.key,
-    required this.mark,
-    required this.title,
-    this.action,
-    this.child,
-  });
-
-  /// The size of the room a mark stands in, a face's.
-  static const double markExtent = 30;
-
-  /// The narrowest a line keeps its action beside it, at unscaled text.
-  static const double _rowWidth = 260;
-
-  /// A [PostBannerMark], or a face or artwork in a [markExtent] square.
-  final Widget mark;
-  final Widget title;
-
-  /// A quiet control at the line's end.
-  final Widget? action;
-
-  /// What is said under the line, at the post's own reading size.
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: DiscourseTypography.control,
-      height: 18 / 13,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0,
-      color: postNewsSecondary(context),
-    );
-    final action = this.action;
-    return Semantics(
-      container: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // Too narrow for the line and its action side by side, the
-              // action goes under the line rather than squeezing its words.
-              final stacked =
-                  action != null &&
-                  constraints.maxWidth <
-                      MediaQuery.textScalerOf(context).scale(_rowWidth);
-              final line = Row(
-                children: [
-                  SizedBox.square(
-                    dimension: markExtent,
-                    child: Center(child: mark),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: DefaultTextStyle(style: style, child: title),
-                  ),
-                  if (action != null && !stacked) ...[
-                    const SizedBox(width: 8),
-                    action,
-                  ],
-                ],
-              );
-              if (!stacked) return line;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  line,
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      start: markExtent + 9,
-                      top: 4,
-                    ),
-                    child: action,
-                  ),
-                ],
-              );
-            },
-          ),
-          if (child case final child?)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: DefaultTextStyle(
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                  fontSize: DiscourseTypography.sm,
-                  height: 1.65,
-                  letterSpacing: 0,
-                  color: DTokens.of(context).foreground,
-                ),
-                child: child,
-              ),
-            ),
-        ],
+/// A news line's quiet action, at its end.
+DAlertAction postNewsAction(String label, VoidCallback? onPressed) =>
+    DAlertAction(
+      child: DButton(
+        size: DButtonSize.chip,
+        variant: DButtonVariant.ghost,
+        onPressed: onPressed,
+        label: Text(label),
       ),
     );
-  }
-}
-
-/// A banner's mark where it is a thing rather than someone: its icon alone,
-/// standing where a face would, in the banner's tone softened toward the
-/// secondary text colour. With no [tone] it is said in that colour itself.
-class PostBannerMark extends StatelessWidget {
-  const PostBannerMark({super.key, required this.icon, this.tone});
-
-  final DIconData icon;
-  final Color? tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final secondary = postNewsSecondary(context);
-    return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: PostBanner.markExtent,
-        child: Center(
-          child: DIcon(
-            icon,
-            size: 15,
-            color: tone == null ? secondary : Color.lerp(secondary, tone, .7),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A banner's quiet action at its line's end.
-class PostBannerAction extends StatelessWidget {
-  const PostBannerAction({
-    super.key,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => DButton(
-    size: DButtonSize.chip,
-    variant: DButtonVariant.ghost,
-    onPressed: onPressed,
-    label: Text(label),
-  );
-}
 
 /// The core moderation and standing lines of a post's news.
 class _PostNewsLines {
@@ -460,26 +264,24 @@ class _PostNewsLines {
     final tokens = DTokens.of(context);
     return [
       if (post.isDeleted)
-        PostBanner(
+        DAlert.postNotice(
           key: ValueKey('post-deleted-${post.id}'),
-          mark: PostBannerMark(icon: DIcons.trashCan, tone: tokens.destructive),
-          title: Text(context.l10n.postDeleted),
+          icon: const DIcon(DIcons.trashCan),
+          tone: tokens.destructive,
+          message: Text(context.l10n.postDeleted),
           action: post.canRecover
-              ? PostBannerAction(
-                  label: context.l10n.undelete,
-                  onPressed: () =>
-                      unawaited(report(() => shell.recoverPost(post))),
+              ? postNewsAction(
+                  context.l10n.undelete,
+                  () => unawaited(report(() => shell.recoverPost(post))),
                 )
               : null,
         ),
       if (post.hidden)
-        PostBanner(
+        DAlert.postNotice(
           key: ValueKey('post-hidden-${post.id}'),
-          mark: PostBannerMark(
-            icon: DIcons.farEyeSlash,
-            tone: Theme.of(context).colorScheme.secondary,
-          ),
-          title: Text(switch (post.hiddenReasonId) {
+          icon: const DIcon(DIcons.farEyeSlash),
+          tone: Theme.of(context).colorScheme.secondary,
+          message: Text(switch (post.hiddenReasonId) {
             1 => context.l10n.postHiddenAfterFlags,
             2 => context.l10n.postHiddenAgainAfterFlags,
             3 => context.l10n.postHiddenNewUserSpam,
@@ -488,10 +290,9 @@ class _PostNewsLines {
             _ => context.l10n.postHidden,
           }),
           action: shell.canUnhidePost(post)
-              ? PostBannerAction(
-                  label: context.l10n.unhidePost,
-                  onPressed: () =>
-                      unawaited(report(() => shell.unhidePost(post))),
+              ? postNewsAction(
+                  context.l10n.unhidePost,
+                  () => unawaited(report(() => shell.unhidePost(post))),
                 )
               : null,
         ),
@@ -514,56 +315,47 @@ class _PostNewsLines {
         : context.l10n.postBookmarked;
     return [
       if (post.locked)
-        PostBanner(
+        DAlert.postNotice(
           key: ValueKey('post-locked-${post.id}'),
-          mark: const PostBannerMark(icon: DIcons.lock),
-          title: Text(context.l10n.postLocked),
+          icon: const DIcon(DIcons.lock),
+          message: Text(context.l10n.postLocked),
           action: shell.canLockPost(post)
-              ? PostBannerAction(
-                  label: context.l10n.unlockPost,
-                  onPressed: () =>
+              ? postNewsAction(
+                  context.l10n.unlockPost,
+                  () =>
                       unawaited(report(() => shell.setPostLocked(post, false))),
                 )
               : null,
         ),
       if (bookmark != null)
-        PostBanner(
+        DAlert.postNotice(
           key: ValueKey('post-bookmarked-${post.id}'),
-          mark: PostBannerMark(
-            icon: DIcons.bookmark,
-            tone: Theme.of(context).colorScheme.primary,
-          ),
-          title: Text(
+          icon: const DIcon(DIcons.bookmark),
+          tone: Theme.of(context).colorScheme.primary,
+          message: Text(
             bookmark.name?.isNotEmpty == true
                 ? '$bookmarkLabel · ${bookmark.name}'
                 : bookmarkLabel,
           ),
-          action: PostBannerAction(
-            label: context.l10n.editBookmark,
-            onPressed: () {
-              if (!owner.isCurrent(
-                context,
-                siteUrl: siteUrl,
-                postId: post.id,
-              )) {
-                return;
-              }
-              unawaited(
-                showBookmarkEditor(
-                  context: context,
-                  controller: shell.bookmarkTarget(
-                    topicBookmark != null
-                        ? BookmarkTargetType.topic
-                        : BookmarkTargetType.post,
-                  ),
-                  siteUrl: siteUrl,
-                  topicId: topicId,
-                  bookmark: bookmark,
-                  cooked: post.cooked,
+          action: postNewsAction(context.l10n.editBookmark, () {
+            if (!owner.isCurrent(context, siteUrl: siteUrl, postId: post.id)) {
+              return;
+            }
+            unawaited(
+              showBookmarkEditor(
+                context: context,
+                controller: shell.bookmarkTarget(
+                  topicBookmark != null
+                      ? BookmarkTargetType.topic
+                      : BookmarkTargetType.post,
                 ),
-              );
-            },
-          ),
+                siteUrl: siteUrl,
+                topicId: topicId,
+                bookmark: bookmark,
+                cooked: post.cooked,
+              ),
+            );
+          }),
         ),
     ];
   }

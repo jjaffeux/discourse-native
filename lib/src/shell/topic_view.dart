@@ -4845,38 +4845,34 @@ class _PostNoticeBanner extends StatelessWidget {
     };
     if (notice.type == 'new_user' || notice.type == 'returning_user') {
       final viewerId = controller.currentUserFor(siteUrl)?.id;
-      return PostBanner(
+      return DAlert.postNotice(
         key: ValueKey('post-notice-${post.id}'),
-        mark: ExcludeSemantics(
-          child: SizedBox.square(
-            dimension: 16,
-            child: DConfetti(
-              enabled:
-                  notice.type == 'new_user' && !post.hidden && !post.isDeleted,
-              claimCelebration: () => _postWelcomes.claim(
-                siteUrl,
-                viewerId,
-                post.id,
-                createdAt: post.createdAt,
-              ),
-              child: SvgPicture.asset(
-                'packages/discourse_native/src/ui/assets/post_notice/'
-                '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
-              ),
+        icon: SizedBox.square(
+          dimension: 16,
+          child: DConfetti(
+            enabled:
+                notice.type == 'new_user' && !post.hidden && !post.isDeleted,
+            claimCelebration: () => _postWelcomes.claim(
+              siteUrl,
+              viewerId,
+              post.id,
+              createdAt: post.createdAt,
+            ),
+            child: SvgPicture.asset(
+              'packages/discourse_native/src/ui/assets/post_notice/'
+              '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
             ),
           ),
         ),
-        title: Text(label),
+        message: Text(label),
       );
     }
-    return PostBanner(
+    return DAlert.postNotice(
       key: ValueKey('post-notice-${post.id}'),
-      mark: PostBannerMark(
-        icon: DIcons.user,
-        tone: DTokens.of(context).primary,
-      ),
-      title: Text(context.l10n.staffNotice),
-      child: cooked == null || cooked.isEmpty
+      icon: const DIcon(DIcons.user),
+      tone: DTokens.of(context).primary,
+      message: Text(context.l10n.staffNotice),
+      body: cooked == null || cooked.isEmpty
           ? switch (notice.raw) {
               final raw? => Text(raw),
               null => null,

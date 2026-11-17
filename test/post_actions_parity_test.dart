@@ -213,10 +213,8 @@ void main() {
       expect(solution.backgroundColor, Colors.transparent);
       expect(
         tester
-            .widget<PostNewsTint>(
-              find.byKey(const ValueKey('post-news-head-8')),
-            )
-            .tint,
+            .widget<DCardTint>(find.byKey(const ValueKey('post-news-head-8')))
+            .color,
         DTokens.of(
           tester.element(find.byType(TopicView)),
         ).success.withValues(alpha: .08),
@@ -450,13 +448,13 @@ void main() {
           expect(openingCard.backgroundColor, Colors.transparent);
           expect(
             tester
-                .widget<PostNewsTint>(
+                .widget<DCardTint>(
                   find.descendant(
                     of: opening,
-                    matching: find.byType(PostNewsTint),
+                    matching: find.byType(DCardTint),
                   ),
                 )
-                .tint,
+                .color,
             primary.withValues(alpha: .08),
           );
           expect(openingCard.borderColor, primary.withValues(alpha: .26));

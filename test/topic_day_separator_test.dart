@@ -394,7 +394,7 @@ void main() {
           matching: find.text(newSinceLastVisit),
         );
         expect(label, findsOneWidget);
-        final style = tester.widget<Text>(label).style!;
+        final style = DefaultTextStyle.of(tester.element(label)).style;
         expect(style.fontSize, 13);
         expect(style.fontWeight, FontWeight.w400);
         final tokens = DTokens.of(tester.element(label));

@@ -6,9 +6,7 @@ import '../foundation/icons/d_icons.dart';
 import '../models/post.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/discourse_typography.dart';
 import 'cooked_html.dart';
-import 'post_news_card.dart';
 import 'relative_time.dart';
 
 @immutable
@@ -141,24 +139,23 @@ class SmallActionLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: DiscourseTypography.control,
-      height: 18 / 13,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0,
-      color: postNewsSecondary(context),
-    );
-    final muted = style.copyWith(color: DTokens.of(context).mutedForeground);
-    final line = Row(
-      children: [
-        PostBannerMark(icon: icon, tone: tone),
-        const SizedBox(width: 9),
-        Flexible(child: Text(said, style: style)),
-        if (more case final more?) ...[
-          Text(' · ', style: muted),
-          DefaultTextStyle(style: muted, child: more),
+    final muted = DTokens.of(context).mutedForeground;
+    final line = DAlert.postNotice(
+      icon: DIcon(icon),
+      tone: tone,
+      message: Row(
+        children: [
+          Flexible(child: Text(said)),
+          if (more case final more?)
+            DefaultTextStyle.merge(
+              style: TextStyle(color: muted),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [const Text(' · '), more],
+              ),
+            ),
         ],
-      ],
+      ),
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, roomAbove, 16, roomBelow),
@@ -173,7 +170,7 @@ class SmallActionLine extends StatelessWidget {
           if (child case final child?)
             Padding(
               padding: const EdgeInsetsDirectional.only(
-                start: PostBanner.markExtent + 9,
+                start: DAlert.postNoticeMarkExtent + DAlert.postNoticeMarkGap,
                 top: 6,
               ),
               child: child,
@@ -208,7 +205,7 @@ class SmallActionTile extends StatelessWidget {
           : CookedHtml(
               html: post.cooked,
               textStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: postNewsSecondary(context),
+                color: DAlert.postNoticeColorOf(context),
               ),
               siteUrl: siteUrl,
             ),
