@@ -1189,11 +1189,11 @@ void main() {
       await tester.pumpAndSettle();
       final assignment = find.byKey(const Key('assign-topic-header'));
       expect(assignment.hitTestable(), findsOneWidget);
-      expect(find.byTooltip('Manage assignment to Sam'), findsOneWidget);
+      expect(find.byTooltip('Assigned to Sam'), findsOneWidget);
       await tester.tap(assignment);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
-      expect(find.text('Assigned to'), findsWidgets);
+      expect(find.text('Assigned topic to'), findsWidgets);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(

@@ -92,6 +92,8 @@ export 'src/shell/oneboxes/embedded.dart' show embeddedOneboxWidgetBuilder;
 export 'src/shell/oneboxes/markup.dart' show digitsIn, oneLineText;
 export 'src/shell/oneboxes/onebox_card.dart' show OneboxCard, OneboxData;
 export 'src/shell/open_link.dart' show LinkTarget, openLink;
+export 'src/shell/person_picker.dart'
+    show GroupFace, PersonFace, PersonPick, PersonPickSearch, showPersonPicker;
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
 export 'src/shell/post_action_leading.dart' show PostActionLeading;

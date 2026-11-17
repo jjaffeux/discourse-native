@@ -32,6 +32,11 @@ enum DItemVariant {
   /// selection take the row over as they do a standard one.
   unread,
 
+  /// What is said about a post set apart from what it says: the text colour
+  /// at 6% under it and no edge, in the standard shape's 10 corners. Pass the
+  /// box's own [DItem.padding], which it reaches past its column by.
+  note,
+
   /// A grid action with selected-color focus and the Native hover treatment.
   picker,
 }
@@ -519,6 +524,8 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
         ? tokens.surface
         : widget.variant == DItemVariant.unread
         ? tokens.unreadFill
+        : widget.variant == DItemVariant.note
+        ? tokens.foreground.withValues(alpha: tokens.foreground.a * .06)
         : widget.variant == DItemVariant.outline
         ? tokens.surface
         : Colors.transparent;

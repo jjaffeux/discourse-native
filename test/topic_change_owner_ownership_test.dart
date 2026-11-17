@@ -12,7 +12,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_change_owner.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -26,13 +25,13 @@ const _guardian = DiscourseUser(
   username: 'moderator',
   canChangePostOwner: true,
 );
-const _obsolete = 'Your connection changed. Reopen Change owner and try again.';
 final _forbidden = const WriteException(WriteFailure.forbidden).message;
-final _dialog = find.byKey(const ValueKey('topic-change-owner-dialog'));
+final _picker = find.byKey(const ValueKey('person-picker-search'));
+const _recipientRow = ValueKey('person-picker-user-recipient');
 
 void main() {
   testWidgets(
-    'Native owner dialog scrolls in a narrow window and holds a save',
+    'a desktop gives the post to whoever is pressed, offering only people',
     (tester) async {
       final gate = Completer<void>();
       final api = _OwnerApi()..ownerWriteGate = gate;
@@ -42,38 +41,19 @@ void main() {
         _GatedAuthenticator(),
         selected: false,
       );
-      tester.view.physicalSize = const Size(390, 600);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpAndSettle();
       expect(find.byType(DDialogContent), findsOneWidget);
-      expect(tester.getRect(_dialog).left, greaterThanOrEqualTo(0));
-      expect(tester.getRect(_dialog).right, lessThanOrEqualTo(390));
-      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-      await tester.ensureVisible(submit);
-      await tester.tap(submit);
-      await tester.pump();
+      expect(find.text('Choose who this post should belong to.'), findsOne);
+      expect(_hint(tester), 'Search users');
+      expect(find.widgetWithText(DButton, 'Change owner'), findsNothing);
+
+      await _pressSubmit(tester);
       expect(api.writes, hasLength(1));
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pump();
-      // A dismissed dialog stays mounted for its exit transition, so a single
-      // frame cannot tell a held save from a dialog on its way out.
-      await tester.pump(const Duration(seconds: 1));
-      expect(_dialog, findsOneWidget);
-      await tester.binding.handlePopRoute();
-      // Past the close transition, so a granted dismissal would have finished.
-      await tester.pump(const Duration(seconds: 1));
-      expect(_dialog, findsOneWidget);
-      expect(
-        tester
-            .widget<DButton>(find.widgetWithText(DButton, 'Cancel'))
-            .onPressed,
-        isNull,
-      );
-      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(_picker, findsNothing);
+      expect(find.text('Owner changed to Recipient'), findsNothing);
       gate.complete();
       await tester.pumpAndSettle();
-      expect(_dialog, findsNothing);
+      expect(find.text('Owner changed to Recipient'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -82,7 +62,7 @@ void main() {
   for (final selected in [false, true]) {
     testWidgets(
       'a phone changes the ${selected ? 'selected posts\'' : 'post\'s'} '
-      'owner from its sheet above the keyboard',
+      'owner from a sheet that opens on its field',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -94,69 +74,23 @@ void main() {
           FakeAuthenticator(),
           selected: selected,
         );
-        expectPhoneSheet(tester, title: 'Change post owner');
-        expect(_dialog, findsNothing);
+        expect(phoneSheet('Change post owner'), findsOneWidget);
+        expect(find.byType(DDialogContent), findsNothing);
+        expect(_hint(tester), 'Change owner to…');
+        expect(find.textContaining('should belong to'), findsNothing);
 
         await raiseKeyboard(tester);
-        final search = find.byKey(const ValueKey('topic-change-owner-search'));
-        final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-        expect(tester.getRect(search).bottom, lessThanOrEqualTo(844 - 300));
-        expect(tester.getRect(submit).bottom, lessThanOrEqualTo(844 - 300));
+        expect(tester.getRect(_picker).bottom, lessThanOrEqualTo(844 - 300));
+        expect(
+          tester.getRect(find.byKey(_recipientRow)).bottom,
+          lessThanOrEqualTo(844 - 300),
+        );
         await _submit(tester);
         expect(api.writes, hasLength(1));
+        expect(api.writes.single.postIds, selected ? [1, 2] : [1]);
         expect(phoneSheet('Change post owner'), findsNothing);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-    );
-  }
-
-  for (final selected in [false, true]) {
-    testWidgets(
-      '${selected ? 'selected-post' : 'single-post'} rejects a radio result from the query edited before rebuild',
-      (tester) async {
-        final api = _ChoiceOwnerApi();
-        await _openDialog(tester, api, selected: selected);
-        final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-        expect(tester.widget<DButton>(submit).onPressed, isNull);
-
-        await tester.enterText(
-          find.byKey(const ValueKey('topic-change-owner-search')),
-          'bob',
-        );
-        // Input and radio callbacks can both run before the next frame hides
-        // the old results. Use the actual Native input and radio hit target.
-        await tester.tap(
-          find.byKey(const ValueKey('topic-change-owner-user-recipient')),
-        );
-        await tester.pump();
-        expect(find.text('Recipient'), findsNothing);
-        await tester.tap(submit);
-        await tester.pump();
-        expect(api.writes, isEmpty);
-        expect(tester.widget<DButton>(submit).onPressed, isNull);
-
-        await tester.pump(const Duration(milliseconds: 350));
-        expect(api.userSearchesRequested.last.term, 'bob');
-        expect(tester.widget<DButton>(submit).onPressed, isNull);
-        api.nextUsers.complete(const [
-          FoundUser(username: 'bob', name: 'Bob'),
-          FoundUser(username: 'carol', name: 'Carol'),
-        ]);
-        await tester.pumpAndSettle();
-        expect(find.text('Bob'), findsOneWidget);
-        // Neither new row was chosen, so the refused tap left nothing selected.
-        expect(tester.widget<DButton>(submit).onPressed, isNull);
-        await tester.tap(
-          find.byKey(const ValueKey('topic-change-owner-user-bob')),
-        );
-        await tester.pump();
-        await _submit(tester);
-        expect(api.writes.single.username, 'bob');
-        expect(api.writes.single.postIds, selected ? [1, 2] : [1]);
-        expect(_dialog, findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
@@ -171,7 +105,7 @@ void main() {
     expect(controller.currentInstance?.url, _siteB);
     expect(controller.currentTopic?.id, 7);
     expect(controller.currentTopic?.stream, contains(1));
-    expect(_dialog, findsOneWidget);
+    expect(_picker, findsOneWidget);
 
     await _submit(tester);
 
@@ -186,7 +120,7 @@ void main() {
     _expectRefresh(api, [1]);
     expect(controller.store.read<Post>(_siteB, 1), same(otherPost));
     expect(controller.store.read<Post>(_siteA, 1)?.username, 'recipient');
-    expect(_dialog, findsNothing);
+    expect(_picker, findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
@@ -202,7 +136,7 @@ void main() {
 
       expect(api.writes.single.topicId, 7);
       _expectRefresh(api, [1]);
-      expect(_dialog, findsNothing);
+      expect(_picker, findsNothing);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
@@ -257,8 +191,7 @@ void main() {
 
         expect(api.writes, isEmpty);
         expect(api.refreshes, isEmpty);
-        expect(find.text(_forbidden), findsOneWidget);
-        expect(_dialog, findsOneWidget);
+        expect(_picker, findsNothing);
         expect(controller.postWriteInFlight(1, siteUrl: _siteA), isFalse);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
@@ -281,8 +214,7 @@ void main() {
 
       expect(api.writes, isEmpty);
       expect(api.refreshes, isEmpty);
-      expect(find.text(_obsolete), findsOneWidget);
-      expect(_dialog, findsOneWidget);
+      expect(_picker, findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$mode rechecks account replacement after credentials', (
@@ -310,8 +242,7 @@ void main() {
 
       expect(api.writes, isEmpty);
       expect(api.refreshes, isEmpty);
-      expect(find.text(_obsolete), findsOneWidget);
-      expect(_dialog, findsOneWidget);
+      expect(_picker, findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$mode search cannot adopt a replacement account', (
@@ -321,7 +252,7 @@ void main() {
       final controller = await _openDialog(tester, api, selected: selected);
       expect(api.userSearchesRequested, hasLength(1));
       await tester.enterText(
-        find.byKey(const ValueKey('topic-change-owner-search')),
+        find.byKey(const ValueKey('person-picker-search')),
         'another recipient',
       );
       await controller.disconnectCurrentInstance();
@@ -331,7 +262,7 @@ void main() {
 
       expect(api.userSearchesRequested, hasLength(1));
       expect(api.writes, isEmpty);
-      expect(find.text('Recipient'), findsNothing);
+      expect(find.byKey(_recipientRow), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final pending in ['write', 'refresh']) {
@@ -373,8 +304,7 @@ void main() {
           if (selected) {
             expect(controller.selectedTopicPostIds(_siteA, 7), {1, 2});
           }
-          expect(find.text(_obsolete), findsOneWidget);
-          expect(_dialog, findsOneWidget);
+          expect(_picker, findsNothing);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
@@ -408,15 +338,14 @@ void main() {
 
           expect(api.writes, isEmpty);
           expect(api.refreshes, isEmpty);
-          expect(find.text(_obsolete), findsOneWidget);
-          expect(_dialog, findsOneWidget);
+          expect(_picker, findsNothing);
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
-    testWidgets('$mode preserves errors, retries and refreshes on success', (
+    testWidgets('$mode toasts a refusal, retries and refreshes on success', (
       tester,
     ) async {
       final api = _OwnerApi()
@@ -433,7 +362,7 @@ void main() {
         find.text('Owner changes are temporarily disabled.'),
         findsOneWidget,
       );
-      expect(_dialog, findsOneWidget);
+      expect(_picker, findsNothing);
       expect(api.writes.single.postIds, ids);
       expect(api.refreshes, isEmpty);
       expect(controller.store.read<Post>(_siteA, 1)?.username, 'author');
@@ -444,6 +373,7 @@ void main() {
       }
       api.ownerFailure = null;
 
+      await _openPicker(tester, selected: selected, hover: false);
       await _submit(tester);
 
       expect(api.writes, hasLength(2));
@@ -455,7 +385,7 @@ void main() {
         expect(controller.postWriteInFlight(id, siteUrl: _siteA), isFalse);
       }
       expect(controller.topicPostSelectionEnabled(_siteA, 7), isFalse);
-      expect(_dialog, findsNothing);
+      expect(_picker, findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
@@ -506,7 +436,7 @@ void main() {
           expect(api.writes, isEmpty);
           expect(api.refreshes, isEmpty);
           expect(find.text(_forbidden), findsOneWidget);
-          expect(_dialog, findsOneWidget);
+          expect(_picker, findsNothing);
           expect(controller.selectedTopicPostIds(_siteA, 7), {1, 2});
           expect(
             controller.topicPostSelectionWriteInFlight(_siteA, 7),
@@ -544,7 +474,6 @@ void main() {
     await _submit(tester);
 
     expect(api.writes, isEmpty);
-    expect(find.text(_forbidden), findsOneWidget);
     expect(controller.selectedTopicPostIds(_siteA, 7), {1, 2});
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -558,7 +487,7 @@ void main() {
         _GatedAuthenticator(),
         selected: false,
       );
-      final search = find.byKey(const ValueKey('topic-change-owner-search'));
+      final search = find.byKey(const ValueKey('person-picker-search'));
       final searchesBefore = api.userSearchesRequested.length;
       await tester.enterText(search, 'abandoned');
       await tester.pump(const Duration(milliseconds: 100));
@@ -572,13 +501,16 @@ void main() {
       await tester.enterText(search, 'recipient');
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
-      expect(find.text('Recipient'), findsOneWidget);
+      expect(find.byKey(_recipientRow), findsOneWidget);
 
       api.slow.complete(const [FoundUser(username: 'stale', name: 'Stale')]);
       await tester.pumpAndSettle();
 
-      expect(find.text('Stale'), findsNothing);
-      expect(find.text('Recipient'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('person-picker-user-stale')),
+        findsNothing,
+      );
+      expect(find.byKey(_recipientRow), findsOneWidget);
       await _submit(tester);
       expect(api.writes.single.username, 'recipient');
     },
@@ -596,82 +528,21 @@ void main() {
       selected: false,
     );
     await tester.enterText(
-      find.byKey(const ValueKey('topic-change-owner-search')),
+      find.byKey(const ValueKey('person-picker-search')),
       'everyone',
     );
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(const ValueKey('topic-change-owner-user-author')),
+      find.byKey(const ValueKey('person-picker-user-author')),
       findsNothing,
     );
-    // The remaining single candidate is chosen without another tap.
     await _submit(tester);
     expect(api.writes.single.username, 'recipient');
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets(
-    'editing the query withdraws a recipient the new results do not choose',
-    (tester) async {
-      final api = _SearchGateApi();
-      await _openStandaloneDialog(
-        tester,
-        api,
-        _GatedAuthenticator(),
-        selected: false,
-      );
-      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-      expect(tester.widget<DButton>(submit).onPressed, isNotNull);
-      await tester.enterText(
-        find.byKey(const ValueKey('topic-change-owner-search')),
-        'pair',
-      );
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      expect(find.text('Bob'), findsOneWidget);
-      expect(find.text('Carol'), findsOneWidget);
-      expect(tester.widget<DButton>(submit).onPressed, isNull);
-
-      await tester.tap(
-        find.byKey(const ValueKey('topic-change-owner-user-carol')),
-      );
-      await tester.pump();
-      await _submit(tester);
-      expect(api.writes.single.username, 'carol');
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.linux),
-  );
-
-  testWidgets(
-    'a radio row tapped after clearing the query before rebuild is refused',
-    (tester) async {
-      final api = _ChoiceOwnerApi();
-      await _openStandaloneDialog(
-        tester,
-        api,
-        _GatedAuthenticator(),
-        selected: false,
-      );
-      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-      expect(tester.widget<DButton>(submit).onPressed, isNull);
-      await tester.enterText(
-        find.byKey(const ValueKey('topic-change-owner-search')),
-        '',
-      );
-      await tester.tap(
-        find.byKey(const ValueKey('topic-change-owner-user-recipient')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Recipient'), findsNothing);
-      expect(tester.widget<DButton>(submit).onPressed, isNull);
-      expect(api.writes, isEmpty);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.linux),
-  );
-
-  testWidgets('a second press before repaint leaves a held save untouched', (
+  testWidgets('a second press before the picker closes writes once', (
     tester,
   ) async {
     final gate = Completer<void>();
@@ -682,50 +553,38 @@ void main() {
       _GatedAuthenticator(),
       selected: false,
     );
-    final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-    await tester.tap(submit);
-    await tester.tap(submit);
+    final row = find.byKey(_recipientRow);
+    await tester.tap(row);
+    await tester.tap(row, warnIfMissed: false);
     await tester.pump();
 
     expect(api.writes, hasLength(1));
-    expect(
-      find.byKey(const ValueKey('topic-change-owner-error')),
-      findsNothing,
-    );
-    expect(
-      tester.widget<DButton>(find.widgetWithText(DButton, 'Cancel')).onPressed,
-      isNull,
-    );
     gate.complete();
     await tester.pumpAndSettle();
     expect(api.writes, hasLength(1));
-    expect(_dialog, findsNothing);
+    expect(_picker, findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets(
-    'an uncertain change answered before repaint cannot be resubmitted',
-    (tester) async {
-      final api = _OwnerApi()
-        ..ownerFailure = const WriteException(WriteFailure.unreachable);
-      await _openStandaloneDialog(
-        tester,
-        api,
-        _GatedAuthenticator(),
-        selected: false,
-      );
-      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-      await tester.tap(submit);
-      expect(api.writes, hasLength(1));
-      await tester.tap(submit);
-      await tester.pumpAndSettle();
+  testWidgets('an uncertain change is toasted with a way to refresh', (
+    tester,
+  ) async {
+    final api = _OwnerApi()
+      ..ownerFailure = const WriteException(WriteFailure.unreachable);
+    await _openStandaloneDialog(
+      tester,
+      api,
+      _GatedAuthenticator(),
+      selected: false,
+    );
+    await _submit(tester);
 
-      expect(api.writes, hasLength(1));
-      expect(tester.widget<DButton>(submit).onPressed, isNull);
-      expect(_dialog, findsOneWidget);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.linux),
-  );
+    expect(api.writes, hasLength(1));
+    expect(_picker, findsNothing);
+    expect(find.widgetWithText(DButton, 'Refresh'), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
+
+String? _hint(WidgetTester tester) => tester.widget<DInput>(_picker).hintText;
 
 void _expectRefresh(_OwnerApi api, List<int> ids) {
   expect(api.refreshes.map((refresh) => (refresh.siteUrl, refresh.topicId)), [
@@ -785,18 +644,28 @@ Future<ShellController> _openDialog(
   if (selected) {
     _selectPosts(controller);
     await tester.pumpAndSettle();
+  }
+  await _openPicker(tester, selected: selected);
+  return controller;
+}
+
+Future<void> _openPicker(
+  WidgetTester tester, {
+  required bool selected,
+  bool hover = true,
+}) async {
+  if (selected) {
     final action = find.byKey(
       const ValueKey('topic-selected-posts-change-owner'),
     );
     await tester.ensureVisible(action);
     await tester.tap(action);
   } else {
-    await hoverPost(tester, body: 'Owned body 1');
+    if (hover) await hoverPost(tester, body: 'Owned body 1');
     await tapPostAction(tester, 'Assign this post to another account');
   }
   await tester.pumpAndSettle();
   await _chooseRecipient(tester);
-  return controller;
 }
 
 Future<ShellController> _openStandaloneDialog(
@@ -826,6 +695,7 @@ Future<ShellController> _openStandaloneDialog(
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light,
+      builder: (context, child) => DToaster(child: child!),
       home: Builder(
         builder: (context) => TextButton(
           onPressed: () => unawaited(
@@ -854,12 +724,12 @@ Future<ShellController> _openStandaloneDialog(
 
 Future<void> _chooseRecipient(WidgetTester tester) async {
   await tester.enterText(
-    find.byKey(const ValueKey('topic-change-owner-search')),
+    find.byKey(const ValueKey('person-picker-search')),
     'recipient',
   );
   await tester.pump(const Duration(milliseconds: 350));
   await tester.pumpAndSettle();
-  expect(find.text('Recipient'), findsOneWidget);
+  expect(find.byKey(_recipientRow), findsOneWidget);
 }
 
 Future<void> _submit(WidgetTester tester) async {
@@ -868,7 +738,7 @@ Future<void> _submit(WidgetTester tester) async {
 }
 
 Future<void> _pressSubmit(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('topic-change-owner-submit')));
+  await tester.tap(find.byKey(_recipientRow));
   await tester.pump();
 }
 
@@ -1039,33 +909,5 @@ class _SearchGateApi extends _OwnerApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-  }
-}
-
-class _ChoiceOwnerApi extends _OwnerApi {
-  final nextUsers = Completer<List<FoundUser>>();
-
-  @override
-  Future<List<FoundUser>> searchUsers({
-    required String siteUrl,
-    required String term,
-    int? topicId,
-    int limit = 10,
-    String? apiKey,
-    String? clientId,
-  }) async {
-    if (term == 'bob') {
-      userSearchesRequested.add((term: term, topicId: topicId));
-      return nextUsers.future;
-    }
-    final users = await super.searchUsers(
-      siteUrl: siteUrl,
-      term: term,
-      topicId: topicId,
-      limit: limit,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return [...users, const FoundUser(username: 'other', name: 'Other')];
   }
 }

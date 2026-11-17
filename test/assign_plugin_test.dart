@@ -15,15 +15,15 @@ import 'package:discourse_native/src/plugins/assign/assign_icons.dart';
 import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
+import 'package:discourse_native/src/plugins/assign/assignment_actions.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/shell/person_picker.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
-import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://forum.example.com';
@@ -299,36 +299,210 @@ void main() {
           cooked: '',
         );
 
+        const reply = Post(
+          id: 22,
+          postNumber: 2,
+          username: 'author',
+          cooked: '',
+        );
+
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.light,
             home: Scaffold(
               body: Builder(
                 builder: (context) => Column(
-                  children: _plugin.postDecorations(
-                    context,
-                    _siteUrl,
-                    topic,
-                    post,
-                  ),
+                  children: [
+                    ..._plugin.postHeaders(context, _siteUrl, topic, post),
+                    ..._plugin.postDecorations(context, _siteUrl, topic, post),
+                    ..._plugin.postHeaders(context, _siteUrl, topic, reply),
+                    ..._plugin.postDecorations(context, _siteUrl, topic, reply),
+                  ],
                 ),
               ),
             ),
           ),
         );
 
-        expect(find.text('Topic assigned to support'), findsOneWidget);
-        expect(find.text('Post #2 assigned to Sam'), findsOneWidget);
-        expect(find.textContaining('Status: New'), findsOneWidget);
-        expect(find.textContaining('Note: Post note'), findsOneWidget);
+        // The first post is the topic: its news says the topic's assignment,
+        // with the group's mark where a face would be.
+        final news = find.byKey(const Key('assign-topic-news'));
         expect(
-          find.byWidgetPredicate(
-            (widget) => widget is DIcon && widget.icon == DIcons.pencil,
+          find.descendant(
+            of: news,
+            matching: find.text('Topic assigned to support'),
           ),
-          findsNothing,
+          findsOneWidget,
         );
+        expect(
+          find.descendant(of: news, matching: find.byType(GroupFace)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: news, matching: find.text('New · Topic note')),
+          findsOneWidget,
+        );
+        // A post's own assignment is in its note box, not the first post's.
+        final note = find.byKey(const Key('assign-post-22-assignment'));
+        expect(
+          find.descendant(
+            of: note,
+            matching: find.text('Post #2 assigned to Sam'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: note, matching: find.text('@sam')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: note, matching: find.text('Waiting · Post note')),
+          findsOneWidget,
+        );
+        expect(find.byType(PostAssignmentNote), findsOneWidget);
+        expect(find.byTooltip('Change assignment'), findsNothing);
       },
     );
+
+    testWidgets('a post note box is the quiet fill reaching past the column', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      final topic = TopicDetail(
+        id: 10,
+        title: 'Assigned topic',
+        stream: const [11, 22],
+        plugins: registry.readTopic(const {
+          'can_assign': true,
+          'indirectly_assigned_to': {
+            '22': {
+              'assigned_to': {'id': 7, 'username': 'sam', 'name': 'Sam'},
+              'post_number': 2,
+            },
+          },
+        }, _siteUrl),
+      );
+      final reply = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'author',
+        cooked: '',
+        plugins: registry.readPost(const {
+          'id': 22,
+          'post_number': 2,
+          'can_assign': true,
+        }, _siteUrl),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                child: Builder(
+                  builder: (context) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _plugin.postDecorations(
+                      context,
+                      _siteUrl,
+                      topic,
+                      reply,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final column = tester.getRect(
+        find.byKey(const Key('assign-post-22-assignment')),
+      );
+      final box = tester.getRect(find.byType(DItem));
+      expect(box.left, column.left - 8);
+      expect(box.right, column.right + 8);
+      expect(box.top, column.top + 12);
+      final face = tester.getRect(
+        find.descendant(
+          of: find.byType(DItem),
+          matching: find.byType(AssignmentAssigneeAvatar),
+        ),
+      );
+      expect(face.size, const Size.square(36));
+      expect(face.left, box.left + 8);
+      expect(
+        tester
+            .widget<Text>(find.text('Post #2 assigned to Sam'))
+            .style
+            ?.fontSize,
+        13,
+      );
+      expect(tester.widget<Text>(find.text('@sam')).style?.fontSize, 12.5);
+      final pencil = find.byTooltip('Change assignment');
+      expect(pencil, findsOneWidget);
+      expect(box.contains(tester.getCenter(pencil)), isTrue);
+
+      await tester.tap(pencil);
+      await tester.pumpAndSettle();
+      expect(find.text('Reassign post'), findsOneWidget);
+      expect(find.text('Unassign Sam from post'), findsOneWidget);
+      expect(find.text('Add a note'), findsOneWidget);
+    });
+
+    testWidgets('the first post assigns the topic from its menu', (
+      tester,
+    ) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      const post = Post(id: 11, postNumber: 1, username: 'author', cooked: '');
+      final labels = <String>[];
+      for (final assigned in [false, true]) {
+        final topic = TopicDetail(
+          id: 10,
+          title: 'Topic',
+          stream: const [11],
+          plugins: registry.readTopic({
+            'can_assign': true,
+            if (assigned) 'assigned_to_user': {'username': 'sam'},
+          }, _siteUrl),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Builder(
+              builder: (context) {
+                labels
+                  ..clear()
+                  ..addAll(
+                    _plugin
+                        .postMenu(
+                          PostMenuContext(
+                            buildContext: context,
+                            siteUrl: _siteUrl,
+                            post: post,
+                            topic: topic,
+                            currentUser: null,
+                          ),
+                        )
+                        .entries
+                        .map((entry) => entry.label),
+                  );
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+        expect(
+          labels,
+          assigned
+              ? ['Reassign topic', 'Unassign from topic']
+              : ['Assign topic'],
+        );
+      }
+    });
 
     testWidgets('omit post assignment actions from the first-post menu', (
       tester,
@@ -703,93 +877,80 @@ void main() {
 
       expect(section.layout, TopicPropertySectionLayout.standalone);
       expect(section.showHeader, isFalse);
+      expect(section.actions, isEmpty);
       expect(section.values, hasLength(1));
-      expect(find.text('Assign topic'), findsOneWidget);
+      final row = find.byKey(const Key('assign-topic-button'));
+      expect(
+        find.descendant(of: row, matching: find.text('Assign topic')),
+        findsOneWidget,
+      );
       expect(
         find.descendant(
-          of: find.byKey(const Key('assign-topic-property')),
+          of: row,
           matching: find.byWidgetPredicate(
             (widget) => widget is DIcon && widget.icon == DIcons.userPlus,
           ),
         ),
         findsOneWidget,
       );
-      final action = find.byKey(const Key('assign-topic-property'));
-      final button = find.byKey(const Key('assign-topic-button'));
-      final dButton = tester.widget<DButton>(button);
-      expect(dButton.variant, DButtonVariant.primary);
-      expect(tester.getSize(button).height, DControlStyle.regularHeight);
-      expect(tester.getSize(button).width, tester.getSize(action).width);
-      expect(
-        tester.getSemantics(button),
-        isSemantics(
-          label: 'Topic unassigned. Assign topic',
-          isButton: true,
-          hasTapAction: true,
-        ),
-      );
+      // With nothing assigned, the foot's shortcut picks who at once.
+      expect(section.compactAction?.label, 'Assign topic');
+      expect(section.compactAction?.onSelected, isNotNull);
     });
 
-    testWidgets('keeps the post divider clear of the Assign focus ring', (
-      tester,
-    ) async {
-      final highlightStrategy = FocusManager.instance.highlightStrategy;
-      FocusManager.instance.highlightStrategy =
-          FocusHighlightStrategy.alwaysTraditional;
-      addTearDown(
-        () => FocusManager.instance.highlightStrategy = highlightStrategy,
-      );
+    testWidgets('the foot shortcut says what the topic holds', (tester) async {
       const registry = PluginRegistry([AssignPlugin()]);
-      final topic = TopicDetail(
-        id: 10,
-        title: 'Post-only assignments',
-        stream: const [11, 22],
-        plugins: registry.readTopic(const {
-          'can_assign': true,
-          'indirectly_assigned_to': {
-            '22': {
-              'assigned_to': {'username': 'sam'},
-              'post_number': 2,
-            },
-          },
-        }, _siteUrl),
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
-          home: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(12),
-              child: SizedBox(
-                width: 228,
-                child: Builder(
-                  builder: (context) => Column(
-                    children: _plugin
-                        .topicProperties(context, _siteUrl, topic)
-                        .single
-                        .values,
-                  ),
-                ),
-              ),
+      Future<TopicPropertySection> sectionFor(Map<String, Object?> json) async {
+        late TopicPropertySection section;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Builder(
+              builder: (context) {
+                section = _plugin
+                    .topicProperties(
+                      context,
+                      _siteUrl,
+                      TopicDetail(
+                        id: 10,
+                        title: 'Topic',
+                        stream: const [11, 22, 23],
+                        plugins: registry.readTopic(json, _siteUrl),
+                      ),
+                    )
+                    .single;
+                return const SizedBox.shrink();
+              },
             ),
           ),
-        ),
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pumpAndSettle();
+        );
+        return section;
+      }
 
-      final button = find.byKey(const Key('assign-topic-button'));
-      final surface = buttonSurface(tester, of: button);
-      expect(surface.ringWidth, greaterThan(0));
-      final dividerLine = find.descendant(
-        of: find.byType(DSeparator).first,
-        matching: find.byType(DecoratedBox),
-      );
-      expect(
-        tester.getTopLeft(dividerLine).dy,
-        greaterThan(tester.getBottomLeft(button).dy + surface.ringWidth),
-      );
+      const post = {
+        '22': {
+          'assigned_to': {'username': 'zoe', 'name': 'Zoe'},
+          'post_number': 2,
+        },
+      };
+      final one = await sectionFor(const {
+        'can_assign': true,
+        'indirectly_assigned_to': post,
+      });
+      expect(one.compactAction?.label, 'Assigned to Zoe');
+      expect(one.compactAction?.onSelected, isNull);
+      expect(one.actions, isEmpty);
+      // Only posts are given out, so the topic can still be.
+      expect(one.values.last, isA<Builder>());
+
+      final two = await sectionFor(const {
+        'can_assign': true,
+        'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+        'indirectly_assigned_to': post,
+      });
+      expect(two.compactAction?.label, '2 assignments');
+      expect(two.compactAction?.onSelected, isNull);
+      expect(two.actions, isEmpty);
     });
 
     testWidgets('lets the Assign topic CTA grow with large text', (
@@ -873,7 +1034,7 @@ void main() {
       expect(
         find.descendant(
           of: postRow,
-          matching: find.text('Assigned to · Post #2', findRichText: true),
+          matching: find.text('Assigned post #2 to'),
         ),
         findsOneWidget,
       );
@@ -943,7 +1104,7 @@ void main() {
       final change = find.byKey(const Key('assign-topic-change'));
       final remove = find.byKey(const Key('assign-topic-remove'));
       expect(
-        find.descendant(of: row, matching: find.text('Assigned to')),
+        find.descendant(of: row, matching: find.text('Assigned topic to')),
         findsOneWidget,
       );
       expect(
@@ -972,8 +1133,8 @@ void main() {
             .hasAction(SemanticsAction.tap),
         isFalse,
       );
-      expect(tester.getSemantics(change).label, 'Change topic assignment');
-      expect(tester.getSemantics(remove).label, 'Remove topic assignment');
+      expect(tester.getSemantics(change).label, 'Reassign topic');
+      expect(tester.getSemantics(remove).label, 'Unassign Sam from topic');
       expect(tester.getRect(row).contains(tester.getCenter(change)), isTrue);
       expect(tester.getRect(row).contains(tester.getCenter(remove)), isTrue);
       expect(tester.takeException(), isNull);
@@ -1048,7 +1209,10 @@ void main() {
           const Key('assign-topic-property-post-32'),
         );
         expect(
-          find.descendant(of: topicRow, matching: find.text('Assigned to')),
+          find.descendant(
+            of: topicRow,
+            matching: find.text('Assigned topic to'),
+          ),
           findsOneWidget,
         );
         expect(
@@ -1058,18 +1222,18 @@ void main() {
         expect(
           find.descendant(
             of: supportRow,
-            matching: find.text('Assigned to · Post #2', findRichText: true),
+            matching: find.text('Assigned post #2 to'),
           ),
           findsOneWidget,
         );
         expect(
-          find.descendant(of: supportRow, matching: find.text('@support')),
+          find.descendant(of: supportRow, matching: find.text('support')),
           findsOneWidget,
         );
         expect(
           find.descendant(
             of: terryRow,
-            matching: find.text('Assigned to · Post #2', findRichText: true),
+            matching: find.text('Assigned post #2 to'),
           ),
           findsOneWidget,
         );
@@ -1080,7 +1244,7 @@ void main() {
         expect(
           find.descendant(
             of: zoeRow,
-            matching: find.text('Assigned to · Post #3', findRichText: true),
+            matching: find.text('Assigned post #3 to'),
           ),
           findsOneWidget,
         );
@@ -1091,7 +1255,7 @@ void main() {
         expect(
           find.descendant(
             of: invalidRow,
-            matching: find.text('Assigned to · Post', findRichText: true),
+            matching: find.text('Assigned post to'),
           ),
           findsOneWidget,
         );
@@ -1102,7 +1266,7 @@ void main() {
         expect(
           find.descendant(
             of: missingRow,
-            matching: find.text('Assigned to · Post', findRichText: true),
+            matching: find.text('Assigned post to'),
           ),
           findsOneWidget,
         );
