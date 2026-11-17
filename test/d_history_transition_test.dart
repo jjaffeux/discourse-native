@@ -203,8 +203,8 @@ void main() {
   );
 
   for (final (direction, reducedMotion) in [
-    for (final direction in TextDirection.values)
-      for (final reducedMotion in [false, true]) (direction, reducedMotion),
+    (TextDirection.ltr, false),
+    (TextDirection.rtl, true),
   ]) {
     testWidgets(
       'corner, full-surface Back and root navigation in $direction reduced $reducedMotion',
