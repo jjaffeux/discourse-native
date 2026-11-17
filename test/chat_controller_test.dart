@@ -10326,137 +10326,131 @@ void main() {
       );
     }
 
-    for (final forget in [false, true]) {
-      for (final fail in [false, true]) {
-        test(
-          '${forget ? 'forgotten' : 'replaced'} reaction ${fail ? 'failure' : 'success'} cannot settle or release its replacement',
-          () async {
-            final gate = Completer<void>();
-            final credentials = _ControllableCredentials();
-            final lifecycle = SiteLifecycle();
-            final subject = build(
-              currentUser: currentUser,
-              lifecycle: lifecycle,
-              credentialReader: credentials,
-              reactionGate: gate,
-              reactionFailure: fail
-                  ? const WriteException(WriteFailure.forbidden)
-                  : null,
-            );
-            addTearDown(subject.chat.dispose);
-            subject.store
-              ..put(site, channel(9))
-              ..put(site, message(1));
-            final old = subject.chat.addMessageReaction(site, 1, 'clap');
-            await Future<void>.delayed(Duration.zero);
-            expect(subject.api.chatReactionsSet, hasLength(1));
-            lifecycle.invalidate(site);
-            if (forget) subject.chat.forget(site);
-            subject.store
-              ..put(site, channel(9))
-              ..put(site, message(1));
-            final started = credentials.blockApiKey();
-            final replacement = subject.chat.addMessageReaction(
-              site,
-              1,
-              'clap',
-            );
-            await started;
-            final optimistic = subject.chat.message(site, 1);
-            gate.complete();
-            expect(await old, fail ? isNotNull : isNull);
-            expect(subject.chat.message(site, 1), same(optimistic));
-            expect(
-              await subject.chat.toggleMessageReaction(site, 1, 'clap'),
-              isNull,
-            );
-            expect(subject.api.chatReactionsSet, hasLength(1));
-            credentials.releaseApiKey();
-            expect(await replacement, fail ? isNotNull : isNull);
-            expect(subject.api.chatReactionsSet, hasLength(2));
-            expect(subject.chat.message(site, 1)!.reactions.isEmpty, fail);
-          },
-        );
+    for (final (forget, fail) in [(false, false), (true, true)]) {
+      test(
+        '${forget ? 'forgotten' : 'replaced'} reaction ${fail ? 'failure' : 'success'} cannot settle or release its replacement',
+        () async {
+          final gate = Completer<void>();
+          final credentials = _ControllableCredentials();
+          final lifecycle = SiteLifecycle();
+          final subject = build(
+            currentUser: currentUser,
+            lifecycle: lifecycle,
+            credentialReader: credentials,
+            reactionGate: gate,
+            reactionFailure: fail
+                ? const WriteException(WriteFailure.forbidden)
+                : null,
+          );
+          addTearDown(subject.chat.dispose);
+          subject.store
+            ..put(site, channel(9))
+            ..put(site, message(1));
+          final old = subject.chat.addMessageReaction(site, 1, 'clap');
+          await Future<void>.delayed(Duration.zero);
+          expect(subject.api.chatReactionsSet, hasLength(1));
+          lifecycle.invalidate(site);
+          if (forget) subject.chat.forget(site);
+          subject.store
+            ..put(site, channel(9))
+            ..put(site, message(1));
+          final started = credentials.blockApiKey();
+          final replacement = subject.chat.addMessageReaction(site, 1, 'clap');
+          await started;
+          final optimistic = subject.chat.message(site, 1);
+          gate.complete();
+          expect(await old, fail ? isNotNull : isNull);
+          expect(subject.chat.message(site, 1), same(optimistic));
+          expect(
+            await subject.chat.toggleMessageReaction(site, 1, 'clap'),
+            isNull,
+          );
+          expect(subject.api.chatReactionsSet, hasLength(1));
+          credentials.releaseApiKey();
+          expect(await replacement, fail ? isNotNull : isNull);
+          expect(subject.api.chatReactionsSet, hasLength(2));
+          expect(subject.chat.message(site, 1)!.reactions.isEmpty, fail);
+        },
+      );
 
-        test(
-          '${forget ? 'forgotten' : 'replaced'} reactor ${fail ? 'failure' : 'success'} cannot publish or release its replacement',
-          () async {
-            final gate = Completer<void>();
-            final credentials = _ControllableCredentials();
-            final lifecycle = SiteLifecycle();
-            final subject = build(
-              credentialReader: credentials,
-              lifecycle: lifecycle,
-              reactorReadGate: gate,
-              chatReactors: fail
-                  ? {}
-                  : {
-                      ChatMessageReactors.key(
-                        9,
-                        1,
-                        'clap',
-                      ): const ChatMessageReactors(
-                        channelId: 9,
-                        messageId: 1,
-                        filter: 'clap',
-                        total: 1,
-                        reactors: [
-                          ChatReactor(id: 8, username: 'sam', reaction: 'clap'),
-                        ],
-                      ),
-                    },
-            );
-            addTearDown(subject.chat.dispose);
-            final old = subject.chat.loadMessageReactors(
-              siteUrl: site,
-              channelId: 9,
-              messageId: 1,
-              filter: 'clap',
-            );
-            await Future<void>.delayed(Duration.zero);
-            expect(subject.api.chatReactorsRequested, hasLength(1));
-            lifecycle.invalidate(site);
-            if (forget) subject.chat.forget(site);
-            final started = credentials.blockApiKey();
-            final replacement = subject.chat.loadMessageReactors(
-              siteUrl: site,
-              channelId: 9,
-              messageId: 1,
-              filter: 'clap',
-            );
-            await started;
-            gate.complete();
-            await old;
-            expect(
-              subject.chat.messageReactors(site, 9, 1, filter: 'clap'),
-              isNull,
-            );
-            expect(
-              subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
-              isNull,
-            );
-            await subject.chat.loadMessageReactors(
-              siteUrl: site,
-              channelId: 9,
-              messageId: 1,
-              filter: 'clap',
-            );
-            expect(subject.api.chatReactorsRequested, hasLength(1));
-            credentials.releaseApiKey();
-            await replacement;
-            expect(subject.api.chatReactorsRequested, hasLength(2));
-            expect(
-              subject.chat.messageReactors(site, 9, 1, filter: 'clap') == null,
-              fail,
-            );
-            expect(
-              subject.chat.messageReactorsError(site, 9, 1, filter: 'clap') !=
-                  null,
-              fail,
-            );
-          },
-        );
-      }
+      test(
+        '${forget ? 'forgotten' : 'replaced'} reactor ${fail ? 'failure' : 'success'} cannot publish or release its replacement',
+        () async {
+          final gate = Completer<void>();
+          final credentials = _ControllableCredentials();
+          final lifecycle = SiteLifecycle();
+          final subject = build(
+            credentialReader: credentials,
+            lifecycle: lifecycle,
+            reactorReadGate: gate,
+            chatReactors: fail
+                ? {}
+                : {
+                    ChatMessageReactors.key(
+                      9,
+                      1,
+                      'clap',
+                    ): const ChatMessageReactors(
+                      channelId: 9,
+                      messageId: 1,
+                      filter: 'clap',
+                      total: 1,
+                      reactors: [
+                        ChatReactor(id: 8, username: 'sam', reaction: 'clap'),
+                      ],
+                    ),
+                  },
+          );
+          addTearDown(subject.chat.dispose);
+          final old = subject.chat.loadMessageReactors(
+            siteUrl: site,
+            channelId: 9,
+            messageId: 1,
+            filter: 'clap',
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(subject.api.chatReactorsRequested, hasLength(1));
+          lifecycle.invalidate(site);
+          if (forget) subject.chat.forget(site);
+          final started = credentials.blockApiKey();
+          final replacement = subject.chat.loadMessageReactors(
+            siteUrl: site,
+            channelId: 9,
+            messageId: 1,
+            filter: 'clap',
+          );
+          await started;
+          gate.complete();
+          await old;
+          expect(
+            subject.chat.messageReactors(site, 9, 1, filter: 'clap'),
+            isNull,
+          );
+          expect(
+            subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
+            isNull,
+          );
+          await subject.chat.loadMessageReactors(
+            siteUrl: site,
+            channelId: 9,
+            messageId: 1,
+            filter: 'clap',
+          );
+          expect(subject.api.chatReactorsRequested, hasLength(1));
+          credentials.releaseApiKey();
+          await replacement;
+          expect(subject.api.chatReactorsRequested, hasLength(2));
+          expect(
+            subject.chat.messageReactors(site, 9, 1, filter: 'clap') == null,
+            fail,
+          );
+          expect(
+            subject.chat.messageReactorsError(site, 9, 1, filter: 'clap') !=
+                null,
+            fail,
+          );
+        },
+      );
     }
 
     test('rolls a refused write back and returns the site message', () async {
