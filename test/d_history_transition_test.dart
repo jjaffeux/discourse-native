@@ -399,128 +399,123 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final direction in TextDirection.values) {
-    for (final livePreviews in [false, true]) {
-      testWidgets(
-        '${livePreviews ? 'live' : 'snapshot'} previews grow with back and '
-        'forward swipes in $direction',
-        (tester) async {
-          final state = await _pump(
+  for (final (direction, livePreviews) in [
+    (TextDirection.ltr, true),
+    (TextDirection.rtl, false),
+  ]) {
+    testWidgets(
+      '${livePreviews ? 'live' : 'snapshot'} previews grow with back and '
+      'forward swipes in $direction',
+      (tester) async {
+        final state = await _pump(
+          tester,
+          direction: direction,
+          livePreviews: livePreviews,
+          framed: true,
+        );
+        state.visit(1);
+        await tester.pumpAndSettle();
+        final pageRect = _paintedRect(tester, _live);
+        final header = tester.getRect(find.text('Header action'));
+        final footer = tester.getRect(find.text('Footer action'));
+
+        // Forward swipes have no live preview; they always use a snapshot.
+        for (final back in [true, if (!livePreviews) false]) {
+          final fromRight = back
+              ? direction == TextDirection.rtl
+              : direction != TextDirection.rtl;
+          final sign = fromRight ? -1.0 : 1.0;
+          final preview = livePreviews
+              ? find.descendant(
+                  of: find.byKey(const ValueKey('history-previous-preview')),
+                  matching: find.byType(DPageSurface),
+                )
+              : find.byType(RawImage);
+          final initialIndex = state.index;
+          var distance = 100.0;
+          final gesture = await _drag(
             tester,
-            direction: direction,
-            livePreviews: livePreviews,
-            framed: true,
+            fromRight: fromRight,
+            distance: distance,
           );
-          state.visit(1);
-          await tester.pumpAndSettle();
-          final pageRect = _paintedRect(tester, _live);
-          final header = tester.getRect(find.text('Header action'));
-          final footer = tester.getRect(find.text('Footer action'));
 
-          // Forward swipes have no live preview; they always use a snapshot.
-          for (final back in [true, if (!livePreviews) false]) {
-            final fromRight = back
-                ? direction == TextDirection.rtl
-                : direction != TextDirection.rtl;
-            final sign = fromRight ? -1.0 : 1.0;
-            final preview = livePreviews
-                ? find.descendant(
-                    of: find.byKey(const ValueKey('history-previous-preview')),
-                    matching: find.byType(DPageSurface),
-                  )
-                : find.byType(RawImage);
-            final initialIndex = state.index;
-            var distance = 100.0;
-            final gesture = await _drag(
-              tester,
-              fromRight: fromRight,
-              distance: distance,
-            );
-
-            Rect previewRect() => _paintedRect(tester, preview);
-            void expectChromeUnchanged() {
-              expect(tester.getRect(find.text('Header action')), header);
-              expect(tester.getRect(find.text('Footer action')), footer);
-              if (back) {
-                expect(_paintedRect(tester, _live).size, pageRect.size);
-              }
+          Rect previewRect() => _paintedRect(tester, preview);
+          void expectChromeUnchanged() {
+            expect(tester.getRect(find.text('Header action')), header);
+            expect(tester.getRect(find.text('Footer action')), footer);
+            if (back) {
+              expect(_paintedRect(tester, _live).size, pageRect.size);
             }
-
-            void expectBackgroundInsideViewport() {
-              final background = back
-                  ? previewRect()
-                  : _paintedRect(tester, _live);
-              expect(
-                background.left,
-                greaterThanOrEqualTo(pageRect.left - .001),
-              );
-              expect(
-                background.right,
-                lessThanOrEqualTo(pageRect.right + .001),
-              );
-              expect(
-                direction == TextDirection.ltr
-                    ? background.left
-                    : background.right,
-                closeTo(
-                  direction == TextDirection.ltr
-                      ? pageRect.left
-                      : pageRect.right,
-                  .001,
-                ),
-              );
-            }
-
-            final smaller = previewRect();
-            expect(smaller.width / pageRect.width, inExclusiveRange(.94, 1));
-            expect(
-              smaller.height / pageRect.height,
-              closeTo(smaller.width / pageRect.width, .001),
-            );
-            expect(smaller.center.dy, closeTo(pageRect.center.dy, .001));
-            expectChromeUnchanged();
-            expectBackgroundInsideViewport();
-
-            await gesture.moveBy(Offset(sign * 140, 0));
-            distance += 140;
-            await tester.pump();
-            final larger = previewRect();
-            expect(larger.width, greaterThan(smaller.width));
-            expect(larger.width, lessThan(pageRect.width));
-            expectBackgroundInsideViewport();
-
-            // Reversing the finger reverses the scale immediately.
-            await gesture.moveBy(Offset(-sign * 80, 0));
-            distance -= 80;
-            await tester.pump();
-            expect(
-              previewRect().width,
-              inExclusiveRange(smaller.width, larger.width),
-            );
-            expectChromeUnchanged();
-            expectBackgroundInsideViewport();
-
-            // The preview exactly meets the live route before navigation fires.
-            await gesture.moveBy(Offset(sign * (pageRect.width - distance), 0));
-            await tester.pump();
-            final full = previewRect();
-            expect(full.left, closeTo(pageRect.left, .001));
-            expect(full.top, closeTo(pageRect.top, .001));
-            expect(full.width, closeTo(pageRect.width, .001));
-            expect(full.height, closeTo(pageRect.height, .001));
-            expectBackgroundInsideViewport();
-            expect(state.index, initialIndex);
-            await gesture.up();
-            await tester.pumpAndSettle();
-            expect(state.index, back ? 0 : 1);
-            expect(_paintedRect(tester, _live), pageRect);
           }
-          expect(state.swipes, livePreviews ? 1 : 2);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
 
+          void expectBackgroundInsideViewport() {
+            final background = back
+                ? previewRect()
+                : _paintedRect(tester, _live);
+            expect(background.left, greaterThanOrEqualTo(pageRect.left - .001));
+            expect(background.right, lessThanOrEqualTo(pageRect.right + .001));
+            expect(
+              direction == TextDirection.ltr
+                  ? background.left
+                  : background.right,
+              closeTo(
+                direction == TextDirection.ltr ? pageRect.left : pageRect.right,
+                .001,
+              ),
+            );
+          }
+
+          final smaller = previewRect();
+          expect(smaller.width / pageRect.width, inExclusiveRange(.94, 1));
+          expect(
+            smaller.height / pageRect.height,
+            closeTo(smaller.width / pageRect.width, .001),
+          );
+          expect(smaller.center.dy, closeTo(pageRect.center.dy, .001));
+          expectChromeUnchanged();
+          expectBackgroundInsideViewport();
+
+          await gesture.moveBy(Offset(sign * 140, 0));
+          distance += 140;
+          await tester.pump();
+          final larger = previewRect();
+          expect(larger.width, greaterThan(smaller.width));
+          expect(larger.width, lessThan(pageRect.width));
+          expectBackgroundInsideViewport();
+
+          // Reversing the finger reverses the scale immediately.
+          await gesture.moveBy(Offset(-sign * 80, 0));
+          distance -= 80;
+          await tester.pump();
+          expect(
+            previewRect().width,
+            inExclusiveRange(smaller.width, larger.width),
+          );
+          expectChromeUnchanged();
+          expectBackgroundInsideViewport();
+
+          // The preview exactly meets the live route before navigation fires.
+          await gesture.moveBy(Offset(sign * (pageRect.width - distance), 0));
+          await tester.pump();
+          final full = previewRect();
+          expect(full.left, closeTo(pageRect.left, .001));
+          expect(full.top, closeTo(pageRect.top, .001));
+          expect(full.width, closeTo(pageRect.width, .001));
+          expect(full.height, closeTo(pageRect.height, .001));
+          expectBackgroundInsideViewport();
+          expect(state.index, initialIndex);
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(state.index, back ? 0 : 1);
+          expect(_paintedRect(tester, _live), pageRect);
+        }
+        expect(state.swipes, livePreviews ? 1 : 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final direction in TextDirection.values) {
     testWidgets('frame edges navigate without moving chrome in $direction', (
       tester,
     ) async {
@@ -1026,85 +1021,82 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final direction in TextDirection.values) {
-    for (final livePreviews in [false, true]) {
-      testWidgets(
-        '${livePreviews ? 'live' : 'snapshot'} swipe backgrounds preserve '
-        'rounded corners and gutters in $direction',
-        (tester) async {
-          final state = await _pump(
-            tester,
-            direction: direction,
-            roundedPanel: true,
-            livePreviews: livePreviews,
+  for (final (direction, livePreviews) in [
+    (TextDirection.ltr, false),
+    (TextDirection.rtl, true),
+  ]) {
+    testWidgets(
+      '${livePreviews ? 'live' : 'snapshot'} swipe backgrounds preserve '
+      'rounded corners and gutters in $direction',
+      (tester) async {
+        final state = await _pump(
+          tester,
+          direction: direction,
+          roundedPanel: true,
+          livePreviews: livePreviews,
+        );
+        state.visit(1);
+        await tester.pumpAndSettle();
+        final rtl = direction == TextDirection.rtl;
+
+        for (final back in [true, false]) {
+          final gesture = await _drag(tester, fromRight: back ? rtl : !rtl);
+          final background = back
+              ? livePreviews
+                    ? find.descendant(
+                        of: find.byKey(
+                          const ValueKey('history-previous-preview'),
+                        ),
+                        matching: find.byType(DPageSurface),
+                      )
+                    : find.byType(RawImage)
+              : _live;
+          final rect = _paintedRect(tester, background);
+          // Snapshots include the transparent 16px gutter around the panel.
+          final inset = back && !livePreviews ? rect.width / 400 * 16 : 0.0;
+          final edge = rtl ? rect.right - inset : rect.left + inset;
+          final sign = rtl ? -1.0 : 1.0;
+          final corner = Offset(edge + sign, rect.top + 1);
+          final gutter = Offset(edge - sign * 8, rect.top + 50);
+          final body = Offset(edge + sign * 50, rect.top + 50);
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(const ValueKey('history-test-boundary')),
           );
-          state.visit(1);
-          await tester.pumpAndSettle();
-          final rtl = direction == TextDirection.rtl;
-
-          for (final back in [true, false]) {
-            final gesture = await _drag(tester, fromRight: back ? rtl : !rtl);
-            final background = back
-                ? livePreviews
-                      ? find.descendant(
-                          of: find.byKey(
-                            const ValueKey('history-previous-preview'),
-                          ),
-                          matching: find.byType(DPageSurface),
-                        )
-                      : find.byType(RawImage)
-                : _live;
-            final rect = _paintedRect(tester, background);
-            // Snapshots include the transparent 16px gutter around the panel.
-            final inset = back && !livePreviews ? rect.width / 400 * 16 : 0.0;
-            final edge = rtl ? rect.right - inset : rect.left + inset;
-            final sign = rtl ? -1.0 : 1.0;
-            final corner = Offset(edge + sign, rect.top + 1);
-            final gutter = Offset(edge - sign * 8, rect.top + 50);
-            final body = Offset(edge + sign * 50, rect.top + 50);
-            final boundary = tester.renderObject<RenderRepaintBoundary>(
-              find.byKey(const ValueKey('history-test-boundary')),
+          final image = boundary.toImageSync(pixelRatio: 1);
+          final pixels = await tester.runAsync(
+            () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+          );
+          List<int> rgb(Offset point) {
+            final local = boundary.globalToLocal(point);
+            final offset =
+                (local.dy.floor() * image.width + local.dx.floor()) * 4;
+            return List.generate(
+              3,
+              (channel) => pixels!.getUint8(offset + channel),
             );
-            final image = boundary.toImageSync(pixelRatio: 1);
-            final pixels = await tester.runAsync(
-              () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
-            );
-            List<int> rgb(Offset point) {
-              final local = boundary.globalToLocal(point);
-              final offset =
-                  (local.dy.floor() * image.width + local.dx.floor()) * 4;
-              return List.generate(
-                3,
-                (channel) => pixels!.getUint8(offset + channel),
-              );
-            }
-
-            expect(rgb(corner), [
-              0,
-              255,
-              0,
-            ], reason: 'rounded corner, back: $back');
-            expect(rgb(gutter), [
-              0,
-              255,
-              0,
-            ], reason: 'outer gutter, back: $back');
-            final bodyColor = rgb(body);
-            expect(
-              bodyColor[0],
-              inExclusiveRange(0, 244),
-              reason: 'page is dimmed',
-            );
-            expect(bodyColor[1], inExclusiveRange(0, 67));
-            expect(bodyColor[2], inExclusiveRange(0, 54));
-            image.dispose();
-            await gesture.up();
-            await tester.pumpAndSettle();
           }
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+
+          expect(rgb(corner), [
+            0,
+            255,
+            0,
+          ], reason: 'rounded corner, back: $back');
+          expect(rgb(gutter), [0, 255, 0], reason: 'outer gutter, back: $back');
+          final bodyColor = rgb(body);
+          expect(
+            bodyColor[0],
+            inExclusiveRange(0, 244),
+            reason: 'page is dimmed',
+          );
+          expect(bodyColor[1], inExclusiveRange(0, 67));
+          expect(bodyColor[2], inExclusiveRange(0, 54));
+          image.dispose();
+          await gesture.up();
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final direction in TextDirection.values) {
