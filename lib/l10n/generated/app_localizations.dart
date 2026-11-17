@@ -26491,6 +26491,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit note and status'**
   String get editNoteAndStatus;
+
+  /// Line over the assignee's name in the topic's assignments sheet, for a post whose number is unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned post to'**
+  String get assignedPostTo;
 }
 
 class _AppLocalizationsDelegate

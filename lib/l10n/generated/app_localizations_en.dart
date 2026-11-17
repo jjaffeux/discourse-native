@@ -16652,4 +16652,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editNoteAndStatus => 'Edit note and status';
+
+  @override
+  String get assignedPostTo => 'Assigned post to';
 }

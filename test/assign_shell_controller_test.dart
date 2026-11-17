@@ -1,4 +1,5 @@
-import 'package:discourse_native/discourse_ui.dart' show DDropdownMenuItem;
+import 'package:discourse_native/discourse_ui.dart'
+    show DDropdownMenuItem, DItem;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -12,8 +13,8 @@ import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
+import 'package:discourse_native/src/plugins/assign/assignment_actions.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_controller.dart';
-import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -650,25 +651,111 @@ void main() {
           ),
         );
 
+        final picker = find.byKey(const ValueKey('person-picker-search'));
         await tester.tap(find.byKey(const Key('assign-topic-change')));
         await tester.pumpAndSettle();
 
-        expect(find.text('Edit topic assignment'), findsOneWidget);
+        expect(picker, findsOneWidget);
+        expect(find.text('Reassign topic to…'), findsOneWidget);
         expect(api.pluginReadPaths, [
           '/assign/suggestions.json?target_id=7&target_type=Topic',
         ]);
 
-        await tester.tap(find.byTooltip('Close'));
+        Navigator.of(tester.element(picker)).pop();
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('assign-post-12-change')));
         await tester.pumpAndSettle();
 
-        expect(find.text('Edit post assignment'), findsOneWidget);
+        expect(find.text('Reassign post to…'), findsOneWidget);
         expect(api.pluginReadPaths, [
           '/assign/suggestions.json?target_id=7&target_type=Topic',
           '/assign/suggestions.json?target_id=12&target_type=Post',
         ]);
         expect(api.topicPostNumbersOpened, everyElement(isNull));
+      },
+    );
+
+    testWidgets(
+      'reassigns in one press from people and groups, the current one chosen',
+      (tester) async {
+        const topicAssignment = Assignment(
+          assignee: AssignmentUser(username: 'lead', name: 'Topic lead'),
+          note: 'Own the topic',
+        );
+        final api = FakeDiscourseApi(
+          user: _assignUser(),
+          feeds: const {'/latest.json': <Topic>[]},
+          topics: {
+            7: _payload(
+              canAssignTopic: true,
+              canAssignPost: true,
+              topicAssignment: topicAssignment,
+            ),
+          },
+          siteConfigs: const {_site: SiteConfig.unknown()},
+          pluginResponses: const {
+            'GET /assign/suggestions.json?target_id=7&target_type=Topic': {
+              'suggestions': [
+                {'username': 'sam', 'name': 'Sam'},
+              ],
+              'assign_allowed_for_groups': ['support'],
+            },
+            'PUT /assign/assign.json': {'success': 'OK'},
+          },
+        );
+        final shell = (await tester.runAsync(() => _loadShell(api)))!;
+        addTearDown(shell.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => DToaster(child: child!),
+            theme: AppTheme.light,
+            home: ShellScope(
+              controller: shell,
+              child: Scaffold(
+                body: Builder(
+                  builder: (context) => Column(
+                    children: [
+                      for (final section
+                          in PluginScope.of(context).registry.topicProperties(
+                            context,
+                            _site,
+                            shell.currentTopic!,
+                          ))
+                        ...section.values,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.byKey(const Key('assign-topic-change')));
+        await tester.pumpAndSettle();
+        expect(find.text('Reassign topic to…'), findsOneWidget);
+        final lead = find.byKey(const ValueKey('person-picker-user-lead'));
+        final sam = find.byKey(const ValueKey('person-picker-user-sam'));
+        expect(tester.widget<DItem>(lead).selected, isTrue);
+        expect(tester.widget<DItem>(sam).selected, isFalse);
+        expect(
+          find.byKey(const ValueKey('person-picker-group-support')),
+          findsOneWidget,
+        );
+        // No button confirms the choice: pressing it is the choice.
+        expect(find.text('Save changes'), findsNothing);
+
+        await tester.tap(sam);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Reassign topic to…'), findsNothing);
+        expect(api.pluginWrites.single.path, '/assign/assign.json');
+        expect(api.pluginWrites.single.body, containsPair('username', 'sam'));
+        expect(
+          api.pluginWrites.single.body,
+          containsPair('note', 'Own the topic'),
+        );
+        expect(find.text('Assigned topic to Sam'), findsOneWidget);
       },
     );
 
@@ -729,10 +816,10 @@ void main() {
 
       await tester.tap(find.byKey(const Key('assign-topic-remove')));
       await tester.pumpAndSettle();
-      expect(find.text('Topic assignment removed'), findsOneWidget);
+      expect(find.text('Unassigned from topic'), findsOneWidget);
       expect(find.text('Undo'), findsOneWidget);
       final toasts = DToast.of(
-        tester.element(find.text('Topic assignment removed')),
+        tester.element(find.text('Unassigned from topic')),
       );
       for (final toast in toasts.toasts.toList()) {
         toasts.close(toast.id);
@@ -740,7 +827,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.byKey(const Key('assign-post-12-remove')));
       await tester.pumpAndSettle();
-      expect(find.text('Post #2 assignment removed'), findsOneWidget);
+      expect(find.text('Unassigned from post #2'), findsOneWidget);
       expect(find.text('Undo'), findsOneWidget);
 
       expect(api.pluginWrites.map((write) => write.body), [
@@ -991,7 +1078,7 @@ void main() {
         ),
       );
 
-      expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
+      expect(find.byKey(const Key('assign-topic-button')), findsOneWidget);
       expect(postMenu.entries.map((entry) => entry.label), ['Assign post']);
       expect(topicPropertiesRebuildOn, isNotNull);
       expect(postMenuRebuildOn, isNotNull);
@@ -1008,7 +1095,7 @@ void main() {
       expect(error.kind, AssignmentWriteKind.targetUnavailable);
       expect(topicPropertiesBuilds, greaterThan(initialTopicPropertiesBuilds));
       expect(postMenuBuilds, greaterThan(initialPostMenuBuilds));
-      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
+      expect(find.byKey(const Key('assign-topic-button')), findsNothing);
       expect(postMenu.entries, isEmpty);
       expect(postMenu.rebuildOn, isNotNull);
     });
@@ -1213,7 +1300,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(PostActionsFooter), findsNWidgets(4));
-      expect(find.byType(AssignmentDetailRow), findsOneWidget);
+      expect(find.byType(PostAssignmentNote), findsOneWidget);
       return (
         api,
         ShellScope.read(tester.element(find.byType(PostActions).first)),
@@ -1229,7 +1316,7 @@ void main() {
       debugOnRebuildDirtyWidget = (element, builtOnce) {
         previous?.call(element, builtOnce);
         if (element.widget is! PostActionsFooter &&
-            element.widget is! AssignmentDetailRow) {
+            element.widget is! PostAssignmentNote) {
           return;
         }
         final post = element.findAncestorWidgetOfExactType<PostActions>();
@@ -1246,7 +1333,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final labels = [
-        for (final label in const ['Assign post', 'Edit assignment'])
+        for (final label in const ['Assign post', 'Unassign from post'])
           if (find
               .widgetWithText(DDropdownMenuItem, label)
               .evaluate()
@@ -1263,7 +1350,7 @@ void main() {
       (tester) async {
         final (api, shell) = await openTopic(tester);
         expect(await menuLabels(tester, 2), ['Assign post']);
-        expect(await menuLabels(tester, 3), ['Edit assignment']);
+        expect(await menuLabels(tester, 3), ['Unassign from post']);
 
         var rebuilds = countRebuilds();
         api.topics[7] = topic(assigned: {12, 13});
@@ -1303,7 +1390,7 @@ void main() {
           '/assign/assign.json',
           '/assign/unassign.json',
         ]);
-        expect(await menuLabels(tester, 2), ['Edit assignment']);
+        expect(await menuLabels(tester, 2), ['Unassign from post']);
         expect(await menuLabels(tester, 3), ['Assign post']);
         expect(await menuLabels(tester, 4), ['Assign post']);
       },

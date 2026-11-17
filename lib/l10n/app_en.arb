@@ -21591,5 +21591,7 @@
   "assignmentCount": "{count, plural, =1{1 assignment} other{{count} assignments}}",
   "@assignmentCount": {"description": "Label of the topic's assign shortcut when the topic holds several assignments.", "placeholders": {"count": {"type": "int"}}},
   "editNoteAndStatus": "Edit note and status",
-  "@editNoteAndStatus": {"description": "Action opening an assignment's note and status form."}
+  "@editNoteAndStatus": {"description": "Action opening an assignment's note and status form."},
+  "assignedPostTo": "Assigned post to",
+  "@assignedPostTo": {"description": "Line over the assignee's name in the topic's assignments sheet, for a post whose number is unknown."}
 }

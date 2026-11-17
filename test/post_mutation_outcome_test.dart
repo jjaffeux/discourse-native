@@ -592,10 +592,7 @@ void main() {
       api.readFailure = StateError('Offline');
       await _openOwner(tester, shell, api, 1000);
       await _submit(tester);
-      expect(
-        find.byKey(const ValueKey('person-picker-search')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('person-picker-search')), findsNothing);
       expect(
         find.text(
           'The change was saved, but this view could not be refreshed. Refresh to see the latest state.',

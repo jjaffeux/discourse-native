@@ -182,23 +182,32 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
-      // A phone keeps assigning in the topic's actions sheet, not the head.
-      expect(find.byKey(const Key('assign-topic-header')), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
-      await tester.pumpAndSettle();
-      final assignment = find.byKey(const Key('assign-topic-action'));
+      // A phone assigns from its own part of the foot's pill, beside the
+      // bookmark and the bell, and no longer from the topic's actions sheet.
+      final assignment = find.byKey(const Key('assign-topic-header'));
       expect(assignment, enabled && allowed ? findsOneWidget : findsNothing);
       if (enabled && allowed) {
         expect(
-          find.descendant(of: assignment, matching: find.text('Assign topic')),
+          find.ancestor(
+            of: find.byKey(const ValueKey('topic-header-bookmark-button')),
+            matching: find.ancestor(
+              of: assignment,
+              matching: find.byType(DButtonGroup),
+            ),
+          ),
           findsOneWidget,
         );
         expect(assignment.hitTestable(), findsOneWidget);
         await tester.tap(assignment);
         await tester.pumpAndSettle();
-        expect(find.byType(DDropdownMenuContent), findsNothing);
-        expectPhoneSheet(tester, title: 'Assign topic');
+        expect(phoneSheet('Assign topic'), findsOneWidget);
+        expect(find.text('Assign topic to…'), findsOneWidget);
+        Navigator.of(tester.element(find.text('Assign topic to…'))).pop();
+        await tester.pumpAndSettle();
       }
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-action')), findsNothing);
       expect(tester.takeException(), isNull);
     }, variant: platforms);
   }

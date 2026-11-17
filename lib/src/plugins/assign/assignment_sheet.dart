@@ -938,29 +938,28 @@ class AssignmentAssigneeAvatar extends StatelessWidget {
   final AssignmentAssignee assignee;
   final double size;
 
+  /// Someone's face, or a group's mark where a group stands in for people.
   @override
   Widget build(BuildContext context) {
+    if (assignee.isGroup) return GroupFace(size: size);
     final theme = Theme.of(context);
-    final fallback = ColoredBox(
-      color: theme.shell.mention,
-      child: Center(
-        child: DIcon(
-          assignee.isGroup ? DIcons.users : DIcons.user,
-          size: size * 0.58,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
     return DAvatar.frame(
       child: SizedBox.square(
         dimension: size,
-        child: assignee.isGroup
-            ? fallback
-            : AvatarImage(
-                url: assignee.avatarUrl,
-                size: size,
-                fallback: fallback,
+        child: AvatarImage(
+          url: assignee.avatarUrl,
+          size: size,
+          fallback: ColoredBox(
+            color: theme.shell.mention,
+            child: Center(
+              child: DIcon(
+                DIcons.user,
+                size: size * 0.58,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
+            ),
+          ),
+        ),
       ),
     );
   }

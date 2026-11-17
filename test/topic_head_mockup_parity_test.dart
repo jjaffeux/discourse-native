@@ -367,11 +367,10 @@ void main() {
     variant: _platforms,
   );
 
-  testWidgets('a phone gathers assigning, the topic and staff in one sheet', (
+  testWidgets('a phone gathers the topic and staff in one sheet', (
     tester,
   ) async {
     await _openTopic(tester);
-    expect(find.byKey(const Key('assign-topic-header')), findsNothing);
     expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
     await tester.tap(_actions);
     await tester.pumpAndSettle();
@@ -385,9 +384,8 @@ void main() {
         else
           (child.key! as ValueKey<String>).value,
     ];
+    // Assigning has its own shortcut in the foot's pill.
     expect(order, [
-      'assign-topic-action',
-      '|',
       'topic-share-action',
       ?(order.contains('topic-flag-button') ? 'topic-flag-button' : null),
       'topic-mark-unread',
@@ -400,9 +398,25 @@ void main() {
       '|',
       'topic-status-delete',
     ]);
-    await tester.tap(find.byKey(const Key('assign-topic-action')));
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
+  testWidgets('a phone assigns the topic from the foot pill in one press', (
+    tester,
+  ) async {
+    await _openTopic(tester);
+    final shortcut = find.byKey(const Key('assign-topic-header'));
+    expect(shortcut, findsOneWidget);
+    expect(
+      find.ancestor(of: shortcut, matching: find.byType(DButtonGroup)),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Assign topic'), findsOneWidget);
+    await tester.tap(shortcut);
     await tester.pumpAndSettle();
-    expectPhoneSheet(tester, title: 'Assign topic');
+    expect(phoneSheet('Assign topic'), findsOneWidget);
+    expect(find.text('Assign topic to…'), findsOneWidget);
+    expect(find.text('Choose who should look after this topic.'), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
