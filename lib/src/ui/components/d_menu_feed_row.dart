@@ -8,6 +8,7 @@ import 'd_notification_dot.dart';
 
 /// A two-line header-menu row. Item owns activation, focus and its 8px surface.
 /// The trailing time and unread marker share a column; read rows keep its width.
+/// An unread row rests in the unread fill every unread row has.
 class DMenuFeedRow extends StatelessWidget {
   const DMenuFeedRow({
     super.key,
@@ -63,6 +64,7 @@ class DMenuFeedRow extends StatelessWidget {
     return DItem(
       size: DItemSize.xs,
       shape: DItemShape.menu,
+      variant: unread ? DItemVariant.unread : DItemVariant.standard,
       padding: EdgeInsets.symmetric(horizontal: 9, vertical: verticalInset),
       semanticLabel: semanticLabel,
       onPressed: onPressed,

@@ -53,22 +53,21 @@ final class ChatInboxRooms extends FrameSafeNotifier {
         _ => false,
       };
 
-  List<ChatInboxRoom> rooms(String siteUrl) {
-    final filter = filters.filterFor(siteUrl);
-    if (!includesRooms(siteUrl)) {
-      return const [];
-    }
+  List<ChatInboxRoom> rooms(String siteUrl) => !includesRooms(siteUrl)
+      ? const []
+      : _provider?.rooms(siteUrl) ?? const [];
+
+  /// The rooms [place] lists: all of them, or those its words name.
+  List<ChatInboxRoom> roomsFor(ChatInboxPlace place, String siteUrl) {
+    final query = filters.queryFor(place, siteUrl);
     return [
-      for (final room in _provider?.rooms(siteUrl) ?? <ChatInboxRoom>[])
-        if (!filter.unreadOnly || room.people > 0) room,
+      for (final room in rooms(siteUrl))
+        if (chatInboxWordsMatch(query, [room.name])) room,
     ];
   }
 
-  List<ChatInboxRoom> sidebarRooms(String siteUrl) => [
-    for (final room in rooms(siteUrl))
-      if (chatInboxWordsMatch(filters.sidebarQueryFor(siteUrl), [room.name]))
-        room,
-  ];
+  List<ChatInboxRoom> sidebarRooms(String siteUrl) =>
+      roomsFor(ChatInboxPlace.side, siteUrl);
 
   VoidCallback attach(ChatInboxRoomProvider provider) {
     _provider?.removeListener(notifySafely);

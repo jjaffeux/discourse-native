@@ -37,23 +37,15 @@ List<ChatChannel> _oracle(
   final ranked =
       [
         for (final channel in channels)
-          if (!filter.unreadOnly ||
-              channel.tracking.unreadCount > 0 ||
-              channel.urgentCount > 0 ||
-              channel.unreadThreadOverview.values.any(
-                (at) =>
-                    channel.membership.lastViewedAt == null ||
-                    !at.isBefore(channel.membership.lastViewedAt!),
-              ))
-            (
-              channel: channel,
-              activity: [
-                if ((channel.lastMessageId ?? 0) > 0 &&
-                    channel.lastMessageAt != null)
-                  channel.lastMessageAt!,
-                ...channel.unreadThreadOverview.values,
-              ]..sort(),
-            ),
+          (
+            channel: channel,
+            activity: [
+              if ((channel.lastMessageId ?? 0) > 0 &&
+                  channel.lastMessageAt != null)
+                channel.lastMessageAt!,
+              ...channel.unreadThreadOverview.values,
+            ]..sort(),
+          ),
       ]..sort((a, b) {
         final at = a.activity.lastOrNull, bt = b.activity.lastOrNull;
         final recency = at == null
@@ -129,7 +121,7 @@ Future<void> main() async {
       );
       await chat.loadChannels(_site);
       for (final unread in [false, true]) {
-        final filter = ChatInboxFilter(unreadOnly: unread);
+        const filter = ChatInboxFilter();
         final reference = _oracle(channels, filter);
         final expected = _checksum(reference);
         expect(
@@ -210,7 +202,7 @@ Future<void> main() async {
         final service = await vmServiceConnectUri(uri.toString());
         final isolate = developer.Service.getIsolateId(Isolate.current)!;
         for (final unread in [false, true]) {
-          final filter = ChatInboxFilter(unreadOnly: unread);
+          const filter = ChatInboxFilter();
           final expected = _checksum(_oracle(channels, filter));
           expect(
             _checksum(chatInboxConversations(chat, _site, filter)),
@@ -246,7 +238,7 @@ Future<void> main() async {
           await service.setTraceClassAllocation(isolate, iterator.id!, true);
           try {
             for (final unread in [false, true]) {
-              final filter = ChatInboxFilter(unreadOnly: unread);
+              const filter = ChatInboxFilter();
               for (final event in ['unchanged', 'preview', 'viewed']) {
                 chatInboxConversations(chat, _site, filter);
                 for (var repeat = 0; repeat < 3; repeat++) {

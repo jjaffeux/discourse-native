@@ -62,13 +62,13 @@ void main() {
       await tester.tap(panels.tab('chat'));
       await tester.pumpAndSettle();
       final sourceTab = shell.activeTabId;
-      await tester.tap(sidebarDestination(label));
+      await tester.tap(_directory(label));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, route);
       expect(shell.activeTabId, isNot(sourceTab));
       directoryTabs.add(shell.activeTabId!);
       expect(
-        sidebarDestination('Chats'),
+        _directory('Chats'),
         findsNothing,
         reason: 'the open inbox owns the directory cards',
       );
@@ -114,8 +114,9 @@ void main() {
         final general = tester.widget<DItem>(
           find.byKey(const ValueKey('chat-inbox-channel-9')),
         );
-        expect(general.selectionStyle, DItemSelectionStyle.sidebar);
-        expect(general.shape, DItemShape.menu);
+        // The open chat keeps the page's tint and leading accent edge.
+        expect(general.selectionStyle, DItemSelectionStyle.leadingAccent);
+        expect(general.shape, DItemShape.fullWidth);
         expect(
           tester
               .widget<DItem>(find.byKey(const ValueKey('chat-inbox-channel-9')))
@@ -126,9 +127,9 @@ void main() {
         await capture(tester, 'chat-sidebar-conversation-${panel.name}');
         final conversation = shell.activeTabId!;
         for (final label in ['Chats', 'Channels', 'Threads']) {
-          expect(sidebarDestination(label), findsOneWidget);
+          expect(_directory(label), findsOneWidget);
         }
-        await tester.tap(sidebarDestination('Threads'));
+        await tester.tap(_directory('Threads'));
         await tester.pumpAndSettle();
         expect(
           tester
@@ -138,7 +139,7 @@ void main() {
           reason: 'a retained conversation is not the focused directory',
         );
         for (final label in ['Chats', 'Channels', 'Threads']) {
-          expect(sidebarDestination(label), findsNothing);
+          expect(_directory(label), findsNothing);
         }
         shell.selectTab(conversation);
         await tester.pumpAndSettle();
@@ -149,7 +150,7 @@ void main() {
           isTrue,
         );
         for (final label in ['Chats', 'Channels', 'Threads']) {
-          expect(sidebarDestination(label), findsOneWidget);
+          expect(_directory(label), findsOneWidget);
         }
       }
       expect(tester.takeException(), isNull);
@@ -180,7 +181,7 @@ void main() {
       ('Chats', ChatRoute.inboxRouteId),
     ]) {
       if (label == 'Threads') {
-        await tester.tap(sidebarDestination(label));
+        await tester.tap(_directory(label));
       } else {
         await tester.tap(
           find.descendant(
@@ -206,7 +207,7 @@ void main() {
         hasLength(ForumWorkspace.maximumTabs),
       );
       for (final label in ['Chats', 'Channels', 'Threads']) {
-        expect(sidebarDestination(label), findsNothing);
+        expect(_directory(label), findsNothing);
       }
     }
     expect(shell.handleBack(canReturnToSidebar: false), isTrue);
@@ -239,9 +240,7 @@ void main() {
         await tester.pumpAndSettle();
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         await tester.pumpAndSettle();
-        final controls = find.byKey(
-          const ValueKey('chat-inbox-activity-filter'),
-        );
+        final controls = find.byKey(const ValueKey('chat-inbox-sort-filter'));
         final tabsTop = tester.getTopLeft(panels.tabs).dy;
         final scroll = find.descendant(
           of: find.byType(InstanceSidebar),
@@ -254,7 +253,13 @@ void main() {
                   .first,
             )
             .position;
-        await tester.drag(scroll, const Offset(0, -400));
+        await tester.scrollUntilVisible(
+          find.text('View 36 more'),
+          200,
+          scrollable: find
+              .descendant(of: scroll, matching: find.byType(Scrollable))
+              .first,
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('View 36 more'));
         await tester.pumpAndSettle();
@@ -281,11 +286,11 @@ void main() {
         expect(position.pixels, lessThan(offset));
         expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));
         await tester.tap(
-          find.descendant(of: controls, matching: find.text('Unread')),
+          find.descendant(of: controls, matching: find.byTooltip('Newest')),
         );
         await tester.pumpAndSettle();
         expect(
-          find.descendant(of: controls, matching: find.text('Unread')),
+          find.descendant(of: controls, matching: find.byTooltip('Newest')),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
@@ -325,7 +330,7 @@ void main() {
       await shell.forumSettings.setThemeMode(panels.site, mode);
       await tester.tap(panels.tab('chat'));
       await tester.pumpAndSettle();
-      final controls = find.byKey(const ValueKey('chat-inbox-activity-filter'));
+      final controls = find.byKey(const ValueKey('chat-inbox-sort-filter'));
       final initialTop = tester.getTopLeft(controls).dy;
       final scroll = find.descendant(
         of: find.byType(InstanceSidebar),
@@ -377,3 +382,10 @@ Future<void> capture(WidgetTester tester, String name) async {
     image.dispose();
   });
 }
+
+/// A directory's own destination, apart from the ways chat's list holds to
+/// the same pages.
+Finder _directory(String label) => find.descendant(
+  of: find.byType(SidebarDestinationTile),
+  matching: find.text(label),
+);

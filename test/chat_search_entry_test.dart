@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
+import 'package:discourse_native/src/plugins/chat/chat_listing.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
@@ -349,7 +350,10 @@ void main() {
         expect(editor.focusNode.hasFocus, isTrue);
         await tester.enterText(field, 'missing-local-chat');
         await tester.pumpAndSettle();
-        expect(find.text('No chats match.'), findsOneWidget);
+        expect(
+          find.text('None of your chats match “missing-local-chat”'),
+          findsOneWidget,
+        );
         await sidebar_review.capture(
           tester,
           'chat-search-phone-${defaultTargetPlatform.name}-${width.toInt()}-${scale.toInt()}x',
@@ -380,9 +384,10 @@ void main() {
     shell.selectInstance(1);
     await _finishSearch(tester);
     expect(find.byKey(const ValueKey('chat-search-entry')), findsNothing);
+    // Without its field, the order switch stands where the field stood.
     expect(
       tester.getTopLeft(find.byType(ChatInboxFilterBar)).dy,
-      tester.getTopLeft(find.byType(ChatSidebarInboxHeader)).dy + 6,
+      tester.getTopLeft(find.byType(ChatSidebarInboxHeader)).dy + 10,
     );
     chat.openGlobalSearch(globalSearchFixtureSite);
     await tester.pumpAndSettle();
@@ -395,7 +400,7 @@ void main() {
     expect(find.byKey(const ValueKey('chat-search-entry')), findsNothing);
     expect(
       tester.getTopLeft(find.byType(ChatInboxFilterBar)).dy,
-      tester.getTopLeft(find.byType(ChatSidebarInboxHeader)).dy + 6,
+      tester.getTopLeft(find.byType(ChatSidebarInboxHeader)).dy + 10,
     );
     chat.openGlobalSearch(globalSearchFixtureSite);
     await tester.pumpAndSettle();

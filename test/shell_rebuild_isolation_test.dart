@@ -1234,7 +1234,10 @@ void main() {
         'Chat, unread messages',
       );
       expect(
-        find.descendant(of: row(3), matching: find.text('1 message')),
+        find.descendant(
+          of: find.byKey(const ValueKey('chat-inbox-unread-3')),
+          matching: find.text('1'),
+        ),
         findsOneWidget,
       );
 
@@ -1248,7 +1251,10 @@ void main() {
         'Chat, 1 urgent message',
       );
       expect(
-        find.descendant(of: row(2), matching: find.text('1 new mention')),
+        find.descendant(
+          of: find.byKey(const ValueKey('chat-inbox-unread-2')),
+          matching: find.text('1'),
+        ),
         findsOneWidget,
       );
 

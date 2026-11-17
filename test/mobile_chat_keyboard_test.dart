@@ -12,9 +12,7 @@ void main() {
       final shell = await fixture.pumpMobileShellFixture(tester);
       await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Newest').last);
+      await tester.tap(find.byTooltip('Newest'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('sam').first);
       await tester.pumpAndSettle();

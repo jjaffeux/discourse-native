@@ -425,7 +425,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(fourthChannel.hitTestable(), findsOneWidget);
     await _capture(tester, 'chat-drawer');
-    expect(tester.getSize(fourthChannel).height, 56);
+    // A 40px mark between 12s, under a name and a line at a phone's text.
+    expect(tester.getSize(fourthChannel).height, 73);
     await tester.scrollUntilVisible(
       find.text('Starred'),
       -200,
@@ -434,25 +435,11 @@ void main() {
           .first,
     );
     await tester.pumpAndSettle();
-    final starredHeading = find.ancestor(
-      of: find.text('Starred'),
-      matching: find.byType(DCollapsibleTrigger),
-    );
-    await tester.ensureVisible(starredHeading);
-    await tester.pumpAndSettle();
-    await tester.tap(starredHeading);
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('chat-inbox-channel-1')).hitTestable(),
-      findsNothing,
-    );
-    await tester.tap(starredHeading);
-    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('chat-inbox-channel-1')).hitTestable(),
       findsOneWidget,
     );
-    final filters = find.byKey(const ValueKey('chat-inbox-activity-filter'));
+    final filters = find.byKey(const ValueKey('chat-inbox-sort-filter'));
     final atRest = tester.getRect(filters);
     await tester.drag(list(), const Offset(0, -260));
     await tester.pumpAndSettle();
@@ -461,7 +448,7 @@ void main() {
     expect(tester.getRect(filters).top, atRest.top);
     final search = find.byKey(const ValueKey('chat-search-entry'));
     expect(tester.getRect(search).top - tester.getRect(_panel).top, 10);
-    expect(atRest.left - tester.getRect(_panel).left, 6);
+    expect(atRest.left - tester.getRect(_panel).left, 10);
     expect(_tabs.hitTestable(), findsOneWidget);
     await _capture(tester, 'chat-drawer-scrolled');
     final scroll = tester.widget<CustomScrollView>(list()).controller!;

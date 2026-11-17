@@ -50,6 +50,28 @@ final itemExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Unread',
+      description:
+          'A row holding something unread rests in the accent at 9%, as a chat, a thread and a notification all do. Hover, press and selection take it over.',
+      code:
+          "DItem(variant: DItemVariant.unread, onPressed: open, children: [DItemContent(children: [DItemTitle(child: Text('design')), DItemDescription(child: Text('Three new messages'))])])",
+      builder: (_) => SizedBox(
+        width: 320,
+        child: DItem(
+          variant: DItemVariant.unread,
+          onPressed: () {},
+          children: const [
+            DItemContent(
+              children: [
+                DItemTitle(child: Text('design')),
+                DItemDescription(child: Text('Three new messages')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Fit content',
       description:
           'Naturally sized items wrap within the available width. Tap or drag an item; long titles stay bounded.',

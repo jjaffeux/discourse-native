@@ -60,7 +60,12 @@ Future<Map<String, int>> measureRoundThreeAppPerformance({
         final mode = query++ % 3;
         final word = ['keyboard', 'release focus', 'absentneedle'][mode];
         fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, word);
-        final selected = fixture.chat.sidebarConversations(roundThreeSite);
+        final selected = fixture.chat
+            .findConversations(
+              roundThreeSite,
+              fixture.chat.inboxFilters.sidebarQueryFor(roundThreeSite),
+            )
+            .channels;
         final expected = mode == 2 ? 0 : 10;
         if (selected.length != expected ||
             selected.map((channel) => channel.id).toSet().length != expected) {
@@ -105,7 +110,14 @@ Future<Map<String, int>> measureRoundThreeAppPerformance({
         throw StateError('Cold search retained an old message body');
       }
       cold.chat.inboxFilters.setSidebarQuery(roundThreeSite, 'keyboard');
-      if (cold.chat.sidebarConversations(roundThreeSite).length != 10) {
+      if (cold.chat
+              .findConversations(
+                roundThreeSite,
+                cold.chat.inboxFilters.sidebarQueryFor(roundThreeSite),
+              )
+              .channels
+              .length !=
+          10) {
         throw StateError('Cold chat search changed');
       }
     }

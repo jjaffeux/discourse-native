@@ -237,6 +237,73 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatViewLess => 'View less';
 
   @override
+  String chatViewUnreadAndRead(int unread, int read) {
+    String _temp0 = intl.Intl.pluralLogic(
+      read,
+      locale: localeName,
+      other: '$read read chats',
+      one: '1 read chat',
+    );
+    return 'View $unread unread & $_temp0';
+  }
+
+  @override
+  String chatViewRead(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'View $count read chats',
+      one: 'View 1 read chat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chatResults => 'Results';
+
+  @override
+  String get chatPrivateChannel => 'Private';
+
+  @override
+  String get chatMutedChannel => 'Muted';
+
+  @override
+  String get chatUnreadMuted => 'Unread, muted';
+
+  @override
+  String get findAChat => 'Find a chat';
+
+  @override
+  String chatThreadsNewReplies(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'New replies in $count threads',
+      one: 'New replies in 1 thread',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chatThreadsWay => 'Replies in the channels you are in';
+
+  @override
+  String get chatBrowseWay => 'Find and join channels you are not in';
+
+  @override
+  String get chatBrowseAllChannels => 'Browse all channels';
+
+  @override
+  String chatBrowseAllChannelsFor(String query) {
+    return 'Channels you are not in, for “$query”';
+  }
+
+  @override
+  String chatNoneMatch(String query) {
+    return 'None of your chats match “$query”';
+  }
+
+  @override
   String get destinationBookmarkPageType => 'Page';
 
   @override
@@ -1982,9 +2049,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'There are no active threads in this channel.';
 
   @override
-  String get noUnreadConversations => 'No unread conversations.';
-
-  @override
   String get noConversationsYet => 'No conversations yet.';
 
   @override
@@ -2002,9 +2066,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recent => 'Recent';
-
-  @override
-  String get chatActivity => 'Chat activity';
 
   @override
   String get voiceRooms => 'Voice rooms';
@@ -11941,28 +12002,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String unreadChatinbox(num threadCount) {
-    String _temp0 = intl.Intl.pluralLogic(
-      threadCount,
-      locale: localeName,
-      other: '$threadCount unread threads',
-      one: '$threadCount unread thread',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String messageNewChatinbox(num channelTrackingMentionCount) {
-    String _temp0 = intl.Intl.pluralLogic(
-      channelTrackingMentionCount,
-      locale: localeName,
-      other: '$channelTrackingMentionCount new mentions',
-      one: '$channelTrackingMentionCount new mention',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String messageInChatmythreadsview(String channelTitle) {
     return ' in $channelTitle';
   }
@@ -12632,17 +12671,6 @@ class AppLocalizationsEn extends AppLocalizations {
       locale: localeName,
       other: ' $participants participants.',
       one: ' $participants participant.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String messageChatinbox(num count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count messages',
-      one: '$count message',
     );
     return '$_temp0';
   }
@@ -14990,12 +15018,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get voiceRoomDeleteConfirm =>
       'Delete this room? Everyone in the call will be disconnected. This cannot be undone.';
-
-  @override
-  String get noChatsMatch => 'No chats match.';
-
-  @override
-  String get searchChat => 'Search chat';
 
   @override
   String get voiceRoomDeleteFailed => 'Couldn’t delete the room.';

@@ -3,27 +3,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-/// A section's visible rows and the count behind its expansion action.
-final class ChatInboxSectionSlice<T> {
-  ChatInboxSectionSlice(
-    List<T> items, {
-    required bool expanded,
-    required bool alone,
-    bool Function(T item)? keep,
-  }) : canFold = !alone && items.length > 5 {
-    var shown = expanded || !canFold ? items : items.take(4).toList();
-    if (!expanded && canFold && keep != null) {
-      final held = items.where(keep).firstOrNull;
-      if (held != null && !shown.contains(held)) shown = [...shown, held];
-    }
-    visible = shown;
-    hidden = items.length - shown.length;
-  }
-
-  final bool canFold;
-  late final List<T> visible;
-  late final int hidden;
-}
+export 'chat_inbox_order.dart' show ChatInboxSectionSlice;
 
 class ChatInboxMore extends StatelessWidget {
   const ChatInboxMore({
@@ -31,13 +11,28 @@ class ChatInboxMore extends StatelessWidget {
     required this.hidden,
     required this.expanded,
     required this.onPressed,
+    this.hiddenUnread,
     this.compact = false,
   });
 
   final int hidden;
+
+  /// How many of the [hidden] rows are new, for a group of chats, whose way
+  /// to the rest says what is folded. Null for rows that are never new.
+  final int? hiddenUnread;
   final bool expanded;
   final VoidCallback onPressed;
   final bool compact;
+
+  String _label(BuildContext context) {
+    if (expanded) return context.l10n.chatViewLess;
+    final unread = hiddenUnread;
+    if (unread == null) return context.l10n.chatViewMore(hidden);
+    final read = hidden - unread;
+    return unread > 0
+        ? context.l10n.chatViewUnreadAndRead(unread, read)
+        : context.l10n.chatViewRead(read);
+  }
 
   @override
   Widget build(BuildContext context) => DReferenceTextScale(
@@ -49,9 +44,7 @@ class ChatInboxMore extends StatelessWidget {
           size: DControlSize.filter,
           alignment: AlignmentDirectional.centerStart,
           foregroundColor: DTokens.of(context).mutedForeground,
-          semanticLabel: expanded
-              ? context.l10n.chatViewLess
-              : context.l10n.chatViewMore(hidden),
+          semanticLabel: _label(context),
           label: Row(
             mainAxisSize: MainAxisSize.min,
             spacing: DSpacing.controlGap,
@@ -63,13 +56,7 @@ class ChatInboxMore extends StatelessWidget {
                   child: const DIcon(DIcons.chevronDown),
                 ),
               ),
-              Flexible(
-                child: Text(
-                  expanded
-                      ? context.l10n.chatViewLess
-                      : context.l10n.chatViewMore(hidden),
-                ),
-              ),
+              Flexible(child: Text(_label(context))),
             ],
           ),
           onPressed: onPressed,

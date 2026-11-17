@@ -83,6 +83,11 @@ class DTokens extends ThemeExtension<DTokens> {
   /// Matches the mockup's `--accent-tint`, reduced only when needed.
   Color get selectionTint => primary.withValues(alpha: _reference.tintShare);
 
+  /// What is unread stands in, wherever it is listed: a chat, a thread, a
+  /// notification. The mockup's `UNREAD_FILL`, the accent at 9% over the
+  /// surface under the row.
+  Color get unreadFill => primary.withValues(alpha: .09);
+
   ReferenceSurfaces get _reference => _referenceSurfaces[this] ??=
       ReferenceSurfaces(text: foreground, ground: background, accent: primary);
 

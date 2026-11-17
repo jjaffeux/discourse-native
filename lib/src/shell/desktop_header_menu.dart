@@ -207,16 +207,18 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
                 ],
               ),
             ),
-            DSeparator(
-              space: 1,
-              color: notificationStyle
-                  ? Color.lerp(
-                      DTokens.of(context).background,
-                      DTokens.of(context).foreground,
-                      .12,
-                    )
-                  : null,
-            ),
+            // A sheet's head has no rule under it; a dropdown's has.
+            if (!fillSheet)
+              DSeparator(
+                space: 1,
+                color: notificationStyle
+                    ? Color.lerp(
+                        DTokens.of(context).background,
+                        DTokens.of(context).foreground,
+                        .12,
+                      )
+                    : null,
+              ),
             Flexible(
               fit: notificationStyle && !fillSheet
                   ? FlexFit.loose

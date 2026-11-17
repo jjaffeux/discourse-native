@@ -2204,7 +2204,7 @@ void _registerChatShellTests() {
         expect(placeholder, findsOneWidget);
         // The filters are already final; only the rows are placeholders.
         expect(
-          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+          find.byKey(const ValueKey('chat-inbox-sort-filter')),
           findsOneWidget,
         );
         expect(
@@ -2511,17 +2511,18 @@ void _registerChatShellTests() {
         await tester.tap(
           find.descendant(
             of: find.byKey(const ValueKey('chat-inbox-sort-filter')),
-            matching: find.text('Newest'),
+            matching: find.byTooltip('Newest'),
           ),
         );
         await tester.pumpAndSettle();
         for (final title in ['Starred channels', 'Chat', 'Direct messages']) {
           expect(find.widgetWithText(DSidebarMenuButton, title), findsNothing);
         }
+        // As one list, what is starred leads the read, then the most recent.
         final rows = [
+          'Bugs',
           'Design',
           'hawk',
-          'Bugs',
         ].map((title) => tester.getTopLeft(sidebarDestination(title)).dy);
         expect(rows, orderedEquals([...rows]..sort()));
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -2563,11 +2564,7 @@ void _registerChatShellTests() {
             ],
           );
 
-          await tester.tap(
-            find.byKey(const ValueKey('chat-inbox-sort-filter')),
-          );
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Newest').last);
+          await tester.tap(find.byTooltip('Newest'));
           await tester.pumpAndSettle();
           final emptyRow = find.byKey(const ValueKey('chat-inbox-channel-10'));
           expect(
@@ -2577,17 +2574,16 @@ void _registerChatShellTests() {
             ),
             findsOneWidget,
           );
-          final title = find.descendant(
-            of: emptyRow,
-            matching: find.byType(DItemTitle),
-          );
+          // Its mark, its name and its line are all the row says: no time
+          // stands in for a message that was never sent.
           expect(
             tester
                 .widgetList<Text>(
-                  find.descendant(of: title, matching: find.byType(Text)),
+                  find.descendant(of: emptyRow, matching: find.byType(Text)),
                 )
-                .map((text) => text.data),
-            ['Empty channel'],
+                .map((text) => text.data)
+                .nonNulls,
+            ['#', 'Empty channel', 'No messages yet'],
           );
           final rows = [
             for (final id in [12, 9, 10])
@@ -2616,13 +2612,13 @@ void _registerChatShellTests() {
 
         await tester.tap(
           find.descendant(
-            of: find.byKey(const ValueKey('chat-inbox-activity-filter')),
-            matching: find.text('Unread'),
+            of: find.byKey(const ValueKey('chat-inbox-sort-filter')),
+            matching: find.byTooltip('Newest'),
           ),
         );
         await tester.pumpAndSettle();
         expect(sidebarDestination('Bugs'), findsOneWidget);
-        expect(sidebarDestination('hawk'), findsNothing);
+        expect(find.text('All chats'), findsOneWidget);
 
         // `selectChatSidebar` scrolled the Chat tab to the row's leading edge,
         // which clips Forum out of the tab row entirely.
@@ -2634,7 +2630,7 @@ void _registerChatShellTests() {
         expect(sidebarDestination('Topics'), findsOneWidget);
         expect(sidebarDestination('Bugs'), findsNothing);
         expect(
-          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+          find.byKey(const ValueKey('chat-inbox-sort-filter')),
           findsNothing,
         );
 
@@ -2643,24 +2639,6 @@ void _registerChatShellTests() {
         );
         await tester.pumpAndSettle();
         expect(sidebarDestination('Topics'), findsNothing);
-
-        expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('chat-inbox-activity-filter')),
-            matching: find.text('Unread'),
-          ),
-          findsOneWidget,
-        );
-        expect(sidebarDestination('Bugs'), findsOneWidget);
-        expect(sidebarDestination('hawk'), findsNothing);
-
-        await tester.tap(
-          find.descendant(
-            of: find.byKey(const ValueKey('chat-inbox-sort-filter')),
-            matching: find.text('Newest'),
-          ),
-        );
-        await tester.pumpAndSettle();
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(find.text('All chats'), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -3400,7 +3378,7 @@ void _registerChatShellTests() {
           expect(chatAvatar, findsOneWidget);
           expect(
             tester.getSize(avatar),
-            const Size.square(ChatInboxRow.compactAvatarSize),
+            const Size.square(ChatInboxRowFrame.mark),
           );
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -3420,10 +3398,7 @@ void _registerChatShellTests() {
           matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
         );
         expect(ring, findsOneWidget);
-        expect(
-          tester.getSize(ring),
-          const Size.square(ChatInboxRow.compactAvatarSize),
-        );
+        expect(tester.getSize(ring), const Size.square(ChatInboxRowFrame.mark));
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {
@@ -3450,13 +3425,20 @@ void _registerChatShellTests() {
           of: find.byType(InstanceSidebar),
           matching: find.text(text, findRichText: true),
         );
-        expect(preview('42 messages'), findsOneWidget);
-        expect(preview('1 new mention'), findsOneWidget);
+        // How much is new is a count at the row's end, not its line.
+        expect(preview('42 messages'), findsNothing);
+        expect(preview('1 new mention'), findsNothing);
+        Finder count(int id, String text) => find.descendant(
+          of: find.byKey(ValueKey('chat-inbox-unread-$id')),
+          matching: find.text(text),
+        );
+        expect(count(9, '42'), findsOneWidget);
+        expect(count(10, '1'), findsOneWidget);
         expect(preview('See you'), findsOneWidget);
         FontWeight? weight(String title) =>
             tester.widget<Text>(sidebarDestination(title)).style?.fontWeight;
         expect(weight('Bugs'), FontWeight.w700);
-        expect(weight('hawk'), FontWeight.w500);
+        expect(weight('hawk'), FontWeight.w400);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('an open channel tab mirrors live channel presentation', (

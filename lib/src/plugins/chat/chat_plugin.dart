@@ -23,6 +23,7 @@ import 'chat_header_button.dart';
 import 'chat_inbox.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_inbox_rooms.dart';
+import 'chat_listing.dart';
 import 'chat_mobile_sidebar.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_new_direct_message.dart';

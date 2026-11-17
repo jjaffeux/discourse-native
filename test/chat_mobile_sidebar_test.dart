@@ -36,7 +36,7 @@ final _pageTitle = find.descendant(
   matching: find.byKey(const ValueKey('chat-inbox-title')),
 );
 final _title = find.byKey(const ValueKey('mobile-page-title'));
-final _navigation = find.byKey(const ValueKey('chat-inbox-activity-filter'));
+final _navigation = find.byKey(const ValueKey('chat-inbox-sort-filter'));
 
 void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
   name,
@@ -274,6 +274,11 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(rebuilt, isEmpty, reason: 'Only the changed channel needs new rows');
+    expect(
+      tester.getTopLeft(_row(20)).dy,
+      lessThan(tester.getTopLeft(_row(1)).dy),
+      reason: 'What is unread leads its group',
+    );
     tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
       'channel_id': 1,
       'last_read_message_id': 1,
@@ -281,12 +286,18 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(rebuilt, {1});
-    expect(find.text('2 messages'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-unread-1')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'tracking on an off-screen channel does not redraw the mobile inbox',
+    'a read cursor moving on an off-screen channel does not redraw the mobile inbox',
     (tester) async {
       await _pumpChatInbox(tester, phone);
       final frames = await _countRebuilds(tester, () async {
@@ -294,8 +305,8 @@ void main() {
         for (var event = 0; event < 10; event++) {
           tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
             'channel_id': 20,
-            'last_read_message_id': 1,
-            'unread_count': 3 + event,
+            'last_read_message_id': 1 + event,
+            'unread_count': 0,
           });
           await tester.pump(const Duration(milliseconds: 16));
         }
@@ -374,21 +385,12 @@ void main() {
         {'channel_id': 1, 'last_read_message_id': 1, 'unread_count': 2},
       );
       await tester.pumpAndSettle();
-      final choice = find.descendant(
-        of: _navigation,
-        matching: find.text('Unread'),
-      );
-      await tester.tap(choice);
-      await tester.pumpAndSettle();
       expect(_row(1), findsOneWidget);
-      expect(_row(2), findsNothing);
-      await tester.tap(
-        find.descendant(of: _navigation, matching: find.text('Recent')),
-      );
-      await tester.pumpAndSettle();
       expect(_row(2), findsOneWidget);
       // The rows stay the same here; only their grouping follows the choice.
-      await tester.tap(find.text('Newest'));
+      await tester.tap(
+        find.descendant(of: _navigation, matching: find.byTooltip('Newest')),
+      );
       await tester.pumpAndSettle();
       expect(
         find.descendant(of: _inbox, matching: find.text('All chats')),
@@ -464,7 +466,7 @@ void main() {
     });
   });
 
-  _mobileTest('scrolling keeps the Chat bar title and activity filter fixed', (
+  _mobileTest('scrolling keeps the Chat bar title and order switch fixed', (
     tester,
   ) async {
     await _pumpChatInbox(tester, phone);

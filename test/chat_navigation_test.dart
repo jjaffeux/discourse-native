@@ -1811,9 +1811,7 @@ void main() {
         // section's keyboard shortcut, not from a footer button.
         expect(inbox.actionLabel, 'Start a message');
         expect(inbox.onAction, isNotNull);
-        final filters = find.byKey(
-          const ValueKey('chat-inbox-activity-filter'),
-        );
+        final filters = find.byKey(const ValueKey('chat-inbox-sort-filter'));
         expect(filters, findsOneWidget);
         final conversation = find.byKey(const ValueKey('chat-inbox-channel-9'));
         expect(conversation, findsOneWidget);
@@ -1870,7 +1868,7 @@ void main() {
             final inbox = const ChatPlugin()
                 .sidebarSections(
                   tester.element(
-                    find.byKey(const ValueKey('chat-inbox-activity-filter')),
+                    find.byKey(const ValueKey('chat-inbox-sort-filter')),
                   ),
                 )
                 .singleWhere((section) => section.id == 'chat-inbox');
@@ -1951,12 +1949,13 @@ void main() {
           find.byKey(const ValueKey('chat-my-thread-unread-3')),
           findsOneWidget,
         );
+        // The row says what was last replied and when, not how many replies.
         expect(
           find.byKey(const ValueKey('chat-my-thread-replies-3')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('Latest answer'), findsOneWidget);
-        expect(find.text('4 replies'), findsOneWidget);
+        expect(find.text('4 replies'), findsNothing);
 
         await tester.tap(find.byKey(const ValueKey('chat-my-thread-3')));
         await tester.pump();
