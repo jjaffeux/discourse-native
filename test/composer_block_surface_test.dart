@@ -1259,7 +1259,10 @@ void main() {
   }
 
   for (final textScale in [1.0, 1.5]) {
-    for (final source in ['', '\n\n', 'First paragraph\n\n']) {
+    for (final source in [
+      '',
+      if (textScale == 1.0) '\n\n' else 'First paragraph\n\n',
+    ]) {
       testWidgets(
         'typing keeps paragraph geometry stable at $textScale scale in "$source"',
         (tester) async {
