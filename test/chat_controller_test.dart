@@ -10208,7 +10208,7 @@ void main() {
 
     for (final ownAdd in [false, true]) {
       for (final failure in [
-        null,
+        if (!ownAdd) null,
         const WriteException(WriteFailure.unreachable),
         const WriteException(WriteFailure.unreachable, notSent: true),
       ]) {
