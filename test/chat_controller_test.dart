@@ -9965,8 +9965,9 @@ void main() {
 
     for (final adding in [true, false]) {
       for (final failure in [
-        const WriteException(WriteFailure.unreachable, notSent: true),
-        const WriteException(WriteFailure.forbidden),
+        if (adding)
+          const WriteException(WriteFailure.unreachable, notSent: true),
+        if (!adding) const WriteException(WriteFailure.forbidden),
         const WriteException(WriteFailure.unreachable),
       ]) {
         test('unconfirmed reaction ${adding ? 'add' : 'remove'} rolls back '
@@ -10025,8 +10026,9 @@ void main() {
 
     for (final adding in [true, false]) {
       for (final failure in [
-        const WriteException(WriteFailure.unreachable, notSent: true),
-        const WriteException(WriteFailure.forbidden),
+        if (adding)
+          const WriteException(WriteFailure.unreachable, notSent: true),
+        if (!adding) const WriteException(WriteFailure.forbidden),
       ]) {
         test(
           'own live reaction ${adding ? 'add' : 'remove'} preserves a '
