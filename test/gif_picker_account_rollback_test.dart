@@ -50,12 +50,7 @@ const _channel = ChatChannel(
   membership: ChatMembership(following: true),
 );
 
-enum _Operation {
-  unchanged,
-  unchangedWhilePaging,
-  failedReconnect,
-  failedDisconnect,
-}
+enum _Operation { unchangedWhilePaging, failedReconnect, failedDisconnect }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
