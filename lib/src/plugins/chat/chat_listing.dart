@@ -400,6 +400,11 @@ class _ChatListingState extends State<ChatListing> {
         alone: alone,
         keep: (channel) => channel.id == layout.activeChannelId,
         isNew: chatInboxIsNew,
+        few: switch (kind) {
+          ChatInboxSectionKind.directMessages => 3,
+          ChatInboxSectionKind.channels => 5,
+          _ => ChatInboxSectionSlice.defaultFew,
+        },
       );
       final list = slice.visible;
       final ways = hasWays && kind == waysKind;
@@ -632,7 +637,7 @@ class ChatListingControls extends StatefulWidget {
   final String siteUrl;
   final ChatInboxPlace place;
 
-  /// Whether the field to find a chat is shown over the order switch.
+  /// Whether the field to find a chat is shown beside the order switch.
   final bool field;
 
   @override
@@ -656,12 +661,15 @@ class _ChatListingControlsState extends State<ChatListingControls> {
       context,
       chatControllerService,
     ).inboxFilters;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final order = ChatInboxFilterBar(siteUrl: widget.siteUrl, filters: filters);
+    if (!widget.field) {
+      return Align(alignment: AlignmentDirectional.centerStart, child: order);
+    }
+    return Row(
       spacing: DSpacing.sm,
       children: [
-        if (widget.field)
-          ListenableBuilder(
+        Expanded(
+          child: ListenableBuilder(
             listenable: filters,
             builder: (context, _) {
               final query = filters.queryFor(widget.place, widget.siteUrl);
@@ -681,7 +689,8 @@ class _ChatListingControlsState extends State<ChatListingControls> {
               );
             },
           ),
-        ChatInboxFilterBar(siteUrl: widget.siteUrl, filters: filters),
+        ),
+        order,
       ],
     );
   }

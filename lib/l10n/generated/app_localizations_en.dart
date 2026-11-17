@@ -234,7 +234,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get chatViewLess => 'View less';
+  String get chatViewLess => 'Show fewer';
 
   @override
   String chatViewUnreadAndRead(int unread, int read) {

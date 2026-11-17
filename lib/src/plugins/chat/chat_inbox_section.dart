@@ -40,7 +40,7 @@ class ChatInboxMore extends StatelessWidget {
       child: Semantics(
         expanded: expanded,
         child: DButton(
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.link,
           size: DControlSize.filter,
           alignment: AlignmentDirectional.centerStart,
           foregroundColor: DTokens.of(context).mutedForeground,
@@ -49,14 +49,12 @@ class ChatInboxMore extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             spacing: DSpacing.controlGap,
             children: [
-              SizedBox(
-                width: compact ? 32 : 40,
-                child: RotatedBox(
-                  quarterTurns: expanded ? 2 : 0,
-                  child: const DIcon(DIcons.chevronDown),
-                ),
-              ),
+              SizedBox(width: compact ? 32 : 40),
               Flexible(child: Text(_label(context))),
+              RotatedBox(
+                quarterTurns: expanded ? 2 : 0,
+                child: const DIcon(DIcons.chevronDown, size: 10),
+              ),
             ],
           ),
           onPressed: onPressed,

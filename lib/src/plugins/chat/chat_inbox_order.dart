@@ -143,7 +143,7 @@ List<int> chatInboxOrder(List<ChatChannel> channels, ChatInboxSort sort) => [
 /// The rows a group shows before it is asked for the rest.
 ///
 /// A group shows all that is new in it up to [mostUnread], and never fewer
-/// than [few] rows. It folds only when more than one row would be folded, and
+/// than its configured minimum. It folds only when more than one row would be folded, and
 /// never when it stands alone. The row [keep] names is shown wherever it falls.
 final class ChatInboxSectionSlice<T> {
   ChatInboxSectionSlice(
@@ -152,6 +152,7 @@ final class ChatInboxSectionSlice<T> {
     required bool alone,
     bool Function(T item)? keep,
     bool Function(T item)? isNew,
+    int few = defaultFew,
   }) {
     final shownFolded = math.max(
       few,
@@ -175,7 +176,7 @@ final class ChatInboxSectionSlice<T> {
     }
   }
 
-  static const few = 4;
+  static const defaultFew = 4;
   static const mostUnread = 10;
 
   late final bool canFold;

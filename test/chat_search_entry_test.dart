@@ -324,7 +324,11 @@ void main() {
         );
         final sidebarRect = tester.getRect(find.byType(DSidebar).last);
         expect(fieldRect.left - sidebarRect.left, 10);
-        expect(sidebarRect.right - fieldRect.right, 10);
+        final sort = tester.getRect(
+          find.byKey(const ValueKey('chat-inbox-sort-filter')),
+        );
+        expect(sidebarRect.right - sort.right, 10);
+        expect(sort.center.dy, fieldRect.center.dy);
         expect(fieldRect.height, 36 + (16 * scale - 16) * 1.5);
         final field = find.byKey(const ValueKey('chat-search-entry'));
         await tester.tap(field);

@@ -351,6 +351,14 @@ class ChatInboxRow extends StatelessWidget {
         words: ChatInboxRowWords(
           name: Row(
             children: [
+              if (channel.readRestricted)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 6),
+                  child: Semantics(
+                    label: context.l10n.chatPrivateChannel,
+                    child: DIcon(DIcons.lock, size: 11, color: mark.color),
+                  ),
+                ),
               Flexible(
                 child: Text(
                   channel.title,
@@ -379,8 +387,6 @@ class ChatInboxRow extends StatelessWidget {
               for (final (icon, label) in [
                 if (showStar && channel.membership.starred)
                   (DIcons.star, context.l10n.starred),
-                if (channel.readRestricted)
-                  (DIcons.lock, context.l10n.chatPrivateChannel),
                 if (muted)
                   (DNativeIcons.bellSlash, context.l10n.chatMutedChannel),
               ])
