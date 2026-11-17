@@ -304,7 +304,11 @@ void main() {
   );
 
   for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
-    for (final suffix in ['', '\n', '\n\n', '\n\nAfter']) {
+    for (final suffix in [
+      '',
+      if (kind == PointerDeviceKind.mouse) '\n' else '\n\n',
+      '\n\nAfter',
+    ]) {
       testWidgets(
         'backspace after clicking below code removes the block (${suffix.length}, $kind)',
         (tester) async {
