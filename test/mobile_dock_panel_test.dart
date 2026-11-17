@@ -16,6 +16,40 @@ import 'support/dock_panel.dart';
 void main() {
   final panel = find.byKey(DMobileDock.panelKey);
 
+  testWidgets('on a phone a plain toast is said by the bar, and one with '
+      'something to press is a card', (tester) async {
+    await fixture.pumpMobileShellFixture(tester);
+    final toasts = DToast.of(tester.element(find.byType(DMobileDock)));
+    toasts.add(
+      const DToastOptions(description: 'Saved', type: DToastType.success),
+    );
+    await tester.pump();
+    expect(toasts.toasts, isEmpty);
+    expect(
+      find.descendant(
+        of: find.byKey(DMobileDock.hintKey),
+        matching: find.text('Saved'),
+      ),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Saved'), findsNothing);
+
+    toasts.add(
+      DToastOptions(
+        description: 'Archived',
+        action: DToastAction(label: 'Undo', onPressed: () {}),
+      ),
+    );
+    await tester.pump();
+    expect(toasts.toasts, hasLength(1));
+    expect(find.byKey(DMobileDock.hintKey), findsNothing);
+    expect(find.text('Undo'), findsOneWidget);
+    toasts.close(toasts.toasts.single.id);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the profile tile opens the profile menu and the notifications '
       'place opens notifications, marked current and its count put away '
       'while they are open', (tester) async {

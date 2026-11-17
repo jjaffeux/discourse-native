@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui show Gradient;
 import 'package:flutter/material.dart';
+import '../../foundation/icons/d_icon_data.dart';
+import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 
@@ -14,8 +16,23 @@ class DSwipeHint extends StatelessWidget {
     required this.label,
     this.animateEntrance = false,
     this.up = true,
-    required this.clock,
-  });
+    required Animation<double> this.clock,
+  }) : icon = null,
+       alert = false;
+
+  /// What has just happened, said plainly where the hint goes: [icon] in the
+  /// accent, or the destructive colour for an [alert], then [label] in the
+  /// strong text colour on one line, cut short with an ellipsis. No light
+  /// passes over it, and a reader is told it, since it says what nothing
+  /// else on the screen does.
+  const DSwipeHint.saying({
+    super.key,
+    required this.label,
+    this.icon,
+    this.alert = false,
+    this.animateEntrance = false,
+    this.up = true,
+  }) : clock = null;
 
   static const hold = Duration(milliseconds: 3700);
   static const shineDelay = Duration(milliseconds: 300);
@@ -24,7 +41,15 @@ class DSwipeHint extends StatelessWidget {
   final String label;
   final bool animateEntrance;
   final bool up;
-  final Animation<double> clock;
+  final Animation<double>? clock;
+  final DIconData? icon;
+  final bool alert;
+
+  /// A saying keeps this far in from either side, and its glyph this far
+  /// from its words.
+  static const sayingInset = 16.0;
+  static const sayingGap = 8.0;
+  static const sayingGlyph = 12.0;
 
   /// In after [delay], fading over [fade] and rising [rise] over [risen];
   /// out with no wait, over the same.
@@ -53,48 +78,77 @@ class DSwipeHint extends StatelessWidget {
         ? Interval(delay / (delay + milliseconds), 1, curve: Curves.ease)
         : Curves.ease;
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    final clock = this.clock;
     final text = Text(
       label,
       maxLines: 1,
       softWrap: false,
+      overflow: clock == null ? TextOverflow.ellipsis : null,
       style: TextStyle(
         fontSize: DiscourseTypography.control,
         fontWeight: FontWeight.w500,
-        color: tokens.mutedForeground,
+        color: clock == null ? tokens.foreground : tokens.mutedForeground,
       ),
     );
-    return ExcludeSemantics(
-      child: IgnorePointer(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: up ? 1 : 0),
-          duration: over(fade),
-          curve: eased(fade),
-          builder: (context, opacity, child) =>
-              Opacity(opacity: opacity, child: child),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: rise, end: up ? 0 : rise),
-            duration: over(risen),
-            curve: eased(risen),
-            builder: (context, y, child) =>
-                Transform.translate(offset: Offset(0, y), child: child),
-            child: Center(
-              child: AnimatedBuilder(
-                animation: clock,
-                builder: (context, child) => ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) => _light(
-                    bounds,
-                    pass: MediaQuery.disableAnimationsOf(context)
-                        ? 0
-                        : _pass(clock.value),
-                    muted: tokens.mutedForeground,
-                    strong: tokens.foreground,
-                    rtl: rtl,
+    final glyph = icon;
+    final content = clock == null
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: sayingInset),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (glyph != null) ...[
+                  DIconGlyphTheme(
+                    scale: 1,
+                    naturalWidth: true,
+                    child: DIcon(
+                      glyph,
+                      size: sayingGlyph,
+                      color: alert ? tokens.destructive : tokens.primary,
+                    ),
                   ),
-                  child: child,
-                ),
-                child: text,
+                  const SizedBox(width: sayingGap),
+                ],
+                Flexible(child: text),
+              ],
+            ),
+          )
+        : AnimatedBuilder(
+            animation: clock,
+            builder: (context, child) => ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (bounds) => _light(
+                bounds,
+                pass: MediaQuery.disableAnimationsOf(context)
+                    ? 0
+                    : _pass(clock.value),
+                muted: tokens.mutedForeground,
+                strong: tokens.foreground,
+                rtl: rtl,
               ),
+              child: child,
+            ),
+            child: text,
+          );
+    return Semantics(
+      container: clock == null,
+      liveRegion: clock == null,
+      label: clock == null ? label : null,
+      child: ExcludeSemantics(
+        child: IgnorePointer(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: up ? 1 : 0),
+            duration: over(fade),
+            curve: eased(fade),
+            builder: (context, opacity, child) =>
+                Opacity(opacity: opacity, child: child),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: rise, end: up ? 0 : rise),
+              duration: over(risen),
+              curve: eased(risen),
+              builder: (context, y, child) =>
+                  Transform.translate(offset: Offset(0, y), child: child),
+              child: Center(child: content),
             ),
           ),
         ),

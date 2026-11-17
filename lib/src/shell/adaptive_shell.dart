@@ -869,8 +869,31 @@ class _MobileShellState extends State<_MobileShell> {
   // built again.
   final _dockPeek = DMobileDockPeek();
 
+  // On a phone what a toast says is said by the bar; the toasts it does not
+  // take, and every toast once the phone shell has gone, are cards.
+  DToastController? _toasts;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final toasts = DToast.maybeOf(context);
+    if (identical(toasts, _toasts)) return;
+    _releaseToasts();
+    _toasts = toasts?..teller = _dockPeek.sayToast;
+  }
+
+  void _releaseToasts() {
+    final toasts = _toasts;
+    if (toasts != null && toasts.teller == _dockPeek.sayToast) {
+      toasts.teller = null;
+    }
+    _toasts = null;
+  }
+
   @override
   void dispose() {
+    _releaseToasts();
+    _dockPeek.dispose();
     _dockPanelOut.dispose();
     super.dispose();
   }

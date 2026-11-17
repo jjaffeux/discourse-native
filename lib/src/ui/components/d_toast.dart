@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icon_data.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/d_icon.dart';
@@ -79,6 +80,28 @@ class DToastOptions {
   final bool showClose;
   final ValueChanged<DToastCloseReason>? onClose;
 
+  /// Whether another surface may say this toast in its card's place: one
+  /// line, at normal priority, that goes on its own, with nothing to press,
+  /// nothing drawn of its own, and no one waiting to hear it closed.
+  bool get sayable =>
+      (title == null) != (description == null) &&
+      action == null &&
+      contentBuilder == null &&
+      duration != null &&
+      type != DToastType.loading &&
+      priority == DToastPriority.normal &&
+      onClose == null;
+
+  /// The glyph a toast of [type] shows beside its words, or none for a
+  /// standard one, which may say that something worked or that it did not.
+  static DIconData? glyphOf(DToastType type) => switch (type) {
+    DToastType.success => DIcons.check,
+    DToastType.info => DIcons.circleInfo,
+    DToastType.warning => DIcons.triangleExclamation,
+    DToastType.error => DNativeIcons.circleXmark,
+    DToastType.standard || DToastType.loading => null,
+  };
+
   DToastOptions copyWith({DToastType? type, bool clearDuration = false}) =>
       DToastOptions(
         title: (title),
@@ -108,6 +131,10 @@ class DToastEntry {
 }
 
 typedef DToastResultBuilder<T> = DToastOptions Function(T value);
+
+/// Says a [DToastOptions.sayable] toast in the card's place, answering
+/// whether it took it.
+typedef DToastTeller = bool Function(DToastOptions options);
 typedef DToastErrorBuilder = DToastOptions Function(Object error);
 
 /// Controls one toast scope. Callers dispose controllers they create.
@@ -129,10 +156,18 @@ class DToastController extends ChangeNotifier {
   List<DToastEntry> get toasts => List.unmodifiable(_toasts);
   bool get isDisposed => _disposed;
 
+  /// Who says a new [DToastOptions.sayable] toast instead of a card, as a
+  /// phone's bar does. A toast it does not take is a card as ever. One it
+  /// takes is never in [toasts], so it cannot be updated or closed.
+  DToastTeller? teller;
+
   Object add(DToastOptions options, {Object? id}) {
     if (_disposed) return id ?? Object();
     final resolvedId = id ?? ++_nextId;
     final index = _toasts.indexWhere((toast) => toast.id == resolvedId);
+    if (index < 0 && options.sayable && (teller?.call(options) ?? false)) {
+      return resolvedId;
+    }
     final revision = index < 0 ? 0 : _toasts[index].revision + 1;
     final entry = DToastEntry(
       id: resolvedId,
@@ -295,6 +330,7 @@ class DToastController extends ChangeNotifier {
     _elapsed.clear();
     _pauseOwners.clear();
     _toasts.clear();
+    teller = null;
     super.dispose();
   }
 }
@@ -813,13 +849,7 @@ class _DToastStatusIcon extends StatelessWidget {
     if (type == DToastType.loading) {
       return const DSpinner(size: 16, semanticLabel: null);
     }
-    final icon = switch (type) {
-      DToastType.success => DIcons.check,
-      DToastType.info => DIcons.circleInfo,
-      DToastType.warning => DIcons.triangleExclamation,
-      DToastType.error => DNativeIcons.circleXmark,
-      _ => null,
-    };
+    final icon = DToastOptions.glyphOf(type);
     if (icon == null) return const SizedBox.square(dimension: 16);
     // The mockup draws this glyph 12 tall. The slot stays at the spinner's 16
     // so a toast does not shift when loading settles into a status.
