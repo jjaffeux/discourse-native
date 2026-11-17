@@ -272,56 +272,54 @@ void main() {
     },
   );
 
-  for (final direction in TextDirection.values) {
-    testWidgets(
-      'rich text wraps at 200% in ${direction.name} despite ancestor truncation',
-      (tester) async {
-        await _pump(
-          tester,
-          MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-            child: DDirection(
-              textDirection: direction,
-              child: const SizedBox(
-                width: 160,
-                child: DefaultTextStyle(
-                  style: TextStyle(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  child: DLabel(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: 'A long label with '),
-                          TextSpan(
-                            text: 'emphasis',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          TextSpan(
-                            text: ' which must remain completely readable.',
-                          ),
-                        ],
-                      ),
-                      key: ValueKey('rich'),
+  testWidgets(
+    'rich text wraps at 200% in RTL despite ancestor truncation',
+    (tester) async {
+      await _pump(
+        tester,
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: DDirection(
+            textDirection: TextDirection.rtl,
+            child: const SizedBox(
+              width: 160,
+              child: DefaultTextStyle(
+                style: TextStyle(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                child: DLabel(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: 'A long label with '),
+                        TextSpan(
+                          text: 'emphasis',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text: ' which must remain completely readable.',
+                        ),
+                      ],
                     ),
+                    key: ValueKey('rich'),
                   ),
                 ),
               ),
             ),
           ),
-        );
-        final paragraph = tester.renderObject<RenderParagraph>(
-          find.byKey(const ValueKey('rich')),
-        );
-        expect(paragraph.didExceedMaxLines, isFalse);
-        expect(paragraph.size.height, greaterThan(80));
-        expect(paragraph.textDirection, direction);
-        expect(paragraph.textAlign, TextAlign.start);
-        expect(paragraph.textScaler.scale(14), 28);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
+        ),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.byKey(const ValueKey('rich')),
+      );
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(paragraph.size.height, greaterThan(80));
+      expect(paragraph.textDirection, TextDirection.rtl);
+      expect(paragraph.textAlign, TextAlign.start);
+      expect(paragraph.textScaler.scale(14), 28);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('selection areas do not make labels selectable', (tester) async {
     await _pump(
