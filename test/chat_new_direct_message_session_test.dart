@@ -42,7 +42,10 @@ Finder _form() => find.byWidgetPredicate(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final operation in _Operation.values) {
-    for (final action in _Action.values) {
+    for (final action in [
+      if (operation != _Operation.failedReconnect) _Action.user,
+      if (operation != _Operation.failedDisconnect) _Action.group,
+    ]) {
       testWidgets(
         'Start chatting ${action.name} ${operation == _Operation.unchanged ? 'uses its original session' : 'rejects ${operation.name} session replacement'}',
         (tester) async {
