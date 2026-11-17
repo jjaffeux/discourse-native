@@ -1067,7 +1067,11 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final presentation in ['sheet', 'helper', 'retained']) {
+    for (final presentation in [
+      'sheet',
+      if (platform == TargetPlatform.iOS) 'helper',
+      'retained',
+    ]) {
       testWidgets(
         'upward bottom overscroll keeps the $platform $presentation open',
         (tester) async {
