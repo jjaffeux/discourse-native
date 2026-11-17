@@ -32,6 +32,71 @@ int chatInboxUnreadThreads(Iterable<ChatChannel> channels) => channels.fold(
       count + (channel.threadingEnabled ? channel.unreadThreadCount : 0),
 );
 
+/// The line of a chat that holds the words it was found by, shown in place of
+/// whatever was said last, which may not hold them at all.
+final class ChatInboxFoundLine {
+  const ChatInboxFoundLine({
+    required this.text,
+    required this.query,
+    this.authorId,
+    this.authorName,
+    this.authorAvatarUrl,
+  });
+
+  final String text;
+  final String query;
+  final int? authorId;
+  final String? authorName;
+  final String? authorAvatarUrl;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ChatInboxFoundLine &&
+      other.text == text &&
+      other.query == query &&
+      other.authorId == authorId &&
+      other.authorName == authorName &&
+      other.authorAvatarUrl == authorAvatarUrl;
+
+  @override
+  int get hashCode =>
+      Object.hash(text, query, authorId, authorName, authorAvatarUrl);
+}
+
+/// The chats some words found: those found by name first, then those found by
+/// what was said in them, each of the latter with the line that has the words.
+typedef ChatInboxResults = ({
+  List<ChatChannel> channels,
+  Map<int, ChatInboxFoundLine> lines,
+});
+
+/// What is new first, then the rest, then what is muted. [channels] keeps its
+/// order within each part, and with [starredFirst] the new and the read parts
+/// each lead with what is starred.
+List<ChatChannel> chatInboxNewFirst(
+  Iterable<ChatChannel> channels, {
+  bool starredFirst = false,
+}) {
+  final fresh = <ChatChannel>[];
+  final read = <ChatChannel>[];
+  final muted = <ChatChannel>[];
+  for (final channel in channels) {
+    (channel.membership.muted
+            ? muted
+            : chatInboxIsNew(channel)
+            ? fresh
+            : read)
+        .add(channel);
+  }
+  Iterable<ChatChannel> led(List<ChatChannel> part) => !starredFirst
+      ? part
+      : [
+          ...part.where((channel) => channel.membership.starred),
+          ...part.where((channel) => !channel.membership.starred),
+        ];
+  return [...led(fresh), ...led(read), ...muted];
+}
+
 /// [channels] already follows actual message and unread-thread activity, so
 /// each part taken from it in order stays the most recent first.
 ///
@@ -41,57 +106,31 @@ int chatInboxUnreadThreads(Iterable<ChatChannel> channels) => channels.fold(
 List<ChatInboxSection> chatInboxSections(
   List<ChatChannel> channels,
   ChatInboxSort sort,
-) {
-  List<ChatChannel> newFirst(
-    Iterable<ChatChannel> group, {
-    bool starredFirst = false,
-  }) {
-    final fresh = <ChatChannel>[];
-    final read = <ChatChannel>[];
-    final muted = <ChatChannel>[];
-    for (final channel in group) {
-      (channel.membership.muted
-              ? muted
-              : chatInboxIsNew(channel)
-              ? fresh
-              : read)
-          .add(channel);
-    }
-    Iterable<ChatChannel> led(List<ChatChannel> part) => !starredFirst
-        ? part
-        : [
-            ...part.where((channel) => channel.membership.starred),
-            ...part.where((channel) => !channel.membership.starred),
-          ];
-    return [...led(fresh), ...led(read), ...muted];
-  }
-
-  return [
-    if (sort == ChatInboxSort.newest)
-      (
-        kind: ChatInboxSectionKind.allChats,
-        channels: newFirst(channels, starredFirst: true),
-      )
-    else ...[
-      (
-        kind: ChatInboxSectionKind.starred,
-        channels: newFirst(channels.where((c) => c.membership.starred)),
+) => [
+  if (sort == ChatInboxSort.newest)
+    (
+      kind: ChatInboxSectionKind.allChats,
+      channels: chatInboxNewFirst(channels, starredFirst: true),
+    )
+  else ...[
+    (
+      kind: ChatInboxSectionKind.starred,
+      channels: chatInboxNewFirst(channels.where((c) => c.membership.starred)),
+    ),
+    (
+      kind: ChatInboxSectionKind.directMessages,
+      channels: chatInboxNewFirst(
+        channels.where((c) => !c.membership.starred && c.isDirectMessage),
       ),
-      (
-        kind: ChatInboxSectionKind.directMessages,
-        channels: newFirst(
-          channels.where((c) => !c.membership.starred && c.isDirectMessage),
-        ),
+    ),
+    (
+      kind: ChatInboxSectionKind.channels,
+      channels: chatInboxNewFirst(
+        channels.where((c) => !c.membership.starred && !c.isDirectMessage),
       ),
-      (
-        kind: ChatInboxSectionKind.channels,
-        channels: newFirst(
-          channels.where((c) => !c.membership.starred && !c.isDirectMessage),
-        ),
-      ),
-    ],
-  ].where((section) => section.channels.isNotEmpty).toList();
-}
+    ),
+  ],
+].where((section) => section.channels.isNotEmpty).toList();
 
 /// The ids of [channels] in the order their groups list them. A list keyed on
 /// this is laid out again when a chat changes group or rank, not only when

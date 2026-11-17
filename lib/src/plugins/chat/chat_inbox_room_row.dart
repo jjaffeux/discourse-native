@@ -6,11 +6,21 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_inbox_rooms.dart';
+import 'chat_inbox_row.dart';
 
 class ChatInboxRoomRow extends StatefulWidget {
-  const ChatInboxRoomRow({super.key, required this.room, this.compact = false});
+  const ChatInboxRoomRow({
+    super.key,
+    required this.room,
+    this.compact = false,
+    this.frame = ChatInboxRowFrame.page,
+  });
   final ChatInboxRoom room;
+
+  /// The denser row of the sidebar's own voice section. Otherwise the room is
+  /// drawn as a chat's row is, in [frame].
   final bool compact;
+  final ChatInboxRowFrame frame;
 
   @override
   State<ChatInboxRoomRow> createState() => _ChatInboxRoomRowState();
@@ -26,6 +36,7 @@ class _ChatInboxRoomRowState extends State<ChatInboxRoomRow> {
   void didUpdateWidget(ChatInboxRoomRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.compact != widget.compact ||
+        oldWidget.frame != widget.frame ||
         _drawn(oldWidget.room) != _drawn(widget.room)) {
       _content = null;
     }
@@ -35,10 +46,9 @@ class _ChatInboxRoomRowState extends State<ChatInboxRoomRow> {
   // snapshot. Keep the mounted content unless this row's own words changed;
   // the tap handler reads the latest snapshot's `open` either way.
   @override
-  Widget build(BuildContext context) =>
-      _content ??= LayoutBuilder(builder: _buildRow);
+  Widget build(BuildContext context) => _content ??= _buildRow(context);
 
-  Widget _buildRow(BuildContext context, BoxConstraints constraints) {
+  Widget _buildRow(BuildContext context) {
     final room = widget.room;
     final compact = widget.compact;
     final active = room.people > 0;
@@ -46,54 +56,59 @@ class _ChatInboxRoomRowState extends State<ChatInboxRoomRow> {
     final color = active
         ? Theme.of(context).discourse.success
         : tokens.mutedForeground;
+    final mark = DAvatar(
+      dimension: compact ? 32 : ChatInboxRowFrame.mark,
+      decorative: true,
+      fallback: DAvatarFallback(
+        child: DIcon(DIcons.microphoneLines, color: color),
+      ),
+    );
+    final name = Text(
+      room.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontWeight: active ? FontWeight.w700 : FontWeight.w500),
+    );
+    final people = Text(
+      active
+          ? context.l10n.voiceRoomPeopleHere(room.people)
+          : context.l10n.voiceRoomEmpty,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: active ? tokens.foreground : tokens.mutedForeground,
+        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+      ),
+    );
+    void open() => unawaited(widget.room.open(context));
+    if (!compact) {
+      return ChatInboxRowSurface(
+        itemKey: ValueKey('chat-inbox-room-${room.id}'),
+        frame: widget.frame,
+        boxed: false,
+        enabled: !room.loading,
+        onPressed: open,
+        mark: mark,
+        words: ChatInboxRowWords(
+          name: name,
+          line: people,
+          tail: room.loading ? const DSpinner() : null,
+        ),
+      );
+    }
     return DItem(
       key: ValueKey('chat-inbox-room-${room.id}'),
-      size: compact ? DItemSize.sm : DItemSize.standard,
-      shape: compact ? DItemShape.menu : DItemShape.fullWidth,
-      selectionStyle: compact
-          ? DItemSelectionStyle.sidebar
-          : DItemSelectionStyle.tinted,
-      padding: !compact && constraints.maxWidth < 600
-          ? const EdgeInsets.symmetric(vertical: DSpacing.md)
-          : null,
-      onPressed: () => unawaited(widget.room.open(context)),
+      size: DItemSize.sm,
+      shape: DItemShape.menu,
+      selectionStyle: DItemSelectionStyle.sidebar,
+      onPressed: open,
       enabled: !room.loading,
       children: [
-        DItemMedia(
-          variant: DItemMediaVariant.avatar,
-          child: DAvatar(
-            dimension: compact ? 32 : 40,
-            decorative: true,
-            fallback: DAvatarFallback(
-              child: DIcon(DIcons.microphoneLines, color: color),
-            ),
-          ),
-        ),
+        DItemMedia(variant: DItemMediaVariant.avatar, child: mark),
         DItemContent(
           children: [
-            DItemTitle(
-              child: Text(
-                room.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ),
-            DItemDescription(
-              child: Text(
-                active
-                    ? context.l10n.voiceRoomPeopleHere(room.people)
-                    : context.l10n.voiceRoomEmpty,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: active ? tokens.foreground : tokens.mutedForeground,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ),
+            DItemTitle(child: name),
+            DItemDescription(child: people),
           ],
         ),
         if (room.loading) const DSpinner(),

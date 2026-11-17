@@ -275,10 +275,7 @@ void main() {
         find.descendant(of: badge, matching: find.text(label)),
         findsOneWidget,
       );
-      expect(
-        find.descendant(of: badge, matching: find.byType(DBadge)),
-        findsOneWidget,
-      );
+      expect(tester.widget(badge), isA<DBadge>());
     }
     expect(find.byKey(const ValueKey('chat-my-thread-unread-4')), findsNothing);
     expect(tester.takeException(), isNull);

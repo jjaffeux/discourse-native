@@ -31,24 +31,22 @@ List<ChatChannel> _baseline(
   if (filter.kind == ChatInboxKind.voiceRooms) return const [];
   final settings = chat.siteConfigFor(siteUrl).chatSettings;
   return [
-      if (settings.publicChannelsEnabled &&
-          filter.kind != ChatInboxKind.directMessages)
-        ...chat.publicChannels(siteUrl),
-      if (filter.kind != ChatInboxKind.channels)
-        ...chat.directChannels(siteUrl),
-    ].where((channel) => !filter.unreadOnly || channel.badge.isVisible).toList()
-    ..sort((a, b) {
-      final aTime = chatInboxActivityAt(a);
-      final bTime = chatInboxActivityAt(b);
-      final recent = aTime == null
-          ? (bTime == null ? 0 : 1)
-          : bTime == null
-          ? -1
-          : bTime.compareTo(aTime);
-      if (recent != 0) return recent;
-      final title = a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      return title != 0 ? title : a.id.compareTo(b.id);
-    });
+    if (settings.publicChannelsEnabled &&
+        filter.kind != ChatInboxKind.directMessages)
+      ...chat.publicChannels(siteUrl),
+    if (filter.kind != ChatInboxKind.channels) ...chat.directChannels(siteUrl),
+  ]..sort((a, b) {
+    final aTime = chatInboxActivityAt(a);
+    final bTime = chatInboxActivityAt(b);
+    final recent = aTime == null
+        ? (bTime == null ? 0 : 1)
+        : bTime == null
+        ? -1
+        : bTime.compareTo(aTime);
+    if (recent != 0) return recent;
+    final title = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    return title != 0 ? title : a.id.compareTo(b.id);
+  });
 }
 
 final class _BurstChat extends ChatController {
@@ -162,7 +160,7 @@ void main() {
         addTearDown(fixture.chat.dispose);
         addTearDown(counted.chat.dispose);
         for (final unread in [false, true]) {
-          final filter = ChatInboxFilter(unreadOnly: unread);
+          const filter = ChatInboxFilter();
           final expected = _baseline(
             fixture.chat,
             _site,

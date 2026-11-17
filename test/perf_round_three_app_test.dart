@@ -144,7 +144,13 @@ void main() {
         ['keyboard', 'focus', 'absentneedle'][i % 3],
       );
       expect(
-        fixture.chat.sidebarConversations(roundThreeSite).map((c) => c.id),
+        fixture.chat
+            .findConversations(
+              roundThreeSite,
+              fixture.chat.inboxFilters.sidebarQueryFor(roundThreeSite),
+            )
+            .channels
+            .map((c) => c.id),
         [if (i % 3 != 2) 1],
       );
     }
@@ -162,13 +168,27 @@ void main() {
       ),
     );
     fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, 'replacement');
-    expect(fixture.chat.sidebarConversations(roundThreeSite).map((c) => c.id), [
-      1,
-    ]);
+    expect(
+      fixture.chat
+          .findConversations(
+            roundThreeSite,
+            fixture.chat.inboxFilters.sidebarQueryFor(roundThreeSite),
+          )
+          .channels
+          .map((c) => c.id),
+      [1],
+    );
     fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, 'keyboard');
-    expect(fixture.chat.sidebarConversations(roundThreeSite).map((c) => c.id), [
-      1,
-    ]);
+    expect(
+      fixture.chat
+          .findConversations(
+            roundThreeSite,
+            fixture.chat.inboxFilters.sidebarQueryFor(roundThreeSite),
+          )
+          .channels
+          .map((c) => c.id),
+      [1],
+    );
   });
   test(
     'chat extraction stays lazy for blank, deleted and excluded messages',
@@ -180,18 +200,32 @@ void main() {
       final deleted = CountedChatMessage(3, deletedAt: DateTime.utc(2026));
       fixture.store.putAll(roundThreeSite, [empty, excluded, deleted]);
       fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, ' \t ');
-      expect(fixture.chat.sidebarConversations(roundThreeSite), hasLength(10));
+      expect(
+        fixture.chat
+            .findConversations(
+              roundThreeSite,
+              fixture.chat.inboxFilters.sidebarQueryFor(roundThreeSite),
+            )
+            .channels,
+        hasLength(10),
+      );
       expect(empty.cookedReads + excluded.cookedReads + deleted.cookedReads, 0);
       for (var i = 0; i < 10; i++) {
         fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, 'channel');
         expect(
-          fixture.chat.sidebarConversations(roundThreeSite),
+          fixture.chat
+              .findConversations(
+                roundThreeSite,
+                fixture.chat.inboxFilters.sidebarQueryFor(roundThreeSite),
+              )
+              .channels,
           hasLength(10),
         );
       }
       expect(excluded.cookedReads, 0);
       expect(deleted.cookedReads, 0);
-      if (!baseline) expect(empty.cookedReads, 1);
+      // Every chat is found by its name, so nothing said in them is read.
+      if (!baseline) expect(empty.cookedReads, 0);
     },
   );
 }

@@ -18,6 +18,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -1160,8 +1161,22 @@ Future<_BrowseApi> _pumpMobileBrowse(WidgetTester tester, Size size) async {
   await tester.pumpAndSettle();
   // Inbox count discovery has its own request; these tests own the directory.
   api.chatBrowseRequested.clear();
+  // The way to every channel closes the list, which builds what is in view.
   final channelsTab = find.byKey(const ValueKey('chat-inbox-channels-card'));
+  if (channelsTab.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      channelsTab,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ChatMobileSidebar),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+  }
   await tester.ensureVisible(channelsTab);
+  await tester.pumpAndSettle();
   await tester.tap(channelsTab);
   await tester.pumpAndSettle();
   expect(_browse, findsOneWidget);

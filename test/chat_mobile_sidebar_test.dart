@@ -36,7 +36,7 @@ final _pageTitle = find.descendant(
   matching: find.byKey(const ValueKey('chat-inbox-title')),
 );
 final _title = find.byKey(const ValueKey('mobile-page-title'));
-final _navigation = find.byKey(const ValueKey('chat-inbox-activity-filter'));
+final _navigation = find.byKey(const ValueKey('chat-inbox-sort-filter'));
 
 void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
   name,
@@ -286,7 +286,13 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(rebuilt, {1});
-    expect(find.text('2 messages'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-unread-1')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -379,21 +385,12 @@ void main() {
         {'channel_id': 1, 'last_read_message_id': 1, 'unread_count': 2},
       );
       await tester.pumpAndSettle();
-      final choice = find.descendant(
-        of: _navigation,
-        matching: find.text('Unread'),
-      );
-      await tester.tap(choice);
-      await tester.pumpAndSettle();
       expect(_row(1), findsOneWidget);
-      expect(_row(2), findsNothing);
-      await tester.tap(
-        find.descendant(of: _navigation, matching: find.text('Recent')),
-      );
-      await tester.pumpAndSettle();
       expect(_row(2), findsOneWidget);
       // The rows stay the same here; only their grouping follows the choice.
-      await tester.tap(find.text('Newest'));
+      await tester.tap(
+        find.descendant(of: _navigation, matching: find.byTooltip('Newest')),
+      );
       await tester.pumpAndSettle();
       expect(
         find.descendant(of: _inbox, matching: find.text('All chats')),
@@ -469,7 +466,7 @@ void main() {
     });
   });
 
-  _mobileTest('scrolling keeps the Chat bar title and activity filter fixed', (
+  _mobileTest('scrolling keeps the Chat bar title and order switch fixed', (
     tester,
   ) async {
     await _pumpChatInbox(tester, phone);

@@ -514,6 +514,66 @@ abstract class AppLocalizations {
   /// **'Results'**
   String get chatResults;
 
+  /// Accessible label for the lock after a private channel's name in chat's list.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get chatPrivateChannel;
+
+  /// Accessible label for the struck bell after a muted chat's name in chat's list.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted'**
+  String get chatMutedChannel;
+
+  /// Accessible label for the quiet dot on a muted chat that has unread messages.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread, muted'**
+  String get chatUnreadMuted;
+
+  /// Editable field narrowing chat's list by name and by what was said.
+  ///
+  /// In en, this message translates to:
+  /// **'Find a chat'**
+  String get findAChat;
+
+  /// Line under Threads in chat's list when threads have unread replies.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{New replies in 1 thread} other{New replies in {count} threads}}'**
+  String chatThreadsNewReplies(int count);
+
+  /// Line under Threads in chat's list when no thread has unread replies.
+  ///
+  /// In en, this message translates to:
+  /// **'Replies in the channels you are in'**
+  String get chatThreadsWay;
+
+  /// Line under Browse channels in chat's list.
+  ///
+  /// In en, this message translates to:
+  /// **'Find and join channels you are not in'**
+  String get chatBrowseWay;
+
+  /// Row under the chats found by some words, leading to every channel.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse all channels'**
+  String get chatBrowseAllChannels;
+
+  /// Line under Browse all channels, naming the words carried there.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels you are not in, for “{query}”'**
+  String chatBrowseAllChannelsFor(String query);
+
+  /// Empty result for the words typed in chat's own field.
+  ///
+  /// In en, this message translates to:
+  /// **'None of your chats match “{query}”'**
+  String chatNoneMatch(String query);
+
   /// Type label for an app-local bookmark of a whole page.
   ///
   /// In en, this message translates to:
@@ -3600,12 +3660,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'No unread conversations.'**
-  String get noUnreadConversations;
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'No conversations yet.'**
   String get noConversationsYet;
 
@@ -3638,12 +3692,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Recent'**
   String get recent;
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Chat activity'**
-  String get chatActivity;
 
   /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
   ///
@@ -20268,18 +20316,6 @@ abstract class AppLocalizations {
   /// **'{unreadCount, plural, =1{{unreadCount} unread message} other{{unreadCount} unread messages}}'**
   String unreadChatplugin(num unreadCount);
 
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{threadCount, plural, =1{{threadCount} unread thread} other{{threadCount} unread threads}}'**
-  String unreadChatinbox(num threadCount);
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{channelTrackingMentionCount, plural, =1{{channelTrackingMentionCount} new mention} other{{channelTrackingMentionCount} new mentions}}'**
-  String messageNewChatinbox(num channelTrackingMentionCount);
-
   /// English UI message used by plugins/chat/chat_my_threads_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -21059,12 +21095,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{participants, plural, =1{ {participants} participant.} other{ {participants} participants.}}'**
   String messageChatmessagetile(num participants);
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{{count} message} other{{count} messages}}'**
-  String messageChatinbox(num count);
 
   /// English UI message used by plugins/assign/assignment_sheet.dart. Keep placeholders intact.
   ///
@@ -23635,18 +23665,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete this room? Everyone in the call will be disconnected. This cannot be undone.'**
   String get voiceRoomDeleteConfirm;
-
-  /// Empty result for a nonblank chat sidebar filter.
-  ///
-  /// In en, this message translates to:
-  /// **'No chats match.'**
-  String get noChatsMatch;
-
-  /// Editable field narrowing chats and rooms in the sidebar.
-  ///
-  /// In en, this message translates to:
-  /// **'Search chat'**
-  String get searchChat;
 
   /// Error when a Live room could not be deleted.
   ///

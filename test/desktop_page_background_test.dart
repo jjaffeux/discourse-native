@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_info_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
+import 'package:discourse_native/src/plugins/chat/chat_listing.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';

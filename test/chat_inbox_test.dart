@@ -16,7 +16,7 @@ const _site = 'https://meta.discourse.org';
 
 void main() {
   test(
-    'sidebar matches all words across names, messages and authors, locally',
+    'chats are found by name first, then by one thing said that has every word',
     () async {
       final subject = await _fixture(
         public: const [
@@ -24,13 +24,16 @@ void main() {
             id: 1,
             title: 'Design studio',
             kind: ChatChannelKind.category,
+            lastMessageId: 9,
             lastMessagePreview: 'Release planning',
             lastMessageUsername: 'mira',
+            lastMessageUserId: 6,
           ),
           ChatChannel(
             id: 2,
             title: 'Engineering',
             kind: ChatChannelKind.category,
+            tracking: ChatTracking(unreadCount: 2),
           ),
         ],
         direct: const [
@@ -63,6 +66,19 @@ void main() {
           author: ChatMessageAuthor(id: 5, username: 'sam'),
         ),
         const ChatMessage(
+          id: 12,
+          channelId: 2,
+          cooked: '<p>The design tokens landed</p>',
+          author: ChatMessageAuthor(id: 5, username: 'sam'),
+        ),
+        const ChatMessage(
+          id: 13,
+          channelId: 2,
+          cooked: '<p>Older design note</p>',
+          deletedAt: null,
+          author: ChatMessageAuthor(id: 4, username: 'david'),
+        ),
+        const ChatMessage(
           id: -1,
           channelId: 3,
           cooked: '',
@@ -70,31 +86,50 @@ void main() {
           author: ChatMessageAuthor(id: 7, username: 'reader'),
         ),
       ]);
+      List<int> found(String query) => chat
+          .findConversations(_site, query)
+          .channels
+          .map((c) => c.id)
+          .toList();
       for (final (query, ids) in [
-        ('  DESIGN   MiRa release ', [1]),
-        ('studio keyboard smith', [1]),
-        ('design thread sam', [1]),
-        ('alice draft reader', [3]),
+        ('  DESIGN   studio ', [1]),
+        ('keyboard smith', [1]),
+        ('thread sam', [1]),
+        ('draft reader', [3]),
+        ('release MIRA', [1]),
+        // Every word has to be in the name, or in one thing said.
+        ('design keyboard', <int>[]),
         ('engineering mira', <int>[]),
         ('missing', <int>[]),
         (' \t ', [3, 1, 2]),
       ]) {
-        chat.inboxFilters.setSidebarQuery(_site, query);
-        expect(
-          chat.sidebarConversations(_site).map((c) => c.id),
-          ids,
-          reason: query,
-        );
-        expect(chat.inboxFilters.sidebarQueryFor(_site), query);
+        expect(found(query), ids, reason: query);
       }
+      // By name first, then by what was said, what is unread leading those.
+      expect(found('design'), [1, 2]);
+      expect(found('sam'), [2, 1]);
+      final results = chat.findConversations(_site, 'design');
+      expect(results.lines.keys, [2], reason: 'A name needs no line');
+      expect(results.lines[2]!.text, 'Older design note');
+      expect(results.lines[2]!.authorName, 'david');
+      expect(results.lines[2]!.query, 'design');
+      final mira = chat.findConversations(_site, 'mira').lines[1]!;
+      expect(mira.text, 'Release planning');
+      expect(mira.authorId, 6);
+      expect(
+        chat.findConversations(_site, 'draft').lines[3]!.text,
+        'Local draft send',
+        reason: 'An unsent message is the latest said',
+      );
+
       chat.inboxFilters.setSidebarQuery(_site, 'design');
+      expect(chat.inboxFilters.queryFor(ChatInboxPlace.side, _site), 'design');
+      expect(chat.inboxFilters.queryFor(ChatInboxPlace.page, _site), isEmpty);
       chat.inboxFilters.update(
         _site,
         const ChatInboxFilter(kind: ChatInboxKind.directMessages),
       );
-      expect(chat.sidebarConversations(_site), isEmpty);
-      chat.inboxFilters.update(_site, const ChatInboxFilter(unreadOnly: true));
-      expect(chat.sidebarConversations(_site), isEmpty);
+      expect(found('design'), isEmpty);
       expect(
         chat.inboxFilters.sidebarQueryFor('https://another.invalid'),
         isEmpty,
@@ -404,7 +439,7 @@ void main() {
       expect(overview.visits, 0);
     });
 
-    test('bounds thread scans to filtering and one activity read', () async {
+    test('bounds thread scans to one activity read', () async {
       final overviews = [
         for (var i = 0; i < 8; i++)
           CountingThreadOverview({
@@ -436,25 +471,19 @@ void main() {
         direct: channels.where((channel) => channel.isDirectMessage).toList(),
       );
 
-      for (final unreadOnly in [false, true]) {
-        for (final overview in overviews) {
-          overview.visits = 0;
-        }
-        expect(
-          chatInboxConversations(
-            subject.chat,
-            _site,
-            ChatInboxFilter(unreadOnly: unreadOnly),
-          ).map((channel) => channel.id),
-          unreadOnly ? [7, 5, 3, 1] : [7, 5, 3, 1, 8, 6, 4, 2],
-        );
-        for (var i = 0; i < overviews.length; i++) {
-          expect(
-            overviews[i].visits,
-            3 * (unreadOnly && i.isEven ? 2 : 1),
-            reason: 'Channel ${i + 1}, unreadOnly $unreadOnly',
-          );
-        }
+      for (final overview in overviews) {
+        overview.visits = 0;
+      }
+      expect(
+        chatInboxConversations(
+          subject.chat,
+          _site,
+          const ChatInboxFilter(),
+        ).map((channel) => channel.id),
+        [7, 5, 3, 1, 8, 6, 4, 2],
+      );
+      for (var i = 0; i < overviews.length; i++) {
+        expect(overviews[i].visits, 3, reason: 'Channel ${i + 1}');
       }
     });
 
@@ -480,10 +509,8 @@ void main() {
         );
         final subject = await _fixture(public: [older], direct: [newer]);
         const all = ChatInboxFilter();
-        const unread = ChatInboxFilter(unreadOnly: true);
         final first = chatInboxConversations(subject.chat, _site, all);
         expect(first, [newer, older]);
-        expect(chatInboxConversations(subject.chat, _site, unread), isEmpty);
         first.clear();
         expect(chatInboxConversations(subject.chat, _site, all), [
           newer,
@@ -494,7 +521,6 @@ void main() {
         final afterThread = chatInboxConversations(subject.chat, _site, all);
         expect(afterThread.map((channel) => channel.id), [1, 2]);
         expect(afterThread.first, same(older));
-        expect(chatInboxConversations(subject.chat, _site, unread), [older]);
 
         final edited = older.withLastMessagePreview('Edited preview');
         subject.store.put(_site, edited);
@@ -513,9 +539,6 @@ void main() {
           tracking: const ChatTracking(unreadCount: 1),
         );
         subject.store.put(_site, newlyUnread);
-        expect(chatInboxConversations(subject.chat, _site, unread), [
-          newlyUnread,
-        ]);
         expect(
           chatInboxConversations(
             subject.chat,

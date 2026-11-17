@@ -153,6 +153,26 @@
   "@chatViewRead": {"description": "Expand a Chat section whose folded rows are all read.", "placeholders": {"count": {"type": "int"}}},
   "chatResults": "Results",
   "@chatResults": {"description": "Heading over the chats found by the words typed in chat's own field."},
+  "chatPrivateChannel": "Private",
+  "@chatPrivateChannel": {"description": "Accessible label for the lock after a private channel's name in chat's list."},
+  "chatMutedChannel": "Muted",
+  "@chatMutedChannel": {"description": "Accessible label for the struck bell after a muted chat's name in chat's list."},
+  "chatUnreadMuted": "Unread, muted",
+  "@chatUnreadMuted": {"description": "Accessible label for the quiet dot on a muted chat that has unread messages."},
+  "findAChat": "Find a chat",
+  "@findAChat": {"description": "Editable field narrowing chat's list by name and by what was said."},
+  "chatThreadsNewReplies": "{count, plural, =1{New replies in 1 thread} other{New replies in {count} threads}}",
+  "@chatThreadsNewReplies": {"description": "Line under Threads in chat's list when threads have unread replies.", "placeholders": {"count": {"type": "int"}}},
+  "chatThreadsWay": "Replies in the channels you are in",
+  "@chatThreadsWay": {"description": "Line under Threads in chat's list when no thread has unread replies."},
+  "chatBrowseWay": "Find and join channels you are not in",
+  "@chatBrowseWay": {"description": "Line under Browse channels in chat's list."},
+  "chatBrowseAllChannels": "Browse all channels",
+  "@chatBrowseAllChannels": {"description": "Row under the chats found by some words, leading to every channel."},
+  "chatBrowseAllChannelsFor": "Channels you are not in, for “{query}”",
+  "@chatBrowseAllChannelsFor": {"description": "Line under Browse all channels, naming the words carried there.", "placeholders": {"query": {"type": "String"}}},
+  "chatNoneMatch": "None of your chats match “{query}”",
+  "@chatNoneMatch": {"description": "Empty result for the words typed in chat's own field.", "placeholders": {"query": {"type": "String"}}},
   "destinationBookmarkPageType": "Page",
   "@destinationBookmarkPageType": {"description": "Type label for an app-local bookmark of a whole page."},
   "destinationBookmarkUnavailable": "This destination is currently unavailable.",
@@ -2385,10 +2405,6 @@
   "@thereAreNoActiveThreadsInThisChannel": {
     "description": "English UI message used by plugins/chat/chat_channel_threads_view.dart. Keep placeholders intact."
   },
-  "noUnreadConversations": "No unread conversations.",
-  "@noUnreadConversations": {
-    "description": "English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact."
-  },
   "noConversationsYet": "No conversations yet.",
   "@noConversationsYet": {
     "description": "English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact."
@@ -2411,10 +2427,6 @@
   },
   "recent": "Recent",
   "@recent": {
-    "description": "English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact."
-  },
-  "chatActivity": "Chat activity",
-  "@chatActivity": {
     "description": "English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact."
   },
   "voiceRooms": "Voice rooms",
@@ -15896,24 +15908,6 @@
       }
     }
   },
-  "unreadChatinbox": "{threadCount, plural, =1{{threadCount} unread thread} other{{threadCount} unread threads}}",
-  "@unreadChatinbox": {
-    "description": "English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.",
-    "placeholders": {
-      "threadCount": {
-        "type": "num"
-      }
-    }
-  },
-  "messageNewChatinbox": "{channelTrackingMentionCount, plural, =1{{channelTrackingMentionCount} new mention} other{{channelTrackingMentionCount} new mentions}}",
-  "@messageNewChatinbox": {
-    "description": "English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.",
-    "placeholders": {
-      "channelTrackingMentionCount": {
-        "type": "num"
-      }
-    }
-  },
   "messageInChatmythreadsview": " in {channelTitle}",
   "@messageInChatmythreadsview": {
     "description": "English UI message used by plugins/chat/chat_my_threads_view.dart. Keep placeholders intact.",
@@ -16930,15 +16924,6 @@
     "description": "English UI message used by plugins/chat/chat_message_tile.dart. Keep placeholders intact.",
     "placeholders": {
       "participants": {
-        "type": "num"
-      }
-    }
-  },
-  "messageChatinbox": "{count, plural, =1{{count} message} other{{count} messages}}",
-  "@messageChatinbox": {
-    "description": "English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.",
-    "placeholders": {
-      "count": {
         "type": "num"
       }
     }
@@ -19558,10 +19543,6 @@
   "@voiceRoomDelete": {"description": "Action to delete a persistent Live room."},
   "voiceRoomDeleteConfirm": "Delete this room? Everyone in the call will be disconnected. This cannot be undone.",
   "@voiceRoomDeleteConfirm": {"description": "Confirmation before deleting a Live room."},
-  "noChatsMatch": "No chats match.",
-  "@noChatsMatch": {"description": "Empty result for a nonblank chat sidebar filter."},
-  "searchChat": "Search chat",
-  "@searchChat": {"description": "Editable field narrowing chats and rooms in the sidebar."},
   "voiceRoomDeleteFailed": "Couldn’t delete the room.",
   "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."},
   "sidebarSelected": "Selected",
