@@ -13192,10 +13192,6 @@
       }
     }
   },
-  "thisPostIsAPrivateWhisper": "This post is a private whisper",
-  "@thisPostIsAPrivateWhisper": {
-    "description": "English UI message used by shell/topic_view.dart. Keep placeholders intact."
-  },
   "thisIsTheFirstTimeHasPostedLetSWelcomeThem": "This is the first time {postUsername} has posted — let’s welcome them to our community!",
   "@thisIsTheFirstTimeHasPostedLetSWelcomeThem": {
     "description": "English UI message used by shell/topic_view.dart. Keep placeholders intact.",
@@ -14321,10 +14317,6 @@
       }
     }
   },
-  "shareThisTopic": "Share this topic",
-  "@shareThisTopic": {
-    "description": "English UI message used by shell/topic_share.dart. Keep placeholders intact."
-  },
   "inviteToTopicEntry": "Invite people",
   "@inviteToTopicEntry": {
     "description": "English UI message used by shell/topic_share.dart. Label of the share surface's entry that opens the invite editor for the shared topic."
@@ -14352,10 +14344,6 @@
   },
   "couldnTOpenSharing": "Couldn''t open sharing.",
   "@couldnTOpenSharing": {
-    "description": "English UI message used by shell/topic_share.dart. Keep placeholders intact."
-  },
-  "shareToAnotherApp": "Share to another app",
-  "@shareToAnotherApp": {
     "description": "English UI message used by shell/topic_share.dart. Keep placeholders intact."
   },
   "allBadges": "All badges",
@@ -15230,6 +15218,10 @@
   "@returningUserLastPost": {"description": "Returning user notice with the server-provided last post time.", "placeholders": {"username": {"type": "String"}, "duration": {"type": "String"}}},
   "newSinceLastVisit": "New since your last visit",
   "@newSinceLastVisit": {"description": "Marker above the first unread post when entering a topic."},
+  "whisperOnlyStaffCanSee": "Whisper, only staff can see this",
+  "@whisperOnlyStaffCanSee": {"description": "First line of a whispered post's news, saying who can read it."},
+  "newSinceLastVisitPosts": "{count, plural, =1{1 post} other{{count} posts}}",
+  "@newSinceLastVisitPosts": {"description": "How many posts follow the last-visit marker, said after its line.", "placeholders": {"count": {"type": "int"}}},
   "reduceMotionDescription": "Keep cards, menus and celebrations still.",
   "@reduceMotionDescription": {"description": "App accessibility setting description."},
   "reduceMotionFollowsDeviceDescription": "Keep cards, menus and celebrations still. Follows this device until you change it.",

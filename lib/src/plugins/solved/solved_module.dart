@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -186,29 +186,19 @@ final class SolvedPlugin
     if (post.plugins.get(solvedPostKey)?.accepted != true) return const [];
     final action = _action(context, siteUrl, topic, post);
     return [
-      DItem(
+      PostBanner(
         key: ValueKey('solved-post-${post.id}'),
-        size: DItemSize.sm,
-        children: [
-          const DItemMedia(
-            variant: DItemMediaVariant.icon,
-            child: DIcon(DIcons.check),
-          ),
-          DItemContent(
-            children: [DItemTitle(child: Text(context.l10n.solution))],
-          ),
-          if (action != null)
-            DItemActions(
-              children: [
-                DButton(
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.chip,
-                  onPressed: action.enabled ? action.onInvoke : null,
-                  label: Text(action.label),
-                ),
-              ],
-            ),
-        ],
+        mark: PostBannerMark(
+          icon: DIcons.circleCheck,
+          tone: DTokens.of(context).success,
+        ),
+        title: Text(context.l10n.solution),
+        action: action == null
+            ? null
+            : PostBannerAction(
+                label: action.label,
+                onPressed: action.enabled ? action.onInvoke : null,
+              ),
       ),
     ];
   }

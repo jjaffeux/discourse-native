@@ -13,7 +13,6 @@ import '../models/post_flag.dart';
 import '../models/topic.dart';
 import '../plugin_api/site_plugin_api.dart';
 import 'adaptive_dialog_action.dart';
-import 'anchored_layout.dart';
 import 'bookmark_ui.dart';
 import 'dsa_notice_form.dart';
 import 'post_flag_editor.dart';
@@ -155,19 +154,9 @@ class TopicShareButton extends StatelessWidget {
     final instance = controller.currentInstance;
     if (instance == null || instance.url != siteUrl) return;
     final slug = route?.slug;
-    final anchor = anchorRect(
-      anchor: context.findRenderObject() as RenderBox?,
-      overlay:
-          Navigator.of(
-                context,
-                rootNavigator: true,
-              ).overlay?.context.findRenderObject()
-              as RenderBox?,
-    );
     unawaited(
       showTopicShareSheet(
         context: context,
-        anchor: anchor,
         title: topic.title,
         url: topicShareUrl(
           siteUrl: siteUrl,
@@ -182,22 +171,6 @@ class TopicShareButton extends StatelessWidget {
                 context: context,
                 siteUrl: siteUrl,
                 topicId: topic.id,
-              )
-            : null,
-        onReplyAsNewTopic: controller.canReplyAsNewTopic(topic)
-            ? captureShareReplyAsNewTopic(
-                context: context,
-                siteUrl: siteUrl,
-                topicId: topic.id,
-                continuation: topicContinuationMarkdown(
-                  title: topic.title,
-                  url: topicShareUrl(
-                    siteUrl: siteUrl,
-                    topicId: topic.id,
-                    slug: slug,
-                    config: instance.config,
-                  ),
-                ),
               )
             : null,
       ),

@@ -96,6 +96,8 @@ export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
 export 'src/shell/post_action_leading.dart' show PostActionLeading;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
+export 'src/shell/post_news_card.dart'
+    show PostBanner, PostBannerAction, PostBannerMark;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'
     show ReactionPill, ReactionPills, ReactionUsersList, ReactionUsersPanel;

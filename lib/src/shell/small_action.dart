@@ -1,16 +1,14 @@
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../foundation/icons/d_icon_data.dart';
 import '../foundation/icons/d_icons.dart';
 import '../models/post.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
-import 'avatar_image.dart';
+import '../theme/discourse_typography.dart';
 import 'cooked_html.dart';
+import 'post_news_card.dart';
 import 'relative_time.dart';
 
 @immutable
@@ -104,6 +102,88 @@ class SmallActionDescription {
   };
 }
 
+/// A note in the thread's own run rather than a post's, as Discourse's small
+/// actions are: a mark and a line, said as a post's banners are, quietly,
+/// with anything more about it quieter still after a middle dot. Being no
+/// post it draws no card, but keeps the room a post's card takes above and
+/// below it.
+class SmallActionLine extends StatelessWidget {
+  const SmallActionLine({
+    super.key,
+    required this.icon,
+    required this.said,
+    this.tone,
+    this.more,
+    this.semanticLabel,
+    this.child,
+  });
+
+  /// Above the line: a post's whole gap less the card margin above it.
+  static const double roomAbove = 32;
+
+  /// Below the line: as far as a post's card stands under a small action,
+  /// less the card margin below it.
+  static const double roomBelow = 10;
+
+  final DIconData icon;
+  final Color? tone;
+  final String said;
+
+  /// Anything more, after a middle dot in the muted colour.
+  final Widget? more;
+
+  /// Names the note as a boundary in the reading order, as the last-visit
+  /// marker is.
+  final String? semanticLabel;
+
+  /// Anything the note itself says, under its line.
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
+      fontSize: DiscourseTypography.control,
+      height: 18 / 13,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0,
+      color: postNewsSecondary(context),
+    );
+    final muted = style.copyWith(color: DTokens.of(context).mutedForeground);
+    final line = Row(
+      children: [
+        PostBannerMark(icon: icon, tone: tone),
+        const SizedBox(width: 9),
+        Flexible(child: Text(said, style: style)),
+        if (more case final more?) ...[
+          Text(' · ', style: muted),
+          DefaultTextStyle(style: muted, child: more),
+        ],
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, roomAbove, 16, roomBelow),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (semanticLabel case final label?)
+            Semantics(container: true, label: label, child: line)
+          else
+            line,
+          if (child case final child?)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: PostBanner.markExtent + 9,
+                top: 6,
+              ),
+              child: child,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class SmallActionTile extends StatelessWidget {
   const SmallActionTile({super.key, required this.post, this.siteUrl});
 
@@ -112,75 +192,26 @@ class SmallActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
     final description = SmallActionDescription.of(
       post,
       registry: PluginScope.maybeOf(context)?.registry,
     );
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              DIcon(
-                description?.icon ?? SmallActionDescription.fallbackIcon,
-                size: 16,
-                color: muted,
+    return SmallActionLine(
+      icon: description?.icon ?? SmallActionDescription.fallbackIcon,
+      said: [post.displayName, ?description?.phrase].join(' '),
+      more: switch (post.createdAt) {
+        final createdAt? => RelativeTimeText(createdAt),
+        null => null,
+      },
+      child: post.cooked.trim().isEmpty
+          ? null
+          : CookedHtml(
+              html: post.cooked,
+              textStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: postNewsSecondary(context),
               ),
-              const SizedBox(width: 10),
-              DAvatar.frame(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: AvatarImage(
-                    url: post.avatarUrl,
-                    size: 20,
-                    fallback: ColoredBox(color: theme.shell.floating),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: post.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      if (description != null)
-                        TextSpan(text: ' ${description.phrase}'),
-                    ],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                ),
-              ),
-              if (post.createdAt case final createdAt?) ...[
-                const SizedBox(width: 8),
-                RelativeTimeText(
-                  createdAt,
-                  style: theme.textTheme.labelSmall?.copyWith(color: muted),
-                ),
-              ],
-            ],
-          ),
-          if (post.cooked.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 46, top: 6),
-              child: CookedHtml(
-                html: post.cooked,
-                textStyle: theme.textTheme.bodySmall?.copyWith(color: muted),
-                siteUrl: siteUrl,
-              ),
+              siteUrl: siteUrl,
             ),
-        ],
-      ),
     );
   }
 }

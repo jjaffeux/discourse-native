@@ -1865,6 +1865,7 @@ class _TopicViewState extends State<TopicView>
           child:
               dayByPostIndex.containsKey(nextPostIndex) ||
                   nextPostIndex == firstUnreadIndex ||
+                  timeGapByPostIndex.containsKey(nextPostIndex) ||
                   [nextPostIndex - 1, nextPostIndex].any((index) {
                     if (index < 0 || index >= postIds.length) return false;
                     final post = controller.store.read<Post>(
@@ -1872,7 +1873,11 @@ class _TopicViewState extends State<TopicView>
                       postIds[index],
                     );
                     return post != null &&
-                        (PostNewsCard.containsNews(
+                        (post.isSmallAction ||
+                            (PluginScope.maybeOf(context)?.registry ??
+                                    PluginRegistry.empty)
+                                .isSmallAction(post) ||
+                            PostNewsCard.containsNews(
                               post,
                               topicBookmark: snapshot.topic!.topicBookmark,
                             ) ||
@@ -1922,6 +1927,12 @@ class _TopicViewState extends State<TopicView>
           showDayDivider: post?.postNumber != 1,
           timeGapDays: timeGapByPostIndex[postIndex],
           firstUnread: postIndex == firstUnreadIndex,
+          unreadFromHere: postIndex == firstUnreadIndex
+              ? switch (snapshot.topic!.stream.indexOf(postId)) {
+                  -1 => null,
+                  final at => snapshot.topic!.stream.length - at,
+                }
+              : null,
           onDayTap: day == null ? null : () => _interaction.jumpToDayStart(day),
           gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
           gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
@@ -3743,6 +3754,7 @@ class _TopicPostItem extends StatefulWidget {
     required this.showDayDivider,
     required this.timeGapDays,
     required this.firstUnread,
+    required this.unreadFromHere,
     required this.onDayTap,
     required this.gapBefore,
     required this.gapAfter,
@@ -3767,6 +3779,9 @@ class _TopicPostItem extends StatefulWidget {
   final bool showDayDivider;
   final int? timeGapDays;
   final bool firstUnread;
+
+  /// The posts from the last-visit marker to the topic's end.
+  final int? unreadFromHere;
   final VoidCallback? onDayTap;
   final List<int> gapBefore;
   final List<int> gapAfter;
@@ -3876,7 +3891,6 @@ class _TopicPostItemState extends State<_TopicPostItem>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final theme = Theme.of(context);
     final day = widget.day;
     final child = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3907,29 +3921,9 @@ class _TopicPostItemState extends State<_TopicPostItem>
             },
           ),
         if (widget.firstUnread)
-          Padding(
+          LastVisitNotice(
             key: ValueKey('topic-last-visit-${widget.postId}'),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DSeparator(space: 1, color: theme.colorScheme.error),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    context.l10n.messageNew,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.error,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: DSeparator(space: 1, color: theme.colorScheme.error),
-                ),
-              ],
-            ),
+            count: widget.unreadFromHere,
           ),
         if (widget.timeGapDays case final daysSince?)
           TimeGapNotice(
@@ -4585,29 +4579,12 @@ class _PostTileState extends State<_PostTile> {
             ],
           ),
         ),
-        if (post.isWhisper) ...[
-          const SizedBox(width: 8),
-          DTooltip(
-            message: context.l10n.thisPostIsAPrivateWhisper,
-            child: DIcon(
-              DIcons.farEyeSlash,
-              size: 14,
-              color: theme.discourse.whisper,
-            ),
-          ),
-          if (post.createdAt != null) const SizedBox(width: 8),
-        ],
         if (post.editCount > 0) ...[
           PostRevisionIndicator(post: post),
           if (post.createdAt != null) const SizedBox(width: 4),
         ],
         if (post.createdAt case final createdAt?)
-          RelativeTimeText(
-            createdAt,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+          PostDateShare(post: post, createdAt: createdAt),
       ],
     );
     final body = <Widget>[
@@ -4744,18 +4721,27 @@ class _PostTileState extends State<_PostTile> {
           )
         : standardContent;
 
+    final headers =
+        (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
+            .postHeaders(context, widget.siteUrl, widget.topic, post);
+    final notice = switch (post.notice) {
+      final notice? => _PostNoticeBanner(
+        siteUrl: widget.siteUrl,
+        post: post,
+        notice: notice,
+      ),
+      null => null,
+    };
+    final ruled = PostNewsCard.saysNews(
+      post,
+      topicBookmark: widget.topic.topicBookmark,
+      notice: notice != null,
+      headers: headers.isNotEmpty,
+    );
     final postContent = Padding(
       padding: compact
           ? const EdgeInsets.fromLTRB(16, 0, 16, 0)
-          : EdgeInsets.fromLTRB(
-              16,
-              switch (post.notice?.type) {
-                'new_user' || 'returning_user' => 0,
-                _ => 14,
-              },
-              16,
-              16,
-            ),
+          : EdgeInsets.fromLTRB(16, ruled ? PostNewsCard.ruledGap : 14, 16, 16),
       child: compact || context.isTouch
           ? content
           : Stack(
@@ -4794,16 +4780,8 @@ class _PostTileState extends State<_PostTile> {
       decorationTone:
           (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
               .postCardTone(context, widget.siteUrl, widget.topic, post),
-      headers: [
-        ...(PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
-            .postHeaders(context, widget.siteUrl, widget.topic, post),
-        if (post.notice case final notice?)
-          _PostNoticeBanner(
-            siteUrl: widget.siteUrl,
-            post: post,
-            notice: notice,
-          ),
-      ],
+      notice: notice,
+      headers: headers,
       child: compact
           ? postContent
           : PostActions(
@@ -4867,43 +4845,50 @@ class _PostNoticeBanner extends StatelessWidget {
     };
     if (notice.type == 'new_user' || notice.type == 'returning_user') {
       final viewerId = controller.currentUserFor(siteUrl)?.id;
-      return DAlert.postNotice(
+      return PostBanner(
         key: ValueKey('post-notice-${post.id}'),
-        message: Text(label),
-        icon: DConfetti(
-          enabled: notice.type == 'new_user' && !post.hidden && !post.isDeleted,
-          claimCelebration: () => _postWelcomes.claim(
-            siteUrl,
-            viewerId,
-            post.id,
-            createdAt: post.createdAt,
-          ),
-          child: SvgPicture.asset(
-            'packages/discourse_native/src/ui/assets/post_notice/'
-            '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
+        mark: ExcludeSemantics(
+          child: SizedBox.square(
+            dimension: 16,
+            child: DConfetti(
+              enabled:
+                  notice.type == 'new_user' && !post.hidden && !post.isDeleted,
+              claimCelebration: () => _postWelcomes.claim(
+                siteUrl,
+                viewerId,
+                post.id,
+                createdAt: post.createdAt,
+              ),
+              child: SvgPicture.asset(
+                'packages/discourse_native/src/ui/assets/post_notice/'
+                '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
+              ),
+            ),
           ),
         ),
+        title: Text(label),
       );
     }
-    return DAlert(
+    return PostBanner(
       key: ValueKey('post-notice-${post.id}'),
-      backgroundColor: Colors.transparent,
-      borderColor: Colors.transparent,
-      liveRegion: false,
-      descriptionColor: DTokens.of(context).foreground,
-      icon: const DIcon(DIcons.user, size: 16),
-      description: DAlertDescription(
-        child: cooked == null || cooked.isEmpty
-            ? Text(label)
-            : Builder(
-                builder: (context) => CookedHtml(
-                  html: cooked,
-                  siteUrl: siteUrl,
-                  post: post,
-                  textStyle: DefaultTextStyle.of(context).style,
-                ),
-              ),
+      mark: PostBannerMark(
+        icon: DIcons.user,
+        tone: DTokens.of(context).primary,
       ),
+      title: Text(context.l10n.staffNotice),
+      child: cooked == null || cooked.isEmpty
+          ? switch (notice.raw) {
+              final raw? => Text(raw),
+              null => null,
+            }
+          : Builder(
+              builder: (context) => CookedHtml(
+                html: cooked,
+                siteUrl: siteUrl,
+                post: post,
+                textStyle: DefaultTextStyle.of(context).style,
+              ),
+            ),
     );
   }
 }
