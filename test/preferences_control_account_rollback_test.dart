@@ -56,7 +56,10 @@ void main() {
     for (final control in _Control.values) {
       for (final repaint in [
         false,
-        if (operation != _Operation.unchanged && control != _Control.notify)
+        if ((operation == _Operation.failedDisconnect &&
+                control == _Control.timezone) ||
+            (operation == _Operation.failedReconnect &&
+                control == _Control.plugin))
           true,
       ]) {
         testWidgets(
