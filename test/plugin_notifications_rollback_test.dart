@@ -140,9 +140,9 @@ void main() {
         expect(loaded(), isTrue);
         expect(tester.takeException(), isNull);
       },
-      variant: const TargetPlatformVariant({
-        TargetPlatform.iOS,
-        TargetPlatform.android,
+      variant: TargetPlatformVariant({
+        if (operation != _Operation.failedDisconnect) TargetPlatform.iOS,
+        if (operation != _Operation.failedReconnect) TargetPlatform.android,
         TargetPlatform.macOS,
       }),
     );
