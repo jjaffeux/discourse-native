@@ -6555,18 +6555,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Assign this post'**
-  String get assignThisPost;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit this post assignment'**
-  String get editThisPostAssignment;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'assigned {who} to a post'**
   String assignedToAPost(String who);
 
@@ -6597,50 +6585,8 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Topic unassigned. Assign topic'**
-  String get topicUnassignedAssignTopic;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Open {targetLabel}'**
   String openAssignplugin(String targetLabel);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Assigned to · {targetLabel}'**
-  String assignedToAssignplugin(String targetLabel);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Change assignee'**
-  String get changeAssignee;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Change {actionTarget} assignment'**
-  String changeAssignment(String actionTarget);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove assignment'**
-  String get removeAssignment;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove {actionTarget} assignment'**
-  String removeAssignmentAssignplugin(String actionTarget);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{targetLabel} assignment removed'**
-  String assignmentRemoved(String targetLabel);
 
   /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
   ///

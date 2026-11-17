@@ -3747,12 +3747,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignPost => 'Assign post';
 
   @override
-  String get assignThisPost => 'Assign this post';
-
-  @override
-  String get editThisPostAssignment => 'Edit this post assignment';
-
-  @override
   String assignedToAPost(String who) {
     return 'assigned $who to a post';
   }
@@ -3778,37 +3772,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get topicUnassignedAssignTopic => 'Topic unassigned. Assign topic';
-
-  @override
   String openAssignplugin(String targetLabel) {
     return 'Open $targetLabel';
-  }
-
-  @override
-  String assignedToAssignplugin(String targetLabel) {
-    return 'Assigned to · $targetLabel';
-  }
-
-  @override
-  String get changeAssignee => 'Change assignee';
-
-  @override
-  String changeAssignment(String actionTarget) {
-    return 'Change $actionTarget assignment';
-  }
-
-  @override
-  String get removeAssignment => 'Remove assignment';
-
-  @override
-  String removeAssignmentAssignplugin(String actionTarget) {
-    return 'Remove $actionTarget assignment';
-  }
-
-  @override
-  String assignmentRemoved(String targetLabel) {
-    return '$targetLabel assignment removed';
   }
 
   @override

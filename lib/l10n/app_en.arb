@@ -4727,14 +4727,6 @@
   "@assignPost": {
     "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
   },
-  "assignThisPost": "Assign this post",
-  "@assignThisPost": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
-  },
-  "editThisPostAssignment": "Edit this post assignment",
-  "@editThisPostAssignment": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
-  },
   "assignedToAPost": "assigned {who} to a post",
   "@assignedToAPost": {
     "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
@@ -4780,56 +4772,8 @@
       }
     }
   },
-  "topicUnassignedAssignTopic": "Topic unassigned. Assign topic",
-  "@topicUnassignedAssignTopic": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
-  },
   "openAssignplugin": "Open {targetLabel}",
   "@openAssignplugin": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
-    "placeholders": {
-      "targetLabel": {
-        "type": "String"
-      }
-    }
-  },
-  "assignedToAssignplugin": "Assigned to · {targetLabel}",
-  "@assignedToAssignplugin": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
-    "placeholders": {
-      "targetLabel": {
-        "type": "String"
-      }
-    }
-  },
-  "changeAssignee": "Change assignee",
-  "@changeAssignee": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
-  },
-  "changeAssignment": "Change {actionTarget} assignment",
-  "@changeAssignment": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
-    "placeholders": {
-      "actionTarget": {
-        "type": "String"
-      }
-    }
-  },
-  "removeAssignment": "Remove assignment",
-  "@removeAssignment": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
-  },
-  "removeAssignmentAssignplugin": "Remove {actionTarget} assignment",
-  "@removeAssignmentAssignplugin": {
-    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
-    "placeholders": {
-      "actionTarget": {
-        "type": "String"
-      }
-    }
-  },
-  "assignmentRemoved": "{targetLabel} assignment removed",
-  "@assignmentRemoved": {
     "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
     "placeholders": {
       "targetLabel": {
