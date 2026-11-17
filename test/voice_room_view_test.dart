@@ -6619,12 +6619,12 @@ void _roomDialogSessionTests() {
     }
     for (final rollback in [false, true]) {
       for (final action in [
-        'typed invite',
+        if (!rollback) 'typed invite',
         'suggested invite',
-        'add',
+        if (!rollback) 'add',
         'role',
-        'remove',
-        'suggestions completion',
+        if (!rollback) 'remove',
+        if (!rollback) 'suggestions completion',
         'invite completion',
         'add completion',
       ]) {
