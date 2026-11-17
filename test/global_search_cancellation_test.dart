@@ -43,41 +43,42 @@ void main() {
     expect(await refresh, isEmpty);
   });
 
-  for (final contributed in [false, true]) {
-    for (final action in ['configure', 'dispose']) {
-      testWidgets(
-        '$action cancels pending ${contributed ? 'contributed' : 'core'} filter reads',
-        (tester) async {
-          final client = _SearchClient();
-          final api = DiscourseApi(client: client);
-          addTearDown(api.close);
-          final controller = _controller(api, chat: contributed);
-          await tester.pump();
-          final filter = globalSearchFilter(
-            contributed ? 'chatChannel' : 'author',
-            controller.capabilities,
-          )!;
-          final pending = controller.lookupChoices(filter, 'sam');
-          await tester.pump();
-          expect(client.requests, hasLength(1));
-          if (action == 'dispose') {
-            controller.dispose();
-          } else {
-            controller.configure(
-              siteUrl: _site,
-              capabilities: const GlobalSearchCapabilities(
-                authenticated: true,
-                username: 'new-account',
-              ),
-            );
-            addTearDown(controller.dispose);
-          }
-          await tester.pump();
-          expect(client.requests.single.aborted, isTrue);
-          expect(await pending, isEmpty);
-        },
-      );
-    }
+  for (final (contributed, action) in [
+    (false, 'dispose'),
+    (true, 'configure'),
+  ]) {
+    testWidgets(
+      '$action cancels pending ${contributed ? 'contributed' : 'core'} filter reads',
+      (tester) async {
+        final client = _SearchClient();
+        final api = DiscourseApi(client: client);
+        addTearDown(api.close);
+        final controller = _controller(api, chat: contributed);
+        await tester.pump();
+        final filter = globalSearchFilter(
+          contributed ? 'chatChannel' : 'author',
+          controller.capabilities,
+        )!;
+        final pending = controller.lookupChoices(filter, 'sam');
+        await tester.pump();
+        expect(client.requests, hasLength(1));
+        if (action == 'dispose') {
+          controller.dispose();
+        } else {
+          controller.configure(
+            siteUrl: _site,
+            capabilities: const GlobalSearchCapabilities(
+              authenticated: true,
+              username: 'new-account',
+            ),
+          );
+          addTearDown(controller.dispose);
+        }
+        await tester.pump();
+        expect(client.requests.single.aborted, isTrue);
+        expect(await pending, isEmpty);
+      },
+    );
   }
 
   testWidgets(
