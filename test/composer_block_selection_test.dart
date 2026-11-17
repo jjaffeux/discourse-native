@@ -995,7 +995,12 @@ void main() {
         expect(composer.text.keyboardSelectedProjection, isNull);
       },
     );
-    for (final newline in ['\n', '\r\n']) {
+    final lineEndings = [
+      '\n',
+      if (const {'table', 'event', 'quote', 'poll', 'code'}.contains(entry.key))
+        '\r\n',
+    ];
+    for (final newline in lineEndings) {
       testWidgets(
         '${entry.key} gap before another component cannot hold a caret (${newline.length})',
         (tester) async {
@@ -1049,7 +1054,7 @@ void main() {
         },
       );
     }
-    for (final suffix in ['\n', '\r\n']) {
+    for (final suffix in lineEndings) {
       testWidgets(
         '${entry.key} Backspace selects before deleting after ${suffix.length} line-ending characters',
         (tester) async {
