@@ -134,7 +134,7 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
     final refreshing = chatAvailable && chat.channelsLoading(siteUrl);
     return _ChatMobileInboxLayout(
       filter: filter,
-      channelIds: [for (final channel in channels) channel.id],
+      channelIds: chatInboxOrder(channels, filter.sort),
       starredIds: [
         for (final channel in channels)
           if (channel.membership.starred) channel.id,
@@ -211,6 +211,7 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
         expanded: expanded,
         alone: alone,
         keep: (channel) => channel.id == layout.visibleChannelId,
+        isNew: chatInboxIsNew,
       );
       return [
         ChatInboxSectionHeading(kind: section.kind),
@@ -222,6 +223,7 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
           ChatInboxMore(
             key: ValueKey(('chat-more', section.kind)),
             hidden: slice.hidden,
+            hiddenUnread: slice.hiddenUnread,
             expanded: expanded,
             onPressed: () => setState(() {
               if (!_expanded.add(section.kind)) {
@@ -267,6 +269,9 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
                 ),
               ),
     ];
+    final indexes = {
+      for (final (index, entry) in entries.indexed) ?entry.key: index,
+    };
     return DPageSurface.headed(
       title: Text(context.l10n.chats, key: const ValueKey('chat-inbox-title')),
       controls: ContentReadingLaneBox(
@@ -303,6 +308,10 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
                     ),
                   ),
                   itemCount: entries.length,
+                  // A chat that turns unread moves up its group. Finding a
+                  // mounted row by its key keeps it, so only the row that
+                  // changed is drawn again.
+                  findChildIndexCallback: (key) => indexes[key],
                   itemBuilder: (context, index) => entries[index],
                 )
               : Padding(

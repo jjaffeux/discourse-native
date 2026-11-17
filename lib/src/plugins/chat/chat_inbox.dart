@@ -11,6 +11,7 @@ import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
 import 'chat_inbox_filters.dart';
+import 'chat_inbox_order.dart';
 import 'chat_inbox_rooms.dart';
 import 'chat_inbox_section.dart';
 import 'chat_reader_time.dart';
@@ -20,6 +21,7 @@ import 'chat_shell_service.dart';
 import 'chat_user_avatar.dart';
 
 export 'chat_controller.dart' show chatInboxActivityAt;
+export 'chat_inbox_order.dart';
 export 'chat_inbox_section.dart';
 
 /// One mixed list of channels and direct messages, most recent activity first.
@@ -107,46 +109,8 @@ class ChatInboxFilterBar extends StatelessWidget {
   );
 }
 
-enum ChatInboxSectionKind { starred, channels, directMessages, allChats }
-
-typedef ChatInboxSection = ({
-  ChatInboxSectionKind kind,
-  List<ChatChannel> channels,
-});
-
-/// [channels] already follows actual message and unread-thread activity.
-List<ChatInboxSection> chatInboxSections(
-  List<ChatChannel> channels,
-  ChatInboxSort sort,
-) => [
-  if (sort == ChatInboxSort.newest)
-    (kind: ChatInboxSectionKind.allChats, channels: channels)
-  else ...[
-    (
-      kind: ChatInboxSectionKind.starred,
-      channels: [
-        for (final c in channels)
-          if (c.membership.starred) c,
-      ],
-    ),
-    (
-      kind: ChatInboxSectionKind.directMessages,
-      channels: [
-        for (final c in channels)
-          if (!c.membership.starred && c.isDirectMessage) c,
-      ],
-    ),
-    (
-      kind: ChatInboxSectionKind.channels,
-      channels: [
-        for (final c in channels)
-          if (!c.membership.starred && !c.isDirectMessage) c,
-      ],
-    ),
-  ],
-].where((section) => section.channels.isNotEmpty).toList();
-
 DIconData _inboxSectionIcon(ChatInboxSectionKind kind) => switch (kind) {
+  ChatInboxSectionKind.results => DIcons.magnifyingGlass,
   ChatInboxSectionKind.starred => DIcons.star,
   ChatInboxSectionKind.channels => DIcons.hashtag,
   ChatInboxSectionKind.directMessages => DIcons.user,
@@ -155,6 +119,7 @@ DIconData _inboxSectionIcon(ChatInboxSectionKind kind) => switch (kind) {
 
 String _inboxSectionLabel(BuildContext context, ChatInboxSectionKind kind) =>
     switch (kind) {
+      ChatInboxSectionKind.results => context.l10n.chatResults,
       ChatInboxSectionKind.starred => context.l10n.starred,
       ChatInboxSectionKind.channels => context.l10n.channels,
       ChatInboxSectionKind.directMessages => context.l10n.directMessages,
@@ -605,7 +570,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     final error = chat.channelsError(siteUrl);
     return _ChatSidebarInboxLayout(
       filter: filter,
-      channelIds: [for (final channel in channels) channel.id],
+      channelIds: chatInboxOrder(channels, filter.sort),
       starredIds: [
         for (final channel in channels)
           if (channel.membership.starred) channel.id,
@@ -692,6 +657,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
       expanded: expanded || _layout.query.isNotEmpty,
       alone: alone,
       keep: (channel) => channel.id == _layout.activeChannelId,
+      isNew: chatInboxIsNew,
     );
     final indexes = {
       for (final (index, channel) in slice.visible.indexed) channel.id: index,
@@ -737,6 +703,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
                 ? ChatInboxMore(
                     key: ValueKey(('chat-more', section.kind)),
                     hidden: slice.hidden,
+                    hiddenUnread: slice.hiddenUnread,
                     expanded: expanded,
                     compact: true,
                     onPressed: () => setState(() {

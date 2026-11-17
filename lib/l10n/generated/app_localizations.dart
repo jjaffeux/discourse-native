@@ -496,6 +496,24 @@ abstract class AppLocalizations {
   /// **'View less'**
   String get chatViewLess;
 
+  /// Expand a Chat section whose folded rows include unread chats.
+  ///
+  /// In en, this message translates to:
+  /// **'View {unread} unread & {read, plural, =1{1 read chat} other{{read} read chats}}'**
+  String chatViewUnreadAndRead(int unread, int read);
+
+  /// Expand a Chat section whose folded rows are all read.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{View 1 read chat} other{View {count} read chats}}'**
+  String chatViewRead(int count);
+
+  /// Heading over the chats found by the words typed in chat's own field.
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get chatResults;
+
   /// Type label for an app-local bookmark of a whole page.
   ///
   /// In en, this message translates to:

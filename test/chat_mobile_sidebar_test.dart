@@ -274,6 +274,11 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(rebuilt, isEmpty, reason: 'Only the changed channel needs new rows');
+    expect(
+      tester.getTopLeft(_row(20)).dy,
+      lessThan(tester.getTopLeft(_row(1)).dy),
+      reason: 'What is unread leads its group',
+    );
     tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
       'channel_id': 1,
       'last_read_message_id': 1,
@@ -286,7 +291,7 @@ void main() {
   });
 
   testWidgets(
-    'tracking on an off-screen channel does not redraw the mobile inbox',
+    'a read cursor moving on an off-screen channel does not redraw the mobile inbox',
     (tester) async {
       await _pumpChatInbox(tester, phone);
       final frames = await _countRebuilds(tester, () async {
@@ -294,8 +299,8 @@ void main() {
         for (var event = 0; event < 10; event++) {
           tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
             'channel_id': 20,
-            'last_read_message_id': 1,
-            'unread_count': 3 + event,
+            'last_read_message_id': 1 + event,
+            'unread_count': 0,
           });
           await tester.pump(const Duration(milliseconds: 16));
         }

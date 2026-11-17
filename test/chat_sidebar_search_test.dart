@@ -78,7 +78,7 @@ void main() {
       expect(tester.getRect(_field).left - bounds.left, 4);
       expect(tester.getRect(_field).right - bounds.right, -4);
       expect(tester.getSize(_field).height, 30);
-      await _reveal(tester, find.text('View 2 more'));
+      await _reveal(tester, find.text('View 2 read chats'));
 
       await tester.enterText(_field, '  SiGnAl  ');
       await tester.pumpAndSettle();
@@ -133,7 +133,7 @@ void main() {
       expect(find.byTooltip('Clear search'), findsNothing);
       await tester.tap(heading);
       await tester.pumpAndSettle();
-      await _reveal(tester, find.text('View 2 more'));
+      await _reveal(tester, find.text('View 2 read chats'));
       filters.update(
         panels.site,
         const ChatInboxFilter(

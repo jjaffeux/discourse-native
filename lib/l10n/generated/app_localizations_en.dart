@@ -237,6 +237,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatViewLess => 'View less';
 
   @override
+  String chatViewUnreadAndRead(int unread, int read) {
+    String _temp0 = intl.Intl.pluralLogic(
+      read,
+      locale: localeName,
+      other: '$read read chats',
+      one: '1 read chat',
+    );
+    return 'View $unread unread & $_temp0';
+  }
+
+  @override
+  String chatViewRead(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'View $count read chats',
+      one: 'View 1 read chat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chatResults => 'Results';
+
+  @override
   String get destinationBookmarkPageType => 'Page';
 
   @override

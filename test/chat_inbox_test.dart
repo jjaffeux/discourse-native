@@ -106,7 +106,7 @@ void main() {
   );
 
   test(
-    'By type extracts starred channels and DMs once; Newest keeps activity order',
+    'By type extracts starred channels and DMs once; Newest leads with starred',
     () {
       const channels = [
         ChatChannel(
@@ -141,7 +141,7 @@ void main() {
       ]);
       final newest = chatInboxSections(channels, ChatInboxSort.newest);
       expect(newest.single.kind, ChatInboxSectionKind.allChats);
-      expect(newest.single.channels.map((c) => c.id), [1, 2, 3, 4]);
+      expect(newest.single.channels.map((c) => c.id), [1, 3, 2, 4]);
       expect(
         chatInboxSections([
           channels.first,
@@ -194,6 +194,92 @@ void main() {
       expect(six.hidden, 2);
     },
   );
+
+  test('every group leads with what is new and closes with what is muted', () {
+    ChatChannel chat(
+      int id, {
+      bool direct = false,
+      int unread = 0,
+      int mentions = 0,
+      bool muted = false,
+      bool starred = false,
+    }) => ChatChannel(
+      id: id,
+      title: 'Chat $id',
+      kind: direct ? ChatChannelKind.directMessage : ChatChannelKind.category,
+      tracking: ChatTracking(unreadCount: unread, mentionCount: mentions),
+      membership: ChatMembership(muted: muted, starred: starred),
+    );
+    // Listed the most recent first, as the inbox projection hands them over.
+    final channels = [
+      chat(1),
+      chat(2, muted: true, mentions: 2),
+      chat(3, unread: 4),
+      chat(4, direct: true),
+      chat(5, direct: true, unread: 1),
+      chat(6, starred: true),
+      chat(7, starred: true, unread: 2),
+      chat(8, mentions: 1),
+      chat(9, direct: true, muted: true),
+    ];
+    final grouped = chatInboxSections(channels, ChatInboxSort.byType);
+    expect(grouped.map((s) => s.channels.map((c) => c.id).toList()), [
+      [7, 6],
+      [5, 4, 9],
+      [3, 8, 1, 2],
+    ]);
+    expect(
+      chatInboxSections(
+        channels,
+        ChatInboxSort.newest,
+      ).single.channels.map((c) => c.id),
+      [7, 3, 5, 8, 6, 1, 4, 2, 9],
+    );
+    expect(chatInboxOrder(channels, ChatInboxSort.byType), [
+      7,
+      6,
+      5,
+      4,
+      9,
+      3,
+      8,
+      1,
+      2,
+    ]);
+    expect(chatInboxUnreadCount(channels[1]), 2);
+    expect(chatInboxIsNew(channels[1]), isFalse);
+    expect(chatInboxIsNew(channels[7]), isTrue);
+  });
+
+  test('a group shows its unread up to ten before it folds', () {
+    final rows = [for (var i = 1; i <= 16; i++) i];
+    ChatInboxSectionSlice<int> slice(int unread, {int length = 16}) =>
+        ChatInboxSectionSlice(
+          rows.take(length).toList(),
+          expanded: false,
+          alone: false,
+          isNew: (row) => row <= unread,
+        );
+    expect(slice(0).visible, [1, 2, 3, 4]);
+    expect(slice(0).hiddenUnread, 0);
+    expect(slice(6).visible, [1, 2, 3, 4, 5, 6]);
+    expect(slice(6).hidden, 10);
+    expect(slice(6).hiddenUnread, 0);
+    expect(slice(13).visible, rows.take(10));
+    expect(slice(13).hidden, 6);
+    expect(slice(13).hiddenUnread, 3);
+    expect(slice(6, length: 7).canFold, isFalse);
+    expect(slice(6, length: 7).visible, hasLength(7));
+    expect(slice(6, length: 8).visible, hasLength(6));
+    final held = ChatInboxSectionSlice(
+      rows,
+      expanded: false,
+      alone: false,
+      keep: (row) => row == 3,
+      isNew: (row) => row <= 2,
+    );
+    expect(held.visible, [1, 2, 3, 4]);
+  });
 
   group('chatInboxConversations', () {
     test(

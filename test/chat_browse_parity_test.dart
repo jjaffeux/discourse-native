@@ -903,20 +903,20 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Channel 7'), findsNothing);
-        expect(find.text('View 3 more'), findsOneWidget);
+        expect(find.text('View 3 read chats'), findsOneWidget);
         final scope = tester.element(find.byType(ChatInboxFilterBar));
         PluginUiScope.require(scope, chatShellService).openChannel(7);
         await tester.pumpAndSettle();
         expect(find.text('Channel 7'), findsOneWidget);
-        expect(find.text('View 2 more'), findsOneWidget);
+        expect(find.text('View 2 read chats'), findsOneWidget);
         expect(
           tester
-              .getSemantics(find.widgetWithText(DButton, 'View 2 more'))
+              .getSemantics(find.widgetWithText(DButton, 'View 2 read chats'))
               .flagsCollection
               .isExpanded,
           ui.Tristate.isFalse,
         );
-        await tester.tap(find.text('View 2 more'));
+        await tester.tap(find.text('View 2 read chats'));
         await tester.pumpAndSettle();
         expect(find.text('Channel 5'), findsOneWidget);
         expect(find.text('Channel 6'), findsOneWidget);
@@ -931,7 +931,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Channel 5'), findsNothing);
         expect(find.text('Channel 7'), findsOneWidget);
-        expect(find.text('View 2 more'), findsOneWidget);
+        expect(find.text('View 2 read chats'), findsOneWidget);
         expect(
           tester.getTopLeft(find.text('Ada')).dy,
           lessThan(tester.getTopLeft(find.text('Channel 1')).dy),
@@ -1001,9 +1001,14 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(900, 650));
     await fixture.show(const ChatMobileSidebar(siteUrl: _site));
     expect(find.text('All chats'), findsOneWidget);
+    // Unread and starred leads the one list, over a more recent read chat.
     expect(
-      tester.getTopLeft(find.text('Ada')).dy,
-      lessThan(tester.getTopLeft(find.text('general')).dy),
+      tester.getTopLeft(find.text('general')).dy,
+      lessThan(tester.getTopLeft(find.text('workshop')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('workshop')).dy,
+      lessThan(tester.getTopLeft(find.text('Ada')).dy),
     );
     await _capture(tester, 'inbox-newest');
     await _pick(tester, 'chat-inbox-sort-filter', 'By type');
