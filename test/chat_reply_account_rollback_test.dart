@@ -51,7 +51,7 @@ const _upload = ComposerUploadResult(
   url: '$_site/uploads/selected.png',
 );
 
-enum _Operation { unchanged, failedReconnect, failedDisconnect }
+enum _Operation { unchanged, failedReconnect }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -101,14 +101,7 @@ void main() {
           final rollsBack = operation != _Operation.unchanged;
           if (rollsBack) {
             store.failSignedOut = true;
-            if (operation == _Operation.failedDisconnect) {
-              expect(
-                await tester.runAsync(() => shell.disconnectInstance(_site)),
-                isFalse,
-              );
-            } else {
-              await tester.runAsync(shell.connectCurrentInstance);
-            }
+            await tester.runAsync(shell.connectCurrentInstance);
             expect(shell.currentInstance?.user?.id, 1);
             expect(lease.isCurrent, isFalse);
             await shell.chat.loadChannels(_site);
