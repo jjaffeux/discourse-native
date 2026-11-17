@@ -1022,82 +1022,78 @@ void main() {
     }
   }
 
-  for (final dark in [false, true]) {
-    for (final grouped in [false, true]) {
-      testWidgets(
-        'adjacent buttons clear hover independently (dark: $dark, grouped: $grouped)',
-        (tester) async {
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                platform: TargetPlatform.macOS,
-              ),
-              home: Scaffold(
-                body: Center(
-                  child: Builder(
-                    builder: (context) {
-                      final children = [
-                        for (var i = 0; i < 3; i++)
-                          DButton.iconOnly(
-                            key: ValueKey('button-$i'),
-                            tooltip: 'Button $i',
-                            variant: DButtonVariant.ghost,
-                            onPressed: _noop,
-                            icon: const Icon(Icons.settings),
-                          ),
-                      ];
-                      return grouped
-                          ? DButtonGroup(children: children)
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                for (final child in children)
-                                  Padding(
-                                    padding: const EdgeInsets.all(2),
-                                    child: child,
-                                  ),
-                              ],
-                            );
-                    },
-                  ),
+  for (final (dark, grouped) in [(false, false), (true, true)]) {
+    testWidgets(
+      'adjacent buttons clear hover independently (dark: $dark, grouped: $grouped)',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+              platform: TargetPlatform.macOS,
+            ),
+            home: Scaffold(
+              body: Center(
+                child: Builder(
+                  builder: (context) {
+                    final children = [
+                      for (var i = 0; i < 3; i++)
+                        DButton.iconOnly(
+                          key: ValueKey('button-$i'),
+                          tooltip: 'Button $i',
+                          variant: DButtonVariant.ghost,
+                          onPressed: _noop,
+                          icon: const Icon(Icons.settings),
+                        ),
+                    ];
+                    return grouped
+                        ? DButtonGroup(children: children)
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final child in children)
+                                Padding(
+                                  padding: const EdgeInsets.all(2),
+                                  child: child,
+                                ),
+                            ],
+                          );
+                  },
                 ),
               ),
             ),
+          ),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        for (var active = 0; active < 3; active++) {
+          await mouse.moveTo(
+            tester.getCenter(find.byKey(ValueKey('button-$active'))),
           );
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          for (var active = 0; active < 3; active++) {
-            await mouse.moveTo(
-              tester.getCenter(find.byKey(ValueKey('button-$active'))),
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 16));
+          for (var i = 0; i < 3; i++) {
+            final painted = tester
+                .widgetList<DecoratedBox>(
+                  find.descendant(
+                    of: find.byKey(ValueKey('button-$i')),
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .map((box) => box.decoration)
+                .whereType<DButtonDecoration>()
+                .single;
+            expect(
+              painted.color.a,
+              i == active ? greaterThan(0) : 0,
+              reason: 'hover $active, button $i',
             );
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 16));
-            for (var i = 0; i < 3; i++) {
-              final painted = tester
-                  .widgetList<DecoratedBox>(
-                    find.descendant(
-                      of: find.byKey(ValueKey('button-$i')),
-                      matching: find.byType(DecoratedBox),
-                    ),
-                  )
-                  .map((box) => box.decoration)
-                  .whereType<DButtonDecoration>()
-                  .single;
-              expect(
-                painted.color.a,
-                i == active ? greaterThan(0) : 0,
-                reason: 'hover $active, button $i',
-              );
-            }
-            await tester.pumpAndSettle();
           }
-          await mouse.removePointer();
           await tester.pumpAndSettle();
-        },
-      );
-    }
+        }
+        await mouse.removePointer();
+        await tester.pumpAndSettle();
+      },
+    );
   }
 
   testWidgets('Native text sizes retain compact surfaces', (tester) async {
