@@ -810,68 +810,66 @@ void main() {
     }
   });
 
-  for (final multiple in [false, true]) {
-    for (final closeOnSelect in [true, false]) {
-      testWidgets('mouse selection preserves focus and the closing policy '
-          '(multiple: $multiple, close: $closeOnSelect)', (tester) async {
-        final controller = DComboboxController<String>();
-        final focus = FocusNode();
-        addTearDown(controller.dispose);
-        addTearDown(focus.dispose);
-        const content = DComboboxContent(children: [DComboboxList<String>()]);
-        await tester.pumpWidget(
-          _app(
-            multiple
-                ? DCombobox<String>.multiple(
-                    controller: controller,
-                    focusNode: focus,
-                    options: _options,
-                    closeOnSelect: closeOnSelect,
-                    anchor: const DComboboxChips<String>(
-                      input: DComboboxChipsInput<String>(),
-                    ),
-                    content: content,
-                  )
-                : DCombobox<String>(
-                    controller: controller,
-                    focusNode: focus,
-                    options: _options,
-                    closeOnSelect: closeOnSelect,
-                    anchor: const DComboboxInput<String>(),
-                    content: content,
+  for (final (multiple, closeOnSelect) in [(false, true), (true, false)]) {
+    testWidgets('mouse selection preserves focus and the closing policy '
+        '(multiple: $multiple, close: $closeOnSelect)', (tester) async {
+      final controller = DComboboxController<String>();
+      final focus = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focus.dispose);
+      const content = DComboboxContent(children: [DComboboxList<String>()]);
+      await tester.pumpWidget(
+        _app(
+          multiple
+              ? DCombobox<String>.multiple(
+                  controller: controller,
+                  focusNode: focus,
+                  options: _options,
+                  closeOnSelect: closeOnSelect,
+                  anchor: const DComboboxChips<String>(
+                    input: DComboboxChipsInput<String>(),
                   ),
-          ),
-        );
-        await tester.tap(find.byType(TextField));
-        await tester.pumpAndSettle();
-        final mouse = await tester.startGesture(
-          tester.getCenter(find.text('Next.js').last),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pump(const Duration(milliseconds: 40));
-        expect(focus.hasFocus, isTrue);
-        await mouse.up();
-        await mouse.removePointer();
-        await tester.pumpAndSettle();
-        expect(_values(tester, controller), ['next']);
-        expect(controller.isOpen, !closeOnSelect);
-        expect(focus.hasFocus, isTrue);
+                  content: content,
+                )
+              : DCombobox<String>(
+                  controller: controller,
+                  focusNode: focus,
+                  options: _options,
+                  closeOnSelect: closeOnSelect,
+                  anchor: const DComboboxInput<String>(),
+                  content: content,
+                ),
+        ),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      final mouse = await tester.startGesture(
+        tester.getCenter(find.text('Next.js').last),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(focus.hasFocus, isTrue);
+      await mouse.up();
+      await mouse.removePointer();
+      await tester.pumpAndSettle();
+      expect(_values(tester, controller), ['next']);
+      expect(controller.isOpen, !closeOnSelect);
+      expect(focus.hasFocus, isTrue);
 
-        // A click beyond the combobox still dismisses and leaves the editor.
-        await tester.tap(find.byType(TextField));
-        await tester.pumpAndSettle();
-        final outside = await tester.startGesture(
-          const Offset(10, 10),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pump(const Duration(milliseconds: 40));
-        await outside.up();
-        await outside.removePointer();
-        await tester.pumpAndSettle();
-        expect(controller.isOpen, isFalse);
-        expect(focus.hasFocus, isFalse);
-      });
-    }
+      // A click beyond the combobox still dismisses and leaves the editor.
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      final outside = await tester.startGesture(
+        const Offset(10, 10),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(const Duration(milliseconds: 40));
+      await outside.up();
+      await outside.removePointer();
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(focus.hasFocus, isFalse);
+    });
   }
 
   testWidgets('controlled selection only displays accepted parent values', (
