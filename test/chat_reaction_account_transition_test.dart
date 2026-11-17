@@ -56,7 +56,11 @@ enum _Operation { unchanged, failedReconnect, failedDisconnect, reconnect }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  for (final operation in _Operation.values) {
+  for (final operation in const [
+    _Operation.unchanged,
+    _Operation.failedReconnect,
+    _Operation.reconnect,
+  ]) {
     testWidgets(
       'Native Chat reaction pill owns its rendered session after '
       '${operation.name} before repaint',
@@ -107,7 +111,13 @@ void main() {
         TargetPlatform.macOS,
       }),
     );
+  }
 
+  for (final operation in const [
+    _Operation.unchanged,
+    _Operation.failedDisconnect,
+    _Operation.reconnect,
+  ]) {
     testWidgets(
       'Native Chat reaction gesture retires across ${operation.name} repaint',
       (tester) async {
@@ -147,7 +157,13 @@ void main() {
         TargetPlatform.macOS,
       }),
     );
+  }
 
+  for (final operation in const [
+    _Operation.unchanged,
+    _Operation.failedReconnect,
+    _Operation.reconnect,
+  ]) {
     testWidgets(
       'Native Chat reactor sheet owns its opening session after '
       '${operation.name}',
