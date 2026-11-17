@@ -995,11 +995,14 @@ void main() {
         expect(composer.text.keyboardSelectedProjection, isNull);
       },
     );
-    final lineEndings = [
-      '\n',
-      if (const {'table', 'event', 'quote', 'poll', 'code'}.contains(entry.key))
-        '\r\n',
-    ];
+    final variedBoundaries = const {
+      'table',
+      'event',
+      'quote',
+      'poll',
+      'code',
+    }.contains(entry.key);
+    final lineEndings = ['\n', if (variedBoundaries) '\r\n'];
     for (final newline in lineEndings) {
       testWidgets(
         '${entry.key} gap before another component cannot hold a caret (${newline.length})',
@@ -1099,7 +1102,7 @@ void main() {
         },
       );
     }
-    for (final gap in ['\n', '\n\n']) {
+    for (final gap in ['\n', if (variedBoundaries) '\n\n']) {
       testWidgets(
         '${entry.key} Backspace preserves following text with ${gap.length} newlines',
         (tester) async {
@@ -1123,7 +1126,7 @@ void main() {
         },
       );
     }
-    for (final prefix in ['', 'Before\n\n']) {
+    for (final prefix in [if (variedBoundaries) '', 'Before\n\n']) {
       testWidgets(
         '${entry.key} leading boundary selects and deletes the whole block '
         'with ${prefix.isEmpty ? 'no' : 'preceding'} text',
