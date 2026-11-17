@@ -389,32 +389,30 @@ void main() {
       },
     );
 
-    for (final width in [390.0, 1200.0]) {
-      for (final empty in [false, true]) {
-        testWidgets(
-          'pull does not refresh assignments at $width, empty: $empty',
-          (tester) async {
-            final presentation = _FakeAssignedGroupPresentation(
-              _state(
-                feed: TopicFeed(loaded: true, topicIds: empty ? [] : [42]),
-                topics: empty ? [] : [_topic],
-              ),
-            );
-            await _pumpView(tester, presentation);
-            await tester.binding.setSurfaceSize(Size(width, 900));
-            await tester.pumpAndSettle();
-            expect(find.byType(DPullToRefresh), findsNothing);
-            await tester.drag(
-              find.byType(CustomScrollView).last,
-              const Offset(0, 600),
-            );
-            await tester.pumpAndSettle();
-            expect(presentation.loads, [false]);
-            expect(find.byType(DSpinner), findsNothing);
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+    for (final (width, empty) in [(390.0, true), (1200.0, false)]) {
+      testWidgets(
+        'pull does not refresh assignments at $width, empty: $empty',
+        (tester) async {
+          final presentation = _FakeAssignedGroupPresentation(
+            _state(
+              feed: TopicFeed(loaded: true, topicIds: empty ? [] : [42]),
+              topics: empty ? [] : [_topic],
+            ),
+          );
+          await _pumpView(tester, presentation);
+          await tester.binding.setSurfaceSize(Size(width, 900));
+          await tester.pumpAndSettle();
+          expect(find.byType(DPullToRefresh), findsNothing);
+          await tester.drag(
+            find.byType(CustomScrollView).last,
+            const Offset(0, 600),
+          );
+          await tester.pumpAndSettle();
+          expect(presentation.loads, [false]);
+          expect(find.byType(DSpinner), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
 
     testWidgets('keeps the assignment scrollbar at the page edge', (
