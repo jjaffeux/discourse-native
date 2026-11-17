@@ -323,46 +323,13 @@ class ChatPlugin
     if (siteUrl == null) return const [];
     final chat = PluginUiScope.require(context, chatControllerService);
 
-    final chatAvailable = shell.chatAvailable(siteUrl);
-    if (!chatAvailable) return const [];
-    final authenticatedChatAvailable =
-        chatAvailable && shell.currentUser != null;
-    final publicChannelsEnabled =
-        chatAvailable &&
-        chat.siteConfigFor(siteUrl).chatSettings.publicChannelsEnabled;
     final actions = _panelActions(shell, siteUrl);
 
-    final directoryOpen = {
-      ChatRoute.inboxRouteId,
-      ChatRoute.browseRouteId,
-      ChatRoute.myThreadsRouteId,
-    }.contains(shell.currentContent?.id);
+    // The side is the Chats page's list: the way to the threads, the way to
+    // every channel and the voice rooms are rows of it, so it is the one
+    // section.
     return [
-      if (!context.isTouch && !directoryOpen)
-        SidebarSection(
-          id: 'chat-directories',
-          title: appL10n.chat,
-          showHeader: false,
-          collapsible: false,
-          destinations: [
-            if (authenticatedChatAvailable)
-              SidebarDestination(
-                id: ChatRoute.inboxRouteId,
-                label: appL10n.chats,
-                icon: DIcons.comment,
-                onTap: () => shell.openChats(newTab: true),
-              ),
-            if (actions.myThreads)
-              SidebarDestination(
-                id: ChatRoute.myThreadsRouteId,
-                label: appL10n.threads,
-                icon: DIcons.comments,
-                onTap: () => shell.openMyThreads(newTab: true),
-              ),
-          ],
-        ),
-      if (authenticatedChatAvailable ||
-          (publicChannelsEnabled && chat.publicChannels(siteUrl).isNotEmpty))
+      if (shell.listsSide(siteUrl))
         SidebarSection(
           id: 'chat-inbox',
           title: appL10n.chats,

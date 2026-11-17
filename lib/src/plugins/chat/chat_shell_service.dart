@@ -594,19 +594,23 @@ final class ChatShellService
     if (message != null) await chat.reconcileMessageBookmark(siteUrl, message);
   }
 
-  void openChats({bool newTab = false}) {
+  /// Whether chat's list stands beside the forum for [siteUrl]: for a reader
+  /// signed in to chat, or for anyone a forum shows its public channels to.
+  bool listsSide(String siteUrl) =>
+      chatAvailable(siteUrl) &&
+      (currentUser != null ||
+          (chat.siteConfigFor(siteUrl).chatSettings.publicChannelsEnabled &&
+              chat.publicChannels(siteUrl).isNotEmpty));
+
+  void openChats() {
     _activateSeparatedPane();
-    if (newTab) {
-      _host.openPageTab(chatInboxRoute());
-    } else {
-      _host.selectDestination(
-        SidebarDestination(
-          id: ChatRoute.inboxRouteId,
-          label: appL10n.chats,
-          icon: DIcons.comment,
-        ),
-      );
-    }
+    _host.selectDestination(
+      SidebarDestination(
+        id: ChatRoute.inboxRouteId,
+        label: appL10n.chats,
+        icon: DIcons.comment,
+      ),
+    );
   }
 
   void openChannels() {
@@ -634,25 +638,15 @@ final class ChatShellService
     );
   }
 
-  void openMyThreads({bool newTab = false}) {
+  void openMyThreads() {
     _activateSeparatedPane();
-    if (newTab) {
-      _host.openPageTab(
-        ContentRoute(
-          destination: const ExtensionDestination(ChatRoute.myThreadsRouteId),
-          title: appL10n.threads,
-          icon: DIcons.comments,
-        ),
-      );
-    } else {
-      _host.selectDestination(
-        SidebarDestination(
-          id: ChatRoute.myThreadsRouteId,
-          label: appL10n.threads,
-          icon: DIcons.comments,
-        ),
-      );
-    }
+    _host.selectDestination(
+      SidebarDestination(
+        id: ChatRoute.myThreadsRouteId,
+        label: appL10n.threads,
+        icon: DIcons.comments,
+      ),
+    );
   }
 
   void openSearch() {

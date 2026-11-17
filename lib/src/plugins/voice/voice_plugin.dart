@@ -248,6 +248,9 @@ final class VoicePlugin
     final directory = controller.directory(instance.url);
     if (directory == null) return const [];
     final inbox = PluginUiScope.require(context, voiceChatInboxService);
+    // Chat's list carries the rooms as its rows wherever it stands. This
+    // section is for a reader who has the rooms and no chat.
+    if (inbox.listedInSide(instance.url)) return const [];
     final rooms = inbox.sidebarRooms(instance.url);
     final createRoom = inbox.createRoom(instance.url);
     final filtering = inbox.filters

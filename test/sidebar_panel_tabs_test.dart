@@ -17,6 +17,7 @@ import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -507,6 +508,39 @@ void main() {
     },
   );
 
+  _desktopTest('the voice rooms close chat\'s one list, in no section of '
+      'their own', (tester) async {
+    await pumpTabs(tester);
+    await tester.tap(tab('chat'));
+    await tester.pumpAndSettle();
+    final side = find.byType(InstanceSidebar);
+    final heading = find.descendant(
+      of: side,
+      matching: find.byKey(const ValueKey('chat-inbox-voice-rooms-heading')),
+    );
+    final room = find.descendant(
+      of: side,
+      matching: find.byKey(const ValueKey('chat-inbox-room-7')),
+    );
+    expect(heading, findsOneWidget);
+    expect(room, findsOneWidget);
+    expect(find.text('Watercooler'), findsOneWidget, reason: 'Listed once');
+    expect(find.bySemanticsLabel('Collapse Voice rooms'), findsNothing);
+    expect(
+      tester.getRect(heading).top,
+      greaterThan(
+        tester
+            .getRect(find.byKey(const ValueKey('chat-inbox-channel-9')))
+            .bottom,
+      ),
+    );
+    expect(
+      tester.getSize(room).height,
+      tester.getSize(find.byKey(const ValueKey('chat-inbox-channel-9'))).height,
+      reason: 'A room is drawn as a chat is',
+    );
+  });
+
   _desktopTest('revoking text Chat access keeps voice rooms inside Chat', (
     tester,
   ) async {
@@ -524,8 +558,14 @@ void main() {
     expect(sidebarDestination('General'), findsNothing);
     expect(sidebarDestination('Watercooler'), findsOneWidget);
     expect(find.byTooltip('Create voice room'), findsNothing);
+    // Without chat there is no list of chats to carry the rooms, so they
+    // stand in a section of their own.
     expect(find.bySemanticsLabel('Collapse Voice rooms'), findsOneWidget);
     expect(find.bySemanticsLabel('Expand Voice rooms'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('chat-inbox-voice-rooms-heading')),
+      findsNothing,
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('chat-inbox-room-7')),
@@ -549,7 +589,10 @@ void main() {
     await tester.tap(tab('chat'));
     await tester.pumpAndSettle();
     expect(selected(), 'chat');
-    expect(sidebarDestination('Chats'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-inbox-sort-filter')),
+      findsOneWidget,
+    );
 
     shell.pushContent(ContentRoute.group(GroupRoute.detail('staff')));
     await tester.pumpAndSettle();
@@ -557,7 +600,7 @@ void main() {
     expect(sidebarDestination('Topics'), findsOneWidget);
   });
 
-  _desktopTest('Chat directories follow the route inside its panel', (
+  _desktopTest('the Chats page keeps chat\'s side beside it, in its tab', (
     tester,
   ) async {
     final shell = await pumpTabs(
@@ -576,13 +619,19 @@ void main() {
     chat.openChannel(9);
     await tester.pumpAndSettle();
     final tabId = shell.activeTabId;
-    expect(sidebarDestination('Chats'), findsOneWidget);
+    for (final label in ['Chats', 'Channels', 'Threads']) {
+      expect(
+        sidebarDestination(label),
+        findsNothing,
+        reason: 'The side is the one list, with no rows over it',
+      );
+    }
 
     chat.openChats();
     await tester.pumpAndSettle();
     expect(shell.activeTabId, tabId);
+    expect(shell.currentContent?.id, 'chat-inbox');
     expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
-    expect(sidebarDestination('Chats'), findsNothing);
   });
 
   _desktopTest('keyboard moves between sidebar tabs', (tester) async {

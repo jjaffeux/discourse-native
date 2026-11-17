@@ -1723,8 +1723,7 @@ class _SectionState extends State<_Section> {
           runs.length == 1 &&
           destinations.length == section.destinations.length &&
           canEdit;
-      final navigation =
-          section.id == 'community' || section.id == 'chat-directories';
+      final navigation = section.id == 'community';
       int? findIndex(Key key) =>
           key is ValueKey<String> ? indexes[key.value] : null;
       Widget rowBuilder(BuildContext context, int index) {

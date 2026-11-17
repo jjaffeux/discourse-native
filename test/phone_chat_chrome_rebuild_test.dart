@@ -242,15 +242,10 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      Future<void> expectPanel({
-        required bool channels,
-        required bool threads,
-      }) async {
+      Future<void> expectPanel({required bool threads}) async {
         await openDockPanel(tester);
-        expect(
-          dockPanelTile('Channels'),
-          channels ? findsOneWidget : findsNothing,
-        );
+        // Channels are browsed in a panel, which is no place of the bar's.
+        expect(dockPanelTile('Channels'), findsNothing);
         expect(
           dockPanelTile('Threads'),
           threads ? findsOneWidget : findsNothing,
@@ -260,18 +255,18 @@ void main() {
       }
 
       expect(_chatPlace, findsOneWidget);
-      await expectPanel(channels: true, threads: true);
+      await expectPanel(threads: true);
 
       await showForum(1);
       expect(_chatPlace, findsOneWidget);
-      await expectPanel(channels: false, threads: false);
+      await expectPanel(threads: false);
 
       await showForum(2);
       expect(_chatPlace, findsNothing);
 
       await showForum(0);
       expect(_chatPlace, findsOneWidget);
-      await expectPanel(channels: true, threads: true);
+      await expectPanel(threads: true);
       expect(tester.takeException(), isNull);
     }, variant: _ios);
   });
