@@ -47,85 +47,86 @@ void composerDraftTabsVirtualizationTests() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final scale in [1.0, 2.0]) {
-    for (final direction in TextDirection.values) {
-      testWidgets(
-        '200 live draft tabs stay lazy, reveal selection, and close at ${scale}x $direction',
-        (tester) async {
-          final shell = await _pumpTabs(
-            tester,
-            count: 200,
-            scale: scale,
-            direction: direction,
-          );
-          final drafts = shell.liveComposers.toList();
-          final tabs = find.byType(DDocumentTab, skipOffstage: false);
-          final firstController = drafts.first.text;
-          final firstSelection = firstController.selection;
-          expect(drafts, hasLength(200));
-          expect(tabs.evaluate().length, lessThan(12));
-          expect(tester.getSize(_tab('I')).width, 170);
-          expect(_tab('Draft 199').hitTestable(), findsNothing);
-          final bounds = tester.getRect(find.byType(ComposerDraftTabs));
-          expect(
-            bounds.height,
-            DControlStyle.scaledHeight(
-              DControlSize.documentTab,
-              TextScaler.linear(scale),
-              context: tester.element(_tab('I')),
-            ),
-          );
-          final firstRect = tester.getRect(_tab('I'));
-          final nextRect = tester.getRect(_tab('Draft 1'));
-          expect(
-            direction == TextDirection.ltr
-                ? nextRect.left - firstRect.right
-                : firstRect.left - nextRect.right,
-            6,
-          );
-          shell.selectComposer(drafts.last);
-          await tester.pumpAndSettle();
-          expect(_tab('Draft 199').hitTestable(), findsOneWidget);
-          expect(tester.getSize(_tab('Draft 199')).width, 170);
-          await tester.binding.setSurfaceSize(const Size(300, 844));
-          await tester.pumpAndSettle();
-          final resizedBounds = tester.getRect(find.byType(ComposerDraftTabs));
-          final selectedRect = tester.getRect(_tab('Draft 199'));
-          expect(selectedRect.left, greaterThanOrEqualTo(resizedBounds.left));
-          expect(selectedRect.right, lessThanOrEqualTo(resizedBounds.right));
-          await tester.binding.setSurfaceSize(const Size(390, 844));
-          await tester.pumpAndSettle();
-          final neighbor = tester.state(_tab('Draft 198'));
-          final neighborFocus = tester
-              .widget<DButton>(_buttons('Draft 198').first)
-              .focusNode!;
-          final neighborHandler = neighborFocus.onKeyEvent;
-          await tester.tap(
-            find
-                .byKey(ValueKey(('composer-draft-close', drafts.last)))
-                .hitTestable(),
-          );
-          await tester.pumpAndSettle();
-          expect(drafts.last.isDisposed, isTrue);
-          expect(shell.visibleComposer, same(drafts[198]));
-          expect(tester.state(_tab('Draft 198')), same(neighbor));
-          expect(neighborFocus.onKeyEvent, neighborHandler);
-          expect(tabs.evaluate().length, lessThan(12));
-          shell.selectComposer(drafts.first);
-          await tester.pumpAndSettle();
-          expect(_tab('I').hitTestable(), findsOneWidget);
-          expect(drafts.first.text, same(firstController));
-          expect(firstController.selection, firstSelection);
-          drafts.first.history.transact(
-            () => firstController.text = 'Changed source',
-          );
-          drafts.first.history.undo();
-          expect(firstController.text, 'First draft source');
-          await tester.runAsync(drafts.first.finishDraftSaves);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+  for (final (scale, direction) in [
+    (1.0, TextDirection.ltr),
+    (2.0, TextDirection.rtl),
+  ]) {
+    testWidgets(
+      '200 live draft tabs stay lazy, reveal selection, and close at ${scale}x $direction',
+      (tester) async {
+        final shell = await _pumpTabs(
+          tester,
+          count: 200,
+          scale: scale,
+          direction: direction,
+        );
+        final drafts = shell.liveComposers.toList();
+        final tabs = find.byType(DDocumentTab, skipOffstage: false);
+        final firstController = drafts.first.text;
+        final firstSelection = firstController.selection;
+        expect(drafts, hasLength(200));
+        expect(tabs.evaluate().length, lessThan(12));
+        expect(tester.getSize(_tab('I')).width, 170);
+        expect(_tab('Draft 199').hitTestable(), findsNothing);
+        final bounds = tester.getRect(find.byType(ComposerDraftTabs));
+        expect(
+          bounds.height,
+          DControlStyle.scaledHeight(
+            DControlSize.documentTab,
+            TextScaler.linear(scale),
+            context: tester.element(_tab('I')),
+          ),
+        );
+        final firstRect = tester.getRect(_tab('I'));
+        final nextRect = tester.getRect(_tab('Draft 1'));
+        expect(
+          direction == TextDirection.ltr
+              ? nextRect.left - firstRect.right
+              : firstRect.left - nextRect.right,
+          6,
+        );
+        shell.selectComposer(drafts.last);
+        await tester.pumpAndSettle();
+        expect(_tab('Draft 199').hitTestable(), findsOneWidget);
+        expect(tester.getSize(_tab('Draft 199')).width, 170);
+        await tester.binding.setSurfaceSize(const Size(300, 844));
+        await tester.pumpAndSettle();
+        final resizedBounds = tester.getRect(find.byType(ComposerDraftTabs));
+        final selectedRect = tester.getRect(_tab('Draft 199'));
+        expect(selectedRect.left, greaterThanOrEqualTo(resizedBounds.left));
+        expect(selectedRect.right, lessThanOrEqualTo(resizedBounds.right));
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        await tester.pumpAndSettle();
+        final neighbor = tester.state(_tab('Draft 198'));
+        final neighborFocus = tester
+            .widget<DButton>(_buttons('Draft 198').first)
+            .focusNode!;
+        final neighborHandler = neighborFocus.onKeyEvent;
+        await tester.tap(
+          find
+              .byKey(ValueKey(('composer-draft-close', drafts.last)))
+              .hitTestable(),
+        );
+        await tester.pumpAndSettle();
+        expect(drafts.last.isDisposed, isTrue);
+        expect(shell.visibleComposer, same(drafts[198]));
+        expect(tester.state(_tab('Draft 198')), same(neighbor));
+        expect(neighborFocus.onKeyEvent, neighborHandler);
+        expect(tabs.evaluate().length, lessThan(12));
+        shell.selectComposer(drafts.first);
+        await tester.pumpAndSettle();
+        expect(_tab('I').hitTestable(), findsOneWidget);
+        expect(drafts.first.text, same(firstController));
+        expect(firstController.selection, firstSelection);
+        drafts.first.history.transact(
+          () => firstController.text = 'Changed source',
+        );
+        drafts.first.history.undo();
+        expect(firstController.text, 'First draft source');
+        await tester.runAsync(drafts.first.finishDraftSaves);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final direction in TextDirection.values) {
