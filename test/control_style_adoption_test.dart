@@ -178,6 +178,12 @@ void main() {
           'shape': 1,
           'borderColor': 1,
         },
+        // The Assignments list's reassign and unassign actions are the
+        // mockup's rounds, the unassign on the danger tone at 18%.
+        'lib/src/plugins/assign/assign_plugin.dart': {
+          'shape': 2,
+          'backgroundColor': 1,
+        },
         // Message hover actions sit on the row's own hover fill.
         'lib/src/plugins/chat/chat_message_tile.dart': {
           'interactiveBackgroundColor': 2,
