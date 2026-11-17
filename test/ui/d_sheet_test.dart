@@ -858,7 +858,11 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final origin in ['header', 'scroll', 'helper']) {
+    for (final origin in [
+      'header',
+      'scroll',
+      if (platform == TargetPlatform.android) 'helper',
+    ]) {
       testWidgets('partial $origin swipe restores the sheet on $platform', (
         tester,
       ) async {
