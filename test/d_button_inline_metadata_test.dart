@@ -175,6 +175,98 @@ void main() {
     }
   }
 
+  testWidgets('a phone press reaches an inline metadata button 44 points '
+      'across, not past it', (tester) async {
+    var activations = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        builder: (context, child) => DTouchTargets(child: child!),
+        home: Scaffold(
+          body: Center(
+            child: DButton(
+              label: const Text('Metadata'),
+              variant: DButtonVariant.inline,
+              density: DButtonDensity.inlineMetadata,
+              onPressed: () => activations++,
+            ),
+          ),
+        ),
+      ),
+    );
+    final rect = tester.getRect(find.byType(DButton));
+    expect(rect.height, 18);
+    await tester.tapAt(rect.topCenter.translate(0, -12.5));
+    expect(activations, 1);
+    await tester.tapAt(rect.bottomCenter.translate(0, 12.5));
+    expect(activations, 2);
+    await tester.tapAt(rect.topCenter.translate(0, -13.5));
+    expect(activations, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an inline metadata button says its own label over its '
+      'content, and holds its least height around a shorter one', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Center(
+            child: DButton(
+              label: const Text('3d', style: TextStyle(fontSize: 6)),
+              semanticLabel: 'Share post #3',
+              variant: DButtonVariant.inline,
+              density: DButtonDensity.inlineMetadata,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    final button = find.byType(DButton);
+    final data = tester.getSemantics(button).getSemanticsData();
+    expect(data.label, 'Share post #3');
+    expect(data.flagsCollection.isButton, isTrue);
+    expect(data.hasAction(ui.SemanticsAction.tap), isTrue);
+    expect(tester.getSize(button).height, 18);
+    expect(
+      tester.getCenter(find.text('3d')).dy,
+      moreOrLessEquals(tester.getCenter(button).dy),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('an inline metadata button mounts seven render objects over '
+      'its label', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: Center(
+            child: DButton(
+              label: const Text('Metadata'),
+              variant: DButtonVariant.inline,
+              density: DButtonDensity.inlineMetadata,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    var renderObjects = 0;
+    void visit(Element element) {
+      if (element is RenderObjectElement) renderObjects++;
+      element.visitChildren(visit);
+    }
+
+    visit(tester.element(find.byType(DButton)));
+    // The label's own RichText is the eighth.
+    expect(renderObjects, 8);
+  });
+
   testWidgets(
     'an inline metadata button that loses its action ignores the press',
     (tester) async {

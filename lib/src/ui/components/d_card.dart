@@ -443,6 +443,62 @@ class DCardAction extends StatelessWidget {
   );
 }
 
+/// A tint behind a card's head: full down to [fade] above its foot, then
+/// fading to nothing there, so what follows keeps the card's own ground.
+/// Place it edge to edge at the top of a card with no inset; the card's
+/// corners clip it. A change of [color] passes over rather than switching.
+class DCardTint extends StatelessWidget {
+  const DCardTint({
+    super.key,
+    required this.color,
+    this.fade = 40,
+    required this.child,
+  }) : assert(fade >= 0 && fade < double.infinity);
+
+  final Color color;
+  final double fade;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
+    tween: ColorTween(end: color),
+    duration: DMotion.duration(context, DMotion.change),
+    builder: (context, color, child) => CustomPaint(
+      painter: _CardTintPainter(color ?? Colors.transparent, fade),
+      child: child,
+    ),
+    child: child,
+  );
+}
+
+class _CardTintPainter extends CustomPainter {
+  const _CardTintPainter(this.color, this.fade);
+
+  final Color color;
+  final double fade;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (color.a == 0 || size.isEmpty) return;
+    final rect = Offset.zero & size;
+    final solid = ((size.height - fade) / size.height).clamp(0.0, 1.0);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color, color, color.withValues(alpha: 0)],
+          stops: [0, solid, 1],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CardTintPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.fade != fade;
+}
+
 /// [edgeToEdge] removes horizontal inset; [joinNext] removes the following gap.
 /// Together these express the reference's negative shared-spacing margins.
 class DCardContent extends StatelessWidget {

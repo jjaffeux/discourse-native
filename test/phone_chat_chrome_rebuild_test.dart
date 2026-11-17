@@ -179,7 +179,11 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(rebuilds, lessThanOrEqualTo(714));
+      // The chat counted is drawn: unread, it leads its group on the page.
+      // Its first count redraws the row boxed and re-lays the list over the
+      // chrome's 637; each later one redraws its count chip and the chrome.
+      // The drawer's copy of the list is out of sight and holds.
+      expect(rebuilds, lessThanOrEqualTo(802));
     }, variant: _ios);
 
     testWidgets('on the Forum tab redraws the chrome only for the indicator', (
@@ -199,7 +203,85 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(rebuilds, lessThanOrEqualTo(2152));
+      expect(rebuilds, lessThanOrEqualTo(529));
+    }, variant: _ios);
+  });
+
+  group('a chat list kept out of sight', () {
+    final drawer = find.byKey(
+      const ValueKey('mobile-navigation-panel'),
+      skipOffstage: false,
+    );
+    Finder inDrawer(Finder finder) =>
+        find.descendant(of: drawer, matching: finder, skipOffstage: false);
+    final chip = find.byKey(
+      const ValueKey('chat-inbox-unread-20'),
+      skipOffstage: false,
+    );
+
+    testWidgets('holds while the drawer is closed and is current as it opens', (
+      tester,
+    ) async {
+      final shell = await _pumpPhone(tester);
+      shell.selectMobilePanel('chat');
+      await tester.pumpAndSettle();
+      expect(inDrawer(find.text('Channel 1', skipOffstage: false)), findsOne);
+
+      for (var event = 0; event < 10; event++) {
+        _readCredit(20, 3 + event);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      // Nobody can see the drawer's copy, so it has not followed the counts.
+      expect(inDrawer(chip), findsNothing);
+
+      shell.toggleMobileSidebar();
+      // The frame that starts to show it already has the count and the order.
+      await tester.pump();
+      expect(
+        inDrawer(
+          find.descendant(
+            of: chip,
+            matching: find.text('12', skipOffstage: false),
+            skipOffstage: false,
+          ),
+        ),
+        findsOne,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(inDrawer(find.text('Channel 20'))).dy,
+        lessThan(tester.getTopLeft(inDrawer(find.text('Channel 1'))).dy),
+      );
+      expect(tester.takeException(), isNull);
+    }, variant: _ios);
+
+    testWidgets('behind the Forum tab is current when Chat is shown', (
+      tester,
+    ) async {
+      final shell = await _pumpPhone(tester);
+      shell.selectMobilePanel('chat');
+      await tester.pumpAndSettle();
+      shell.selectMobilePanel('forum');
+      await tester.pumpAndSettle();
+
+      for (var event = 0; event < 10; event++) {
+        _readCredit(20, 3 + event);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      shell.selectMobilePanel('chat');
+      await tester.pump();
+      final shown = find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-unread-20')),
+        matching: find.text('12'),
+      );
+      expect(shown, findsOne);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('Channel 20').hitTestable()).dy,
+        lessThan(tester.getTopLeft(find.text('Channel 1').hitTestable()).dy),
+      );
+      expect(tester.takeException(), isNull);
     }, variant: _ios);
   });
 
@@ -242,15 +324,10 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      Future<void> expectPanel({
-        required bool channels,
-        required bool threads,
-      }) async {
+      Future<void> expectPanel({required bool threads}) async {
         await openDockPanel(tester);
-        expect(
-          dockPanelTile('Channels'),
-          channels ? findsOneWidget : findsNothing,
-        );
+        // Channels are browsed in a panel, which is no place of the bar's.
+        expect(dockPanelTile('Channels'), findsNothing);
         expect(
           dockPanelTile('Threads'),
           threads ? findsOneWidget : findsNothing,
@@ -260,18 +337,18 @@ void main() {
       }
 
       expect(_chatPlace, findsOneWidget);
-      await expectPanel(channels: true, threads: true);
+      await expectPanel(threads: true);
 
       await showForum(1);
       expect(_chatPlace, findsOneWidget);
-      await expectPanel(channels: false, threads: false);
+      await expectPanel(threads: false);
 
       await showForum(2);
       expect(_chatPlace, findsNothing);
 
       await showForum(0);
       expect(_chatPlace, findsOneWidget);
-      await expectPanel(channels: true, threads: true);
+      await expectPanel(threads: true);
       expect(tester.takeException(), isNull);
     }, variant: _ios);
   });

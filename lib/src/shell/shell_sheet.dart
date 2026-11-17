@@ -37,7 +37,13 @@ Future<T?> showShellSheet<T>({
 
   /// Wraps the whole surface, so an inherited theme also reaches its fill.
   Widget Function(BuildContext context, Widget child)? surfaceBuilder,
+
+  /// One that looks something up: on a phone it opens on its field, the
+  /// body's first line being a `SheetSearch`, with no title over it, and
+  /// keeps its height as results come and go. [title] still names it.
+  bool search = false,
 }) {
+  fillAvailableHeight = fillAvailableHeight || search;
   Widget surface(BuildContext context, Widget child) =>
       surfaceBuilder?.call(context, child) ?? child;
   if (dialogOnDesktop && !context.isTouch) {
@@ -142,6 +148,7 @@ Future<T?> showShellSheet<T>({
                     footerBuilder: footerBuilder,
                     nested: nested,
                     grabbed: adaptive,
+                    untitled: adaptive && search,
                     expandBody: !sizeToContent && pinnedFooter,
                     scrollBody: scrollBody,
                     headingInset: insets.heading,
@@ -188,6 +195,7 @@ class _SheetBody extends StatelessWidget {
     required this.footerBuilder,
     required this.nested,
     this.grabbed = false,
+    this.untitled = false,
     this.expandBody = false,
     required this.scrollBody,
     required this.headingInset,
@@ -202,6 +210,9 @@ class _SheetBody extends StatelessWidget {
 
   /// Put away by its grabber, so its title stands alone as the heading.
   final bool grabbed;
+
+  /// Opens on the field its body starts with, under the grabber alone.
+  final bool untitled;
   final bool expandBody;
   final bool scrollBody;
   final double headingInset;
@@ -214,39 +225,44 @@ class _SheetBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: headingInset),
-          child: DSheetHeader(
-            leading: nested
-                ? DModalHeaderAction(
-                    onPressed: () => DDialogClose.close<void>(context),
-                    tooltip: context.l10n.back,
-                    icon: const DIcon(DIcons.arrowLeft),
-                  )
-                : null,
-            trailing: nested || grabbed
-                ? null
-                : DModalHeaderAction.close(
-                    onPressed: () => DDialogClose.close<void>(context),
+        // The grabber is drawn over the sheet's top, where a heading has its
+        // own inset. A field with no heading over it starts below the grabber.
+        if (untitled)
+          const SizedBox(height: 23)
+        else
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: headingInset),
+            child: DSheetHeader(
+              leading: nested
+                  ? DModalHeaderAction(
+                      onPressed: () => DDialogClose.close<void>(context),
+                      tooltip: context.l10n.back,
+                      icon: const DIcon(DIcons.arrowLeft),
+                    )
+                  : null,
+              trailing: nested || grabbed
+                  ? null
+                  : DModalHeaderAction.close(
+                      onPressed: () => DDialogClose.close<void>(context),
+                    ),
+              children: [
+                DSheetTitle(
+                  child: DText(
+                    title,
+                    variant: DTextVariant.h4,
+                    headingLevel: 1,
+                    style: grabbed
+                        ? TextStyle(
+                            fontSize: DiscourseTypography.sheetTitle,
+                            fontWeight: FontWeight.w600,
+                            color: DTokens.of(context).foreground,
+                          )
+                        : null,
                   ),
-            children: [
-              DSheetTitle(
-                child: DText(
-                  title,
-                  variant: DTextVariant.h4,
-                  headingLevel: 1,
-                  style: grabbed
-                      ? TextStyle(
-                          fontSize: DiscourseTypography.sheetTitle,
-                          fontWeight: FontWeight.w600,
-                          color: DTokens.of(context).foreground,
-                        )
-                      : null,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         Flexible(
           fit: expandBody ? FlexFit.tight : FlexFit.loose,
           child: scrollBody

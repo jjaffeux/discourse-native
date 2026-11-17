@@ -17,6 +17,7 @@ import 'chat_cooking_coordinator.dart';
 import 'chat_deletion_event.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_inbox_filters.dart';
+import 'chat_inbox_order.dart';
 import 'chat_live_sync_coordinator.dart';
 import 'chat_message.dart';
 import 'chat_message_blocks.dart';
@@ -997,38 +998,77 @@ class ChatController extends FrameSafeNotifier {
       ) ??
       <ChatChannel>[];
 
-  /// Narrows the sidebar using the directory excerpt and messages retained by
-  /// this client, including loaded thread replies and local sends.
-  List<ChatChannel> sidebarConversations(String siteUrl) {
+  /// The listed chats [query] finds: by name first, then by anything said in
+  /// them or by whom, each of those with the latest line that has the words.
+  ///
+  /// What was said is read from the directory excerpt and the messages this
+  /// client retains, including loaded thread replies and local sends.
+  ChatInboxResults findConversations(String siteUrl, String query) {
     final channels = inboxConversations(
       siteUrl,
       inboxFilters.filterFor(siteUrl),
     );
-    final query = inboxFilters.sidebarQueryFor(siteUrl);
-    if (query.trim().isEmpty) return channels;
-    final fields = <int, List<String?>>{
+    if (query.trim().isEmpty) return (channels: channels, lines: const {});
+    final byName = [
       for (final channel in channels)
-        channel.id: [
-          channel.title,
-          channel.lastMessagePreview,
-          channel.lastMessageUsername,
-        ],
-    };
+        if (chatInboxWordsMatch(query, [channel.title])) channel,
+    ];
+    final unnamed = {for (final channel in channels) channel.id}
+      ..removeAll(byName.map((channel) => channel.id));
+    final lines = <int, ChatInboxFoundLine>{};
+    final lineMessages = <int, int>{};
+    // An unsent local message carries a negative id and is the latest said.
+    bool later(int id, int? than) =>
+        than == null || (than >= 0 && (id < 0 || id >= than));
+    for (final channel in channels) {
+      final preview = channel.lastMessagePreview;
+      if (preview == null || !unnamed.contains(channel.id)) continue;
+      if (!chatInboxWordsMatch(query, [preview, channel.lastMessageUsername])) {
+        continue;
+      }
+      lines[channel.id] = ChatInboxFoundLine(
+        text: preview,
+        query: query,
+        authorId: channel.lastMessageUserId,
+        authorName: channel.lastMessageUsername,
+      );
+      lineMessages[channel.id] = channel.lastMessageId ?? 0;
+    }
     for (final message in _store.retainedRecords<ChatMessage>(siteUrl)) {
       if (message == null || message.isDeleted) continue;
-      fields[message.channelId]?.addAll([
+      if (!unnamed.contains(message.channelId) ||
+          !later(message.id, lineMessages[message.channelId])) {
+        continue;
+      }
+      final text =
+          (_sidebarMessageText[message] ??= (
+            text: jsonHtmlText(message.cooked),
+          )).text?.trim() ??
+          '';
+      if (!chatInboxWordsMatch(query, [
         message.raw,
-        (_sidebarMessageText[message] ??= (
-          text: jsonHtmlText(message.cooked),
-        )).text,
+        text,
         message.author.username,
         message.author.name,
-      ]);
+      ])) {
+        continue;
+      }
+      lines[message.channelId] = ChatInboxFoundLine(
+        text: text.isEmpty ? message.raw : text,
+        query: query,
+        authorId: message.author.id,
+        authorName: message.author.displayName,
+        authorAvatarUrl: message.author.avatarUrl,
+      );
+      lineMessages[message.channelId] = message.id;
     }
-    return [
-      for (final channel in channels)
-        if (chatInboxWordsMatch(query, fields[channel.id]!)) channel,
-    ];
+    return (
+      channels: [
+        ...byName,
+        ...chatInboxNewFirst(channels.where((c) => lines.containsKey(c.id))),
+      ],
+      lines: lines,
+    );
   }
 
   List<ChatChannel> publicChannels(String siteUrl) =>

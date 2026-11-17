@@ -732,6 +732,9 @@ void main() {
     ]);
     expect(dracula.secondary, const Color(0xff2d303e));
     expect(dracula.tertiary, const Color(0xffbd93f9));
+    final clover = forumThemePresetFor('clover-dark')!;
+    expect(clover.danger, const Color(0xffe45735));
+    expect(clover.success, const Color(0xff39845b));
     for (final theme in forumThemePresets) {
       expect(ForumTheme.fromJson(theme.toJson(), id: theme.id), theme);
     }

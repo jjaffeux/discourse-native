@@ -20,7 +20,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
-import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -60,7 +59,7 @@ void topicCompactActionsSheetTests({
     }
   });
   testWidgets(
-    'the floating topic toolbar shows a 24-point assignee avatar',
+    'the floating topic toolbar shows the assignee at 18 and lists them',
     (tester) async {
       await _openCompact(tester, assigned: true, canAssign: false);
       final assignment = find.descendant(
@@ -71,10 +70,13 @@ void topicCompactActionsSheetTests({
         of: assignment,
         matching: find.byType(DAvatar),
       );
-      expect(tester.getSize(avatar), const Size.square(24));
+      expect(tester.getSize(avatar), const Size.square(18));
+      expect(find.byTooltip('Assigned to Sam'), findsOneWidget);
       await tester.tap(assignment);
       await tester.pumpAndSettle();
-      expect(find.text('Assigned to').hitTestable(), findsOneWidget);
+      expect(find.text('Assigned topic to').hitTestable(), findsOneWidget);
+      expect(find.text('@sam').hitTestable(), findsOneWidget);
+      expect(find.byKey(const Key('assign-topic-change')), findsNothing);
     },
     variant: native ? TargetPlatformVariant.only(TargetPlatform.iOS) : _mobile,
   );
@@ -149,39 +151,40 @@ void topicCompactActionsSheetTests({
         await tester.pumpAndSettle();
         expect(find.byType(DDropdownMenuContent), findsNothing);
 
-        // A topic someone can assign keeps its commands in the actions sheet
-        // rather than a button of its own.
-        expect(find.byKey(const Key('assign-topic-header')), findsNothing);
-        await tester.tap(_more);
+        // Assigning has its own part of the pill, which lists every
+        // assignment with a way to give each to someone else or take it back.
+        final shortcut = find.descendant(
+          of: _tools,
+          matching: find.byKey(const Key('assign-topic-header')),
+        );
+        await tester.tap(shortcut);
         await tester.pumpAndSettle();
         expect(
-          tester.widget<DSheetContent>(_menuSheet).side,
-          DSheetSide.bottom,
-        );
-        expect(
-          tester.widget<DSheetContent>(_menuSheet).variant,
+          tester.widget<DSheetContent>(find.byType(DSheetContent).last).variant,
           DSheetVariant.adaptiveMenu,
         );
+        final change = find.byKey(const Key('assign-topic-change'));
+        expect(change.hitTestable(), findsOneWidget);
         expect(
-          find.byKey(const Key('assign-topic-reassign-action')).hitTestable(),
+          find.byKey(const Key('assign-topic-remove')).hitTestable(),
           findsOneWidget,
         );
-        expect(find.text('Reassign topic'), findsOneWidget);
+        // Both round, the filter size a phone draws 36 before the sheet's
+        // zoom.
+        final changeSize = tester.getSize(change);
+        expect(changeSize.width, changeSize.height);
         expect(
-          find.text('Unassign Sam from topic').hitTestable(),
-          findsOneWidget,
+          tester.getSize(find.byKey(const Key('assign-topic-remove'))),
+          changeSize,
         );
-        expect(find.byKey(const Key('assign-topic-action')), findsNothing);
         await _capture(tester, 'assign-${size.width.toInt()}-$scale', size);
-        await tester.tap(find.byKey(const Key('assign-topic-reassign-action')));
+        await tester.tap(change);
         await tester.pumpAndSettle();
-        expect(_menu, findsNothing);
-        expectPhoneSheet(tester, title: 'Edit topic assignment');
-        // Reassigning edits the existing assignment, which it can also remove.
-        expect(find.byKey(const Key('assignment-unassign')), findsOneWidget);
-        await tester.tap(find.byKey(const Key('assignment-cancel')));
+        // The list is put away and the picker opens on its field.
+        expect(find.text('Assigned topic to'), findsNothing);
+        expect(find.text('Reassign topic to…'), findsOneWidget);
+        Navigator.of(tester.element(find.text('Reassign topic to…'))).pop();
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('assignment-drawer')), findsNothing);
         expect(find.byType(DSheetContent), findsOneWidget);
         expect(shell.currentContent, reader);
 
@@ -243,8 +246,15 @@ void topicCompactActionsSheetTests({
             ),
             findsOneWidget,
           );
-          // One actions button stands for assigning and staff's tools.
-          expect(find.byKey(const Key('assign-topic-header')), findsNothing);
+          // Assigning is a part of the pill; one actions button stands for
+          // staff's tools.
+          expect(
+            find.descendant(
+              of: _tools,
+              matching: find.byKey(const Key('assign-topic-header')),
+            ),
+            findsOneWidget,
+          );
           expect(
             find.byKey(const ValueKey('topic-status-button')),
             findsNothing,
@@ -252,7 +262,7 @@ void topicCompactActionsSheetTests({
           expect(_more.hitTestable(), findsOneWidget);
           expect(
             tester.getRect(_more).right,
-            lessThanOrEqualTo(size.width - 16),
+            lessThanOrEqualTo(size.width - DSpacing.sm),
           );
           tester.widget<DButton>(_more).focusNode!.requestFocus();
           await tester.pump();
@@ -279,8 +289,8 @@ void topicCompactActionsSheetTests({
             find.descendant(of: _menuSheet, matching: find.byType(DSheetTitle)),
             findsNothing,
           );
-          // The plugin's commands, then anyone's, then staff's, a rule
-          // between each group, every row stacked on the one before.
+          // Anyone's commands, then staff's, a rule between the groups,
+          // every row stacked on the one before.
           const rule = 'rule';
           final children = tester.widget<DDropdownMenuContent>(_menu).children;
           expect(
@@ -291,8 +301,6 @@ void topicCompactActionsSheetTests({
                     : (child.key! as ValueKey<String>).value,
             ],
             [
-              'assign-topic-action',
-              rule,
               'topic-share-action',
               'topic-flag-button',
               'topic-mark-unread',
@@ -328,7 +336,6 @@ void topicCompactActionsSheetTests({
             expect(row.right, closeTo(bounds.right - 8 * 17 / 13, .001));
           }
           for (final label in [
-            'Assign topic',
             'Share topic',
             'Flag topic',
             'Mark unread',

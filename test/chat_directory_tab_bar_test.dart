@@ -1,9 +1,9 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +15,7 @@ import 'support/fakes.dart';
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 
 void main() {
-  for (final (filter, option) in [('activity', 'Unread'), ('sort', 'Newest')]) {
+  for (final (filter, option) in [('sort', 'Newest')]) {
     testWidgets(
       '$filter selection survives an inbox refresh without moving the tab bar',
       (tester) async {
@@ -28,12 +28,12 @@ void main() {
         final control = find.byKey(ValueKey('chat-inbox-$filter-filter'));
         final choice = find.descendant(
           of: control,
-          matching: find.text(option),
+          matching: find.byTooltip(option),
         );
         await tester.tap(choice);
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsNothing);
-        final selected = find.ancestor(
+        final selected = find.descendant(
           of: choice,
           matching: find.byType(DToggle),
         );
@@ -56,7 +56,6 @@ void main() {
 
   for (final (label, pageType) in [
     ('Chats', ChatMobileSidebar),
-    ('Browse channels', ChatBrowseChannelsView),
     ('Threads', ChatMyThreadsView),
   ]) {
     testWidgets(
@@ -72,7 +71,7 @@ void main() {
               threadingEnabled: true,
             ),
         ];
-        await pumpMobileShellFixture(
+        final shell = await pumpMobileShellFixture(
           tester,
           conversations: ChatChannels(public: channels, direct: const []),
           chatBrowsePage: ChatChannelBrowsePage(
@@ -97,12 +96,9 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
         await tester.pumpAndSettle();
         if (label != 'Chats') {
-          final destination = find.descendant(
-            of: find.byKey(const ValueKey('chat-inbox-navigation')),
-            matching: find.text(label),
-          );
-          await tester.ensureVisible(destination);
-          await tester.tap(destination);
+          // The way to the threads stands in a list of forty channels; this
+          // test is about the page it leads to.
+          shell.pluginSession.require(chatShellService).openMyThreads();
           await tester.pumpAndSettle();
         }
         final page = find.byType(pageType);

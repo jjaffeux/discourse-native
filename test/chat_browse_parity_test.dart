@@ -96,10 +96,7 @@ void main() {
               baselineScale: 17 / 14,
             ),
           );
-          for (final page in [
-            ChatBrowsePage.channels,
-            ChatBrowsePage.threads,
-          ]) {
+          for (final page in [ChatBrowsePage.threads]) {
             await _tab(tester, page);
             for (final key in [
               'chat-inbox-back',
@@ -127,13 +124,7 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final view in [
-      'chats',
-      'channels',
-      'joined',
-      'threads',
-      'channel threads',
-    ]) {
+    for (final view in ['chats', 'joined', 'threads', 'channel threads']) {
       for (final empty in [false, true]) {
         testWidgets('pull refreshes $view with empty=$empty on ${platform.name}', (
           tester,
@@ -163,8 +154,6 @@ void main() {
           switch (view) {
             case 'chats':
               break;
-            case 'channels':
-              await _tab(tester, ChatBrowsePage.channels);
             case 'joined':
               await fixture.show(
                 const ChatChannelsView(
@@ -312,23 +301,14 @@ void main() {
         await tester.pumpAndSettle();
 
         await _capture(tester, 'chat-filters');
-        final activity = tester.getRect(
+        // What is unread leads every group, so no switch narrows to it.
+        expect(
           find.byKey(const ValueKey('chat-inbox-activity-filter')),
+          findsNothing,
         );
-        for (final key in ['chat-inbox-sort-filter']) {
-          final control = tester.getRect(find.byKey(ValueKey(key)));
-          expect(control.height, activity.height, reason: key);
-          expect(control.center.dy, activity.center.dy, reason: key);
-        }
-
-        expect(find.byType(DToggleGroup<bool>), findsOneWidget);
+        expect(find.byType(DToggleGroup<bool>), findsNothing);
         expect(find.byType(DToggleGroup<ChatInboxSort>), findsOneWidget);
         expect(find.byType(DDropdownMenuContent), findsNothing);
-
-        await _pick(tester, 'chat-inbox-activity-filter', 'Unread');
-        expect(fixture.chat.inboxFilters.filterFor(_site).unreadOnly, isTrue);
-        await _pick(tester, 'chat-inbox-activity-filter', 'Recent');
-        expect(fixture.chat.inboxFilters.filterFor(_site).unreadOnly, isFalse);
         for (final (sort, label) in [
           (ChatInboxSort.newest, 'Newest'),
           (ChatInboxSort.byType, 'By type'),
@@ -338,17 +318,6 @@ void main() {
         }
         expect(find.byKey(const ValueKey('user-presence-menu')), findsNothing);
 
-        await _tab(tester, ChatBrowsePage.channels);
-        await _pick(tester, 'chat-browse-status', 'Closed');
-        expect(
-          fixture.api.chatBrowseRequested.last.status,
-          ChatChannelBrowseStatus.closed,
-        );
-        await _pick(tester, 'chat-browse-joined', 'Joined');
-        expect(
-          fixture.chat.inboxFilters.browseFor(_site).membership,
-          ChatChannelJoinedFilter.joined,
-        );
         await _tab(tester, ChatBrowsePage.threads);
         final navigation = tester.getRect(
           find.byKey(const ValueKey('chat-inbox-back')),
@@ -369,49 +338,6 @@ void main() {
       }),
     );
   }
-
-  testWidgets(
-    'channel membership sheet fills the viewport foot and dismisses on touch',
-    (tester) async {
-      await _pump(
-        tester,
-        size: const Size(430, 932),
-        platform: defaultTargetPlatform,
-        safeArea: const EdgeInsets.only(top: 47, bottom: 34),
-      );
-      await _tab(tester, ChatBrowsePage.channels);
-
-      Future<void> open() async {
-        await tester.tap(find.byKey(const ValueKey('chat-browse-joined')));
-        await tester.pumpAndSettle();
-        _expectMenuPresentation(tester, mobile: true);
-        expect(
-          tester
-              .widget<DSheetContent>(find.byType(DSheetContent))
-              .semanticLabel,
-          'Membership',
-        );
-      }
-
-      await open();
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsNothing);
-      await open();
-      await tester.drag(
-        find.byKey(const ValueKey('sheet-drag-handle')),
-        const Offset(0, 300),
-        kind: ui.PointerDeviceKind.touch,
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-    variant: const TargetPlatformVariant({
-      TargetPlatform.iOS,
-      TargetPlatform.android,
-    }),
-  );
 
   {
     testWidgets(
@@ -465,9 +391,7 @@ void main() {
   for (final width in [320.0, 900.0]) {
     for (final page in ChatBrowsePage.values) {
       testWidgets(
-        page == ChatBrowsePage.channels
-            ? 'channels cards align with the filters at width $width'
-            : '${page.name} content aligns with its dividers at width $width',
+        '${page.name} content aligns with its dividers at width $width',
         (tester) async {
           final fixture = await _pump(
             tester,
@@ -482,31 +406,20 @@ void main() {
             addTearDown(provider.dispose);
             await tester.pumpAndSettle();
           }
-          if (page == ChatBrowsePage.channels) {
-            final controls = tester.getRect(
-              find.byKey(const ValueKey('chat-browse-controls')),
-            );
-            final card = tester.getRect(
-              find.byKey(const ValueKey('chat-browse-channel-1')),
-            );
-            expect(card.left, closeTo(controls.left, .01));
-            expect(card.right, lessThanOrEqualTo(controls.right + .01));
-            expect(tester.takeException(), isNull);
-            return;
-          }
           final row = find.byKey(
             ValueKey(switch (page) {
               ChatBrowsePage.chats => 'chat-inbox-channel-1',
-              ChatBrowsePage.channels => 'chat-browse-channel-1',
               ChatBrowsePage.threads => 'chat-my-thread-1',
             }),
           );
           final divider = tester.getRect(find.byType(DSeparator).first);
-          final inset = width < 600 ? 0.0 : 16.0;
+          // A chat's row keeps room before its mark for the open row's
+          // accent edge; a thread's row is never the open one.
+          final leading = page == ChatBrowsePage.chats ? 3.0 : 0.0;
           void expectAligned(Finder row) {
             final bounds = _rowContentBounds(tester, row);
-            expect(bounds.left, closeTo(divider.left + inset, .01));
-            expect(bounds.right, closeTo(divider.right - inset, .01));
+            expect(bounds.left, closeTo(divider.left + leading, .01));
+            expect(bounds.right, closeTo(divider.right, .01));
           }
 
           expectAligned(row);
@@ -520,10 +433,8 @@ void main() {
                 matching: find.text('Voice rooms'),
               ),
             );
-            expect(
-              heading.left,
-              closeTo(_rowContentBounds(tester, row).left, .01),
-            );
+            // Its mark stands on the list's edge, its name after it.
+            expect(heading.left, closeTo(divider.left + 11 + 6, .01));
           }
           expect(tester.takeException(), isNull);
         },
@@ -542,19 +453,20 @@ void main() {
       final title = tester.getRect(
         find.byKey(const ValueKey('chat-inbox-title')),
       );
-      final activity = tester.getRect(
-        find.byKey(const ValueKey('chat-inbox-activity-filter')),
+      final field = tester.getRect(
+        find.byKey(const ValueKey('chat-search-entry')),
       );
       final sort = tester.getRect(
         find.byKey(const ValueKey('chat-inbox-sort-filter')),
       );
+      // The ways to the threads and to every channel are rows of the list.
       final cards = tester.getRect(
-        find.byKey(const ValueKey('chat-inbox-navigation')),
+        find.byKey(const ValueKey('chat-inbox-threads-card')),
       );
-      expect(activity.top, greaterThan(title.bottom));
-      expect(sort.top, greaterThanOrEqualTo(activity.top));
+      expect(field.top, greaterThan(title.bottom));
+      expect(sort.top, greaterThan(field.bottom));
       expect(sort.right, lessThanOrEqualTo(width));
-      expect(cards.top, greaterThan(activity.bottom));
+      expect(cards.top, greaterThan(sort.bottom));
       expect(find.byType(DToggleGroup<ChatBrowsePage>), findsNothing);
       expect(find.byKey(const ValueKey('user-presence-menu')), findsNothing);
       expect(find.text('2 joined'), findsNothing);
@@ -569,13 +481,18 @@ void main() {
   ) async {
     final fixture = await _pump(tester);
     final group = find.byKey(const ValueKey('chat-inbox-sort-filter'));
+    // Each choice is its mark alone, its name its tooltip.
     expect(
-      find.descendant(of: group, matching: find.text('By type')),
+      find.descendant(of: group, matching: find.byTooltip('By type')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: group, matching: find.text('Newest')),
+      find.descendant(of: group, matching: find.byTooltip('Newest')),
       findsOneWidget,
+    );
+    expect(
+      find.descendant(of: group, matching: find.byType(Text)),
+      findsNothing,
     );
     await _pick(tester, 'chat-inbox-sort-filter', 'Newest');
     expect(
@@ -615,7 +532,7 @@ void main() {
           find.byKey(
             ValueKey(
               page == ChatBrowsePage.chats
-                  ? 'chat-inbox-activity-filter'
+                  ? 'chat-inbox-sort-filter'
                   : 'chat-inbox-back',
             ),
           ),
@@ -635,17 +552,6 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pump();
         expect(tester.takeException(), isNull);
-        if (page == ChatBrowsePage.channels) {
-          final card = find
-              .descendant(of: skeleton, matching: find.byType(DPlaceCard))
-              .first;
-          expect(tester.getRect(card).left, tester.getRect(skeleton).left);
-          gate.complete();
-          await tester.pumpAndSettle();
-          expect(skeleton, findsNothing);
-          expect(tester.takeException(), isNull);
-          return;
-        }
         final row = find
             .descendant(of: skeleton, matching: find.byType(DItem))
             .first;
@@ -717,31 +623,10 @@ void main() {
     },
   );
 
-  testWidgets('leaving from the channel menu keeps the browse page open', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-    await _tab(tester, ChatBrowsePage.channels);
-    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-button-1')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-leave-1')));
-    await tester.pumpAndSettle();
-    expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
-    expect(find.byKey(const ValueKey('chat-join-1')), findsOneWidget);
-  });
-
   testWidgets(
     'inbox cards open directories and retain filters across return navigation',
     (tester) async {
-      final fixture = await _pump(tester);
-      await _tab(tester, ChatBrowsePage.channels);
-      expect(find.text('Browse channels'), findsOneWidget);
-      expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
-      await tester.enterText(find.byType(EditableText), 'general');
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pumpAndSettle();
-      await _pick(tester, 'chat-browse-status', 'Closed');
-      await _pick(tester, 'chat-browse-joined', 'Joined');
+      await _pump(tester);
       await _tab(tester, ChatBrowsePage.threads);
       expect(
         find.descendant(
@@ -755,19 +640,6 @@ void main() {
       expect(find.text('Second thread'), findsNothing);
       await _tab(tester, ChatBrowsePage.chats);
       expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
-      await _tab(tester, ChatBrowsePage.channels);
-      expect(
-        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-        'general',
-      );
-      expect(find.text('Closed'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('chat-browse-joined')),
-          matching: find.text('Joined'),
-        ),
-        findsOneWidget,
-      );
       await _tab(tester, ChatBrowsePage.threads);
       expect(find.text('First thread'), findsOneWidget);
       expect(find.text('Second thread'), findsNothing);
@@ -775,77 +647,56 @@ void main() {
     },
   );
 
-  testWidgets(
-    'channel browsing uses live unread tracking without additional requests',
-    (tester) async {
-      final fixture = await _pump(tester);
-      await _tab(tester, ChatBrowsePage.channels);
-      expect(_unreadOn(1), findsOneWidget);
-      expect(_unreadOn(2, '3'), findsOneWidget);
-      final browseRequests = fixture.api.chatBrowseRequested.length;
-      expect(browseRequests, greaterThan(0));
-      fixture.api.chatChannelsBySite[_site] = ChatChannels(
-        public: [_channel(1, 'general'), _channel(2, 'workshop', unread: 4)],
-      );
-      await fixture.chat.loadChannels(_site, force: true);
-      await tester.pumpAndSettle();
-      expect(_unreadOn(1), findsNothing);
-      expect(_unreadOn(2, '4'), findsOneWidget);
-      expect(fixture.api.chatBrowseRequested, hasLength(browseRequests));
-    },
-  );
-
-  testWidgets(
-    'chat preview shows one unread message while the sidebar counts it',
-    (tester) async {
-      final fixture = await _pump(tester);
-      expect(find.text('sam: The latest message'), findsOneWidget);
-      expect(find.text('3 messages'), findsOneWidget);
-      await fixture.show(
-        ChatInboxRow(
-          siteUrl: _site,
-          channel: _channel(1, 'general', unread: 1),
-          compact: true,
-          onPressed: () {},
-        ),
-      );
-      expect(find.text('1 message'), findsOneWidget);
-      final avatar = tester.widget<DAvatar>(find.byType(DAvatar).first);
-      expect(avatar.borderRadius, isNotNull);
-    },
-  );
+  testWidgets('a row keeps what was last said and counts what is new', (
+    tester,
+  ) async {
+    await _pump(tester);
+    expect(find.text('The latest message'), findsWidgets);
+    expect(find.text('3 messages'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-unread-2')),
+        matching: find.text('3'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-unread-1')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('inbox rows announce unread like the channel list', (
     tester,
   ) async {
     final fixture = await _pump(tester);
     final semantics = tester.ensureSemantics();
-    for (final compact in [false, true]) {
-      for (final unread in [0, 1]) {
-        await fixture.show(
-          ChatInboxRow(
-            siteUrl: _site,
-            channel: _channel(1, 'general', unread: unread),
-            compact: compact,
-            onPressed: () {},
-          ),
-        );
-        final label = tester
-            .getSemantics(find.byKey(const ValueKey('chat-inbox-channel-1')))
-            .label;
-        expect(
-          label,
-          unread > 0
-              ? startsWith('Unread conversation\n')
-              : isNot(contains('Unread')),
-          reason: 'compact: $compact, unread: $unread',
-        );
-      }
+    for (final unread in [0, 1]) {
+      await fixture.show(
+        ChatInboxRow(
+          siteUrl: _site,
+          channel: _channel(1, 'general', unread: unread),
+          onPressed: () {},
+        ),
+      );
+      final label = tester
+          .getSemantics(find.byKey(const ValueKey('chat-inbox-channel-1')))
+          .label;
+      expect(
+        label,
+        unread > 0
+            ? startsWith('Unread conversation\n')
+            : isNot(contains('Unread')),
+        reason: 'unread: $unread',
+      );
     }
     semantics.dispose();
   });
 
-  testWidgets('voice scope and unread activity filter the same room data', (
+  testWidgets('voice rooms close the inbox and follow their provider', (
     tester,
   ) async {
     final fixture = await _pump(tester);
@@ -859,15 +710,14 @@ void main() {
     expect(find.text('Empty'), findsOneWidget);
     expect(find.text('general'), findsOneWidget);
     expect(find.text('Voice rooms'), findsOneWidget);
-    await _pick(tester, 'chat-inbox-activity-filter', 'Unread');
-    expect(find.text('Watercooler'), findsOneWidget);
-    expect(find.text('Quiet room'), findsNothing);
     await tester.tap(find.text('Watercooler'));
     expect(provider.opened, 1);
     provider.people = 0;
     provider.notifyListeners();
     await tester.pumpAndSettle();
-    expect(find.text('Watercooler'), findsNothing);
+    expect(find.text('Watercooler'), findsOneWidget);
+    expect(find.text('3 people here'), findsNothing);
+    expect(find.text('Empty'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
@@ -903,20 +753,20 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Channel 7'), findsNothing);
-        expect(find.text('View 3 more'), findsOneWidget);
+        expect(find.text('View 3 read chats'), findsOneWidget);
         final scope = tester.element(find.byType(ChatInboxFilterBar));
         PluginUiScope.require(scope, chatShellService).openChannel(7);
         await tester.pumpAndSettle();
         expect(find.text('Channel 7'), findsOneWidget);
-        expect(find.text('View 2 more'), findsOneWidget);
+        expect(find.text('View 2 read chats'), findsOneWidget);
         expect(
           tester
-              .getSemantics(find.widgetWithText(DButton, 'View 2 more'))
+              .getSemantics(find.widgetWithText(DButton, 'View 2 read chats'))
               .flagsCollection
               .isExpanded,
           ui.Tristate.isFalse,
         );
-        await tester.tap(find.text('View 2 more'));
+        await tester.tap(find.text('View 2 read chats'));
         await tester.pumpAndSettle();
         expect(find.text('Channel 5'), findsOneWidget);
         expect(find.text('Channel 6'), findsOneWidget);
@@ -931,7 +781,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Channel 5'), findsNothing);
         expect(find.text('Channel 7'), findsOneWidget);
-        expect(find.text('View 2 more'), findsOneWidget);
+        expect(find.text('View 2 read chats'), findsOneWidget);
         expect(
           tester.getTopLeft(find.text('Ada')).dy,
           lessThan(tester.getTopLeft(find.text('Channel 1')).dy),
@@ -1001,18 +851,25 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(900, 650));
     await fixture.show(const ChatMobileSidebar(siteUrl: _site));
     expect(find.text('All chats'), findsOneWidget);
+    // Unread and starred leads the one list, over a more recent read chat.
     expect(
-      tester.getTopLeft(find.text('Ada')).dy,
-      lessThan(tester.getTopLeft(find.text('general')).dy),
+      tester.getTopLeft(find.text('general')).dy,
+      lessThan(tester.getTopLeft(find.text('workshop')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('workshop')).dy,
+      lessThan(tester.getTopLeft(find.text('Ada')).dy),
     );
     await _capture(tester, 'inbox-newest');
     await _pick(tester, 'chat-inbox-sort-filter', 'By type');
     expect(find.text('Starred'), findsOneWidget);
     expect(find.text('general'), findsOneWidget);
     await _capture(tester, 'inbox-by-type');
+    final page = fixture.shell.currentContent?.id;
     await tester.tap(find.byKey(const ValueKey('chat-inbox-channels-card')));
     await tester.pumpAndSettle();
-    expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
+    expect(_channelPanel, findsOneWidget);
+    expect(fixture.shell.currentContent?.id, page);
     expect(tester.takeException(), isNull);
   });
 
@@ -1049,7 +906,7 @@ void main() {
     final fixture = await _pump(tester);
     final card = find.byKey(const ValueKey('chat-inbox-threads-card'));
     expect(
-      find.descendant(of: card, matching: find.byType(Text)),
+      find.descendant(of: card, matching: find.text('Threads')),
       findsOneWidget,
     );
     expect(fixture.api.chatBrowseRequested, isEmpty);
@@ -1124,7 +981,7 @@ void main() {
         size: const Size(390, 844),
       );
       for (final (key, route) in [
-        ('chat-inbox-channels-card', ChatRoute.browseRouteId),
+        ('chat-inbox-channels-card', null),
         ('chat-inbox-threads-card', ChatRoute.myThreadsRouteId),
       ]) {
         await fixture.show(_sidebarInbox());
@@ -1135,9 +992,23 @@ void main() {
           tester.getRect(navigation).top,
           greaterThan(tester.getRect(switches).bottom),
         );
+        final before = fixture.shell.currentContent?.id;
         await tester.tap(navigation);
         await tester.pumpAndSettle();
-        expect(fixture.shell.currentContent?.id, route);
+        if (route == null) {
+          // Channels are browsed in a panel over the side, not on a page.
+          expect(_channelPanel, findsOneWidget);
+          expect(fixture.shell.currentContent?.id, before);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          if (_channelPanel.evaluate().isNotEmpty) {
+            await tester.tapAt(const Offset(20, 60));
+            await tester.pumpAndSettle();
+          }
+          expect(_channelPanel, findsNothing);
+        } else {
+          expect(fixture.shell.currentContent?.id, route);
+        }
         expect(tester.takeException(), isNull);
       }
     });
@@ -1213,13 +1084,13 @@ void main() {
     }
   });
 
-  testWidgets('thread rows show the latest reply and reply count', (
+  testWidgets('thread rows show the latest reply, not a reply count', (
     tester,
   ) async {
     await _pump(tester);
     await _tab(tester, ChatBrowsePage.threads);
     expect(find.text('A recent answer'), findsNWidgets(2));
-    expect(find.text('3 replies'), findsNWidgets(2));
+    expect(find.text('3 replies'), findsNothing);
     expect(
       find.byKey(const ValueKey('chat-my-thread-preview-surface-1')),
       findsNothing,
@@ -1243,10 +1114,7 @@ Widget _sidebarInbox({List<Widget> trailingSlivers = const []}) => Builder(
   },
 );
 
-Finder _unreadOn(int channelId, [String count = '1']) => find.descendant(
-  of: find.byKey(ValueKey('chat-browse-channel-$channelId')),
-  matching: find.text(count),
-);
+final _channelPanel = find.byKey(const ValueKey('chat-channel-panel-field'));
 
 Rect _rowContentBounds(WidgetTester tester, Finder row) {
   final parts = find.descendant(
@@ -1275,28 +1143,52 @@ Future<void> _tab(
     await tester.pumpAndSettle();
   }
   if (page == ChatBrowsePage.chats) return;
-  final target = find.byKey(
-    ValueKey(
-      page == ChatBrowsePage.channels
-          ? 'chat-inbox-channels-card'
-          : 'chat-inbox-threads-card',
-    ),
-  );
+  final target = find.byKey(const ValueKey('chat-inbox-threads-card'));
+  // The ways are rows of the list, which builds only what is in view.
+  if (target.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      target,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ChatMobileSidebar),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+  }
   await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
   await tester.tap(target);
   if (settle) await tester.pumpAndSettle();
 }
 
 Future<void> _pick(WidgetTester tester, String key, String value) async {
-  if (key == 'chat-inbox-activity-filter' || key == 'chat-inbox-sort-filter') {
+  if (key == 'chat-inbox-sort-filter') {
     await tester.tap(
       find.descendant(
         of: find.byKey(ValueKey(key)),
-        matching: find.text(value),
+        matching: find.byTooltip(value),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.byType(DDropdownMenuContent), findsNothing);
+    return;
+  }
+  if (key == 'chat-threads-channel-filter') {
+    // The pill opens the channel panel, where the one pressed is the choice.
+    await tester.tap(find.byKey(ValueKey(key)));
+    await tester.pumpAndSettle();
+    expect(_channelPanel, findsOneWidget);
+    await _capture(tester, key);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-channel-panel-list')),
+        matching: find.text(value),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_channelPanel, findsNothing);
     return;
   }
   await tester.tap(find.byKey(ValueKey(key)));
@@ -1311,10 +1203,6 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
   if (mobile) {
     final label = switch (key) {
       'chat-inbox-sort-filter' => 'Chat order',
-      'chat-inbox-activity-filter' => 'Chat activity',
-      'chat-browse-status' => 'Status',
-      'chat-browse-joined' => 'Membership',
-      'chat-threads-channel-filter' => 'Channel',
       _ => throw StateError('Unknown chat filter: $key'),
     };
     expect(
@@ -1329,19 +1217,13 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
       label,
     );
   }
-  final channel = key == 'chat-threads-channel-filter';
-  expect(
-    channel
-        ? find.byType(DCommandList<int>)
-        : find.byType(DDropdownMenuContent),
-    findsOneWidget,
-  );
+  expect(find.byType(DDropdownMenuContent), findsOneWidget);
   await _capture(tester, key);
   await tester.tap(
     find.byWidgetPredicate(
       (widget) =>
           widget is Semantics &&
-          (channel || widget.properties.inMutuallyExclusiveGroup == true) &&
+          widget.properties.inMutuallyExclusiveGroup == true &&
           widget.properties.label == value,
     ),
   );

@@ -23,9 +23,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
       await tester.pumpAndSettle();
       if (iteration == 0) {
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Newest').last);
+        await tester.tap(find.byTooltip('Newest'));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('sam').first);

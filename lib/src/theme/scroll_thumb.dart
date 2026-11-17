@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 /// Painter configuration for the draggable thumb; RawScrollbar remains the
-/// sole gesture and paint owner. Null color adapts to the container surface.
+/// sole gesture and paint owner. A scrollbar is only its thumb: no track and
+/// no corner fill, in the palette's ink, thin and round.
 @immutable
 class DScrollThumb {
   const DScrollThumb();
@@ -9,28 +10,13 @@ class DScrollThumb {
   /// Shared width in logical pixels for UI kit and native app scrollbars.
   static const double defaultThickness = 4;
 
-  /// Clear space between the thumb and its container, in logical pixels.
-  static const double containerInset = 2;
+  /// Clear space between the thumb and its container, in logical pixels: a
+  /// 10 wide gutter around a 4 wide thumb.
+  static const double containerInset = 3;
 
-  /// A subdued thumb with at least 3:1 contrast against an opaque surface.
-  /// Translucent surfaces should be composited over their backdrop by callers.
-  static Color colorOn(Color background, {required Color foreground}) {
-    double contrast(Color color) {
-      final a = color.computeLuminance();
-      final b = background.computeLuminance();
-      return a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
-    }
+  /// The thumb at rest, the ink at 24%.
+  static Color color(Color ink) => ink.withValues(alpha: ink.a * .24);
 
-    var target = Color.alphaBlend(foreground, background);
-    if (contrast(target) < 3) {
-      target = contrast(Colors.black) > contrast(Colors.white)
-          ? Colors.black
-          : Colors.white;
-    }
-    for (var step = 55; step < 100; step += 5) {
-      final candidate = Color.lerp(background, target, step / 100)!;
-      if (contrast(candidate) >= 3) return candidate;
-    }
-    return target;
-  }
+  /// The thumb under the pointer or dragged, the ink at 36%.
+  static Color activeColor(Color ink) => ink.withValues(alpha: ink.a * .36);
 }

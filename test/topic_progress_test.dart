@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:ui' show Tristate;
 
@@ -333,7 +334,12 @@ void main() {
             TextSelection(baseOffset: 0, extentOffset: label.length),
           );
           expect(find.text(label), findsOneWidget);
-          expect(boxes.map((box) => box.top).toSet(), hasLength(1));
+          // The figure and its total differ in size, so on one line their
+          // boxes overlap rather than share a top.
+          expect(
+            boxes.map((box) => box.top).reduce(math.max),
+            lessThan(boxes.map((box) => box.bottom).reduce(math.min)),
+          );
           expect(paragraph.didExceedMaxLines, isFalse);
           for (final box in boxes) {
             expect(

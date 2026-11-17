@@ -28,6 +28,7 @@ import 'post_notice_editor.dart';
 import 'post_permanent_delete.dart';
 import 'post_quote.dart';
 import 'post_revision_history.dart';
+import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_change_owner.dart';
@@ -56,7 +57,7 @@ class PostActions extends StatefulWidget {
   }) {
     if (!enabled) return child;
     final onReact = context
-        .dependOnInheritedWidgetOfExactType<_PostQuickReactionScope>()
+        .dependOnInheritedWidgetOfExactType<_PostContentScope>()
         ?.onReact;
     return GestureDetector(onDoubleTap: onReact, child: child);
   }
@@ -239,6 +240,7 @@ class _PostActionsState extends State<PostActions> {
     List<PostAction> actions,
     Listenable? rebuildOn,
     Future<String?> Function()? quickReaction,
+    VoidCallback? share,
   })
   _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
@@ -263,6 +265,7 @@ class _PostActionsState extends State<PostActions> {
         ],
         rebuildOn: null,
         quickReaction: null,
+        share: null,
       );
     }
     final instance = controller.currentInstance;
@@ -289,15 +292,15 @@ class _PostActionsState extends State<PostActions> {
     final postUrl = _postShareUrl(controller);
     final canonicalUrl = _postCanonicalUrl(controller);
     final topicTitle = topic?.title;
-    Future<void> share(String url, [Rect? anchor]) => showPostShareSheet(
+    Future<void> share(String url) => showPostShareSheet(
       context: context,
       topicTitle: topicTitle!,
       url: url,
-      anchor: anchor,
       postNumber: post.postNumber,
       privateMessage: topic?.privateMessage == true,
       onReplyAsNewTopic:
           topic != null &&
+              post.postNumber != 1 &&
               controller.canReplyAsNewTopic(topic) &&
               canonicalUrl != null
           ? captureShareReplyAsNewTopic(
@@ -357,7 +360,6 @@ class _PostActionsState extends State<PostActions> {
             group: PostActionGroup.share,
             label: appL10n.share,
             tooltip: appL10n.shareThisPost,
-            onInvokeAnchored: (anchor) => unawaited(share(url, anchor)),
             onInvoke: () => unawaited(share(url)),
           ),
         if (tab.canReplyHere &&
@@ -700,6 +702,9 @@ class _PostActionsState extends State<PostActions> {
               return controller.toggleLike(latest, siteUrl: widget.siteUrl);
             }
           : null,
+      share: postUrl == null || topicTitle == null
+          ? null
+          : () => unawaited(share(postUrl)),
     );
   }
 
@@ -969,17 +974,24 @@ class _PostActionsState extends State<PostActions> {
             context,
             current.actions,
             current.quickReaction,
+            current.share,
           );
         },
       );
     }
-    return _buildActionList(context, snapshot.actions, snapshot.quickReaction);
+    return _buildActionList(
+      context,
+      snapshot.actions,
+      snapshot.quickReaction,
+      snapshot.share,
+    );
   }
 
   Widget _buildActionList(
     BuildContext context,
     List<PostAction> actions,
     Future<String?> Function()? quickReaction,
+    VoidCallback? share,
   ) {
     actions = [
       for (final group in PostActionGroup.values)
@@ -1002,6 +1014,17 @@ class _PostActionsState extends State<PostActions> {
       unawaited(_report(quickReaction!));
     }
 
+    void shareFromDate() {
+      if (!owner.isCurrent(
+        context,
+        siteUrl: widget.siteUrl,
+        postId: widget.post.id,
+      )) {
+        return;
+      }
+      share!();
+    }
+
     void invoke(PostAction action, BuildContext anchorContext) =>
         _invokeFrom(action, anchorContext, owner);
     if (widget.persistent) {
@@ -1011,8 +1034,9 @@ class _PostActionsState extends State<PostActions> {
         firstFocus: _firstActionFocus,
         onInvoke: invoke,
         postNumber: widget.post.postNumber,
-        child: _PostQuickReactionScope(
+        child: _PostContentScope(
           onReact: context.isTouch && quickReaction != null ? react : null,
+          onShare: share == null ? null : shareFromDate,
           child: CallbackShortcuts(
             bindings: {
               const SingleActivator(LogicalKeyboardKey.contextMenu):
@@ -1066,8 +1090,9 @@ class _PostActionsState extends State<PostActions> {
             ),
           ),
         ),
-        child: _PostQuickReactionScope(
+        child: _PostContentScope(
           onReact: context.isTouch && quickReaction != null ? react : null,
+          onShare: share == null ? null : shareFromDate,
           child: widget.child,
         ),
       ),
@@ -1094,14 +1119,60 @@ class _PostActionsState extends State<PostActions> {
   }
 }
 
-class _PostQuickReactionScope extends InheritedWidget {
-  const _PostQuickReactionScope({required this.onReact, required super.child});
+/// What a post's own content can set off: a quick reaction from a double
+/// tap on its body, and its share sheet from its date.
+class _PostContentScope extends InheritedWidget {
+  const _PostContentScope({
+    required this.onReact,
+    required this.onShare,
+    required super.child,
+  });
 
   final VoidCallback? onReact;
+  final VoidCallback? onShare;
 
   @override
-  bool updateShouldNotify(_PostQuickReactionScope oldWidget) =>
-      oldWidget.onReact != onReact;
+  bool updateShouldNotify(_PostContentScope oldWidget) =>
+      oldWidget.onReact != onReact || oldWidget.onShare != onShare;
+}
+
+/// A post's date, at its byline's far end: pressed, the way to share the
+/// post, as Discourse's post date is.
+class PostDateShare extends StatelessWidget {
+  const PostDateShare({super.key, required this.post, required this.createdAt});
+
+  final Post post;
+  final DateTime createdAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = DTokens.of(context).mutedForeground;
+    final date = RelativeTimeText(
+      createdAt,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: DiscourseTypography.xs,
+        color: muted,
+      ),
+    );
+    final share = context
+        .dependOnInheritedWidgetOfExactType<_PostContentScope>()
+        ?.onShare;
+    if (share == null) return date;
+    final label = post.postNumber == 1
+        ? context.l10n.shareTopic
+        : context.l10n.sharePost('${post.postNumber}');
+    // The button's own tooltip, so what it does is said of the date and not
+    // of whatever encloses it.
+    return DButton(
+      key: ValueKey('post-date-share-${post.id}'),
+      variant: DButtonVariant.inline,
+      density: DButtonDensity.inlineMetadata,
+      tooltip: label,
+      semanticLabel: label,
+      label: date,
+      onPressed: share,
+    );
+  }
 }
 
 bool _hasFiniteEdges(Rect rect) =>

@@ -13,7 +13,6 @@ import '../models/post_flag.dart';
 import '../models/topic.dart';
 import '../plugin_api/site_plugin_api.dart';
 import 'adaptive_dialog_action.dart';
-import 'anchored_layout.dart';
 import 'bookmark_ui.dart';
 import 'dsa_notice_form.dart';
 import 'post_flag_editor.dart';
@@ -155,19 +154,9 @@ class TopicShareButton extends StatelessWidget {
     final instance = controller.currentInstance;
     if (instance == null || instance.url != siteUrl) return;
     final slug = route?.slug;
-    final anchor = anchorRect(
-      anchor: context.findRenderObject() as RenderBox?,
-      overlay:
-          Navigator.of(
-                context,
-                rootNavigator: true,
-              ).overlay?.context.findRenderObject()
-              as RenderBox?,
-    );
     unawaited(
       showTopicShareSheet(
         context: context,
-        anchor: anchor,
         title: topic.title,
         url: topicShareUrl(
           siteUrl: siteUrl,
@@ -182,22 +171,6 @@ class TopicShareButton extends StatelessWidget {
                 context: context,
                 siteUrl: siteUrl,
                 topicId: topic.id,
-              )
-            : null,
-        onReplyAsNewTopic: controller.canReplyAsNewTopic(topic)
-            ? captureShareReplyAsNewTopic(
-                context: context,
-                siteUrl: siteUrl,
-                topicId: topic.id,
-                continuation: topicContinuationMarkdown(
-                  title: topic.title,
-                  url: topicShareUrl(
-                    siteUrl: siteUrl,
-                    topicId: topic.id,
-                    slug: slug,
-                    config: instance.config,
-                  ),
-                ),
               )
             : null,
       ),
@@ -833,7 +806,8 @@ class _TopicActionsButtonState extends State<TopicActionsButton> {
                 ? DTokens.of(context).wellFill
                 : null,
             tooltip: context.l10n.topicActionsMenu,
-            icon: const DIcon(DIcons.ellipsis),
+            // Upright, as a menu of more stands on a phone.
+            icon: const DIcon(DIcons.ellipsisVertical),
           ),
         ),
       ),
@@ -888,7 +862,6 @@ class TopicNotificationLevelButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.topic,
-    this.showChevron = false,
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
@@ -897,7 +870,6 @@ class TopicNotificationLevelButton extends StatelessWidget {
 
   final String siteUrl;
   final TopicDetail topic;
-  final bool showChevron;
   final DButtonVariant? variant;
   final DButtonSize size;
   final DButtonDensity density;
@@ -946,7 +918,6 @@ class TopicNotificationLevelButton extends StatelessWidget {
           sheetOnMobile: true,
           mobileSheetVariant: DSheetVariant.adaptiveMenu,
           buttonKey: buttonKey,
-          showChevron: showChevron,
           variant: variant,
           size: size,
           density: density,
@@ -970,13 +941,11 @@ class TopicNotificationLevelButton extends StatelessWidget {
 class TopicNotificationLevelPlaceholder extends StatelessWidget {
   const TopicNotificationLevelPlaceholder({
     super.key,
-    this.showChevron = false,
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
   });
 
-  final bool showChevron;
   final DButtonVariant? variant;
   final DButtonSize size;
   final DButtonDensity density;
@@ -985,7 +954,6 @@ class TopicNotificationLevelPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) =>
       DNotificationLevelMenu<TopicNotificationLevel>(
         semanticLabel: context.l10n.topicNotifications,
-        showChevron: showChevron,
         variant: variant,
         size: size,
         density: density,

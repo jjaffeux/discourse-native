@@ -1191,12 +1191,12 @@ void _registerTopicModerationTests() {
       await tapPostAction(tester, 'Assign this post to another account');
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.byKey(const ValueKey('topic-change-owner-search')),
+        find.byKey(const ValueKey('person-picker-search')),
         'kris',
       );
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-change-owner-submit')));
+      await tester.tap(find.byKey(const ValueKey('person-picker-user-kris')));
       await tester.pumpAndSettle();
 
       expect(api.postOwnersChanged, hasLength(1));
@@ -1884,13 +1884,16 @@ void _registerTopicModerationTests() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-        find.byKey(const ValueKey('topic-change-owner-search')),
+        find.byKey(const ValueKey('person-picker-search')),
         'kris',
       );
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
-      expect(find.text('Kris'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('topic-change-owner-submit')));
+      expect(
+        find.byKey(const ValueKey('person-picker-user-kris')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('person-picker-user-kris')));
       await tester.pumpAndSettle();
 
       expect(api.postOwnersChanged, hasLength(1));

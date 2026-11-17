@@ -94,6 +94,53 @@ void popoverBackdropTests() {
 }
 
 void main() {
+  testWidgets('content shown in and out of a popover reads its close', (
+    tester,
+  ) async {
+    VoidCallback? inside;
+    VoidCallback? outside = () {};
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Column(
+            children: [
+              Builder(
+                builder: (context) {
+                  outside = DPopoverClose.maybeOf(context);
+                  return const SizedBox.shrink();
+                },
+              ),
+              DPopover(
+                content: DPopoverContent(
+                  child: Builder(
+                    builder: (context) {
+                      inside = DPopoverClose.maybeOf(context);
+                      return const Text('Inside');
+                    },
+                  ),
+                ),
+                child: DPopoverTrigger(
+                  builder: (context, trigger) => DButton(
+                    label: const Text('Open'),
+                    onPressed: trigger.toggle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(outside, isNull);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Inside'), findsOneWidget);
+    inside!();
+    await tester.pumpAndSettle();
+    expect(find.text('Inside'), findsNothing);
+  });
+
   popoverBackdropTests();
 
   for (final remove in [false, true]) {

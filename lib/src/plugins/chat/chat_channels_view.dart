@@ -9,6 +9,7 @@ import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_channel_list_actions.dart';
 import 'chat_channel_list_preferences.dart';
+import 'chat_channel_panel.dart';
 import 'chat_new_direct_message.dart';
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
@@ -66,7 +67,8 @@ class ChatChannelsView extends StatelessWidget {
               label: context.l10n.browse,
               tooltip: context.l10n.browseChannels,
               icon: DIcons.plus,
-              onPressed: shell.openBrowseChannels,
+              onPressed: () =>
+                  unawaited(showChatChannelBrowser(context, siteUrl: siteUrl)),
             ),
           ChatChannelListKind.directMessages
               when shell.currentUser?.staff == true ||

@@ -20,13 +20,24 @@ const _title = r'A [real] topic \ notes';
 const _replyKey = ValueKey('topic-share-reply-as-new-topic');
 
 void main() {
-  for (final postNumber in <int?>[null, 3]) {
-    final kind = postNumber == null ? 'topic' : 'post';
+  // The topic and its opening post are shared with nothing to continue, so
+  // only a reply's share carries a continuation to keep safe.
+  for (final postNumber in <int?>[null, 1]) {
+    testWidgets(
+      '${postNumber == null ? 'topic' : 'post #1'} share offers no reply as a new topic',
+      (tester) async {
+        final harness = await _Harness.create(tester, postNumber);
+        await harness.open(tester, offersReply: false);
+        expect(find.byKey(_replyKey), findsNothing);
+      },
+    );
+  }
+
+  for (final postNumber in <int?>[3]) {
+    const kind = 'post';
 
     for (final replacement in ['forum', 'topic', 'tab', 'account']) {
-      final composerStates = postNumber == null
-          ? [false, true]
-          : [replacement == 'forum' || replacement == 'tab'];
+      const composerStates = [false, true];
       for (final existingComposer in composerStates) {
         testWidgets(
           '$kind share cannot ${existingComposer ? 'replace' : 'create'} a composer after $replacement replacement',
@@ -105,7 +116,7 @@ void main() {
       expect(harness.shell.visibleComposer, isNull);
     });
 
-    for (final disposeOriginal in [false, if (postNumber != null) true]) {
+    for (final disposeOriginal in [false, true]) {
       testWidgets(
         '$kind share expires after controller replacement${disposeOriginal ? ' and disposal' : ''}',
         (tester) async {
@@ -185,9 +196,9 @@ void main() {
     },
   );
 
-  for (final postNumber in <int?>[null, 1, 3]) {
+  for (final postNumber in <int?>[3]) {
     testWidgets(
-      '${postNumber == null ? 'topic' : 'post #$postNumber'} share keeps its canonical source when the source route updates',
+      'post #$postNumber share keeps its canonical source when the source route updates',
       (tester) async {
         final harness = await _Harness.create(tester, postNumber);
         final shell = harness.shell;
@@ -293,7 +304,7 @@ final class _Harness {
     return harness;
   }
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(WidgetTester tester, {bool offersReply = true}) async {
     if (postNumber == null) {
       await tester.tap(find.byKey(const ValueKey('topic-share-button')));
     } else {
@@ -302,7 +313,7 @@ final class _Harness {
       await tester.tap(find.text('Share'));
     }
     await tester.pumpAndSettle();
-    expect(find.byKey(_replyKey), findsOneWidget);
+    expect(find.byKey(_replyKey), offersReply ? findsOneWidget : findsNothing);
     expect(find.text(shareUrl), findsOneWidget);
   }
 

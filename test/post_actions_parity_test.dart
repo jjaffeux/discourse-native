@@ -210,8 +210,11 @@ void main() {
       final solution = tester.widget<DCard>(
         find.byKey(const ValueKey('post-news-card-8')),
       );
+      expect(solution.backgroundColor, Colors.transparent);
       expect(
-        solution.backgroundColor,
+        tester
+            .widget<DCardTint>(find.byKey(const ValueKey('post-news-head-8')))
+            .color,
         DTokens.of(
           tester.element(find.byType(TopicView)),
         ).success.withValues(alpha: .08),
@@ -442,7 +445,18 @@ void main() {
           }
           final openingCard = tester.widget<DCard>(opening);
           final primary = Theme.of(tester.element(opening)).colorScheme.primary;
-          expect(openingCard.backgroundColor, primary.withValues(alpha: .08));
+          expect(openingCard.backgroundColor, Colors.transparent);
+          expect(
+            tester
+                .widget<DCardTint>(
+                  find.descendant(
+                    of: opening,
+                    matching: find.byType(DCardTint),
+                  ),
+                )
+                .color,
+            primary.withValues(alpha: .08),
+          );
           expect(openingCard.borderColor, primary.withValues(alpha: .26));
           expect(tester.takeException(), isNull);
           await _capture(

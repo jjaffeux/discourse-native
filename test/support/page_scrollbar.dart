@@ -31,7 +31,7 @@ Future<void> expectPageEdgeScrolling(
   position.jumpTo(0);
   await tester.pump(const Duration(milliseconds: 50));
   await tester.dragFrom(
-    Offset(right - 3, bounds.top + (topInset?.call() ?? 0) + 8),
+    Offset(right - 5, bounds.top + (topInset?.call() ?? 0) + 8),
     const Offset(0, 120),
     kind: PointerDeviceKind.mouse,
   );

@@ -37,9 +37,9 @@ void main() {
 
         final filters = ChatInboxFilters();
         addTearDown(filters.dispose);
-        for (final (appScale, platformScale, height, textSize) in [
-          (1.0, 1.0, 36.0, 14.0),
-          (1.25, 2.0, 67.5, 35.0),
+        for (final (appScale, platformScale, height) in [
+          (1.0, 1.0, 36.0),
+          (1.25, 2.0, 67.5),
         ]) {
           await tester.pumpWidget(
             MaterialApp(
@@ -63,19 +63,13 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          for (final key in [
-            'chat-inbox-activity-filter',
-            'chat-inbox-sort-filter',
-          ]) {
-            final control = find.byKey(ValueKey(key));
-            expect(tester.getSize(control).height, height, reason: key);
-            final label = find
-                .descendant(of: control, matching: find.byType(Text))
-                .first;
-            final context = tester.element(label);
-            final fontSize = DefaultTextStyle.of(context).style.fontSize!;
-            expect(MediaQuery.textScalerOf(context).scale(fontSize), textSize);
-          }
+          // Chat's switch is two marks, so its height is all it shares.
+          expect(
+            tester
+                .getSize(find.byKey(const ValueKey('chat-inbox-sort-filter')))
+                .height,
+            height,
+          );
           expect(tester.takeException(), isNull);
         }
       },

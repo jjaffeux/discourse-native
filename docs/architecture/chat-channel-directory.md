@@ -36,13 +36,18 @@ Member-session tests cover immediate retirement, equal-target successor binding,
 late success/failure and a prior retirement observer that binds the successor.
 Existing directory and channel-info tests cover account HTTP admission and UI use.
 
-## Retained browse directories
+## The channel panel's browse session
 
-`ChatBrowseSession` also owns an account lease for its retained directory rows.
+`ChatBrowseSession` belongs to one open channel panel. It opens on the words
+it is given and owns the query, the server cursor and an account lease for
+the rows it holds. Which channels the chips narrow it to is kept in
+`ChatInboxFilters` for the forum between one opening and the next. The words
+are not kept.
+
 Account retirement clears rows, server cursor, pending request/error state and
-search debounce immediately. The mounted document keeps its filter choices;
-explicit refresh captures a successor lease and starts at offset zero. Automatic
-prefetch cannot reopen a retired account or borrow its cursor.
+search debounce immediately. Explicit refresh captures a successor lease and
+starts at offset zero. Automatic prefetch cannot reopen a retired account or
+borrow its cursor.
 
 Every browse request captures its account owner as well as its immutable query.
 Both dispatch and settlement require that exact owner, current lease and request.
@@ -53,7 +58,13 @@ Refresh and disposal detach the previous account observation. Disposal from a
 synchronous retirement listener waits until notifier dispatch has unwound.
 No widget lifecycle listener or general request dispatcher is added.
 
+A row's membership is read from the controller's record of the channel when it
+holds one, and from the page otherwise. A page read before a join or a leave
+and answered after it therefore lists the channel where it now belongs.
+
 Browse-session tests use the real controller and request host to reproduce old
 retained rows after invalidation, and cover late success/failure, a prior
-retirement observer refreshing the successor, and reentrant disposal. Existing
-view, parity and scroll tests retain filtering and pagination coverage.
+retirement observer refreshing the successor, and reentrant disposal.
+`chat_channel_follow_ordering_test.dart` covers a join and a leave of one
+channel against each other and against a page in flight.
+`chat_channel_panel_test.dart` covers what the panel lists, finds and pages.

@@ -884,6 +884,59 @@ void main() {
     );
   }
 
+  testWidgets('a dock round pill is as tall as the dock circle beside it', (
+    tester,
+  ) async {
+    const reading = AppTextScaler(
+      platformScaler: TextScaler.noScaling,
+      appScale: 1,
+      baselineScale: 17 / 14,
+    );
+    late double circle;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: reading),
+          child: Builder(
+            builder: (context) {
+              circle = DMobileDockGeometry.of(context).circle;
+              // Chrome scales its own text from the reference, unlike the
+              // dock; the pill still matches the dock.
+              return DReferenceTextScale(
+                child: Center(
+                  child: DButton(
+                    density: DButtonDensity.dockRound,
+                    size: DButtonSize.floating,
+                    variant: DButtonVariant.tool,
+                    shape: DButtonShape.pill,
+                    label: const Text('3 / 12'),
+                    onPressed: () {},
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    final surface = tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox && widget.decoration is DButtonDecoration,
+      ),
+    );
+    final label = tester.getRect(find.text('3 / 12'));
+    expect(circle, greaterThan(48));
+    expect(surface.height, moreOrLessEquals(circle));
+    expect(label.left - surface.left, 18);
+    expect(surface.right - label.right, 18);
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('3 / 12'))).style.fontSize,
+      15,
+    );
+  });
+
   testWidgets('an icon-only dock action stays circular within a wider slot', (
     tester,
   ) async {

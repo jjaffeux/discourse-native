@@ -171,8 +171,6 @@ class _DCodeEditorState extends State<DCodeEditor> {
         child: DScrollBar(
           controller: _verticalScroll,
           showScrollbar: _verticalScroll != null,
-          backgroundColor:
-              widget.backgroundColor ?? codeEditorColors(theme).blockBackground,
           notificationDepth: 1,
           child: ScrollConfiguration(
             behavior: _CodeEditorScrollBehavior(

@@ -137,21 +137,17 @@ extension on _ChatChannelDirectory {
     required bool publicChannelsEnabled,
   }) {
     if (filter.kind == ChatInboxKind.voiceRooms) return const [];
-    final channels =
-        [
-              if (publicChannelsEnabled &&
-                  filter.kind != ChatInboxKind.directMessages)
-                ...publicChannels(),
-              if (filter.kind != ChatInboxKind.channels) ...directChannels(),
-            ]
-            .where((channel) => !filter.unreadOnly || channel.badge.isVisible)
-            .toList();
+    final channels = [
+      if (publicChannelsEnabled && filter.kind != ChatInboxKind.directMessages)
+        ...publicChannels(),
+      if (filter.kind != ChatInboxKind.channels) ...directChannels(),
+    ];
     if (channels.length < 2) return channels;
     final activity = {
       for (final channel in channels) channel.id: chatInboxActivityAt(channel),
     };
     return _projectChannels(
-      ('inbox', filter.kind, filter.unreadOnly),
+      ('inbox', filter.kind),
       [
         for (final channel in channels)
           (channel.id, channel.title, activity[channel.id]),

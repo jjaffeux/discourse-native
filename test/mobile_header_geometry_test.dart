@@ -90,7 +90,6 @@ void main() {
         final chat = shell.pluginSession.require(chatShellService);
         for (final (name, open) in [
           ('chats', () => chat.openChats()),
-          ('channel browser', () => chat.openBrowseChannels()),
           ('threads', () => chat.openMyThreads()),
         ]) {
           open();

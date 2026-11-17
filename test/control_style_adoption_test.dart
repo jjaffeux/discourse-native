@@ -133,8 +133,6 @@ void main() {
         // The Chat drawer's search entry stands in for the shared search
         // field it opens, so its prompt keeps that field's muted hint color.
         'lib/src/plugins/chat/chat_inbox_section.dart': {'foregroundColor': 1},
-        // Browse's Join/Joined row action is the mockup's pill.
-        'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
         // Chat's jump-to-latest action shares the floating stream chip palette.
         'lib/src/plugins/chat/chat_channel_view.dart': {
           'shape': 1,
@@ -180,6 +178,14 @@ void main() {
           'shape': 1,
           'borderColor': 1,
         },
+        // The Assignments list's reassign and unassign actions are the
+        // mockup's rounds, the unassign on the danger tone at 18%.
+        'lib/src/plugins/assign/assign_plugin.dart': {
+          'shape': 2,
+          'backgroundColor': 1,
+        },
+        // A group to pick is the mockup's chip, as a message's recipients are.
+        'lib/src/shell/person_picker.dart': {'shape': 1},
         // Message hover actions sit on the row's own hover fill.
         'lib/src/plugins/chat/chat_message_tile.dart': {
           'interactiveBackgroundColor': 2,

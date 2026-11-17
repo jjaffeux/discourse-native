@@ -10,6 +10,7 @@ import '../models/topic.dart';
 import 'category_icon.dart';
 import 'platform.dart';
 import 'post_mutation_feedback.dart';
+import 'sheet_search.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -137,6 +138,7 @@ class _TopicMovePostsDialog extends StatefulWidget {
 class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   final _title = TextEditingController();
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   Timer? _searchDebounce;
   int _searchGeneration = 0;
   List<TopicMoveDestination> _destinations = const [];
@@ -172,6 +174,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
     _searchDebounce?.cancel();
     _title.dispose();
     _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -428,17 +431,30 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   Widget _existingTopicFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      DInput(
-        key: const ValueKey('topic-move-posts-search'),
+      SheetSearch(
+        inputKey: const ValueKey('topic-move-posts-search'),
         controller: _search,
+        focusNode: _searchFocus,
         autofocus: true,
         enabled: !_saving,
         onChanged: _scheduleSearch,
-        labelText: _message
+        hintText: _message
             ? appL10n.searchByMessageTitleOrID
             : appL10n.searchByTopicTitleOrID,
       ),
       const SizedBox(height: 8),
+      Expanded(
+        child: SheetSearchHold(
+          focusNode: _searchFocus,
+          child: _destinationList(),
+        ),
+      ),
+    ],
+  );
+
+  Widget _destinationList() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
       Expanded(
         child: _searching
             ? const SizedBox.shrink()

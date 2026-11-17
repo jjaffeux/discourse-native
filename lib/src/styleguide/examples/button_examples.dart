@@ -164,7 +164,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Topic timeline actions',
       description:
-          'Desktop timelines and pinned dates use flat chips. Phone reader tools and timelines use the 40px floating size on the chrome fill.',
+          'Desktop timelines and pinned dates use flat chips. Phone reader tools use the 40px floating size on the chrome fill. The phone timeline is a dockRound pill, as tall as the dock\'s circle with 18px insets.',
       code:
           "DButton(density: DButtonDensity.floatingCall, variant: DButtonVariant.ghost, label: Text('25 / 120'), onPressed: openTimeline)",
       builder: (_) => Wrap(
@@ -187,8 +187,10 @@ final buttonExamples = ComponentExamples(
             ),
           Builder(
             builder: (context) => DButton(
+              density: DButtonDensity.dockRound,
               size: DButtonSize.floating,
               variant: DButtonVariant.tool,
+              shape: DButtonShape.pill,
               backgroundColor: DTokens.of(context).wellFill,
               label: const Text('25 / 120'),
               onPressed: () {},

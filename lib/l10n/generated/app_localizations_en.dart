@@ -237,6 +237,88 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatViewLess => 'View less';
 
   @override
+  String chatViewUnreadAndRead(int unread, int read) {
+    String _temp0 = intl.Intl.pluralLogic(
+      read,
+      locale: localeName,
+      other: '$read read chats',
+      one: '1 read chat',
+    );
+    return 'View $unread unread & $_temp0';
+  }
+
+  @override
+  String chatViewRead(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'View $count read chats',
+      one: 'View 1 read chat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chatResults => 'Results';
+
+  @override
+  String get chatPrivateChannel => 'Private';
+
+  @override
+  String get chatMutedChannel => 'Muted';
+
+  @override
+  String get chatUnreadMuted => 'Unread, muted';
+
+  @override
+  String get findAChat => 'Find a chat';
+
+  @override
+  String chatThreadsNewReplies(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'New replies in $count threads',
+      one: 'New replies in 1 thread',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chatThreadsWay => 'Replies in the channels you are in';
+
+  @override
+  String get chatBrowseWay => 'Find and join channels you are not in';
+
+  @override
+  String get chatBrowseAllChannels => 'Browse all channels';
+
+  @override
+  String chatBrowseAllChannelsFor(String query) {
+    return 'Channels you are not in, for “$query”';
+  }
+
+  @override
+  String chatNoChannelsMatch(String query) {
+    return 'No channels match “$query”';
+  }
+
+  @override
+  String chatJoinChannelNamed(String channel) {
+    return 'Join $channel';
+  }
+
+  @override
+  String chatLeaveChannelNamed(String channel) {
+    return 'Leave $channel';
+  }
+
+  @override
+  String chatNoneMatch(String query) {
+    return 'None of your chats match “$query”';
+  }
+
+  @override
   String get destinationBookmarkPageType => 'Page';
 
   @override
@@ -1982,9 +2064,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'There are no active threads in this channel.';
 
   @override
-  String get noUnreadConversations => 'No unread conversations.';
-
-  @override
   String get noConversationsYet => 'No conversations yet.';
 
   @override
@@ -2002,9 +2081,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recent => 'Recent';
-
-  @override
-  String get chatActivity => 'Chat activity';
 
   @override
   String get voiceRooms => 'Voice rooms';
@@ -3747,12 +3823,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignPost => 'Assign post';
 
   @override
-  String get assignThisPost => 'Assign this post';
-
-  @override
-  String get editThisPostAssignment => 'Edit this post assignment';
-
-  @override
   String assignedToAPost(String who) {
     return 'assigned $who to a post';
   }
@@ -3778,37 +3848,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get topicUnassignedAssignTopic => 'Topic unassigned. Assign topic';
-
-  @override
   String openAssignplugin(String targetLabel) {
     return 'Open $targetLabel';
-  }
-
-  @override
-  String assignedToAssignplugin(String targetLabel) {
-    return 'Assigned to · $targetLabel';
-  }
-
-  @override
-  String get changeAssignee => 'Change assignee';
-
-  @override
-  String changeAssignment(String actionTarget) {
-    return 'Change $actionTarget assignment';
-  }
-
-  @override
-  String get removeAssignment => 'Remove assignment';
-
-  @override
-  String removeAssignmentAssignplugin(String actionTarget) {
-    return 'Remove $actionTarget assignment';
-  }
-
-  @override
-  String assignmentRemoved(String targetLabel) {
-    return '$targetLabel assignment removed';
   }
 
   @override
@@ -5708,10 +5749,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your connection changed. Reopen Move posts and try again.';
 
   @override
-  String get yourConnectionChangedReopenChangeOwnerAndTryAgain =>
-      'Your connection changed. Reopen Change owner and try again.';
-
-  @override
   String get yourConnectionChangedReopenTheActionAndTryAgain =>
       'Your connection changed. Reopen the action and try again.';
 
@@ -6443,24 +6480,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get changePostOwner => 'Change post owner';
 
   @override
-  String assignByToAnotherAccount(num count, String oldUsername) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Assign $count posts by @$oldUsername to another account.',
-      one: 'Assign $count post by @$oldUsername to another account.',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get searchUsers => 'Search users';
-
-  @override
-  String get searchForTheNewOwner => 'Search for the new owner.';
-
-  @override
-  String get noUsersFound => 'No users found.';
 
   @override
   String get changeOwner => 'Change owner';
@@ -9996,9 +10016,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get thisPostIsAPrivateWhisper => 'This post is a private whisper';
-
-  @override
   String thisIsTheFirstTimeHasPostedLetSWelcomeThem(String postUsername) {
     return 'This is the first time $postUsername has posted — let’s welcome them to our community!';
   }
@@ -10807,9 +10824,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get shareThisTopic => 'Share this topic';
-
-  @override
   String get inviteToTopicEntry => 'Invite people';
 
   @override
@@ -10828,9 +10842,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get couldnTOpenSharing => 'Couldn\'t open sharing.';
-
-  @override
-  String get shareToAnotherApp => 'Share to another app';
 
   @override
   String get allBadges => 'All badges';
@@ -11433,6 +11444,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newSinceLastVisit => 'New since your last visit';
 
   @override
+  String get whisperOnlyStaffCanSee => 'Whisper, only staff can see this';
+
+  @override
+  String newSinceLastVisitPosts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posts',
+      one: '1 post',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get reduceMotionDescription =>
       'Keep cards, menus and celebrations still.';
 
@@ -11832,50 +11857,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String unreadChatbrowsechannelsview(
-    String unread,
-    num unreadValue2,
-    String statusNull,
-    String appL10nNo,
-    String status,
-    String unreadValue6,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(statusNull, {
-      'true': '$appL10nNo unread messages',
-      'other': '$appL10nNo unread messages · $status',
-    });
-    String _temp1 = intl.Intl.selectLogic(statusNull, {
-      'true': '$appL10nNo unread message',
-      'other': '$appL10nNo unread message · $status',
-    });
-    String _temp2 = intl.Intl.pluralLogic(
-      unreadValue2,
-      locale: localeName,
-      other: '$_temp0',
-      one: '$_temp1',
-    );
-    String _temp3 = intl.Intl.selectLogic(statusNull, {
-      'true': '$unreadValue6 unread messages',
-      'other': '$unreadValue6 unread messages · $status',
-    });
-    String _temp4 = intl.Intl.selectLogic(statusNull, {
-      'true': '$unreadValue6 unread message',
-      'other': '$unreadValue6 unread message · $status',
-    });
-    String _temp5 = intl.Intl.pluralLogic(
-      unreadValue2,
-      locale: localeName,
-      other: '$_temp3',
-      one: '$_temp4',
-    );
-    String _temp6 = intl.Intl.selectLogic(unread, {
-      'true': '$_temp2',
-      'other': '$_temp5',
-    });
-    return '$_temp6';
-  }
-
-  @override
   String menu(String channelTitle) {
     return '$channelTitle menu';
   }
@@ -11931,28 +11912,6 @@ class AppLocalizationsEn extends AppLocalizations {
       locale: localeName,
       other: '$unreadCount unread messages',
       one: '$unreadCount unread message',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String unreadChatinbox(num threadCount) {
-    String _temp0 = intl.Intl.pluralLogic(
-      threadCount,
-      locale: localeName,
-      other: '$threadCount unread threads',
-      one: '$threadCount unread thread',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String messageNewChatinbox(num channelTrackingMentionCount) {
-    String _temp0 = intl.Intl.pluralLogic(
-      channelTrackingMentionCount,
-      locale: localeName,
-      other: '$channelTrackingMentionCount new mentions',
-      one: '$channelTrackingMentionCount new mention',
     );
     return '$_temp0';
   }
@@ -12607,37 +12566,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String messageChatbrowsechannelsview(
-    String following,
-    String appL10nLeave,
-    String channelTitle,
-    String appL10nJoin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(following, {
-      'true': '$appL10nLeave $channelTitle',
-      'other': '$appL10nJoin $channelTitle',
-    });
-    return '$_temp0';
-  }
-
-  @override
   String messageChatmessagetile(num participants) {
     String _temp0 = intl.Intl.pluralLogic(
       participants,
       locale: localeName,
       other: ' $participants participants.',
       one: ' $participants participant.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String messageChatinbox(num count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count messages',
-      one: '$count message',
     );
     return '$_temp0';
   }
@@ -14987,12 +14921,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Delete this room? Everyone in the call will be disconnected. This cannot be undone.';
 
   @override
-  String get noChatsMatch => 'No chats match.';
-
-  @override
-  String get searchChat => 'Search chat';
-
-  @override
   String get voiceRoomDeleteFailed => 'Couldn’t delete the room.';
 
   @override
@@ -16552,4 +16480,123 @@ class AppLocalizationsEn extends AppLocalizations {
   String requestedLinkUnknownSite(String host) {
     return '$host isn’t one of your sites.';
   }
+
+  @override
+  String nothingMatchesTerm(String term) {
+    return 'Nothing matches “$term”';
+  }
+
+  @override
+  String get assignTopicTo => 'Assign topic to…';
+
+  @override
+  String get reassignTopicTo => 'Reassign topic to…';
+
+  @override
+  String get assignPostTo => 'Assign post to…';
+
+  @override
+  String get reassignPostTo => 'Reassign post to…';
+
+  @override
+  String get changeOwnerTo => 'Change owner to…';
+
+  @override
+  String get chooseWhoLooksAfterTopic =>
+      'Choose who should look after this topic.';
+
+  @override
+  String get chooseWhoLooksAfterPost =>
+      'Choose who should look after this post.';
+
+  @override
+  String chooseWhoPostsBelongTo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Choose who these $count posts should belong to.',
+      one: 'Choose who this post should belong to.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String assignedTopicToName(String name) {
+    return 'Assigned topic to $name';
+  }
+
+  @override
+  String assignedToName(String name) {
+    return 'Assigned to $name';
+  }
+
+  @override
+  String get unassignedFromTopic => 'Unassigned from topic';
+
+  @override
+  String unassignedFromPostNumber(int postNumber) {
+    return 'Unassigned from post #$postNumber';
+  }
+
+  @override
+  String ownerChangedTo(String name) {
+    return 'Owner changed to $name';
+  }
+
+  @override
+  String topicAssignedTo(String name) {
+    return 'Topic assigned to $name';
+  }
+
+  @override
+  String postNumberAssignedTo(int postNumber, String name) {
+    return 'Post #$postNumber assigned to $name';
+  }
+
+  @override
+  String get assignedTopicTo => 'Assigned topic to';
+
+  @override
+  String assignedPostNumberTo(int postNumber) {
+    return 'Assigned post #$postNumber to';
+  }
+
+  @override
+  String get reassignPost => 'Reassign post';
+
+  @override
+  String get unassignFromTopicAction => 'Unassign from topic';
+
+  @override
+  String get unassignFromPost => 'Unassign from post';
+
+  @override
+  String unassignNameFromPost(String name) {
+    return 'Unassign $name from post';
+  }
+
+  @override
+  String unassignNameFromPostNumber(String name, int postNumber) {
+    return 'Unassign $name from post #$postNumber';
+  }
+
+  @override
+  String get changeAssignmentAction => 'Change assignment';
+
+  @override
+  String assignmentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count assignments',
+      one: '1 assignment',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get editNoteAndStatus => 'Edit note and status';
+
+  @override
+  String get assignedPostTo => 'Assigned post to';
 }

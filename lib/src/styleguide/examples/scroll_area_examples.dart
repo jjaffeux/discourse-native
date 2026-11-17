@@ -9,13 +9,13 @@ final scrollAreaExamples = ComponentExamples(
   description:
       'Native scrolling with transparent edge fades and compact, themed draggable scrollbars.',
   notes:
-      'Vertical content fades over 14px at the top and 20px at the bottom only while more content remains beyond that edge. DScrollFadeScope changes the extent or follows a floating header; nested lists keep their own edges. Horizontal viewports are unfaded by default; opt into matching left/right fades with DScrollFadeScope(horizontalExtent: 30). Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork adapts to its surface with at least 3:1 contrast and a 2px container inset. Supply backgroundColor for a custom surface.',
+      'Vertical content fades over 14px at the top and 20px at the bottom only while more content remains beyond that edge. DScrollFadeScope changes the extent or follows a floating header; nested lists keep their own edges. Horizontal viewports are unfaded by default; opt into matching left/right fades with DScrollFadeScope(horizontalExtent: 30). Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. A scrollbar is only its thumb: no track and no corner fill, 4px wide in a 10px gutter, the palette ink at 24% and at 36% under the pointer or while dragged.',
   examples: [
     StyleguideExample(
-      title: 'Surface contrast',
+      title: 'Ink thumb',
       description:
-          'Thumb colors follow the supplied surface, with 2px of clear space at the container edge. Switch palettes to compare content, panel and popup backgrounds.',
-      code: 'DScrollArea(backgroundColor: surface, child: content)',
+          'The thumb is the palette ink at 24%, with 3px of clear space at the container edge, on content, panel and popup backgrounds alike. Hover it to see 36%.',
+      code: 'DScrollArea(child: content)',
       builder: (context) {
         final tokens = DTokens.of(context);
         return Row(
@@ -33,7 +33,6 @@ final scrollAreaExamples = ComponentExamples(
                     child: SizedBox(
                       height: 160,
                       child: DScrollArea(
-                        backgroundColor: surface,
                         child: Column(
                           children: [
                             for (var i = 1; i <= 20; i++)

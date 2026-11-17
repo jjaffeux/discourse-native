@@ -3351,10 +3351,13 @@ void main() {
           );
           expect(
             tester
-                .widget<Text>(
-                  find.byKey(const ValueKey('topic-progress-selection')),
+                .widget<RichText>(
+                  find.descendant(
+                    of: find.byKey(const ValueKey('topic-progress-selection')),
+                    matching: find.byType(RichText),
+                  ),
                 )
-                .textSpan!
+                .text
                 .toPlainText(),
             '5188 / 5188',
           );

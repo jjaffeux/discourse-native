@@ -185,7 +185,9 @@ List<ForumTheme> get forumThemePresets => <ForumTheme>[
     secondary: const Color(0xFF1A1A1A),
     tertiary: const Color(0xFF39845B),
     quaternary: const Color(0xFF39845B),
-    danger: const Color(0xFF39845B),
+    // Horizon's Clover leaves danger to Discourse's own: its green would make
+    // taking something back look like confirming it.
+    danger: const Color(0xFFE45735),
     success: const Color(0xFF39845B),
     love: const Color(0xFFFA6C8D),
   ),

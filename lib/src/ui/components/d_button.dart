@@ -24,6 +24,7 @@ import '../foundation/touch_target.dart';
 import 'd_fit_row.dart';
 import 'd_kbd.dart';
 import 'd_link_interaction.dart';
+import 'd_mobile_dock_geometry.dart';
 import 'd_spinner.dart';
 import 'd_tooltip.dart';
 
@@ -141,6 +142,11 @@ enum DButtonDensity {
 
   /// Active destination remaining in a folded mobile dock.
   mobileDockCollapsed,
+
+  /// A pill as tall as the mobile dock's folded circle beside it
+  /// ([DMobileDockGeometry.circle]), with 18px insets and 15px text: where a
+  /// reader is in a topic, at a phone's foot.
+  dockRound,
 
   /// Inset window actions: 32 by 28px, 15px icons and a flat hover tint.
   /// Pair with a small capsule DCard. The visible bounds are the hit bounds.
@@ -576,6 +582,7 @@ class DButton extends StatelessWidget {
     final mobileDock = density == DButtonDensity.mobileDock || mobileDockTile;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
     final mobileDockCollapsed = density == DButtonDensity.mobileDockCollapsed;
+    final dockRound = density == DButtonDensity.dockRound;
 
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
@@ -609,6 +616,8 @@ class DButton extends StatelessWidget {
               : size);
     final fontSize = floatingCall
         ? 11.5
+        : dockRound
+        ? 15.0
         : timelineEnd
         ? 12.5
         : postReaction
@@ -683,6 +692,8 @@ class DButton extends StatelessWidget {
                   1.5
         : postReaction
         ? DPostReactionStyle.height(MediaQuery.textScalerOf(context))
+        : dockRound
+        ? DMobileDockGeometry.circleOf(context)
         : header
         ? (wideHeader ? 36 : 28) +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
@@ -793,6 +804,14 @@ class DButton extends StatelessWidget {
         : visualDimension;
     final surfaceHeight = visualDimension;
     final iconOnlySurfaceSize = Size(surfaceWidth, surfaceHeight);
+    // A part of a floating tool pill is as wide as what it holds, and no
+    // narrower than it is tall, with its glyph from its leading inset. The
+    // pill's ends curve in on what is at them, so those stand further in.
+    final pillPart =
+        variant == DButtonVariant.tool &&
+        joined?.quiet == true &&
+        effectiveSize == DControlSize.floating;
+    final squareIcon = _iconOnly && !intrinsicIcon && !pillPart;
     var radius =
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
@@ -1025,19 +1044,33 @@ class DButton extends StatelessWidget {
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        _iconOnly && !intrinsicIcon
+        squareIcon
             ? iconOnlySurfaceSize
-            : Size(postReaction ? visualDimension : 0, surfaceHeight),
+            : Size(
+                pillPart
+                    ? surfaceHeight
+                    : postReaction
+                    ? visualDimension
+                    : 0,
+                surfaceHeight,
+              ),
       ),
-      fixedSize: _iconOnly && !intrinsicIcon
+      fixedSize: squareIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : null,
-      maximumSize: _iconOnly && !intrinsicIcon
+      maximumSize: squareIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (filterPill
+        (pillPart
+            ? EdgeInsetsDirectional.only(
+                start: joined!.first ? 15 : 12,
+                end: joined.last ? 15 : 12,
+              )
+            : filterPill
             ? const EdgeInsets.symmetric(horizontal: 9)
+            : dockRound
+            ? const EdgeInsets.symmetric(horizontal: 18)
             : timeline
             ? (_iconOnly
                   ? EdgeInsets.zero
@@ -1172,7 +1205,7 @@ class DButton extends StatelessWidget {
             ? SystemMouseCursors.basic
             : mouseCursor ?? SystemMouseCursors.click,
       ),
-      alignment: alignment,
+      alignment: pillPart ? AlignmentDirectional.centerStart : alignment,
       backgroundBuilder: (context, states, child) {
         final state = resolveState(states);
         final focused =
@@ -1264,10 +1297,12 @@ class DButton extends StatelessWidget {
             softWrap: false,
             overflow: TextOverflow.ellipsis,
             child: leadingIcon == null
-                ? ExcludeSemantics(
-                    excluding: semanticLabel != null,
-                    child: label,
-                  )
+                ? inlineMetadata
+                      ? label
+                      : ExcludeSemantics(
+                          excluding: semanticLabel != null,
+                          child: label,
+                        )
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1358,14 +1393,13 @@ class DButton extends StatelessWidget {
 
     // The exterior ring paints beyond the Material, so the button never clips.
     Widget result = inlineMetadata
-        ? DTouchTarget(
-            child: _DInlineButtonPrimitive(
-              onPressed: enabled ? linkActivation.onPressed : null,
-              style: style,
-              focusNode: focusNode,
-              autofocus: autofocus,
-              child: child,
-            ),
+        ? _DInlineButtonPrimitive(
+            onPressed: enabled ? linkActivation.onPressed : null,
+            style: style,
+            focusNode: focusNode,
+            autofocus: autofocus,
+            excludeSemantics: semanticLabel != null,
+            child: child,
           )
         : _DPressableButton(
             onPressed: enabled ? linkActivation.onPressed : null,
@@ -1669,6 +1703,7 @@ class _DInlineButtonPrimitive extends StatefulWidget {
     required this.style,
     required this.focusNode,
     required this.autofocus,
+    required this.excludeSemantics,
     required this.child,
   });
 
@@ -1676,6 +1711,10 @@ class _DInlineButtonPrimitive extends StatefulWidget {
   final ButtonStyle style;
   final FocusNode? focusNode;
   final bool autofocus;
+
+  /// Whether the button's own label replaces what its content says, which
+  /// its semantics node then leaves out instead of an ExcludeSemantics box.
+  final bool excludeSemantics;
   final Widget child;
 
   @override
@@ -1813,6 +1852,7 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
     // rebuilds whenever focus arrives or leaves.
     return Semantics(
       container: true,
+      excludeSemantics: widget.excludeSemantics,
       enabled: _enabled,
       onTap: _enabled ? _activate : null,
       onFocus: defaultTargetPlatform != TargetPlatform.iOS && canRequestFocus
@@ -1835,30 +1875,28 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
                 : null,
             onExit: (_) => _update(WidgetState.hovered, false),
             onPointerDown: _pointerDown,
-            child: ConstrainedBox(
-              constraints: constraints,
-              child: IconTheme(
-                data:
-                    (context
-                                .dependOnInheritedWidgetOfExactType<IconTheme>()
-                                ?.data ??
-                            const IconThemeData.fallback())
-                        .merge(
-                          IconThemeData(
-                            color: style.iconColor!.resolve(_states),
-                            size: style.iconSize!.resolve(_states),
-                          ),
+            constraints: constraints,
+            child: IconTheme(
+              data:
+                  (context
+                              .dependOnInheritedWidgetOfExactType<IconTheme>()
+                              ?.data ??
+                          const IconThemeData.fallback())
+                      .merge(
+                        IconThemeData(
+                          color: style.iconColor!.resolve(_states),
+                          size: style.iconSize!.resolve(_states),
                         ),
-                child: DImplicitTransition<TextStyle>(
-                  value: style.textStyle!
-                      .resolve(_states)!
-                      .copyWith(color: style.foregroundColor!.resolve(_states)),
-                  duration: style.animationDuration!,
-                  lerp: _lerpTextStyle,
-                  builder: (context, textStyle) => DefaultTextStyle(
-                    style: textStyle,
-                    child: style.backgroundBuilder!(context, _states, content),
-                  ),
+                      ),
+              child: DImplicitTransition<TextStyle>(
+                value: style.textStyle!
+                    .resolve(_states)!
+                    .copyWith(color: style.foregroundColor!.resolve(_states)),
+                duration: style.animationDuration!,
+                lerp: _lerpTextStyle,
+                builder: (context, textStyle) => DefaultTextStyle(
+                  style: textStyle,
+                  child: style.backgroundBuilder!(context, _states, content),
                 ),
               ),
             ),
@@ -1877,19 +1915,22 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
   }
 }
 
-/// An inline button's hover region that also takes its presses, so the
-/// button needs no GestureDetector of its own: one render object instead of
-/// two, and no listener or detector elements.
+/// An inline button's hover region that also takes its presses, is its touch
+/// target and holds its size, so the button needs no GestureDetector,
+/// DTouchTarget or ConstrainedBox of its own: one render object instead of
+/// four, and no listener or detector elements.
 class _PressRegion extends MouseRegion {
   const _PressRegion({
     super.onEnter,
     super.onExit,
     super.cursor,
     required this.onPointerDown,
+    required this.constraints,
     super.child,
   });
 
   final PointerDownEventListener onPointerDown;
+  final BoxConstraints constraints;
 
   @override
   RenderMouseRegion createRenderObject(BuildContext context) => _PressRegionBox(
@@ -1897,6 +1938,7 @@ class _PressRegion extends MouseRegion {
     onExit: onExit,
     cursor: cursor,
     onPointerDown: onPointerDown,
+    constraints: constraints,
   );
 
   @override
@@ -1905,19 +1947,82 @@ class _PressRegion extends MouseRegion {
     covariant _PressRegionBox renderObject,
   ) {
     super.updateRenderObject(context, renderObject);
-    renderObject.onPointerDown = onPointerDown;
+    renderObject
+      ..onPointerDown = onPointerDown
+      ..additionalConstraints = constraints;
   }
 }
 
-class _PressRegionBox extends RenderMouseRegion {
+/// Lays its child out as a [RenderConstrainedBox] would.
+class _PressRegionBox extends RenderMouseRegion with DTouchTargetBox {
   _PressRegionBox({
     super.onEnter,
     super.onExit,
     super.cursor,
     required this.onPointerDown,
-  });
+    required BoxConstraints constraints,
+  }) : _additional = constraints;
 
   PointerDownEventListener onPointerDown;
+
+  BoxConstraints _additional;
+  set additionalConstraints(BoxConstraints value) {
+    if (_additional == value) return;
+    _additional = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      _intrinsicWidth(super.computeMinIntrinsicWidth(height));
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _intrinsicWidth(super.computeMaxIntrinsicWidth(height));
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _intrinsicHeight(super.computeMinIntrinsicHeight(width));
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      _intrinsicHeight(super.computeMaxIntrinsicHeight(width));
+
+  double _intrinsicWidth(double child) =>
+      _additional.hasBoundedWidth && _additional.hasTightWidth
+      ? _additional.minWidth
+      : _additional.hasInfiniteWidth
+      ? child
+      : _additional.constrainWidth(child);
+
+  double _intrinsicHeight(double child) =>
+      _additional.hasBoundedHeight && _additional.hasTightHeight
+      ? _additional.minHeight
+      : _additional.hasInfiniteHeight
+      ? child
+      : _additional.constrainHeight(child);
+
+  @override
+  double? computeDryBaseline(
+    covariant BoxConstraints constraints,
+    TextBaseline baseline,
+  ) => child?.getDryBaseline(_additional.enforce(constraints), baseline);
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) =>
+      child?.getDryLayout(_additional.enforce(constraints)) ??
+      _additional.enforce(constraints).constrain(Size.zero);
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = _additional.enforce(constraints).constrain(Size.zero);
+      return;
+    }
+    child.layout(_additional.enforce(constraints), parentUsesSize: true);
+    size = child.size;
+  }
 
   @override
   void handleEvent(PointerEvent event, HitTestEntry entry) {

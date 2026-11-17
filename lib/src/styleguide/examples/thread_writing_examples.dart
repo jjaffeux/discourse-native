@@ -66,33 +66,65 @@ class _ThreadWritingExampleState extends State<ThreadWritingExample> {
         DCard(
           duration: DMotion.duration(context, DMotion.change),
           spacing: 0,
-          backgroundColor: _notice
-              ? tokens.primary.withValues(alpha: .08)
-              : Colors.transparent,
+          backgroundColor: Colors.transparent,
           borderColor: _notice
               ? tokens.primary.withValues(alpha: .26)
               : Colors.transparent,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DReveal(
-                visible: _notice,
-                child: DAlert.postNotice(
-                  icon: DConfetti(
-                    key: ValueKey(_celebration),
-                    child: SvgPicture.asset(
-                      'packages/discourse_native/src/ui/assets/post_notice/celebration.svg',
+              DCardTint(
+                color: _notice
+                    ? tokens.primary.withValues(alpha: .08)
+                    : Colors.transparent,
+                child: DReveal(
+                  visible: _notice,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 12,
+                      children: [
+                        DAlert.postNotice(
+                          icon: SizedBox.square(
+                            dimension: 16,
+                            child: DConfetti(
+                              key: ValueKey(_celebration),
+                              child: SvgPicture.asset(
+                                'packages/discourse_native/src/ui/assets/post_notice/celebration.svg',
+                              ),
+                            ),
+                          ),
+                          message: const Text(
+                            'A first post — welcome to the community!',
+                          ),
+                        ),
+                        DAlert.postNotice(
+                          icon: const DIcon(DIcons.bookmark),
+                          tone: tokens.primary,
+                          message: const Text('You bookmarked this post'),
+                          action: DAlertAction(
+                            child: DButton(
+                              size: DButtonSize.chip,
+                              variant: DButtonVariant.ghost,
+                              label: const Text('Edit'),
+                              onPressed: () {},
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  message: const Text(
-                    'A first post — welcome to the community!',
-                  ),
                 ),
+              ),
+              DReveal(
+                visible: _notice,
+                child: const DSeparator(space: 1, indent: 16, endIndent: 16),
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(
                   DSpacing.lg,
-                  _notice ? 0 : DSpacing.lg,
+                  _notice ? 12 : DSpacing.lg,
                   DSpacing.lg,
                   DSpacing.lg,
                 ),

@@ -7,8 +7,12 @@ import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
 import 'chat_browse_skeleton.dart';
+import 'chat_channel.dart';
 import 'chat_controller.dart';
+import 'chat_conversation_avatar.dart';
+import 'chat_inbox_row.dart';
 import 'chat_message.dart';
+import 'chat_reader_time.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
@@ -64,6 +68,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     }
     _unregisterRefresher?.call();
     if (_ready) _directory.dispose();
+    _heldElsewhere.clear();
     _chat = chat;
     _shell = shell;
     _channelId = _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId;
@@ -91,6 +96,36 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
 
   int? _channelId;
 
+  /// Channels the reader has left that the page has listed a thread in. A
+  /// thread's membership outlives leaving its channel, so these stay among
+  /// what the page can be narrowed to. Narrowing replaces the directory, which
+  /// then lists one channel, so what an earlier one found is kept here.
+  final Map<int, ChatChannel> _heldElsewhere = {};
+
+  void _rememberHeld() {
+    for (final channel in _directory.channelsWithThreads) {
+      _heldElsewhere[channel.id] = channel;
+    }
+  }
+
+  /// What the page can be narrowed to: the channels the reader is in that
+  /// have threads turned on, then any other they still hold threads in.
+  List<ChatChannel> _pickable() {
+    _rememberHeld();
+    ChatChannel current(ChatChannel channel) =>
+        _chat.channel(widget.siteUrl, channel.id) ?? channel;
+    final listed = <int>{};
+    return [
+      for (final channel in _chat.publicChannels(widget.siteUrl))
+        if (channel.threadingEnabled && listed.add(channel.id)) channel,
+      for (final channel in [
+        ?_chat.channel(widget.siteUrl, _channelId ?? 0),
+        ..._heldElsewhere.values,
+      ])
+        if (listed.add(channel.id)) current(channel),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _directory,
@@ -105,15 +140,29 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
       final hasFooter = _directory.loading || error != null || hasMore;
       Widget item(BuildContext context, int index) {
         if (index < threads.length) {
-          return Column(
-            children: [
-              const DSeparator(),
-              ChatBrowseThreadRow(
-                siteUrl: widget.siteUrl,
-                thread: threads[index],
-              ),
-            ],
+          final row = ChatBrowseThreadRow(
+            siteUrl: widget.siteUrl,
+            thread: threads[index],
           );
+          // The rule parts one read row from the next. A boxed row has none
+          // on either side, and there is no row before the first.
+          final ruled =
+              index > 0 &&
+              !chatThreadIsNew(threads[index]) &&
+              !chatThreadIsNew(threads[index - 1]);
+          return !ruled
+              ? row
+              : Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ChatInboxRowFrame.plain.edge,
+                      ),
+                      child: const DSeparator(),
+                    ),
+                    row,
+                  ],
+                );
         }
         if (_directory.loading) {
           return const ChatBrowseSkeleton(
@@ -155,12 +204,12 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             children: [
               const ChatBrowseBack(),
               ChatThreadChannelFilter(
-                key: ObjectKey(_directory),
-                chat: _chat,
                 siteUrl: widget.siteUrl,
                 selected: _chat.channel(widget.siteUrl, _channelId ?? 0),
+                channels: _pickable,
                 onSelected: (channel) {
                   setState(() {
+                    _rememberHeld();
                     _channelId = channel?.id;
                     _chat.inboxFilters
                             .browseFor(widget.siteUrl)
@@ -209,11 +258,8 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             }
             final count = threads.length + (hasFooter ? 1 : 0);
             return ContentReadingLane(
-              basePadding: EdgeInsets.fromLTRB(
-                16,
-                0,
-                16,
-                16 + DScrollChrome.bottomInsetOf(context),
+              basePadding: EdgeInsets.only(
+                bottom: 16 + DScrollChrome.bottomInsetOf(context),
               ),
               builder: (context, lane) => lazy
                   ? ListView.builder(
@@ -256,6 +302,16 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   );
 }
 
+/// Whether a thread holds replies its reader has not seen.
+bool chatThreadIsNew(ChatThread thread) =>
+    thread.tracking.unreadCount > 0 ||
+    thread.tracking.mentionCount > 0 ||
+    thread.tracking.watchedThreadsUnreadCount > 0;
+
+/// A thread on the Threads page, laid out as a channel is in chat's list: its
+/// channel's mark, where it is with how much is new at the top right, its
+/// title, then the last reply by its writer's face with when at the bottom
+/// right.
 class ChatBrowseThreadRow extends StatelessWidget {
   const ChatBrowseThreadRow({
     super.key,
@@ -266,10 +322,9 @@ class ChatBrowseThreadRow extends StatelessWidget {
   final ChatThread thread;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: _buildRow);
-
-  Widget _buildRow(BuildContext context, BoxConstraints constraints) {
+  Widget build(BuildContext context) {
     final chat = PluginUiScope.require(context, chatControllerService);
+    final tokens = DTokens.of(context);
     final channel = chat.channel(siteUrl, thread.channelId);
     final preview = thread.preview;
     final original = thread.originalMessage;
@@ -286,16 +341,22 @@ class ChatBrowseThreadRow extends StatelessWidget {
             ? _text(original?.excerpt) ?? _text(original?.message)
             : null) ??
         context.l10n.noRepliesYetChatmythreadsview;
-    final unread =
-        thread.tracking.unreadCount > 0 ||
-        thread.tracking.mentionCount > 0 ||
-        thread.tracking.watchedThreadsUnreadCount > 0;
-    return DItem(
-      key: ValueKey('chat-my-thread-${thread.id}'),
-      shape: DItemShape.fullWidth,
-      padding: constraints.maxWidth < 600
-          ? const EdgeInsets.symmetric(vertical: DSpacing.md)
-          : null,
+    final unread = chatThreadIsNew(thread);
+    final tracking = thread.tracking;
+    final urgent = tracking.mentionCount + tracking.watchedThreadsUnreadCount;
+    // ChatThreadUnreadIndicator prefers urgent counts to ordinary unreads.
+    final count = urgent > 0 ? urgent : tracking.unreadCount;
+    final time = chatTimeFor(context, siteUrl);
+    final repliedAt =
+        preview?.lastReplyAt ?? (preview == null ? original?.createdAt : null);
+    final currentUserId = PluginUiScope.require(
+      context,
+      chatShellService,
+    ).currentUser?.id;
+    return ChatInboxRowSurface(
+      itemKey: ValueKey('chat-my-thread-${thread.id}'),
+      frame: ChatInboxRowFrame.plain,
+      boxed: unread,
       semanticLabel: context.l10n.openThread(
         (channel == null).toString(),
         (unread).toString(),
@@ -304,75 +365,66 @@ class ChatBrowseThreadRow extends StatelessWidget {
         ((!(channel == null)) ? (channel.title) : '').toString(),
       ),
       onPressed: () => unawaited(_open(context, chat)),
-      children: [
-        DItemContent(
-          spacing: DSpacing.xs,
-          children: [
-            Row(
-              spacing: DSpacing.xs,
-              children: [
-                const Text('#'),
-                Expanded(
-                  child: Text(
-                    channel?.title ?? context.l10n.chat,
-                    style: TextStyle(
-                      color: DTokens.of(context).mutedForeground,
-                    ),
-                  ),
-                ),
-                if (unread)
-                  _ThreadUnreadBadge(
-                    key: ValueKey('chat-my-thread-unread-${thread.id}'),
-                    thread: thread,
-                  ),
-              ],
+      mark: channel == null
+          ? DAvatar(
+              dimension: ChatInboxRowFrame.mark,
+              border: false,
+              borderRadius: BorderRadius.circular(DRadius.bubble),
+              decorative: true,
+              fallback: const DAvatarFallback(child: DIcon(DIcons.hashtag)),
+            )
+          : ChatConversationAvatar(
+              siteUrl: siteUrl,
+              channel: channel,
+              size: ChatInboxRowFrame.mark,
             ),
-            DItemTitle(
+      words: ChatInboxRowWords(
+        over: Text(channel?.title ?? context.l10n.chat),
+        count: unread
+            ? DBadge.unreadChip(
+                key: ValueKey('chat-my-thread-unread-${thread.id}'),
+                count: count,
+                semanticLabel: context.l10n.unreadChatplugin(count),
+              )
+            : null,
+        name: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+            color: unread ? tokens.foreground : tokens.titleRead,
+          ),
+        ),
+        line: Row(
+          children: [
+            if (author != null && author.id != currentUserId)
+              ChatSaidBy(
+                key: ValueKey('chat-my-thread-said-by-${thread.id}'),
+                siteUrl: siteUrl,
+                userId: author.id,
+                name: author.displayName,
+                avatarUrl: author.avatarUrl ?? preview?.lastReplyAvatarUrl,
+              ),
+            Expanded(
               child: Text(
-                title,
+                excerpt,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-            ),
-            Row(
-              spacing: DSpacing.controlGap,
-              children: [
-                ChatUserAvatar(
-                  siteUrl: siteUrl,
-                  userId: author?.id ?? 0,
-                  url: author?.avatarUrl ?? preview?.lastReplyAvatarUrl,
-                  size: 18,
-                  fallback: DAvatarFallback(
-                    child: Text(
-                      (author?.displayName ?? preview?.lastReplyUsername ?? '?')
-                          .characters
-                          .first
-                          .toUpperCase(),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: DItemDescription(
-                    child: Text(
-                      excerpt,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                Text(
-                  _replyCountLabel(thread.replyCount),
-                  key: ValueKey('chat-my-thread-replies-${thread.id}'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: DTokens.of(context).mutedForeground,
-                  ),
-                ),
-              ],
             ),
           ],
         ),
-      ],
+        tail: repliedAt == null
+            ? null
+            : Text(
+                chatInboxActivityLabel(
+                  context,
+                  time.local(repliedAt),
+                  time.local(DateTime.now()),
+                ),
+              ),
+      ),
     );
   }
 

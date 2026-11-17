@@ -496,6 +496,102 @@ abstract class AppLocalizations {
   /// **'View less'**
   String get chatViewLess;
 
+  /// Expand a Chat section whose folded rows include unread chats.
+  ///
+  /// In en, this message translates to:
+  /// **'View {unread} unread & {read, plural, =1{1 read chat} other{{read} read chats}}'**
+  String chatViewUnreadAndRead(int unread, int read);
+
+  /// Expand a Chat section whose folded rows are all read.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{View 1 read chat} other{View {count} read chats}}'**
+  String chatViewRead(int count);
+
+  /// Heading over the chats found by the words typed in chat's own field.
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get chatResults;
+
+  /// Accessible label for the lock after a private channel's name in chat's list.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get chatPrivateChannel;
+
+  /// Accessible label for the struck bell after a muted chat's name in chat's list.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted'**
+  String get chatMutedChannel;
+
+  /// Accessible label for the quiet dot on a muted chat that has unread messages.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread, muted'**
+  String get chatUnreadMuted;
+
+  /// Editable field narrowing chat's list by name and by what was said.
+  ///
+  /// In en, this message translates to:
+  /// **'Find a chat'**
+  String get findAChat;
+
+  /// Line under Threads in chat's list when threads have unread replies.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{New replies in 1 thread} other{New replies in {count} threads}}'**
+  String chatThreadsNewReplies(int count);
+
+  /// Line under Threads in chat's list when no thread has unread replies.
+  ///
+  /// In en, this message translates to:
+  /// **'Replies in the channels you are in'**
+  String get chatThreadsWay;
+
+  /// Line under Browse channels in chat's list.
+  ///
+  /// In en, this message translates to:
+  /// **'Find and join channels you are not in'**
+  String get chatBrowseWay;
+
+  /// Row under the chats found by some words, leading to every channel.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse all channels'**
+  String get chatBrowseAllChannels;
+
+  /// Line under Browse all channels, naming the words carried there.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels you are not in, for “{query}”'**
+  String chatBrowseAllChannelsFor(String query);
+
+  /// Empty result for the words typed in the channel panel's field.
+  ///
+  /// In en, this message translates to:
+  /// **'No channels match “{query}”'**
+  String chatNoChannelsMatch(String query);
+
+  /// Accessible name of a channel row's Join chip in the channel panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Join {channel}'**
+  String chatJoinChannelNamed(String channel);
+
+  /// Accessible name of a channel row's Leave chip in the channel panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave {channel}'**
+  String chatLeaveChannelNamed(String channel);
+
+  /// Empty result for the words typed in chat's own field.
+  ///
+  /// In en, this message translates to:
+  /// **'None of your chats match “{query}”'**
+  String chatNoneMatch(String query);
+
   /// Type label for an app-local bookmark of a whole page.
   ///
   /// In en, this message translates to:
@@ -3582,12 +3678,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'No unread conversations.'**
-  String get noUnreadConversations;
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'No conversations yet.'**
   String get noConversationsYet;
 
@@ -3620,12 +3710,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Recent'**
   String get recent;
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Chat activity'**
-  String get chatActivity;
 
   /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
   ///
@@ -6555,18 +6639,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Assign this post'**
-  String get assignThisPost;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit this post assignment'**
-  String get editThisPostAssignment;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'assigned {who} to a post'**
   String assignedToAPost(String who);
 
@@ -6597,50 +6669,8 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Topic unassigned. Assign topic'**
-  String get topicUnassignedAssignTopic;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Open {targetLabel}'**
   String openAssignplugin(String targetLabel);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Assigned to · {targetLabel}'**
-  String assignedToAssignplugin(String targetLabel);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Change assignee'**
-  String get changeAssignee;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Change {actionTarget} assignment'**
-  String changeAssignment(String actionTarget);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove assignment'**
-  String get removeAssignment;
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove {actionTarget} assignment'**
-  String removeAssignmentAssignplugin(String actionTarget);
-
-  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{targetLabel} assignment removed'**
-  String assignmentRemoved(String targetLabel);
 
   /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
   ///
@@ -9770,12 +9800,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/shell_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Your connection changed. Reopen Change owner and try again.'**
-  String get yourConnectionChangedReopenChangeOwnerAndTryAgain;
-
-  /// English UI message used by shell/shell_controller.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Your connection changed. Reopen the action and try again.'**
   String get yourConnectionChangedReopenTheActionAndTryAgain;
 
@@ -10998,26 +11022,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{Assign {count} post by @{oldUsername} to another account.} other{Assign {count} posts by @{oldUsername} to another account.}}'**
-  String assignByToAnotherAccount(num count, String oldUsername);
-
-  /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Search users'**
   String get searchUsers;
-
-  /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Search for the new owner.'**
-  String get searchForTheNewOwner;
-
-  /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'No users found.'**
-  String get noUsersFound;
 
   /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
   ///
@@ -17090,12 +17096,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/topic_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'This post is a private whisper'**
-  String get thisPostIsAPrivateWhisper;
-
-  /// English UI message used by shell/topic_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'This is the first time {postUsername} has posted — let’s welcome them to our community!'**
   String thisIsTheFirstTimeHasPostedLetSWelcomeThem(String postUsername);
 
@@ -18500,12 +18500,6 @@ abstract class AppLocalizations {
   /// **'Continue the discussion from [{escaped}]({url})'**
   String continueTheDiscussionFrom(String escaped, String url);
 
-  /// English UI message used by shell/topic_share.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Share this topic'**
-  String get shareThisTopic;
-
   /// English UI message used by shell/topic_share.dart. Label of the share surface's entry that opens the invite editor for the shared topic.
   ///
   /// In en, this message translates to:
@@ -18541,12 +18535,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'\'t open sharing.'**
   String get couldnTOpenSharing;
-
-  /// English UI message used by shell/topic_share.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Share to another app'**
-  String get shareToAnotherApp;
 
   /// English UI message used by shell/badges_page.dart. Keep placeholders intact.
   ///
@@ -19557,6 +19545,18 @@ abstract class AppLocalizations {
   /// **'New since your last visit'**
   String get newSinceLastVisit;
 
+  /// First line of a whispered post's news, saying who can read it.
+  ///
+  /// In en, this message translates to:
+  /// **'Whisper, only staff can see this'**
+  String get whisperOnlyStaffCanSee;
+
+  /// How many posts follow the last-visit marker, said after its line.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 post} other{{count} posts}}'**
+  String newSinceLastVisitPosts(int count);
+
   /// App accessibility setting description.
   ///
   /// In en, this message translates to:
@@ -20159,19 +20159,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'{unread, select, true{{unreadValue2, plural, =1{{statusNull, select, true{{appL10nNo} unread message} other{{appL10nNo} unread message · {status}}}} other{{statusNull, select, true{{appL10nNo} unread messages} other{{appL10nNo} unread messages · {status}}}}}} other{{unreadValue2, plural, =1{{statusNull, select, true{{unreadValue6} unread message} other{{unreadValue6} unread message · {status}}}} other{{statusNull, select, true{{unreadValue6} unread messages} other{{unreadValue6} unread messages · {status}}}}}}}'**
-  String unreadChatbrowsechannelsview(
-    String unread,
-    num unreadValue2,
-    String statusNull,
-    String appL10nNo,
-    String status,
-    String unreadValue6,
-  );
-
-  /// English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'{channelTitle} menu'**
   String menu(String channelTitle);
 
@@ -20249,18 +20236,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{unreadCount, plural, =1{{unreadCount} unread message} other{{unreadCount} unread messages}}'**
   String unreadChatplugin(num unreadCount);
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{threadCount, plural, =1{{threadCount} unread thread} other{{threadCount} unread threads}}'**
-  String unreadChatinbox(num threadCount);
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{channelTrackingMentionCount, plural, =1{{channelTrackingMentionCount} new mention} other{{channelTrackingMentionCount} new mentions}}'**
-  String messageNewChatinbox(num channelTrackingMentionCount);
 
   /// English UI message used by plugins/chat/chat_my_threads_view.dart. Keep placeholders intact.
   ///
@@ -21025,28 +21000,11 @@ abstract class AppLocalizations {
     String appL10nCollapse,
   );
 
-  /// English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{following, select, true{{appL10nLeave} {channelTitle}} other{{appL10nJoin} {channelTitle}}}'**
-  String messageChatbrowsechannelsview(
-    String following,
-    String appL10nLeave,
-    String channelTitle,
-    String appL10nJoin,
-  );
-
   /// English UI message used by plugins/chat/chat_message_tile.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'{participants, plural, =1{ {participants} participant.} other{ {participants} participants.}}'**
   String messageChatmessagetile(num participants);
-
-  /// English UI message used by plugins/chat/chat_inbox.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{{count} message} other{{count} messages}}'**
-  String messageChatinbox(num count);
 
   /// English UI message used by plugins/assign/assignment_sheet.dart. Keep placeholders intact.
   ///
@@ -23617,18 +23575,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete this room? Everyone in the call will be disconnected. This cannot be undone.'**
   String get voiceRoomDeleteConfirm;
-
-  /// Empty result for a nonblank chat sidebar filter.
-  ///
-  /// In en, this message translates to:
-  /// **'No chats match.'**
-  String get noChatsMatch;
-
-  /// Editable field narrowing chats and rooms in the sidebar.
-  ///
-  /// In en, this message translates to:
-  /// **'Search chat'**
-  String get searchChat;
 
   /// Error when a Live room could not be deleted.
   ///
@@ -26365,6 +26311,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{host} isn’t one of your sites.'**
   String requestedLinkUnknownSite(String host);
+
+  /// Said under a people picker's field when what is typed finds no one.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches “{term}”'**
+  String nothingMatchesTerm(String term);
+
+  /// Placeholder of the phone's people picker field when assigning a topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign topic to…'**
+  String get assignTopicTo;
+
+  /// Placeholder of the phone's people picker field when reassigning a topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign topic to…'**
+  String get reassignTopicTo;
+
+  /// Placeholder of the phone's people picker field when assigning a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign post to…'**
+  String get assignPostTo;
+
+  /// Placeholder of the phone's people picker field when reassigning a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign post to…'**
+  String get reassignPostTo;
+
+  /// Placeholder of the phone's people picker field when changing who owns posts.
+  ///
+  /// In en, this message translates to:
+  /// **'Change owner to…'**
+  String get changeOwnerTo;
+
+  /// Note above the desktop people picker when assigning a topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who should look after this topic.'**
+  String get chooseWhoLooksAfterTopic;
+
+  /// Note above the desktop people picker when assigning a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who should look after this post.'**
+  String get chooseWhoLooksAfterPost;
+
+  /// Note above the desktop people picker when changing who owns posts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Choose who this post should belong to.} other{Choose who these {count} posts should belong to.}}'**
+  String chooseWhoPostsBelongTo(int count);
+
+  /// Toast after a topic is assigned or reassigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned topic to {name}'**
+  String assignedTopicToName(String name);
+
+  /// Toast after a post is assigned, and the label of the topic's assign shortcut when it has one assignment.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to {name}'**
+  String assignedToName(String name);
+
+  /// Toast after a topic's assignment is taken back.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned from topic'**
+  String get unassignedFromTopic;
+
+  /// Toast after a post's assignment is taken back from the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned from post #{postNumber}'**
+  String unassignedFromPostNumber(int postNumber);
+
+  /// Toast after posts are given to a new owner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner changed to {name}'**
+  String ownerChangedTo(String name);
+
+  /// News line on a topic's first post saying who the topic is assigned to.
+  ///
+  /// In en, this message translates to:
+  /// **'Topic assigned to {name}'**
+  String topicAssignedTo(String name);
+
+  /// Line in the note box under an assigned post.
+  ///
+  /// In en, this message translates to:
+  /// **'Post #{postNumber} assigned to {name}'**
+  String postNumberAssignedTo(int postNumber, String name);
+
+  /// Line over the assignee's name in the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned topic to'**
+  String get assignedTopicTo;
+
+  /// Line over the assignee's name in the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned post #{postNumber} to'**
+  String assignedPostNumberTo(int postNumber);
+
+  /// Action giving a post's assignment to someone else.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign post'**
+  String get reassignPost;
+
+  /// First post menu action taking the topic's assignment back.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign from topic'**
+  String get unassignFromTopicAction;
+
+  /// Post menu action taking the post's assignment back.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign from post'**
+  String get unassignFromPost;
+
+  /// Action taking a post's assignment back from the named assignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign {name} from post'**
+  String unassignNameFromPost(String name);
+
+  /// Accessible name of the unassign button in the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign {name} from post #{postNumber}'**
+  String unassignNameFromPostNumber(String name, int postNumber);
+
+  /// Tooltip of the pencil that reassigns or unassigns an assignment.
+  ///
+  /// In en, this message translates to:
+  /// **'Change assignment'**
+  String get changeAssignmentAction;
+
+  /// Label of the topic's assign shortcut when the topic holds several assignments.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 assignment} other{{count} assignments}}'**
+  String assignmentCount(int count);
+
+  /// Action opening an assignment's note and status form.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit note and status'**
+  String get editNoteAndStatus;
+
+  /// Line over the assignee's name in the topic's assignments sheet, for a post whose number is unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned post to'**
+  String get assignedPostTo;
 }
 
 class _AppLocalizationsDelegate

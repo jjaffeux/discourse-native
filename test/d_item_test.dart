@@ -64,6 +64,52 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  testWidgets('a note item is the text colour at 6% in 10 corners', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              child: DItem(
+                variant: DItemVariant.note,
+                padding: EdgeInsets.all(8),
+                children: [
+                  DItemContent(children: [Text('Post #2 assigned to Sam')]),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final foreground = DTokens.of(
+      tester.element(find.text('Post #2 assigned to Sam')),
+    ).foreground;
+    final fills = tester
+        .widgetList<DecoratedBox>(
+          find.descendant(
+            of: find.byType(DItem),
+            matching: find.byType(DecoratedBox),
+          ),
+        )
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .where((decoration) => decoration.color != null);
+    expect(
+      fills.map((decoration) => decoration.color),
+      contains(foreground.withValues(alpha: foreground.a * .06)),
+    );
+    expect(fills.first.borderRadius, BorderRadius.circular(10));
+    expect(
+      tester.getTopLeft(find.text('Post #2 assigned to Sam')).dx -
+          tester.getTopLeft(find.byType(DItem)).dx,
+      8,
+    );
+  });
+
   for (final (depth, scale) in const [
     (DPressDepth.row, .985),
     (DPressDepth.inset, .94),

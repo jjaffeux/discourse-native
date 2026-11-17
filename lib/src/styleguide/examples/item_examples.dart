@@ -50,6 +50,28 @@ final itemExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Unread',
+      description:
+          'A row holding something unread rests in the accent at 9%, as a chat, a thread and a notification all do. Hover, press and selection take it over.',
+      code:
+          "DItem(variant: DItemVariant.unread, onPressed: open, children: [DItemContent(children: [DItemTitle(child: Text('design')), DItemDescription(child: Text('Three new messages'))])])",
+      builder: (_) => SizedBox(
+        width: 320,
+        child: DItem(
+          variant: DItemVariant.unread,
+          onPressed: () {},
+          children: const [
+            DItemContent(
+              children: [
+                DItemTitle(child: Text('design')),
+                DItemDescription(child: Text('Three new messages')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Fit content',
       description:
           'Naturally sized items wrap within the available width. Tap or drag an item; long titles stay bounded.',
@@ -434,7 +456,7 @@ class _SelectionExampleState extends State<_SelectionExample> {
 const _descriptions = {
   'Basic':
       'Frozen Basic Item and verified profile link; actions report locally.',
-  'Variant': 'Default, outline and muted at the reference 448px width.',
+  'Variant': 'Default, outline, muted and note at the reference 448px width.',
   'Size':
       'Default, sm and xs. Notice the smaller description and zero content gap in xs.',
   'Icon':
@@ -468,7 +490,7 @@ const _codes = {
   DItemMedia(variant: DItemMediaVariant.icon, child: inboxIcon),
   DItemContent(children: [DItemTitle(child: Text('Muted Variant')),
     DItemDescription(child: Text('Muted background for secondary content.'))]),
-]) // Also standard and outline.""",
+]) // Also standard, outline and note (with padding: EdgeInsets.all(8)).""",
   'Size':
       """DItem(size: DItemSize.xs, variant: DItemVariant.outline, children: [
   DItemMedia(variant: DItemMediaVariant.icon, child: inboxIcon),
@@ -624,9 +646,17 @@ class _ItemExampleState extends State<_ItemExample> {
             'Muted Variant',
             'Muted background for secondary content.',
           ),
+          (
+            DItemVariant.note,
+            'Note Variant',
+            'What is said about a post, apart from what it says.',
+          ),
         ])
           DItem(
             variant: entry.$1,
+            padding: entry.$1 == DItemVariant.note
+                ? const EdgeInsets.all(8)
+                : null,
             children: [
               DItemMedia(
                 variant: DItemMediaVariant.icon,

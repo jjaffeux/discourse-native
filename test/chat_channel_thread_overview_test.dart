@@ -185,15 +185,10 @@ void main() {
       );
       addTearDown(chat.dispose);
       await chat.loadChannels(_site);
-      List<ChatChannel> project({bool unread = false}) =>
-          chatInboxConversations(
-            chat,
-            _site,
-            ChatInboxFilter(unreadOnly: unread),
-          );
+      List<ChatChannel> project() =>
+          chatInboxConversations(chat, _site, const ChatInboxFilter());
       for (var repeat = 0; repeat < 3; repeat++) {
         expect(project().map((c) => c.id), [2, 1]);
-        expect(project(unread: true).map((c) => c.id), [2]);
       }
       final tracked = first.withTrackingState(
         tracking: ChatTracking.none,
@@ -201,16 +196,13 @@ void main() {
       );
       store.put(_site, tracked);
       expect(project().map((c) => c.id), [1, 2]);
-      expect(project(unread: true).map((c) => c.id), [1, 2]);
       final preview = tracked.withLastMessagePreview('New preview');
       store.put(_site, preview);
       expect(project().first, same(preview));
-      expect(project(unread: true).first, same(preview));
       store.put(
         _site,
         preview.withLastViewedAt(newest.add(const Duration(seconds: 1))),
       );
-      expect(project(unread: true).map((c) => c.id), [2]);
       store.remove<ChatChannel>(_site, 1);
       expect(project().map((c) => c.id), [2]);
     },

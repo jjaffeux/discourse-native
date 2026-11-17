@@ -168,10 +168,6 @@ void _expectTransparentCommand(WidgetTester tester) {
     find.descendant(of: command, matching: find.byType(Material)).first,
   );
   expect(material.color, Colors.transparent);
-  final scrollbar = tester.widget<DScrollBar>(
-    find.descendant(of: command, matching: find.byType(DScrollBar)),
-  );
-  expect(scrollbar.backgroundColor, Colors.transparent);
 }
 
 Future<void> _captureFrame(WidgetTester tester, String name) async {

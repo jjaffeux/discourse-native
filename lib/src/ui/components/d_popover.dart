@@ -1482,6 +1482,11 @@ class DPopoverClose extends StatelessWidget {
 
   final DPopoverCloseBuilder builder;
 
+  /// The nearest popover's close operation, or null for content that is also
+  /// shown outside one.
+  static VoidCallback? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_PopoverScope>()?.close;
+
   @override
   Widget build(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<_PopoverScope>();

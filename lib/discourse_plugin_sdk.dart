@@ -92,6 +92,8 @@ export 'src/shell/oneboxes/embedded.dart' show embeddedOneboxWidgetBuilder;
 export 'src/shell/oneboxes/markup.dart' show digitsIn, oneLineText;
 export 'src/shell/oneboxes/onebox_card.dart' show OneboxCard, OneboxData;
 export 'src/shell/open_link.dart' show LinkTarget, openLink;
+export 'src/shell/person_picker.dart'
+    show GroupFace, PersonFace, PersonPick, PersonPickSearch, showPersonPicker;
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
 export 'src/shell/post_action_leading.dart' show PostActionLeading;
@@ -104,6 +106,7 @@ export 'src/shell/relative_time.dart'
 export 'src/shell/route_aware_selection_area.dart' show RouteAwareSelectionArea;
 export 'src/shell/search_words.dart'
     show SearchWords, SearchText, searchSnippet;
+export 'src/shell/sheet_search.dart' show SheetSearch, SheetSearchHold;
 export 'src/shell/shell_metrics.dart' show ShellLayout, shellHeaderHeight;
 export 'src/shell/shell_sheet.dart'
     show ShellSheetActions, ShellSheetForm, showShellSheet;

@@ -62,7 +62,7 @@ Widget chatTimedMuteMenu({
   );
 }
 
-class ChatChannelMenu extends StatelessWidget {
+class ChatChannelMenu extends StatefulWidget {
   const ChatChannelMenu({
     super.key,
     required this.siteUrl,
@@ -81,38 +81,73 @@ class ChatChannelMenu extends StatelessWidget {
   final Widget? child;
 
   @override
+  State<ChatChannelMenu> createState() => _ChatChannelMenuState();
+}
+
+class _ChatChannelMenuState extends State<ChatChannelMenu> {
+  Object? _shape;
+  Widget? _menu;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _menu = null;
+  }
+
+  @override
+  void didUpdateWidget(ChatChannelMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _menu = null;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: chat.channelRef(siteUrl, channelId),
+      valueListenable: chat.channelRef(widget.siteUrl, widget.channelId),
       builder: (context, current, _) {
-        final channel = current ?? this.channel;
-        if (channel == null || !channel.membership.following) {
-          return child ?? const SizedBox.shrink();
-        }
-        // The controller notifies for every message in every channel; the
-        // menu reads only this channel's writes in flight.
-        return PluginServiceSelector<
-          ChatController,
-          ({bool notifications, bool star, bool follow})
-        >(
-          service: chatControllerService,
-          select: (chat) => (
-            notifications: chat.channelNotificationWriteInFlight(
-              siteUrl,
-              channel.id,
-            ),
-            star: chat.channelStarWriteInFlight(siteUrl, channel.id),
-            follow: chat.channelFollowWriteInFlight(siteUrl, channel.id),
-          ),
-          builder: (context, _, _) => _ChannelMenu(
-            siteUrl: siteUrl,
-            channel: channel,
-            chat: chat,
-            child: child,
-          ),
+        final channel = current ?? widget.channel;
+        // Every message and read credit notifies the channel; the menu
+        // offers only what its name and membership say, read position aside.
+        final shape = (
+          channel?.title,
+          channel?.membership.withLastRead(0),
+          channel?.isDirectMessage,
         );
+        if (_menu case final menu? when shape == _shape) return menu;
+        _shape = shape;
+        return _menu = _menuFor(chat, channel);
       },
+    );
+  }
+
+  Widget _menuFor(ChatController chat, ChatChannel? channel) {
+    final siteUrl = widget.siteUrl;
+    final child = widget.child;
+    if (channel == null || !channel.membership.following) {
+      return child ?? const SizedBox.shrink();
+    }
+    // The controller notifies for every message in every channel; the
+    // menu reads only this channel's writes in flight.
+    return PluginServiceSelector<
+      ChatController,
+      ({bool notifications, bool star, bool follow})
+    >(
+      service: chatControllerService,
+      select: (chat) => (
+        notifications: chat.channelNotificationWriteInFlight(
+          siteUrl,
+          channel.id,
+        ),
+        star: chat.channelStarWriteInFlight(siteUrl, channel.id),
+        follow: chat.channelFollowWriteInFlight(siteUrl, channel.id),
+      ),
+      builder: (context, _, _) => _ChannelMenu(
+        siteUrl: siteUrl,
+        channel: channel,
+        chat: chat,
+        child: child,
+      ),
     );
   }
 }

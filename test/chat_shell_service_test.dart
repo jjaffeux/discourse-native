@@ -201,6 +201,12 @@ void main() {
 
         fixture.shell.openBrowseChannels();
         final browse = fixture.host.currentContent;
+        expect(
+          browse?.id,
+          ChatRoute.inboxRouteId,
+          reason: 'Channels are browsed in a panel over the Chats page',
+        );
+        expect(fixture.shell.channelPanelRequest.value?.siteUrl, _site);
         await fixture.shell.openHeaderShortcut();
         expect(
           fixture.host.currentContent,
@@ -220,7 +226,7 @@ void main() {
       index: ChatPreferredIndex.channels,
       starred: false,
       threads: false,
-      expected: ChatRoute.browseRouteId,
+      expected: ChatRoute.inboxRouteId,
     ),
     (
       mobile: true,
@@ -270,8 +276,26 @@ void main() {
       addTearDown(fixture.dispose);
       await fixture.shell.openHeaderShortcut(mobile: scenario.mobile);
       expect(fixture.host.currentContent?.id, scenario.expected);
+      // With no channel to return to, the web app lands on its channel
+      // browser. Here that is the panel, asked for over the Chats page.
+      expect(
+        fixture.shell.channelPanelRequest.value != null,
+        scenario.expected == ChatRoute.inboxRouteId,
+      );
     });
   }
+
+  test('a forum without public channels is shown its chats, with no panel '
+      'asked for', () async {
+    final fixture = await _fixture(
+      channels: ChatChannels(public: [_channel(9)]),
+      settings: const ChatSettings(publicChannelsEnabled: false),
+    );
+    addTearDown(fixture.dispose);
+    fixture.shell.openBrowseChannels();
+    expect(fixture.host.currentContent?.id, ChatRoute.inboxRouteId);
+    expect(fixture.shell.channelPanelRequest.value, isNull);
+  });
 }
 
 ChatChannel _channel(

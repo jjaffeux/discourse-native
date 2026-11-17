@@ -696,7 +696,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                         if (showCoreSections)
                           _LoadingDestinationSelector(
                             controller: controller,
-                            builder: (context, loadingDestinationId) => ListenableBuilder(
+                            builder: (context, loadingDestinationId) => DShownListenableBuilder(
                               listenable: Listenable.merge([
                                 _linkEdit,
                                 controller.accountActivity.totalsSelection(
@@ -814,7 +814,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                           ),
                         if ((!widget.mobile || !showCoreSections) &&
                             !showShortcuts)
-                          ListenableBuilder(
+                          DShownListenableBuilder(
                             listenable: Listenable.merge(
                               registry.sidebarListenables(
                                 context,
@@ -999,7 +999,7 @@ class _SidebarPanelTabs extends StatelessWidget {
   // The tabs read the panels for themselves, so a badge change redraws them
   // without the sections beneath.
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) => DShownListenableBuilder(
     listenable: _sidebarPanelChanges(context),
     builder: (context, _) => _tabs(context),
   );
@@ -1723,8 +1723,7 @@ class _SectionState extends State<_Section> {
           runs.length == 1 &&
           destinations.length == section.destinations.length &&
           canEdit;
-      final navigation =
-          section.id == 'community' || section.id == 'chat-directories';
+      final navigation = section.id == 'community';
       int? findIndex(Key key) =>
           key is ValueKey<String> ? indexes[key.value] : null;
       Widget rowBuilder(BuildContext context, int index) {

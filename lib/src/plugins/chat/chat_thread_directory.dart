@@ -39,6 +39,13 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
       ...chat.channelThreads(siteUrl, channel.id),
   ];
 
+  /// The channels this directory has listed a thread in so far, whether or
+  /// not the reader is still in them.
+  List<ChatChannel> get channelsWithThreads => [
+    for (final channel in _channels.values)
+      if (chat.channelThreads(siteUrl, channel.id).isNotEmpty) channel,
+  ];
+
   /// A selected channel owns its requests independently of directory paging.
   ChatChannel? _selected(int? channelId) => _channels[channelId];
 

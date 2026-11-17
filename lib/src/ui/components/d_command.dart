@@ -420,8 +420,6 @@ class _DCommandState<T> extends State<DCommand<T>> {
       controller: _controller,
       shouldFilter: widget.shouldFilter,
       loading: widget.loading,
-
-      backgroundColor: backgroundColor,
       child: Focus(
         canRequestFocus: false,
         skipTraversal: true,
@@ -472,16 +470,12 @@ class _DCommandScope<T> extends InheritedWidget {
     required this.controller,
     required this.shouldFilter,
     required this.loading,
-
-    required this.backgroundColor,
     required super.child,
   });
 
   final DCommandController<T> controller;
   final bool shouldFilter;
   final bool loading;
-
-  final Color backgroundColor;
 
   static _DCommandScope<T> of<T>(BuildContext context) {
     final scope = context
@@ -492,10 +486,9 @@ class _DCommandScope<T> extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DCommandScope<T> oldWidget) =>
-      (controller != oldWidget.controller ||
-          shouldFilter != oldWidget.shouldFilter ||
-          loading != oldWidget.loading) ||
-      backgroundColor != oldWidget.backgroundColor;
+      controller != oldWidget.controller ||
+      shouldFilter != oldWidget.shouldFilter ||
+      loading != oldWidget.loading;
 }
 
 /// Query geometry for ordinary command palettes and compact filter menus.
@@ -1159,7 +1152,6 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
             ? null
             : {for (var i = 0; i < lazy.length; i++) lazy[i].key: i};
         Widget scroll({double minHeight = 0}) => DScrollBar(
-          backgroundColor: scope.backgroundColor,
           controller: _scroll,
           thumbVisibility: false,
           child: lazy != null
