@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -8,6 +11,45 @@ import 'package:flutter_test/flutter_test.dart';
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
+
+/// Reads painted colours from the frame on screen, by logical position.
+Future<Color Function(Offset)> _paintedColors(WidgetTester tester) async {
+  final ratio = tester.view.devicePixelRatio;
+  return (await tester.runAsync(() async {
+    final builder = ui.SceneBuilder();
+    tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+    final scene = builder.build();
+    final size = tester.view.physicalSize;
+    final image = await scene.toImage(size.width.toInt(), size.height.toInt());
+    final bytes = (await image.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    ))!.buffer.asUint8List();
+    final width = image.width;
+    image.dispose();
+    scene.dispose();
+    return (Offset position) {
+      final pixel =
+          ((position.dy * ratio).floor() * width +
+              (position.dx * ratio).floor()) *
+          4;
+      return Color.fromARGB(
+        bytes[pixel + 3],
+        bytes[pixel],
+        bytes[pixel + 1],
+        bytes[pixel + 2],
+      );
+    };
+  }))!;
+}
+
+Future<void> _pumpFrames(WidgetTester tester, int frames) async {
+  for (var frame = 0; frame < frames; frame++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -317,6 +359,127 @@ void main() {
         );
       }
       expect(returned, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  // A topic opened at its start rises over the bar, so its retained image
+  // sits higher than a list page. Both samples lie in the sheet's blank
+  // leading margin: one above the bar's lower edge, one below it.
+  const sheetOverBar = Offset(8, 30);
+  const sheetBelowBar = Offset(8, 60);
+  const topic = Topic(id: 7, title: 'A topic over the bar', slug: 'shared');
+
+  Offset onPreview(WidgetTester tester, Finder image, Offset imagePoint) {
+    final bounds = tester.getRect(image);
+    final scale = bounds.width / tester.widget<RawImage>(image).image!.width;
+    return bounds.topLeft + imagePoint * scale * tester.view.devicePixelRatio;
+  }
+
+  testWidgets(
+    'a forward swipe draws the whole incoming topic sheet over the bar',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      shell.openTopic(topic);
+      await _pumpFrames(tester, 40);
+      await tester.pumpAndSettle();
+      shell.handleBack();
+      await tester.pumpAndSettle();
+      final bar = tester.getRect(find.byKey(const ValueKey('mobile-header')));
+      final list = await _paintedColors(tester);
+
+      final surface = tester.getRect(find.byKey(const ValueKey('mobile-root')));
+      final gesture = await tester.startGesture(
+        Offset(surface.right - 5, surface.center.dy),
+      );
+      await gesture.moveBy(
+        const Offset(-300, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await tester.pump();
+      final image = find.descendant(
+        of: find.byKey(const ValueKey('history-next-preview')),
+        matching: find.byType(RawImage),
+      );
+      final overBar = onPreview(tester, image, sheetOverBar);
+      final belowBar = onPreview(tester, image, sheetBelowBar);
+      expect(overBar.dy, lessThan(bar.bottom));
+      expect(belowBar.dy, greaterThan(bar.bottom));
+      final swipe = await _paintedColors(tester);
+      expect(list(overBar), isNot(swipe(belowBar)));
+      expect(
+        swipe(overBar),
+        swipe(belowBar),
+        reason: 'the bar must not cut off the top of the incoming sheet',
+      );
+      final bounds = tester.getRect(image);
+      final snapshot = tester.widget<RawImage>(image).image!;
+      expect(
+        bounds.height / bounds.width,
+        closeTo(snapshot.height / snapshot.width, .001),
+        reason: 'the incoming sheet must keep its foot',
+      );
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
+    'a back swipe uncovers a topic over the bar only where the page has left',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      shell.openTopic(topic);
+      await _pumpFrames(tester, 40);
+      await tester.pumpAndSettle();
+      shell.pushContent(ContentRoute.topicList(TopicListMode.unread));
+      await _pumpFrames(tester, 40);
+      final bar = tester.getRect(find.byKey(const ValueKey('mobile-header')));
+      final list = await _paintedColors(tester);
+
+      final surface = tester.getRect(find.byKey(const ValueKey('mobile-root')));
+      final gesture = await tester.startGesture(
+        Offset(surface.left + 5, surface.center.dy),
+      );
+      await gesture.moveBy(
+        const Offset(300, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await tester.pump();
+      final image = find.descendant(
+        of: find.byKey(const ValueKey('history-previous-preview')),
+        matching: find.byType(RawImage),
+      );
+      final overBar = onPreview(tester, image, sheetOverBar);
+      final belowBar = onPreview(tester, image, sheetBelowBar);
+      expect(overBar.dy, lessThan(bar.bottom));
+      expect(belowBar.dy, greaterThan(bar.bottom));
+      final swipe = await _paintedColors(tester);
+      expect(list(overBar), isNot(swipe(belowBar)));
+      expect(
+        swipe(overBar),
+        swipe(belowBar),
+        reason: 'the bar must not cut off the top of the revealed sheet',
+      );
+      final stillCovered = Offset(surface.left + 340, overBar.dy);
+      expect(
+        swipe(stillCovered),
+        list(stillCovered),
+        reason: 'the bar stays above the part of the page still in place',
+      );
+      await gesture.cancel();
+      // The pushed list never finishes loading here, so its skeleton keeps
+      // animating.
+      await _pumpFrames(tester, 40);
+      expect(shell.currentContent?.isTopicList, isTrue);
       expect(tester.takeException(), isNull);
     },
     variant: const TargetPlatformVariant({

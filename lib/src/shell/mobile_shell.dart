@@ -1383,6 +1383,9 @@ class _MobileFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final reveal = DHistoryTransition.navigationProgressOf(context);
     final hidden = reveal >= 1;
+    // A swipe can bring in or uncover a topic that rose over the header. Its
+    // image is drawn from the page's layer, where it sat.
+    final swiping = DHistoryTransition.swipeOf(context) != null;
     final pageSlot = LayoutId(
       key: const ValueKey(_MobileFrameSlot.page),
       id: _MobileFrameSlot.page,
@@ -1408,7 +1411,7 @@ class _MobileFrame extends StatelessWidget {
         reveal,
         (extent) => DSheetDragScope.reportTopBar(context, extent),
       ),
-      children: raised || overlaysHeader
+      children: raised || overlaysHeader || swiping
           ? [headerSlot, pageSlot]
           : [pageSlot, headerSlot],
     );
