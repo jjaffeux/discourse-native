@@ -184,6 +184,8 @@ void main() {
           'shape': 2,
           'backgroundColor': 1,
         },
+        // A group to pick is the mockup's chip, as a message's recipients are.
+        'lib/src/shell/person_picker.dart': {'shape': 1},
         // Message hover actions sit on the row's own hover fill.
         'lib/src/plugins/chat/chat_message_tile.dart': {
           'interactiveBackgroundColor': 2,

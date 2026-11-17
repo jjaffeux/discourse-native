@@ -1167,7 +1167,6 @@ class PostDateShare extends StatelessWidget {
       key: ValueKey('post-date-share-${post.id}'),
       variant: DButtonVariant.inline,
       density: DButtonDensity.inlineMetadata,
-      foregroundColor: muted,
       tooltip: label,
       semanticLabel: label,
       label: date,
