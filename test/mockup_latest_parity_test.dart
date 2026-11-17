@@ -142,7 +142,13 @@ void main() {
     final tools = find.byKey(const ValueKey('topic-more-actions'));
     final progress = find.byKey(const ValueKey('topic-progress-button'));
     expect(tester.getSize(tools), const Size(40, 40));
-    expect(tester.getSize(progress).height, 40);
+    // Where you are is as tall as the dock's circle (540cbac).
+    expect(
+      tester.getSize(progress).height,
+      DMobileDockGeometry.of(
+        tester.element(find.byKey(const ValueKey('mobile-bottom-bar'))),
+      ).circle,
+    );
     expect(tester.getRect(tools).top, greaterThan(650));
     await _capture(tester, 'topic-open');
     final scroll = topicPostList(tester).controller!;

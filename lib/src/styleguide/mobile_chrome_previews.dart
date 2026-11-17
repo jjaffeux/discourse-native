@@ -68,6 +68,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
   @override
   void dispose() {
     _draft.dispose();
+    _peek.dispose();
     super.dispose();
   }
 
@@ -162,10 +163,16 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                         DScrollChrome.maybeOf(context)?.revealNavigation();
                       },
                     ),
+                    // Pressed, the bar says so as a phone's toasts are said.
                     action: DMobileDockAction(
                       icon: const DIcon(DIcons.penToSquare),
                       label: 'New topic',
-                      onPressed: () {},
+                      onPressed: () => _peek.say(
+                        const DMobileDockSaying(
+                          text: 'Draft started',
+                          icon: DIcons.check,
+                        ),
+                      ),
                     ),
                   ),
                 );

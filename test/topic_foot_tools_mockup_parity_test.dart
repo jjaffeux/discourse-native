@@ -65,10 +65,28 @@ void main() {
     );
     expect(find.descendant(of: pill, matching: level), findsOneWidget);
     expect(icons(tester, level), isNot(contains(DNativeIcons.filterChevron)));
-    expect(tester.getRect(surface(level)).size, const Size(40, 40));
     expect(
       tester.getRect(surface(level)).left,
       tester.getRect(surface(bookmark)).right,
+    );
+
+    // The pill's ends stand further in, so each glyph looks centred in the
+    // curve: the bookmark 15 from the pill's start, the level 12 from its
+    // part's start and 15 from the pill's end, at the reference's 40 at
+    // least.
+    Rect glyph(Finder control) => tester.getRect(
+      find.descendant(of: control, matching: find.byType(DIcon)).first,
+    );
+    expect(glyph(bookmark).left - tester.getRect(surface(bookmark)).left, 15);
+    expect(tester.getRect(surface(bookmark)).size, const Size(40, 40));
+    final levelSurface = tester.getRect(surface(level));
+    expect(glyph(level).left - levelSurface.left, 12);
+    expect(levelSurface.height, 40);
+    expect(
+      levelSurface.width,
+      moreOrLessEquals(
+        (12 + glyph(level).width + 15).clamp(40, double.infinity),
+      ),
     );
 
     // The menu of more is a circle of its own, its ellipsis upright.
@@ -81,6 +99,29 @@ void main() {
             .getSize(find.descendant(of: icon, matching: find.byType(DIcon)))
             .height,
         15,
+      );
+    }
+
+    // Where you are is a pill as tall as the dock's circle, 18 in at either
+    // side, and the tools stand centred on it.
+    final countPill = tester.getRect(surface(progress));
+    final countText = tester.getRect(
+      find.descendant(of: progress, matching: find.byType(TopicPostCount)),
+    );
+    expect(
+      countPill.height,
+      moreOrLessEquals(
+        DMobileDockGeometry.of(
+          tester.element(find.byKey(const ValueKey('mobile-bottom-bar'))),
+        ).circle,
+      ),
+    );
+    expect(countText.left - countPill.left, moreOrLessEquals(18));
+    expect(countPill.right - countText.right, moreOrLessEquals(18));
+    for (final tool in [bookmark, more]) {
+      expect(
+        tester.getRect(surface(tool)).center.dy,
+        moreOrLessEquals(countPill.center.dy),
       );
     }
 
@@ -136,6 +177,26 @@ void main() {
         scene.dispose();
       });
     }
+  }, variant: platforms);
+
+  testWidgets('the foot rises with the bar as it lifts to say something', (
+    tester,
+  ) async {
+    await pumpMobileTopicFixture(tester);
+    final progress = find.byKey(const ValueKey('topic-progress-button'));
+    final dock = find.byType(DMobileDock);
+    final rest = tester.getRect(progress);
+    final peek = DMobileDockPeek.maybeOf(tester.element(dock))!;
+    final lift = DMobileDockGeometry.of(tester.element(dock)).peek;
+    expect(peek.say(const DMobileDockSaying(text: 'Bookmarked')), isTrue);
+    await tester.pump();
+    // On its own curve, 420 ms, to as far as the bar lifts.
+    await tester.pump(const Duration(milliseconds: 420));
+    expect(tester.getRect(progress).top, closeTo(rest.top - lift, .01));
+    await tester.pump(const Duration(milliseconds: 1980));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.getRect(progress), rest);
+    expect(tester.takeException(), isNull);
   }, variant: platforms);
 
   testWidgets('the timeline says the count as its button does', (tester) async {

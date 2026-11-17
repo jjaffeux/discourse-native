@@ -14,6 +14,7 @@ void main() {
       'Composition and independent actions',
       'Orientation',
       'Separate post actions',
+      'Floating tool pill',
       'Sizes',
       'Nested groups',
       'Separator and split action',

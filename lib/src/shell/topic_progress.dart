@@ -34,9 +34,11 @@ class TopicProgressButton extends StatelessWidget {
   final bool? expanded;
   final bool floating;
 
-  /// The floating control's height, for whoever settles it into a corner.
-  static double floatingHeightOf(BuildContext context) =>
-      TopicCornerControls.heightOf(context);
+  /// The floating control's height, for whoever settles it into a corner:
+  /// on a phone, the dock's circle, which the foot's row is as tall as.
+  static double floatingHeightOf(BuildContext context) => context.isTouch
+      ? DMobileDockGeometry.circleOf(context)
+      : TopicCornerControls.heightOf(context);
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +49,9 @@ class TopicProgressButton extends StatelessWidget {
     return DButton(
       key: const ValueKey('topic-progress-button'),
       variant: mobile ? DButtonVariant.tool : DButtonVariant.outline,
-      density: !mobile && floating
+      density: mobile
+          ? DButtonDensity.dockRound
+          : floating
           ? DButtonDensity.floatingDate
           : DButtonDensity.standard,
       size: mobile ? DButtonSize.floating : DButtonSize.chip,

@@ -3,14 +3,16 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show ValueListenable, listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icon_data.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
+import '../foundation/d_route_scope.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/touch_target.dart';
 import 'd_button.dart';
@@ -20,6 +22,7 @@ import 'd_mobile_dock_item.dart';
 import 'd_mobile_dock_reorder.dart';
 import 'd_scroll_chrome.dart';
 import 'd_swipe_hint.dart';
+import 'd_toast.dart';
 
 /// One of a phone's places, as the bar shows it in its row and as the panel
 /// the bar grows into shows it as a tile.
@@ -145,8 +148,150 @@ class DMobileDockGrowthScope extends InheritedWidget {
 /// more under it. No dock given it after that peeks, so whoever keeps one
 /// for a session has a bar built again, as the sidebar gives it back, stay
 /// put.
+///
+/// The bar holding it also says what has just happened ([say], [sayToast]):
+/// lifted as for its peek, the words where its hint goes, for [sayFor],
+/// then settled. Whoever keeps it disposes it.
 final class DMobileDockPeek {
   bool _taken = false;
+  bool _disposed = false;
+
+  /// The bar given this peek, while one is in the tree.
+  _DMobileDockState? _dock;
+
+  /// What waits to be said, and the wait before it is tried again.
+  DMobileDockSaying? _waiting;
+  Timer? _retry;
+
+  final _lifted = ValueNotifier(false);
+
+  /// Whether the bar holding this peek stands lifted, to peek or to say
+  /// something: what floats just over the bar rises with it as far
+  /// ([DMobileDockGeometry.peek]) on its own time, so the bar does not cover
+  /// it. False again as the bar starts back down or a pull takes it over.
+  ValueListenable<bool> get lifted => _lifted;
+
+  void _setLifted(bool lifted) {
+    if (!_disposed) _lifted.value = lifted;
+  }
+
+  /// The session's peek over [child], for the bar and for what floats
+  /// over it.
+  static Widget scope({required DMobileDockPeek peek, required Widget child}) =>
+      _PeekScope(peek: peek, child: child);
+
+  /// The session's peek above [context], read once: it lasts the session.
+  static DMobileDockPeek? maybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<_PeekScope>()?.peek;
+
+  /// Whether the session's bar stands lifted, never with no session.
+  static ValueListenable<bool> liftedOf(BuildContext context) =>
+      maybeOf(context)?.lifted ?? _never;
+  static final ValueListenable<bool> _never = ValueNotifier(false);
+
+  /// How long a saying stands; while the bar is out, covered, under a sheet
+  /// or put away, how often it is tried again and how many times before it
+  /// is dropped: what was done under a sheet still open by then is in the
+  /// sheet to be seen.
+  static const sayFor = Duration(milliseconds: 2400);
+  static const sayRetry = Duration(milliseconds: 150);
+  static const sayTries = 30;
+
+  /// Has the bar say [saying], once nothing stands in its way, a folded bar
+  /// brought back first. A newer saying takes an older one's place. Answers
+  /// false when no bar with a panel to grow into holds this peek, and the
+  /// saying is then the caller's to show.
+  bool say(DMobileDockSaying saying) {
+    final dock = _dock;
+    if (_disposed || dock == null || !dock._hasPanel) return false;
+    _retry?.cancel();
+    _waiting = saying;
+    _attempt(sayTries);
+    return true;
+  }
+
+  /// A [DToastTeller]: says a toast's one line beside its type's glyph.
+  bool sayToast(DToastOptions options) {
+    final text = options.title ?? options.description;
+    if (!options.sayable || text == null) return false;
+    return say(
+      DMobileDockSaying(
+        text: text,
+        icon: DToastOptions.glyphOf(options.type),
+        alert: options.type == DToastType.error,
+      ),
+    );
+  }
+
+  void _attempt(int tries) {
+    _retry = null;
+    final saying = _waiting;
+    if (_disposed || saying == null) return;
+    if (_dock?._sayNow(saying) ?? false) {
+      _waiting = null;
+    } else if (tries > 0) {
+      _retry = Timer(sayRetry, () => _attempt(tries - 1));
+    } else {
+      _waiting = null;
+    }
+  }
+
+  void dispose() {
+    _disposed = true;
+    _retry?.cancel();
+    _retry = null;
+    _waiting = null;
+    _lifted.dispose();
+  }
+}
+
+class _PeekScope extends InheritedWidget {
+  const _PeekScope({required this.peek, required super.child});
+
+  final DMobileDockPeek peek;
+
+  @override
+  bool updateShouldNotify(_PeekScope oldWidget) =>
+      !identical(peek, oldWidget.peek);
+}
+
+/// Rises [child] with the session's bar as it lifts, as far and on the
+/// bar's own settle spring, so what floats just over the bar is not covered
+/// by it.
+class DMobileDockLift extends StatelessWidget {
+  const DMobileDockLift({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final lifted = DMobileDockPeek.liftedOf(context);
+    final peek = DMobileDockGeometry.of(context).peek;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: lifted,
+      builder: (context, up, child) => TweenAnimationBuilder<double>(
+        tween: Tween(end: up ? -peek : 0),
+        duration: reduced ? Duration.zero : DMobileDock.settleDuration,
+        curve: DMobileDock.settleCurve,
+        builder: (context, y, child) =>
+            Transform.translate(offset: Offset(0, y), child: child),
+        child: child,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// What a bar says as it lifts: [text] on one line beside [icon], in the
+/// accent, or the destructive colour for an [alert].
+@immutable
+class DMobileDockSaying {
+  const DMobileDockSaying({required this.text, this.icon, this.alert = false});
+
+  final String text;
+  final DIconData? icon;
+  final bool alert;
 }
 
 /// A phone's bar, cut as its [DMobileDockGeometry] says. Ordered places fill
@@ -454,6 +599,9 @@ class _DMobileDockState extends State<DMobileDock>
   );
   final _hintKey = GlobalKey(debugLabel: 'mobile-dock-peek-hint');
 
+  // What the bar says in place of its hint while it is lifted to say it.
+  DMobileDockSaying? _saying;
+
   bool get _out => _phase is! _Closed;
 
   /// The bar stands in the overlay while the panel is out or it peeks.
@@ -502,12 +650,17 @@ class _DMobileDockState extends State<DMobileDock>
   @override
   void initState() {
     super.initState();
+    widget.peek?._dock = this;
     _takePeek();
   }
 
   @override
   void didUpdateWidget(DMobileDock oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.peek, widget.peek)) {
+      _leave(oldWidget.peek);
+      widget.peek?._dock = this;
+    }
     _takePeek();
     if (!_grows) {
       _dropPeek();
@@ -550,6 +703,7 @@ class _DMobileDockState extends State<DMobileDock>
       _reportedOut = false;
       widget.onPanelChanged?.call(false);
     }
+    _leave(widget.peek);
     _swipeRest?.cancel();
     _peekNext?.cancel();
     _peekLift.dispose();
@@ -580,21 +734,72 @@ class _DMobileDockState extends State<DMobileDock>
     _peekNext = Timer(DMobileDock.peekAfter, _peekUp);
   }
 
-  /// Due, the bar lifts unless it cannot grow, the footer is away, or it is
-  /// already growing under a finger or out.
+  /// A dock given another session's peek, or taken out of the tree, leaves
+  /// [peek] to whichever bar holds it next.
+  void _leave(DMobileDockPeek? peek) {
+    if (peek != null && identical(peek._dock, this)) {
+      peek._dock = null;
+      // Told after the tree is built: what follows the lift rebuilds on it.
+      scheduleMicrotask(() {
+        if (peek._dock == null) peek._setLifted(false);
+      });
+    }
+  }
+
+  /// Due, the bar lifts unless it cannot grow, the footer is away, it is
+  /// already growing under a finger or out, or already lifted to say
+  /// something, which spends the peek.
   void _peekUp() {
     _peekNext = null;
-    if (!_grows || DScrollChrome.footerAwayOf(context) || _out) return;
+    if (!_grows ||
+        DScrollChrome.footerAwayOf(context) ||
+        _out ||
+        _peek != _Peek.none) {
+      return;
+    }
+    _raise(DMobileDock.peekFor);
+    if (!MediaQuery.disableAnimationsOf(context)) _peekClock.forward(from: 0);
+  }
+
+  /// Lifts the bar off its panel, or keeps it up, for [hold], then lowers it.
+  /// A lowering under way is cut short and the bar goes back up from where
+  /// it is.
+  void _raise(Duration hold) {
     final reduced = MediaQuery.disableAnimationsOf(context);
+    _peekNext?.cancel();
+    _peekStep++;
     setState(() => _peek = _Peek.up);
     _showLayer();
+    widget.peek?._setLifted(true);
     _peekLift.animateTo(
       1,
       duration: reduced ? Duration.zero : DMobileDock.settleDuration,
       curve: DMobileDock.settleCurve,
     );
-    if (!reduced) _peekClock.forward(from: 0);
-    _peekNext = Timer(DMobileDock.peekFor, _peekDown);
+    _peekNext = Timer(hold, _peekDown);
+  }
+
+  /// Says [saying] now, lifted as for the peek, unless something stands in
+  /// its way: the bar folded, which is brought back for the next try, out,
+  /// covered, put away, under a sheet, or a place being moved.
+  bool _sayNow(DMobileDockSaying saying) {
+    if (!mounted) return false;
+    if (widget.collapsed || widget.destinationsHidden) {
+      DScrollChrome.maybeOf(context)?.reveal();
+      return false;
+    }
+    if (!_hasPanel ||
+        _out ||
+        widget.covered ||
+        _reorder is! _Still ||
+        DScrollChrome.footerAwayOf(context) ||
+        DRouteScope.routeOf(context)?.isCurrent == false) {
+      return false;
+    }
+    _saying = saying;
+    _peekClock.value = 0;
+    _raise(DMobileDockPeek.sayFor);
+    return true;
   }
 
   /// Down, the peek is over once the bar is back: the hint, quicker, has
@@ -603,6 +808,7 @@ class _DMobileDockState extends State<DMobileDock>
     _peekNext = null;
     final reduced = MediaQuery.disableAnimationsOf(context);
     setState(() => _peek = _Peek.down);
+    widget.peek?._setLifted(false);
     _peekClock.value = 0;
     final step = ++_peekStep;
     _peekLift
@@ -618,7 +824,10 @@ class _DMobileDockState extends State<DMobileDock>
 
   void _peekOver() {
     _peekNext = null;
-    setState(() => _peek = _Peek.none);
+    setState(() {
+      _peek = _Peek.none;
+      _saying = null;
+    });
     if (!_layered) _portal.hide();
   }
 
@@ -635,6 +844,7 @@ class _DMobileDockState extends State<DMobileDock>
     _peekLift.value = 0;
     _peekClock.value = 0;
     setState(() => _peek = _Peek.down);
+    widget.peek?._setLifted(false);
     _peekNext = Timer(
       reduced ? Duration.zero : DSwipeHint.goneAfter,
       _peekOver,
@@ -652,7 +862,9 @@ class _DMobileDockState extends State<DMobileDock>
     _peekLift.value = 0;
     _peekClock.value = 0;
     _peek = _Peek.none;
+    _saying = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _peek == _Peek.none) widget.peek?._setLifted(false);
       if (mounted && !_layered) _portal.hide();
     });
   }
@@ -1220,13 +1432,23 @@ class _DMobileDockState extends State<DMobileDock>
       right: 0,
       bottom: geometry.foot / 2,
       height: geometry.peekUnder + geometry.peek - geometry.foot / 2,
-      child: DSwipeHint(
-        key: _hintKey,
-        label: context.l10n.swipeUpForMore,
-        animateEntrance: true,
-        up: _peek == _Peek.up,
-        clock: _peekClock,
-      ),
+      child: switch (_saying) {
+        final saying? => DSwipeHint.saying(
+          key: _hintKey,
+          label: saying.text,
+          icon: saying.icon,
+          alert: saying.alert,
+          animateEntrance: true,
+          up: _peek == _Peek.up,
+        ),
+        null => DSwipeHint(
+          key: _hintKey,
+          label: context.l10n.swipeUpForMore,
+          animateEntrance: true,
+          up: _peek == _Peek.up,
+          clock: _peekClock,
+        ),
+      },
     );
   }
 

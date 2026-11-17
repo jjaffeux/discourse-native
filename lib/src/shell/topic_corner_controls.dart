@@ -40,30 +40,41 @@ class TopicCornerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mobile = ShellScope.read(context).mobileNavigationEnabled;
-    return ValueListenableBuilder<double>(
-      valueListenable: mobile
-          ? DScrollChrome.maybeOf(context) ??
-                const AlwaysStoppedAnimation<double>(0)
-          : const AlwaysStoppedAnimation<double>(0),
-      builder: (context, hiddenFraction, child) {
+    final chrome = mobile ? DScrollChrome.maybeOf(context) : null;
+    final lifted = DMobileDockPeek.liftedOf(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([chrome, lifted]),
+      builder: (context, child) {
+        final hiddenFraction = chrome?.value ?? 0;
         final geometry = DMobileDockGeometry.of(context);
         final dock = mobile
             ? geometry.footerExtent + ComposerParkedDraftScope.roomOf(context)
             : 0.0;
         final folded = dock > 0 && hiddenFraction >= .5;
+        // While the bar is lifted, as far as it lifts, so it does not cover
+        // what floats just over it.
+        final lift = dock > 0 && lifted.value ? geometry.peek : 0.0;
         final corner = geometry.cornerAt(height);
         final foldedBottom =
             geometry.cornerAt(geometry.circle) + (geometry.circle - height) / 2;
         return AnimatedPositionedDirectional(
           start: folded ? 2 * DSpacing.sm - corner : DSpacing.sm,
           end: folded ? corner : DSpacing.sm,
-          bottom: folded ? foldedBottom : DSpacing.sm + dock,
+          bottom: folded ? foldedBottom : DSpacing.sm + dock + lift,
           duration: DMotion.duration(
             context,
             const Duration(milliseconds: 420),
           ),
           curve: const Cubic(.32, .72, 0, 1),
-          child: Align(alignment: AlignmentDirectional.bottomEnd, child: child),
+          // The controls are [height] tall at least, centred on it, so a
+          // shorter row still settles on the corner it was measured for.
+          child: Align(
+            alignment: AlignmentDirectional.bottomEnd,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: height),
+              child: Align(widthFactor: 1, heightFactor: 1, child: child),
+            ),
+          ),
         );
       },
       child: child,

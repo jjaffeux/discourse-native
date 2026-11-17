@@ -333,7 +333,10 @@ void main() {
         closeTo(panel.right - DSpacing.sm, .1),
       );
       expect(tester.widget<DButton>(progress).shape, DButtonShape.pill);
-      expect(tester.widget<DButton>(progress).density, DButtonDensity.standard);
+      expect(
+        tester.widget<DButton>(progress).density,
+        DButtonDensity.dockRound,
+      );
       expect(tester.takeException(), isNull);
     }
   }, variant: platforms);

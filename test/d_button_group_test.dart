@@ -1,7 +1,9 @@
 import 'dart:ui' show ImageByteFormat, SemanticsValidationResult;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -862,6 +864,86 @@ void main() {
       ),
       const [false, false, false, false],
     );
+  });
+
+  testWidgets('a floating tool pill sets its ends further in', (tester) async {
+    Widget part(String name, DIconData glyph) => DButton.iconOnly(
+      key: ValueKey(name),
+      icon: DIcon(glyph),
+      tooltip: name,
+      variant: DButtonVariant.tool,
+      size: DButtonSize.floating,
+      onPressed: _noop,
+    );
+    Rect surface(String name) => tester.getRect(
+      find.descendant(
+        of: find.byKey(ValueKey(name)),
+        matching: find.byType(DControlArtwork),
+      ),
+    );
+    Rect glyph(String name) => tester.getRect(
+      find.descendant(
+        of: find.byKey(ValueKey(name)),
+        matching: find.byType(DIcon),
+      ),
+    );
+    for (final direction in TextDirection.values) {
+      await _pump(
+        tester,
+        Directionality(
+          textDirection: direction,
+          child: DButtonGroup.tool(
+            children: [
+              part('first', DIcons.farBookmark),
+              part('middle', DIcons.bell),
+              part('last', DIcons.userPlus),
+            ],
+          ),
+        ),
+        platform: TargetPlatform.iOS,
+      );
+      final ltr = direction == TextDirection.ltr;
+      double lead(String name) => ltr
+          ? glyph(name).left - surface(name).left
+          : surface(name).right - glyph(name).right;
+      double trail(String name) => ltr
+          ? surface(name).right - glyph(name).right
+          : glyph(name).left - surface(name).left;
+
+      // As tall as the pill, and as wide as their glyph and insets, never
+      // narrower than tall: the bookmark and the bell are, the wider
+      // glyph at the end is not.
+      for (final name in ['first', 'middle', 'last']) {
+        expect(surface(name).height, 40, reason: '$name, $direction');
+        expect(glyph(name).height, 15, reason: '$name, $direction');
+      }
+      expect(lead('first'), 15);
+      expect(surface('first').width, 40);
+      expect(lead('middle'), 12);
+      expect(surface('middle').width, 40);
+      expect(lead('last'), 12);
+      expect(trail('last'), 15);
+      expect(surface('last').width, greaterThan(40));
+    }
+
+    // Elsewhere a tool part keeps its square.
+    await _pump(
+      tester,
+      const DButtonGroup.tool(
+        children: [
+          DButton.iconOnly(
+            key: ValueKey('filter'),
+            icon: DIcon(DIcons.userPlus),
+            tooltip: 'filter',
+            variant: DButtonVariant.tool,
+            size: DButtonSize.filter,
+            onPressed: _noop,
+          ),
+        ],
+      ),
+      platform: TargetPlatform.iOS,
+    );
+    expect(surface('filter').width, surface('filter').height);
   });
 }
 
