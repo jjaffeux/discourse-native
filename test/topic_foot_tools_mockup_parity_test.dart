@@ -180,6 +180,38 @@ void main() {
     }
   }, variant: platforms);
 
+  testWidgets('the topic bell paints as tall as the bookmark with Tabler', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('org.discourse.native/notification_opens'),
+      (_) async => null,
+    );
+    final shell = await pumpMobileTopicFixture(tester);
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(iconSet: DIconSet.tabler),
+    );
+    await tester.pumpAndSettle();
+
+    Rect iconRect(String key) => tester.getRect(
+      find.descendant(
+        of: find.byKey(ValueKey(key)),
+        matching: find.byType(DIcon),
+      ),
+    );
+    final bookmark = iconRect('topic-header-bookmark-button');
+    final bell = iconRect('topic-header-notification-button');
+    final layer = tester.binding.renderViews.single.debugLayer! as OffsetLayer;
+    final heights = await tester.runAsync(
+      () async => (
+        bookmark: await _paintedIconHeight(layer, bookmark),
+        bell: await _paintedIconHeight(layer, bell),
+      ),
+    );
+    expect(heights!.bookmark, greaterThan(40));
+    expect(heights.bell, closeTo(heights.bookmark, 1));
+  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
+
   testWidgets('the foot rises with the bar as it lifts to say something', (
     tester,
   ) async {
@@ -214,4 +246,24 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   }, variant: platforms);
+}
+
+Future<int> _paintedIconHeight(OffsetLayer layer, Rect rect) async {
+  final image = await layer.toImage(rect.inflate(1), pixelRatio: 3);
+  final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+  final width = image.width;
+  final height = image.height;
+  image.dispose();
+  final background = bytes.getUint8(1);
+  final paintedRows = <int>[];
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      final green = bytes.getUint8((y * width + x) * 4 + 1);
+      if ((green - background).abs() > 32) {
+        paintedRows.add(y);
+        break;
+      }
+    }
+  }
+  return paintedRows.isEmpty ? 0 : paintedRows.last - paintedRows.first + 1;
 }

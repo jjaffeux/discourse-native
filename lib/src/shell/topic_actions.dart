@@ -875,35 +875,41 @@ class TopicNotificationLevelButton extends StatelessWidget {
   final DButtonDensity density;
   final Key buttonKey;
 
-  static List<DNotificationLevelOption<TopicNotificationLevel>> get _options =>
-      [
-        DNotificationLevelOption(
-          value: TopicNotificationLevel.watching,
-          emphasized: true,
-          label: appL10n.watching,
-          description: appL10n.everyReplyAndUnreadCount,
-          icon: const DIcon(DNativeIcons.bellRing),
-        ),
-        DNotificationLevelOption(
-          value: TopicNotificationLevel.tracking,
-          emphasized: true,
-          label: appL10n.tracking,
-          description: appL10n.mentionsRepliesAndUnreadCount,
-          icon: const DIcon(DIcons.bell),
-        ),
-        DNotificationLevelOption(
-          value: TopicNotificationLevel.normal,
-          label: appL10n.normal,
-          description: appL10n.mentionsAndRepliesOnly,
-          icon: const DIcon(DIcons.bell),
-        ),
-        DNotificationLevelOption(
-          value: TopicNotificationLevel.muted,
-          label: appL10n.muted,
-          description: appL10n.noNotificationsHiddenFromLatest,
-          icon: const DIcon(DNativeIcons.bellOff),
-        ),
-      ];
+  static List<DNotificationLevelOption<TopicNotificationLevel>> _options(
+    DButtonSize size,
+  ) {
+    final plainBell = size == DButtonSize.floating
+        ? const DIcon(DIcons.farBell)
+        : const DIcon(DIcons.bell);
+    return [
+      DNotificationLevelOption(
+        value: TopicNotificationLevel.watching,
+        emphasized: true,
+        label: appL10n.watching,
+        description: appL10n.everyReplyAndUnreadCount,
+        icon: const DIcon(DNativeIcons.bellRing),
+      ),
+      DNotificationLevelOption(
+        value: TopicNotificationLevel.tracking,
+        emphasized: true,
+        label: appL10n.tracking,
+        description: appL10n.mentionsRepliesAndUnreadCount,
+        icon: plainBell,
+      ),
+      DNotificationLevelOption(
+        value: TopicNotificationLevel.normal,
+        label: appL10n.normal,
+        description: appL10n.mentionsAndRepliesOnly,
+        icon: plainBell,
+      ),
+      DNotificationLevelOption(
+        value: TopicNotificationLevel.muted,
+        label: appL10n.muted,
+        description: appL10n.noNotificationsHiddenFromLatest,
+        icon: const DIcon(DNativeIcons.bellOff),
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -922,7 +928,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
           size: size,
           density: density,
           value: topic.notificationLevel,
-          options: _options,
+          options: _options(size),
           onChanged: (level) {
             // Account replacement can precede the anchor's next rebuild.
             if (!lease.isCurrent) return;
@@ -958,7 +964,7 @@ class TopicNotificationLevelPlaceholder extends StatelessWidget {
         size: size,
         density: density,
         value: TopicNotificationLevel.normal,
-        options: TopicNotificationLevelButton._options,
+        options: TopicNotificationLevelButton._options(size),
         onChanged: null,
       );
 }
