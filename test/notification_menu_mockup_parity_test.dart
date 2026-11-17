@@ -99,7 +99,6 @@ void main() {
             findsOneWidget,
           );
           final row = find.byKey(const ValueKey('notification-row-1'));
-          expect(tester.getSize(row).height, closeTo(52.05, .05));
           expect(
             tester.getSize(
               find.descendant(of: row, matching: find.byType(DAvatar)),
@@ -113,11 +112,10 @@ void main() {
           final time = tester.getRect(
             find.descendant(of: row, matching: find.text('22m')),
           );
-          final dot = tester.getRect(
+          expect(
             find.descendant(of: row, matching: find.byType(DNotificationDot)),
+            findsNothing,
           );
-          expect(dot.right, time.right);
-          expect(dot.top, greaterThan(time.bottom));
           expect(
             find.text('What is everyone’s sourdough hydration?'),
             findsOneWidget,
@@ -128,19 +126,33 @@ void main() {
               matching: find.textContaining('mossy_mo', findRichText: true),
             ),
           );
-          expect(
-            headline.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .50),
-          );
+          expect(headline.text.style!.color, tokens.mutedForeground);
           final subject = tester.renderObject<RenderParagraph>(
             find.descendant(
               of: row,
               matching: find.text('What is everyone’s sourdough hydration?'),
             ),
           );
+          expect(subject.text.style!.color, tokens.mutedForeground);
+          final subjectFinder = find.descendant(
+            of: row,
+            matching: find.text('What is everyone’s sourdough hydration?'),
+          );
           expect(
-            subject.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .90),
+            time.center.dy,
+            closeTo(tester.getRect(subjectFinder).center.dy, 2),
+          );
+          expect(time.left, greaterThan(tester.getRect(subjectFinder).right));
+          final effectiveScale =
+              tester.getRect(subjectFinder).height /
+              tester.getSize(subjectFinder).height;
+          expect(
+            subject.text.style!.fontSize! * effectiveScale,
+            closeTo(12.5, .05),
+          );
+          expect(
+            headline.text.style!.fontSize! * effectiveScale,
+            closeTo(14.5, .05),
           );
           final readRow = find.byKey(const ValueKey('notification-row-4'));
           final readSubject = tester.renderObject<RenderParagraph>(
@@ -149,10 +161,7 @@ void main() {
               matching: find.text('Show & tell: houseplant shelfie thread'),
             ),
           );
-          expect(
-            readSubject.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .50),
-          );
+          expect(readSubject.text.style!.color, tokens.mutedForeground);
           expect(
             tester
                 .renderObject<RenderParagraph>(
@@ -161,7 +170,7 @@ void main() {
                 .text
                 .style!
                 .color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .40),
+            tokens.mutedForeground,
           );
           final grouped = find.byKey(const ValueKey('notification-row-2'));
           expect(
