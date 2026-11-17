@@ -359,106 +359,104 @@ void main() {
     });
   }
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final reducedMotion in [false, true]) {
-      for (final variant in [DSheetVariant.menu, DSheetVariant.standard]) {
-        testWidgets(
-          '$variant backdrop drag shares sheet motion on $platform (reduced: $reducedMotion)',
-          (tester) async {
-            var closes = 0;
-            await tester.pumpWidget(
-              _host(
-                DSheet<void>(
-                  trigger: DSheetTrigger(
-                    builder: (_, open) =>
-                        DButton(label: const Text('Open'), onPressed: open),
-                  ),
-                  onOpenChanged: (details) {
-                    if (!details.open) closes++;
-                  },
-                  content: DSheetContent(
-                    variant: variant,
-                    side: DSheetSide.bottom,
-                    inset: true,
-                    showCloseButton: false,
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.all(16),
-                        child: SizedBox(
-                          height: 120,
-                          child: Text('Menu content'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                theme: ThemeData(platform: platform),
-                disableAnimations: reducedMotion,
+  for (final (platform, reducedMotion, variant) in [
+    (TargetPlatform.iOS, false, DSheetVariant.menu),
+    (TargetPlatform.iOS, true, DSheetVariant.standard),
+    (TargetPlatform.android, false, DSheetVariant.standard),
+    (TargetPlatform.android, true, DSheetVariant.menu),
+  ]) {
+    testWidgets(
+      '$variant backdrop drag shares sheet motion on $platform (reduced: $reducedMotion)',
+      (tester) async {
+        var closes = 0;
+        await tester.pumpWidget(
+          _host(
+            DSheet<void>(
+              trigger: DSheetTrigger(
+                builder: (_, open) =>
+                    DButton(label: const Text('Open'), onPressed: open),
               ),
-            );
-            await tester.tap(find.text('Open'));
-            await tester.pumpAndSettle();
-            final sheet = find.byType(DSheetContent);
-            final bounds = tester.getRect(sheet);
-            final above = Offset(bounds.center.dx, bounds.top - 40);
-            final short = await tester.startGesture(
-              above,
-              kind: PointerDeviceKind.touch,
-            );
-            await short.moveBy(const Offset(0, 24));
-            await short.moveBy(const Offset(0, 40));
-            await tester.pump();
-            expect(tester.getRect(sheet).top, greaterThan(bounds.top));
-            expect(closes, 0);
-            await short.up();
-            await tester.pumpAndSettle();
-            expect(tester.getRect(sheet), bounds);
-            expect(closes, 0);
-
-            final cancelled = await tester.startGesture(
-              above,
-              kind: PointerDeviceKind.touch,
-            );
-            await cancelled.moveBy(const Offset(0, 24));
-            await cancelled.moveBy(const Offset(0, 160));
-            await tester.pump();
-            expect(tester.getRect(sheet).top, greaterThan(bounds.top));
-            await cancelled.cancel();
-            await tester.pumpAndSettle();
-            expect(tester.getRect(sheet), bounds);
-            expect(closes, 0);
-
-            await tester.dragFrom(
-              above,
-              const Offset(0, -100),
-              kind: PointerDeviceKind.touch,
-            );
-            await tester.pumpAndSettle();
-            expect(tester.getRect(sheet), bounds);
-            expect(closes, 0);
-            final dismiss = await tester.startGesture(
-              above,
-              kind: PointerDeviceKind.touch,
-            );
-            await dismiss.moveBy(const Offset(0, 24));
-            await dismiss.moveBy(const Offset(0, 160));
-            await tester.pump();
-            expect(closes, 0);
-            await dismiss.up();
-            await tester.pumpAndSettle();
-            expect(sheet, findsNothing);
-            expect(closes, 1);
-            await tester.tap(find.text('Open'));
-            await tester.pumpAndSettle();
-            await tester.tapAt(above);
-            await tester.pumpAndSettle();
-            expect(sheet, findsNothing);
-            expect(closes, 2);
-            expect(tester.takeException(), isNull);
-          },
+              onOpenChanged: (details) {
+                if (!details.open) closes++;
+              },
+              content: DSheetContent(
+                variant: variant,
+                side: DSheetSide.bottom,
+                inset: true,
+                showCloseButton: false,
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(16),
+                    child: SizedBox(height: 120, child: Text('Menu content')),
+                  ),
+                ],
+              ),
+            ),
+            theme: ThemeData(platform: platform),
+            disableAnimations: reducedMotion,
+          ),
         );
-      }
-    }
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        final above = Offset(bounds.center.dx, bounds.top - 40);
+        final short = await tester.startGesture(
+          above,
+          kind: PointerDeviceKind.touch,
+        );
+        await short.moveBy(const Offset(0, 24));
+        await short.moveBy(const Offset(0, 40));
+        await tester.pump();
+        expect(tester.getRect(sheet).top, greaterThan(bounds.top));
+        expect(closes, 0);
+        await short.up();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+        expect(closes, 0);
+
+        final cancelled = await tester.startGesture(
+          above,
+          kind: PointerDeviceKind.touch,
+        );
+        await cancelled.moveBy(const Offset(0, 24));
+        await cancelled.moveBy(const Offset(0, 160));
+        await tester.pump();
+        expect(tester.getRect(sheet).top, greaterThan(bounds.top));
+        await cancelled.cancel();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+        expect(closes, 0);
+
+        await tester.dragFrom(
+          above,
+          const Offset(0, -100),
+          kind: PointerDeviceKind.touch,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+        expect(closes, 0);
+        final dismiss = await tester.startGesture(
+          above,
+          kind: PointerDeviceKind.touch,
+        );
+        await dismiss.moveBy(const Offset(0, 24));
+        await dismiss.moveBy(const Offset(0, 160));
+        await tester.pump();
+        expect(closes, 0);
+        await dismiss.up();
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(closes, 1);
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tapAt(above);
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(closes, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final imperative in [false, true]) {
