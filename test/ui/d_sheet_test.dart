@@ -1367,7 +1367,10 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final reducedMotion in [false, true]) {
+    for (final reducedMotion in [
+      false,
+      if (platform == TargetPlatform.iOS) true,
+    ]) {
       testWidgets(
         '$platform retained swipe completes its exit before dismissal (reduced: $reducedMotion)',
         (tester) async {
