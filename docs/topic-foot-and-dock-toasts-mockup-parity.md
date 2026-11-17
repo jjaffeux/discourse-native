@@ -73,11 +73,10 @@ by its id.
    adds no option: the topic foot is the floating size's only joined tool
    group. Styleguide: Button group, "Floating tool pill".
 2. **`DButtonDensity.dockRound`** (the count pill), and
-   **`DMobileDockGeometry.circleOf`**, the dock's circle read with the
-   dock's own text scale from inside reference chrome. On a phone the
-   reading baseline makes the dock's circle 50.36 rather than 48, so the
-   pill follows the circle rather than a number. Styleguide: Button, "Topic
-   timeline actions".
+   **`DMobileDockGeometry.circleOf`**, the shared diameter of the folded
+   dock and the height of the count pill. Both start at 48 points and can
+   grow with app zoom and platform text settings. See "Topic timeline
+   actions" in the Button styleguide.
 3. **`DMobileDockPeek.say` and `sayToast`, `DMobileDockSaying`,
    `DSwipeHint.saying`, `DToastOptions.sayable` and `glyphOf`,
    `DToastController.teller`** (the dock says a toast). Its owner now

@@ -105,6 +105,7 @@ void main() {
     // Where you are is a pill as tall as the dock's circle, 18 in at either
     // side, and the tools stand centred on it.
     final countPill = tester.getRect(surface(progress));
+    expect(countPill.height, 48);
     final countText = tester.getRect(
       find.descendant(of: progress, matching: find.byType(TopicPostCount)),
     );

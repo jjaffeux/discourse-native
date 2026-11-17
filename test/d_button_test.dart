@@ -886,8 +886,7 @@ void main() {
           child: Builder(
             builder: (context) {
               circle = DMobileDockGeometry.of(context).circle;
-              // Chrome scales its own text from the reference, unlike the
-              // dock; the pill still matches the dock.
+              // The pill and dock agree across the reference text scope.
               return DReferenceTextScale(
                 child: Center(
                   child: DButton(
@@ -912,7 +911,7 @@ void main() {
       ),
     );
     final label = tester.getRect(find.text('3 / 12'));
-    expect(circle, greaterThan(48));
+    expect(circle, 48);
     expect(surface.height, moreOrLessEquals(circle));
     expect(label.left - surface.left, 18);
     expect(surface.right - label.right, 18);

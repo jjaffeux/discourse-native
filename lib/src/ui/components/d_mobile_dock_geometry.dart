@@ -34,41 +34,49 @@ typedef DMobileDockRowSlots = ({
 /// its own height.
 @immutable
 class DMobileDockGeometry {
-  const DMobileDockGeometry({required this.foot, this.growth = 0});
+  const DMobileDockGeometry({required this.foot, this.growth = 0})
+    : circle = _circleDiameter + growth;
 
-  factory DMobileDockGeometry.of(BuildContext context) => DMobileDockGeometry(
-    foot: MediaQuery.paddingOf(context).bottom,
-    growth: _growthOf(context),
-  );
+  DMobileDockGeometry._fromContext(BuildContext context, {required this.foot})
+    : growth = _textGrowth(MediaQuery.textScalerOf(context)),
+      circle = circleOf(context);
+
+  factory DMobileDockGeometry.of(BuildContext context) =>
+      DMobileDockGeometry._fromContext(
+        context,
+        foot: MediaQuery.paddingOf(context).bottom,
+      );
 
   /// The geometry once any keyboard has gone. The safe inset returns only when
   /// a retracting keyboard's inset reaches exactly 0, so what travels with that
   /// keyboard takes its destination from here.
   factory DMobileDockGeometry.restingOf(BuildContext context) =>
-      DMobileDockGeometry(
+      DMobileDockGeometry._fromContext(
+        context,
         foot: math.max(
           MediaQuery.paddingOf(context).bottom,
           MediaQuery.viewPaddingOf(context).bottom,
         ),
-        growth: _growthOf(context),
       );
 
-  static double _growthOf(BuildContext context, [TextScaler? scaler]) => math
-      .max(0.0, (scaler ?? MediaQuery.textScalerOf(context)).scale(11) - 11);
+  static const _circleDiameter = 48.0;
 
-  /// The folded bar's circle as the bar draws it, read from inside reference
-  /// chrome as well, which scales its own text differently from the bar: what
-  /// stands beside the circle is as tall as it.
-  static double circleOf(BuildContext context) => DMobileDockGeometry(
-    foot: 0,
-    growth: _growthOf(context, DReferenceTextScale.readingScalerOf(context)),
-  ).circle;
+  static double _textGrowth(TextScaler scaler) =>
+      math.max(0.0, scaler.scale(11) - 11);
+
+  /// The folded dock and the controls beside it share a 48-point baseline.
+  /// App zoom and platform text settings can grow it.
+  static double circleOf(BuildContext context) =>
+      _circleDiameter + _textGrowth(DReferenceTextScale.scalerOf(context));
 
   /// The screen's bottom safe inset, which is 0 while the keyboard is up.
   final double foot;
 
   /// How much taller the dock's text scale makes its row than the default.
   final double growth;
+
+  /// The folded bar's diameter.
+  final double circle;
 
   /// The corner radius of the screens the mockup assumes.
   static const screenRadius = 55.0;
@@ -139,9 +147,6 @@ class DMobileDockGeometry {
   /// The room a grown action's name may take: its column, less a little
   /// either side so it never runs into the place beside it.
   double actionNameWidth(double width) => gridColumn(width) - 8;
-
-  /// The folded bar.
-  double get circle => 48 + growth;
 
   /// How far the bar stays from the screen's sides and foot: [inset] on a
   /// square screen, nothing once the foot is at least that deep.
@@ -252,10 +257,11 @@ class DMobileDockGeometry {
   bool operator ==(Object other) =>
       other is DMobileDockGeometry &&
       other.foot == foot &&
-      other.growth == growth;
+      other.growth == growth &&
+      other.circle == circle;
 
   @override
-  int get hashCode => Object.hash(foot, growth);
+  int get hashCode => Object.hash(foot, growth, circle);
 }
 
 /// The panel a bar grows into: the places it has no room for, as tiles on

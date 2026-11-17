@@ -1036,13 +1036,12 @@ void main() {
         find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
         findsOneWidget,
       );
-      // The circle sits in the screen's corner, 12.98 in at a 34 foot for the
-      // app's baseline text scale and 6 on a square screen; the compact
+      // The 48-point circle sits in the screen's corner and the compact
       // composer is level with it.
       final folded = tester.getRect(dock);
-      expect(folded.height, closeTo(50.36, .01));
+      expect(folded.size, const Size(48, 48));
       final corner = dockCornerAt(folded.height, localFoot);
-      expect(corner, closeTo(localFoot > 0 ? 12.98 : 6, .01));
+      expect(corner, closeTo(localFoot > 0 ? 13.32 : 6, .01));
       expect(folded.bottom, closeTo(hostBottom - corner, .001));
       expect(folded.left, closeTo(corner, .001));
       expect(tester.getRect(composer).top, closeTo(folded.top, .01));

@@ -2421,6 +2421,15 @@ void main() {
           .hitTestable(),
       findsOneWidget,
     );
+    final foldedDock = tester.getRect(
+      find.byKey(const ValueKey('mobile-dock-surface')),
+    );
+    final progress = tester.getRect(
+      find.byKey(const ValueKey('topic-progress-button')),
+    );
+    expect(foldedDock.size, const Size(48, 48));
+    expect(progress.height, 48);
+    expect(progress.center.dy, closeTo(foldedDock.center.dy, .01));
     await capture('reader-folded');
     await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
     if (const bool.fromEnvironment('captureMobileChrome')) {
