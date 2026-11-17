@@ -1299,117 +1299,116 @@ void main() {
   });
 
   group('settings and preferences', () {
-    for (final change in ['room', 'site', 'same-room']) {
-      for (final delayedRead in [
-        if (change != 'site') false,
-        if (change != 'room') true,
-      ]) {
-        testWidgets('volume dialog keeps its call target '
-            '(change: $change, delayed read: $delayedRead)', (tester) async {
-          final preferences = _Preferences(participantVolume: 0.4);
-          final room = _room(
-            participants: const [
-              VoiceParticipant(
-                id: 1,
-                username: 'sam',
-                role: VoiceRole.participant,
-              ),
-              VoiceParticipant(
-                id: 2,
-                username: 'lee',
-                role: VoiceRole.participant,
-              ),
-            ],
-          );
-          const otherSite = 'https://another-voice.example.com';
-          final targetSite = change == 'site' ? otherSite : _siteUrl;
-          final replacement = _room(
-            id: change == 'room' ? 8 : 7,
-            participants: room.participants,
-          );
-          final harness = _Harness(
-            joinRoom: room,
-            preferences: preferences,
-            requests: PluginTestRequestHost(
-              apiKeys: const {_siteUrl: 'key', otherSite: 'other-key'},
+    for (final (change, delayedRead) in [
+      ('room', false),
+      ('site', true),
+      ('same-room', true),
+    ]) {
+      testWidgets('volume dialog keeps its call target '
+          '(change: $change, delayed read: $delayedRead)', (tester) async {
+        final preferences = _Preferences(participantVolume: 0.4);
+        final room = _room(
+          participants: const [
+            VoiceParticipant(
+              id: 1,
+              username: 'sam',
+              role: VoiceRole.participant,
             ),
-          );
-          addTearDown(harness.dispose);
-          await _join(harness, room);
-          harness.transport.responses['GET /voice/rooms.json'] = {
-            'rooms': [_joinPayload(room)['room']],
-          };
-          await harness.controller.ensureLoaded(_siteUrl);
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: ThemeData(platform: TargetPlatform.macOS),
-              home: VoiceRoomView(
-                roomId: 7,
-                controller: harness.controller,
-                shell: _voiceShell(
-                  harness.controller,
-                  site: const PluginRouteSite(
-                    url: _siteUrl,
-                    title: 'Voice',
-                    isConnected: true,
-                  ),
+            VoiceParticipant(
+              id: 2,
+              username: 'lee',
+              role: VoiceRole.participant,
+            ),
+          ],
+        );
+        const otherSite = 'https://another-voice.example.com';
+        final targetSite = change == 'site' ? otherSite : _siteUrl;
+        final replacement = _room(
+          id: change == 'room' ? 8 : 7,
+          participants: room.participants,
+        );
+        final harness = _Harness(
+          joinRoom: room,
+          preferences: preferences,
+          requests: PluginTestRequestHost(
+            apiKeys: const {_siteUrl: 'key', otherSite: 'other-key'},
+          ),
+        );
+        addTearDown(harness.dispose);
+        await _join(harness, room);
+        harness.transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [_joinPayload(room)['room']],
+        };
+        await harness.controller.ensureLoaded(_siteUrl);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
+            home: VoiceRoomView(
+              roomId: 7,
+              controller: harness.controller,
+              shell: _voiceShell(
+                harness.controller,
+                site: const PluginRouteSite(
+                  url: _siteUrl,
+                  title: 'Voice',
+                  isConnected: true,
                 ),
               ),
             ),
-          );
-          await tester.pumpAndSettle();
-          final gate = delayedRead ? Completer<void>() : null;
-          preferences.participantVolumeReadGate = gate;
-          addTearDown(() {
-            if (gate != null && !gate.isCompleted) gate.complete();
-          });
-          await tester.tap(find.byTooltip('Participant actions'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Local volume'));
-          await tester.pumpAndSettle();
-          expect(
-            find.byType(DSlider),
-            delayedRead ? findsNothing : findsOneWidget,
-          );
-          harness.transport.responses.addAll({
-            'POST /voice/rooms/${replacement.id}/join.json': _joinPayload(
-              replacement,
-            ),
-            'POST /voice/rooms/${replacement.id}/state.json': const {},
-            'DELETE /voice/rooms/${replacement.id}/leave.json': const {},
-          });
-          await harness.controller.leave();
-          await harness.controller.join(
-            siteUrl: targetSite,
-            siteName: 'Replacement call',
-            room: replacement,
-          );
-          gate?.complete();
-          await tester.pumpAndSettle();
-          expect(harness.controller.call?.siteUrl, targetSite);
-          expect(harness.controller.call?.room.id, replacement.id);
-          if (delayedRead && change != 'same-room') {
-            expect(find.byType(DSlider), findsNothing);
-          } else {
-            final rect = tester.getRect(find.byType(DSlider));
-            await tester.tapAt(
-              Offset(rect.left + 6 + (rect.width - 12) * 0.7, rect.center.dy),
-            );
-            await tester.pumpAndSettle();
-          }
-          final expected = change == 'same-room' ? 0.7 : 0.4;
-          expect(
-            harness.media.sessions.last.participantVolumes.last.volume,
-            expected,
-          );
-          expect(
-            preferences.participantVolumeWrites,
-            change == 'same-room' ? hasLength(1) : isEmpty,
-          );
-          expect(tester.takeException(), isNull);
-          harness.dispose();
+          ),
+        );
+        await tester.pumpAndSettle();
+        final gate = delayedRead ? Completer<void>() : null;
+        preferences.participantVolumeReadGate = gate;
+        addTearDown(() {
+          if (gate != null && !gate.isCompleted) gate.complete();
         });
-      }
+        await tester.tap(find.byTooltip('Participant actions'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Local volume'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(DSlider),
+          delayedRead ? findsNothing : findsOneWidget,
+        );
+        harness.transport.responses.addAll({
+          'POST /voice/rooms/${replacement.id}/join.json': _joinPayload(
+            replacement,
+          ),
+          'POST /voice/rooms/${replacement.id}/state.json': const {},
+          'DELETE /voice/rooms/${replacement.id}/leave.json': const {},
+        });
+        await harness.controller.leave();
+        await harness.controller.join(
+          siteUrl: targetSite,
+          siteName: 'Replacement call',
+          room: replacement,
+        );
+        gate?.complete();
+        await tester.pumpAndSettle();
+        expect(harness.controller.call?.siteUrl, targetSite);
+        expect(harness.controller.call?.room.id, replacement.id);
+        if (delayedRead && change != 'same-room') {
+          expect(find.byType(DSlider), findsNothing);
+        } else {
+          final rect = tester.getRect(find.byType(DSlider));
+          await tester.tapAt(
+            Offset(rect.left + 6 + (rect.width - 12) * 0.7, rect.center.dy),
+          );
+          await tester.pumpAndSettle();
+        }
+        final expected = change == 'same-room' ? 0.7 : 0.4;
+        expect(
+          harness.media.sessions.last.participantVolumes.last.volume,
+          expected,
+        );
+        expect(
+          preferences.participantVolumeWrites,
+          change == 'same-room' ? hasLength(1) : isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+        harness.dispose();
+      });
     }
 
     testWidgets('applies participant volume locally and persists it', (
