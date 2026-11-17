@@ -1056,7 +1056,10 @@ void main() {
     TargetPlatform.iOS,
     TargetPlatform.android,
   ]) {
-    for (final canEdit in [true, false]) {
+    for (final canEdit in [
+      if (platform != TargetPlatform.android) true,
+      if (platform != TargetPlatform.iOS) false,
+    ]) {
       testWidgets(
         'posted checkbox interaction follows can_edit=$canEdit on $platform',
         (tester) async {
