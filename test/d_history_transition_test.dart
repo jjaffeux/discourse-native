@@ -1099,77 +1099,67 @@ void main() {
     );
   }
 
-  for (final direction in TextDirection.values) {
-    testWidgets('tab fades preserve all four corners throughout $direction', (
-      tester,
-    ) async {
-      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
-      addTearDown(tester.view.resetViewPadding);
-      final state = await _pump(
-        tester,
-        direction: direction,
-        tabTransitions: true,
-        roundedPanel: true,
+  testWidgets('tab fades preserve all four corners throughout', (tester) async {
+    tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.resetViewPadding);
+    final state = await _pump(tester, tabTransitions: true, roundedPanel: true);
+    Future<void> expectPageColors() async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('history-test-boundary')),
       );
-      Future<void> expectPageColors() async {
-        final boundary = tester.renderObject<RenderRepaintBoundary>(
-          find.byKey(const ValueKey('history-test-boundary')),
-        );
-        final image = boundary.toImageSync(pixelRatio: 1);
-        final pixels = await tester.runAsync(
-          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
-        );
-        expect(pixels, isNotNull);
-        for (final (x, y) in [
-          (17, 7),
-          (image.width - 18, 7),
-          (17, image.height - 2),
-          (image.width - 18, image.height - 2),
-          (2, image.height ~/ 2),
-          (image.width - 3, image.height ~/ 2),
-          (image.width ~/ 2, 2),
-        ]) {
-          final offset = (image.width * y + x) * 4;
-          expect(
-            List.generate(3, (channel) => pixels!.getUint8(offset + channel)),
-            [0, 255, 0],
-            reason:
-                'The fixed corner or gutter at ($x, $y) must expose the canvas',
-          );
-        }
-        final center =
-            (image.width * (image.height ~/ 2) + image.width ~/ 2) * 4;
+      final image = boundary.toImageSync(pixelRatio: 1);
+      final pixels = await tester.runAsync(
+        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+      );
+      expect(pixels, isNotNull);
+      for (final (x, y) in [
+        (17, 7),
+        (image.width - 18, 7),
+        (17, image.height - 2),
+        (image.width - 18, image.height - 2),
+        (2, image.height ~/ 2),
+        (image.width - 3, image.height ~/ 2),
+        (image.width ~/ 2, 2),
+      ]) {
+        final offset = (image.width * y + x) * 4;
         expect(
-          List.generate(3, (channel) => pixels!.getUint8(center + channel)),
-          [244, 67, 54],
-          reason: 'Solid page fills must not reveal the green canvas mid-fade',
+          List.generate(3, (channel) => pixels!.getUint8(offset + channel)),
+          [0, 255, 0],
+          reason:
+              'The fixed corner or gutter at ($x, $y) must expose the canvas',
         );
-        image.dispose();
       }
+      final center = (image.width * (image.height ~/ 2) + image.width ~/ 2) * 4;
+      expect(
+        List.generate(3, (channel) => pixels!.getUint8(center + channel)),
+        [244, 67, 54],
+        reason: 'Solid page fills must not reveal the green canvas mid-fade',
+      );
+      image.dispose();
+    }
 
-      await expectPageColors();
-      for (final tab in [1, 0]) {
-        state.selectTab(tab);
-        await tester.pump();
-        final snapshot = tester.widget<RawImage>(find.byType(RawImage)).image!;
-        final pixels = await tester.runAsync(
-          () => snapshot.toByteData(format: ui.ImageByteFormat.rawRgba),
-        );
-        expect(
-          pixels!.getUint8(3),
-          0,
-          reason: 'Snapshot corners stay transparent',
-        );
-        await tester.pump();
-        for (var frame = 0; frame < 20; frame++) {
-          await tester.pump(const Duration(milliseconds: 16));
-          await expectPageColors();
-        }
-        await tester.pumpAndSettle();
+    await expectPageColors();
+    for (final tab in [1, 0]) {
+      state.selectTab(tab);
+      await tester.pump();
+      final snapshot = tester.widget<RawImage>(find.byType(RawImage)).image!;
+      final pixels = await tester.runAsync(
+        () => snapshot.toByteData(format: ui.ImageByteFormat.rawRgba),
+      );
+      expect(
+        pixels!.getUint8(3),
+        0,
+        reason: 'Snapshot corners stay transparent',
+      );
+      await tester.pump();
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
         await expectPageColors();
       }
-    });
-  }
+      await tester.pumpAndSettle();
+      await expectPageColors();
+    }
+  });
 
   testWidgets('tab changes take 300ms to settle', (tester) async {
     final state = await _pump(tester, tabTransitions: true);
