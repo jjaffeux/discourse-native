@@ -156,6 +156,15 @@ void main() {
         tester.getRect(byline).right - tester.getRect(date).right,
         lessThan(1),
       );
+      // What it does is said of the date itself, not of what encloses it.
+      final handle = tester.ensureSemantics();
+      final told = find.semantics.byPredicate(
+        (node) => node.tooltip == heading,
+      );
+      for (final node in told.evaluate()) {
+        expect(node.label, heading);
+      }
+      handle.dispose();
 
       await tester.tap(date);
       await tester.pumpAndSettle();

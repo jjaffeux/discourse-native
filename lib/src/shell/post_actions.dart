@@ -1161,17 +1161,17 @@ class PostDateShare extends StatelessWidget {
     final label = post.postNumber == 1
         ? context.l10n.shareTopic
         : context.l10n.sharePost('${post.postNumber}');
-    return DTooltip(
-      message: label,
-      child: DButton(
-        key: ValueKey('post-date-share-${post.id}'),
-        variant: DButtonVariant.inline,
-        density: DButtonDensity.inlineMetadata,
-        foregroundColor: muted,
-        semanticLabel: label,
-        label: date,
-        onPressed: share,
-      ),
+    // The button's own tooltip, so what it does is said of the date and not
+    // of whatever encloses it.
+    return DButton(
+      key: ValueKey('post-date-share-${post.id}'),
+      variant: DButtonVariant.inline,
+      density: DButtonDensity.inlineMetadata,
+      foregroundColor: muted,
+      tooltip: label,
+      semanticLabel: label,
+      label: date,
+      onPressed: share,
     );
   }
 }
