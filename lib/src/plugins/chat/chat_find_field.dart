@@ -40,30 +40,33 @@ class ChatFindField extends StatelessWidget {
       },
       child: ListenableBuilder(
         listenable: controller,
-        builder: (context, _) => DInputGroup(
-          variant: DInputGroupVariant.quiet,
-          size: DControlSize.filter,
-          children: [
-            DInputGroupInput(
-              controller: controller,
-              focusNode: focusNode,
-              semanticLabel: placeholder,
-              hintText: placeholder,
-              autocorrect: false,
-              enableSuggestions: false,
-              onChanged: onChanged,
-            ),
-            const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
-            if (controller.text.isNotEmpty)
-              DInputGroupAddon(
-                alignment: DInputGroupAddonAlignment.inlineEnd,
-                child: DInputGroupButton.icon(
-                  icon: const DIcon(DIcons.xmark),
-                  tooltip: context.l10n.clearSearch,
-                  onPressed: _clear,
-                ),
+        builder: (context, _) => TextFieldTapRegion(
+          child: DInputGroup(
+            variant: DInputGroupVariant.quiet,
+            size: DControlSize.filter,
+            children: [
+              DInput(
+                controller: controller,
+                focusNode: focusNode,
+                semanticLabel: placeholder,
+                hintText: placeholder,
+                autocorrect: false,
+                enableSuggestions: false,
+                onChanged: onChanged,
+                onTapOutside: (_) => focusNode?.unfocus(),
               ),
-          ],
+              const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
+              if (controller.text.isNotEmpty)
+                DInputGroupAddon(
+                  alignment: DInputGroupAddonAlignment.inlineEnd,
+                  child: DInputGroupButton.icon(
+                    icon: const DIcon(DIcons.xmark),
+                    tooltip: context.l10n.clearSearch,
+                    onPressed: _clear,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     ),

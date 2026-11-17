@@ -7,6 +7,42 @@ import 'mobile_shell_test.dart' as fixture;
 
 void main() {
   testWidgets(
+    'tapping away from Find a chat dismisses the keyboard',
+    (tester) async {
+      await fixture.pumpMobileShellFixture(tester);
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+      await tester.pumpAndSettle();
+
+      final field = find.byKey(const ValueKey('chat-search-entry'));
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(find.text('Direct messages'));
+      await tester.pumpAndSettle();
+      expect(tester.testTextInput.isVisible, isFalse);
+
+      await tester.enterText(field, 'sam');
+      await tester.pumpAndSettle();
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(find.byTooltip('Newest'));
+      await tester.pumpAndSettle();
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(find.text('Results'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Clear search'));
+      await tester.pumpAndSettle();
+      expect(find.text('Find a chat'), findsOneWidget);
+      expect(tester.testTextInput.isVisible, isTrue);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
     'Topics releases chat input before replacing its editor',
     (tester) async {
       final shell = await fixture.pumpMobileShellFixture(tester);
