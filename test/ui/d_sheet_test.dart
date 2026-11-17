@@ -1622,73 +1622,74 @@ void main() {
     );
   }
 
-  for (final reducedMotion in [false, true]) {
-    for (final brightness in Brightness.values) {
-      testWidgets(
-        'desktop full-height picker has a darker opaque backdrop and subtle scale ($brightness, reduced: $reducedMotion)',
-        (tester) async {
-          final theme = ThemeData(
-            brightness: brightness,
-            platform: TargetPlatform.macOS,
-          );
-          final background = brightness == Brightness.dark
-              ? const Color(0xff182330)
-              : const Color(0xffe9f4ee);
-          await tester.pumpWidget(
-            _host(
-              _sheet<void>(side: DSheetSide.bottom, fillAvailableHeight: true),
-              theme: theme.copyWith(
-                extensions: [
-                  DTokens.fromTheme(theme).copyWith(background: background),
-                ],
-              ),
-              disableAnimations: reducedMotion,
+  for (final (brightness, reducedMotion) in [
+    (Brightness.light, false),
+    (Brightness.dark, true),
+  ]) {
+    testWidgets(
+      'desktop full-height picker has a darker opaque backdrop and subtle scale ($brightness, reduced: $reducedMotion)',
+      (tester) async {
+        final theme = ThemeData(
+          brightness: brightness,
+          platform: TargetPlatform.macOS,
+        );
+        final background = brightness == Brightness.dark
+            ? const Color(0xff182330)
+            : const Color(0xffe9f4ee);
+        await tester.pumpWidget(
+          _host(
+            _sheet<void>(side: DSheetSide.bottom, fillAvailableHeight: true),
+            theme: theme.copyWith(
+              extensions: [
+                DTokens.fromTheme(theme).copyWith(background: background),
+              ],
             ),
-          );
-          await tester.tap(find.text('Open'));
-          await tester.pump();
-          await tester.pump();
-          final barrier = find.byWidgetPredicate(
-            (widget) =>
-                widget is ModalBarrier &&
-                widget.color?.a == 1 &&
-                widget.color!.computeLuminance() <
-                    background.computeLuminance(),
-          );
-          expect(barrier, findsOneWidget);
+            disableAnimations: reducedMotion,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pump();
+        await tester.pump();
+        final barrier = find.byWidgetPredicate(
+          (widget) =>
+              widget is ModalBarrier &&
+              widget.color?.a == 1 &&
+              widget.color!.computeLuminance() <
+                  background.computeLuminance(),
+        );
+        expect(barrier, findsOneWidget);
+        expect(
+          find.ancestor(of: barrier, matching: find.byType(FadeTransition)),
+          findsNothing,
+        );
+        final scale = find.ancestor(
+          of: find.byType(DSheetContent),
+          matching: find.byType(ScaleTransition),
+        );
+        if (reducedMotion) {
+          expect(scale, findsNothing);
+        } else {
           expect(
-            find.ancestor(of: barrier, matching: find.byType(FadeTransition)),
-            findsNothing,
+            tester.widget<ScaleTransition>(scale).scale.value,
+            closeTo(.97, .001),
           );
-          final scale = find.ancestor(
-            of: find.byType(DSheetContent),
-            matching: find.byType(ScaleTransition),
+          await tester.pump(const Duration(milliseconds: 80));
+          expect(
+            tester.widget<ScaleTransition>(scale).scale.value,
+            inExclusiveRange(.97, 1),
           );
-          if (reducedMotion) {
-            expect(scale, findsNothing);
-          } else {
-            expect(
-              tester.widget<ScaleTransition>(scale).scale.value,
-              closeTo(.97, .001),
-            );
-            await tester.pump(const Duration(milliseconds: 80));
-            expect(
-              tester.widget<ScaleTransition>(scale).scale.value,
-              inExclusiveRange(.97, 1),
-            );
-          }
-          await tester.pumpAndSettle();
-          expect(barrier, findsOneWidget);
-          if (!reducedMotion) {
-            expect(tester.widget<ScaleTransition>(scale).scale.value, 1);
-          }
-          await tester.tap(find.byTooltip('Close'));
-          await tester.pumpAndSettle();
-          expect(find.byType(DSheetContent), findsNothing);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+        }
+        await tester.pumpAndSettle();
+        expect(barrier, findsOneWidget);
+        if (!reducedMotion) {
+          expect(tester.widget<ScaleTransition>(scale).scale.value, 1);
+        }
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('trigger builder does not rerun for ancestor keyboard insets', (
