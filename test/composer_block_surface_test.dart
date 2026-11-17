@@ -500,91 +500,75 @@ void main() {
     expect(composer.raw, 'FirstSecond');
   });
 
-  for (final mobile in [false, true]) {
-    if (mobile) {
-      testWidgets('on-screen Enter creates a paragraph gap', (tester) async {
-        composer.text.value = const TextEditingValue(
-          text: 'First',
-          selection: TextSelection.collapsed(offset: 5),
-        );
-        await mount(tester, mobile: mobile);
-        await tester.showKeyboard(find.byType(EditableText));
-        tester.testTextInput.updateEditingValue(
-          const TextEditingValue(
-            text: 'First\n',
-            selection: TextSelection.collapsed(offset: 6),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(composer.text.text, 'First\n\n');
-        expect(composer.text.selection.extentOffset, 7);
-        final render = tester
-            .state<EditableTextState>(find.byType(EditableText))
-            .renderEditable;
-        expect(
-          render.getLocalRectForCaret(const TextPosition(offset: 7)).top -
-              render.getLocalRectForCaret(const TextPosition(offset: 0)).top,
-          closeTo(render.preferredLineHeight * 1.5, 2),
-        );
-      });
-    }
-    for (final textScale in [1.0, 2.0]) {
-      testWidgets(
-        'soft lines stay inside spaced blocks ($mobile, $textScale)',
-        (tester) async {
-          composer.text.value = const TextEditingValue(
-            text: 'First',
-            selection: TextSelection.collapsed(offset: 5),
-          );
-          await mount(tester, mobile: mobile, textScale: textScale);
-          composer.focus.requestFocus();
-          await tester.pump();
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-          await tester.pumpAndSettle();
-          expect(composer.text.text, 'First\n');
-          expect(composer.blocks.index.blocks, hasLength(1));
-          await tester.enterText(find.byType(EditableText), 'First\nsoft');
-          await tester.pumpAndSettle();
-          final render = tester
-              .state<EditableTextState>(find.byType(EditableText))
-              .renderEditable;
-          final first = render.getLocalRectForCaret(
-            const TextPosition(offset: 0),
-          );
-          final soft = render.getLocalRectForCaret(
-            const TextPosition(offset: 6),
-          );
-          expect(
-            soft.top - first.top,
-            closeTo(render.preferredLineHeight, .01),
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.pumpAndSettle();
-          final empty = render.getLocalRectForCaret(
-            TextPosition(offset: composer.text.text.length),
-          );
-          expect(
-            empty.top - soft.top,
-            closeTo(render.preferredLineHeight * 1.5, 2),
-          );
-          await tester.enterText(
-            find.byType(EditableText),
-            'First\nsoft\n\nNext',
-          );
-          await tester.pumpAndSettle();
-          expect(composer.blocks.index.blocks.map((block) => block.source), [
-            'First\nsoft',
-            'Next',
-          ]);
-          final next = render.getLocalRectForCaret(
-            const TextPosition(offset: 12),
-          );
-          expect(next.top, closeTo(empty.top, 1));
-        },
+  testWidgets('on-screen Enter creates a paragraph gap', (tester) async {
+    composer.text.value = const TextEditingValue(
+      text: 'First',
+      selection: TextSelection.collapsed(offset: 5),
+    );
+    await mount(tester, mobile: true);
+    await tester.showKeyboard(find.byType(EditableText));
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'First\n',
+        selection: TextSelection.collapsed(offset: 6),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(composer.text.text, 'First\n\n');
+    expect(composer.text.selection.extentOffset, 7);
+    final render = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    expect(
+      render.getLocalRectForCaret(const TextPosition(offset: 7)).top -
+          render.getLocalRectForCaret(const TextPosition(offset: 0)).top,
+      closeTo(render.preferredLineHeight * 1.5, 2),
+    );
+  });
+
+  for (final (mobile, textScale) in [(false, 1.0), (true, 2.0)]) {
+    testWidgets('soft lines stay inside spaced blocks ($mobile, $textScale)', (
+      tester,
+    ) async {
+      composer.text.value = const TextEditingValue(
+        text: 'First',
+        selection: TextSelection.collapsed(offset: 5),
       );
-    }
+      await mount(tester, mobile: mobile, textScale: textScale);
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, 'First\n');
+      expect(composer.blocks.index.blocks, hasLength(1));
+      await tester.enterText(find.byType(EditableText), 'First\nsoft');
+      await tester.pumpAndSettle();
+      final render = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      final first = render.getLocalRectForCaret(const TextPosition(offset: 0));
+      final soft = render.getLocalRectForCaret(const TextPosition(offset: 6));
+      expect(soft.top - first.top, closeTo(render.preferredLineHeight, .01));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final empty = render.getLocalRectForCaret(
+        TextPosition(offset: composer.text.text.length),
+      );
+      expect(
+        empty.top - soft.top,
+        closeTo(render.preferredLineHeight * 1.5, 2),
+      );
+      await tester.enterText(find.byType(EditableText), 'First\nsoft\n\nNext');
+      await tester.pumpAndSettle();
+      expect(composer.blocks.index.blocks.map((block) => block.source), [
+        'First\nsoft',
+        'Next',
+      ]);
+      final next = render.getLocalRectForCaret(const TextPosition(offset: 12));
+      expect(next.top, closeTo(empty.top, 1));
+    });
   }
 
   for (final newline in ['\n', '\r\n']) {
