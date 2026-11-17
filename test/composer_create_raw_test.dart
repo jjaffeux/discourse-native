@@ -21,99 +21,97 @@ const _target = ReplyComposerTarget(
 );
 
 void main() {
-  for (final newTopic in [false, true]) {
-    for (final indent in ['    ', '\t']) {
-      testWidgets(
-        'Native ${newTopic ? 'new topic' : 'reply'} submission preserves '
-        'a leading ${indent.length == 1 ? 'tab' : 'four-space'} code block',
-        (tester) async {
-          final api = FakeDiscourseApi(
-            user: const DiscourseUser(id: 7, username: 'author'),
-            feeds: const {'/latest.json': []},
-            creatableFeedPaths: const {'/latest.json'},
+  for (final (newTopic, indent) in [(false, '    '), (true, '\t')]) {
+    testWidgets(
+      'Native ${newTopic ? 'new topic' : 'reply'} submission preserves '
+      'a leading ${indent.length == 1 ? 'tab' : 'four-space'} code block',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(id: 7, username: 'author'),
+          feeds: const {'/latest.json': []},
+          creatableFeedPaths: const {'/latest.json'},
+        );
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: const DiscourseUser(id: 7, username: 'author')),
+          ]),
+          api: api,
+          authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        if (newTopic) {
+          await shell.loadFeed('latest');
+          await shell.openNewTopic();
+        } else {
+          shell.store.put(
+            _site,
+            const TopicDetail(
+              id: 7,
+              title: 'Topic',
+              stream: [],
+              canCreatePost: true,
+            ),
           );
-          final shell = ShellController(
-            instanceStore: FakeInstanceStore([
-              instance(
-                'meta.discourse.org',
-              ).copyWith(user: const DiscourseUser(id: 7, username: 'author')),
-            ]),
-            api: api,
-            authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
-            drafts: FakeDraftStore(),
-            trackers: FakeSiteTracker.reset(),
-            updateStore: FakeUpdateStore(),
+          shell.pushContent(
+            ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
           );
-          addTearDown(shell.dispose);
-          await shell.load();
-          if (newTopic) {
-            await shell.loadFeed('latest');
-            await shell.openNewTopic();
-          } else {
-            shell.store.put(
-              _site,
-              const TopicDetail(
-                id: 7,
-                title: 'Topic',
-                stream: [],
-                canCreatePost: true,
-              ),
-            );
-            shell.pushContent(
-              ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
-            );
-            shell.openReply();
-          }
-          final composer = shell.visibleComposer!;
-          await shell.finishComposerDraftRestore(composer);
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: AppTheme.light,
-              home: ShellScope(
-                controller: shell,
-                child: Scaffold(
-                  body: ListenableBuilder(
-                    listenable: shell,
-                    builder: (context, _) {
-                      final current = shell.visibleComposer;
-                      return current == null
-                          ? const SizedBox.shrink()
-                          : ComposerPanel(composer: current, height: 500);
-                    },
-                  ),
+          shell.openReply();
+        }
+        final composer = shell.visibleComposer!;
+        await shell.finishComposerDraftRestore(composer);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: ShellScope(
+              controller: shell,
+              child: Scaffold(
+                body: ListenableBuilder(
+                  listenable: shell,
+                  builder: (context, _) {
+                    final current = shell.visibleComposer;
+                    return current == null
+                        ? const SizedBox.shrink()
+                        : ComposerPanel(composer: current, height: 500);
+                  },
                 ),
               ),
             ),
-          );
-          await tester.pumpAndSettle();
-          if (newTopic) {
-            await tester.enterText(
-              find.byKey(const ValueKey('composer-topic-title')),
-              'An indented code sample',
-            );
-          }
-          final raw = '${indent}puts "hi"\n\nA new post body';
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (newTopic) {
           await tester.enterText(
-            find.byWidgetPredicate(
-              (widget) =>
-                  widget is EditableText && widget.controller == composer.text,
-            ),
-            '$raw\n\n',
+            find.byKey(const ValueKey('composer-topic-title')),
+            'An indented code sample',
           );
-          await tester.pumpAndSettle();
-          expect(composer.canSubmit, isTrue);
-          await tester.tap(find.byKey(const ValueKey('composer-submit')));
-          await tester.pumpAndSettle();
+        }
+        final raw = '${indent}puts "hi"\n\nA new post body';
+        await tester.enterText(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is EditableText && widget.controller == composer.text,
+          ),
+          '$raw\n\n',
+        );
+        await tester.pumpAndSettle();
+        expect(composer.canSubmit, isTrue);
+        await tester.tap(find.byKey(const ValueKey('composer-submit')));
+        await tester.pumpAndSettle();
 
-          final sent = newTopic ? api.topicsCreated.single : api.created.single;
-          // PostCreator normalizes whitespace and rstrips, preserving this start.
-          expect(sent['raw'], raw);
-          expect(shell.visibleComposer, isNull);
-          expect(tester.takeException(), isNull);
-        },
-        variant: TargetPlatformVariant.only(TargetPlatform.linux),
-      );
-    }
+        final sent = newTopic ? api.topicsCreated.single : api.created.single;
+        // PostCreator normalizes whitespace and rstrips, preserving this start.
+        expect(sent['raw'], raw);
+        expect(shell.visibleComposer, isNull);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
   }
 
   test(
