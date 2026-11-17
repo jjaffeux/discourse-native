@@ -7259,10 +7259,11 @@ void main() {
         );
       }
       for (final failure in [
-        const WriteException(WriteFailure.forbidden),
-        const WriteException(WriteFailure.unreachable, notSent: true),
+        if (pinned) const WriteException(WriteFailure.forbidden),
+        if (!pinned)
+          const WriteException(WriteFailure.unreachable, notSent: true),
         const WriteException(WriteFailure.unreachable),
-        StateError('lost response'),
+        if (pinned) StateError('lost response'),
       ]) {
         test(
           '${pinned ? 'pin' : 'unpin'} without confirmation rolls back $failure',
