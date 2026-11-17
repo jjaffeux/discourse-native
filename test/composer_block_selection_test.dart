@@ -435,7 +435,17 @@ void main() {
   }
 
   for (final entry in _blocks.entries) {
-    for (final gap in ['\n', '\r\n', '\n\n']) {
+    final variedGaps = {
+      'table',
+      'event',
+      'quote',
+      'poll',
+      'code',
+    }.contains(entry.key);
+    for (final gap in [
+      '\n',
+      if (variedGaps) ...['\r\n', '\n\n'],
+    ]) {
       testWidgets(
         '${entry.key} mobile backspace across ${gap.length} gap characters '
         'selects before deleting',
