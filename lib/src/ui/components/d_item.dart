@@ -27,6 +27,11 @@ enum DItemVariant {
   outline,
   muted,
 
+  /// A row that holds something unread, wherever it is listed: a chat, a
+  /// thread, a notification. Rests in [DTokens.unreadFill]; hover, press and
+  /// selection take the row over as they do a standard one.
+  unread,
+
   /// A grid action with selected-color focus and the Native hover treatment.
   picker,
 }
@@ -512,6 +517,8 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
               : DControlStyle.rowHover(tokens)
         : widget.variant == DItemVariant.muted
         ? tokens.surface
+        : widget.variant == DItemVariant.unread
+        ? tokens.unreadFill
         : widget.variant == DItemVariant.outline
         ? tokens.surface
         : Colors.transparent;
