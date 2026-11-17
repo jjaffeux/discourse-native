@@ -406,7 +406,7 @@ void main() {
     addTearDown(tester.view.reset);
     final catalog = SiteEmojiCatalog(
       groups: [
-        for (var group = 0; group < 12; group++)
+        for (var group = 0; group < 15; group++)
           SiteEmojiGroup(
             id: 'group-$group',
             emojis: [
@@ -459,9 +459,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       final category = find.byKey(
-        ValueKey('emoji-picker-category-group-${atEnd ? 11 : 0}'),
+        ValueKey('emoji-picker-category-group-${atEnd ? 14 : 0}'),
       );
       expect(tester.widget<DToggle>(category).pressed, isTrue);
+      if (atEnd) expect(bar.position.pixels, greaterThan(0));
       final bounds = tester.getRect(category);
       final viewport = tester.getRect(navigation);
       expect(bounds.left, greaterThanOrEqualTo(viewport.left));
@@ -469,6 +470,16 @@ void main() {
       expect(search.hasFocus, isTrue);
       expect(tester.takeException(), isNull);
     }
+    expect(bar.position.pixels, 0);
+
+    final category = find.byKey(
+      const ValueKey('emoji-picker-category-group-4'),
+    );
+    await tester.tap(category);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<DToggle>(category).pressed, isTrue);
+    expect(find.text('group-4').hitTestable(), findsOneWidget);
     expect(bar.position.pixels, 0);
   });
 

@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:flutter/services.dart';
 
 import '../foundation/icons/d_icons.dart';
@@ -52,34 +53,41 @@ Future<String?> showEmojiPicker({
         fillAvailableHeight: true,
         initialFocusNode: searchFocus,
         barrierLabel: appL10n.dismissEmojiPicker,
-        builder: (context, sheet) => DSheetContent(
-          side: DSheetSide.bottom,
-          semanticLabel: appL10n.emoji,
-          topBottomMaxHeightFactor: 1,
-          scrollWholeSheet: false,
-          showCloseButton: false,
-          children: [
-            DSheetHeader(
-              trailing: DModalHeaderAction.close(
-                buttonKey: const ValueKey('emoji-picker-close'),
-                onPressed: sheet.close,
+        builder: (context, sheet) {
+          final backdrop = DTokens.of(context).background.withValues(alpha: 1);
+          return DSheetContent(
+            side: DSheetSide.bottom,
+            semanticLabel: appL10n.emoji,
+            topBottomMaxHeightFactor: 1,
+            scrollWholeSheet: false,
+            showCloseButton: false,
+            backgroundColor: backdrop,
+            children: [
+              DSheetHeader(
+                trailing: DModalHeaderAction.close(
+                  buttonKey: const ValueKey('emoji-picker-close'),
+                  onPressed: sheet.close,
+                ),
+                children: [DSheetTitle(child: Text(appL10n.emoji))],
               ),
-              children: [DSheetTitle(child: Text(appL10n.emoji))],
-            ),
-            Expanded(
-              child: _EmojiPickerFocusOwner(
-                focusNode: searchFocus,
-                child: EmojiPicker(
-                  controller: controller,
-                  searchFocusNode: searchFocus,
-                  touch: true,
-                  onPicked: (code) => sheet.close(code),
-                  onDismiss: sheet.close,
+              Expanded(
+                child: DScrollFadeScope(
+                  backdrop: backdrop,
+                  child: _EmojiPickerFocusOwner(
+                    focusNode: searchFocus,
+                    child: EmojiPicker(
+                      controller: controller,
+                      searchFocusNode: searchFocus,
+                      touch: true,
+                      onPicked: (code) => sheet.close(code),
+                      onDismiss: sheet.close,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       );
     }
 
@@ -303,8 +311,8 @@ class _EmojiPickerState extends State<EmojiPicker> {
   final Map<int, double> _cellOffsets = {};
   final List<_GridPosition> _navigationPositions = [];
   final Map<String, double> _groupOffsets = {};
+  final ValueNotifier<String?> _activeGroup = ValueNotifier(null);
   List<String> _navigationKeys = const [];
-  List<String> _visibleGroupIds = const [];
   ({
     SiteEmojiCatalog catalog,
     EmojiSkinTone tone,
@@ -314,7 +322,6 @@ class _EmojiPickerState extends State<EmojiPicker> {
   })?
   _groupProjection;
   List<_PickerGroup>? _navigationGroups;
-  String? _activeGroup;
   int _columns = 1;
 
   @override
@@ -330,6 +337,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
     if (oldWidget.controller == widget.controller) return;
     _groupProjection = null;
     _navigationGroups = null;
+    _activeGroup.value = null;
     _search.text = widget.controller.query;
   }
 
@@ -338,6 +346,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
     _scroll
       ..removeListener(_syncActiveGroup)
       ..dispose();
+    _activeGroup.dispose();
     _search.dispose();
     _ownedSearchFocus.dispose();
     for (final node in _cellFocus.values) {
@@ -388,12 +397,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
         if (!widget.controller.hasQuery && groups.isNotEmpty) ...[
           SizedBox(
             width: _cellExtent,
-            child: _CategoryNavigation(
-              groups: groups,
-              activeGroup: _activeGroup ?? groups.first.id,
-              vertical: true,
-              onSelected: _scrollToGroup,
-            ),
+            child: _categoryNavigation(groups, vertical: true),
           ),
           const SizedBox(width: 6),
         ],
@@ -413,14 +417,26 @@ class _EmojiPickerState extends State<EmojiPicker> {
         if (!widget.controller.hasQuery && groups.isNotEmpty) ...[
           const DSeparator(space: 1),
           const SizedBox(height: 4),
-          _CategoryNavigation(
-            groups: groups,
-            activeGroup: _activeGroup ?? groups.first.id,
-            vertical: false,
-            onSelected: _scrollToGroup,
-          ),
+          _categoryNavigation(groups, vertical: false),
         ],
       ],
+    );
+  }
+
+  Widget _categoryNavigation(
+    List<_PickerGroup> groups, {
+    required bool vertical,
+  }) {
+    return ValueListenableBuilder(
+      valueListenable: _activeGroup,
+      builder: (context, active, _) => _CategoryNavigation(
+        groups: groups,
+        activeGroup: active != null && groups.any((group) => group.id == active)
+            ? active
+            : groups.first.id,
+        vertical: vertical,
+        onSelected: _scrollToGroup,
+      ),
     );
   }
 
@@ -571,20 +587,24 @@ class _EmojiPickerState extends State<EmojiPicker> {
         }
         if (keys != null) {
           _navigationKeys = List.unmodifiable(keys);
-          _visibleGroupIds = List.unmodifiable(groups.map((group) => group.id));
           _navigationGroups = groups;
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _syncActiveGroup(),
+          );
         }
-        if (!_visibleGroupIds.contains(_activeGroup)) {
-          _activeGroup = groups.first.id;
-        }
-
-        return CustomScrollView(
-          key: const ValueKey('emoji-picker-groups'),
-          controller: _scroll,
-          slivers: [
-            ...slivers,
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          ],
+        return NotificationListener<ScrollMetricsNotification>(
+          onNotification: (notification) {
+            if (notification.depth == 0) _syncActiveGroup();
+            return false;
+          },
+          child: CustomScrollView(
+            key: const ValueKey('emoji-picker-groups'),
+            controller: _scroll,
+            slivers: [
+              ...slivers,
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            ],
+          ),
         );
       },
     );
@@ -630,7 +650,6 @@ class _EmojiPickerState extends State<EmojiPicker> {
     _cellOffsets.clear();
     _navigationPositions.clear();
     _groupOffsets.clear();
-    _visibleGroupIds = const [];
     _navigationKeys = List.unmodifiable([
       for (var index = 0; index < choices.length; index++)
         _cellKey(sectionId, index, choices[index].code),
@@ -794,7 +813,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
   void _scrollToGroup(String id) {
     final offset = _groupOffsets[id];
     if (offset == null || !_scroll.hasClients) return;
-    setState(() => _activeGroup = id);
+    _activeGroup.value = id;
     unawaited(
       _scroll.animateTo(
         offset.clamp(0.0, _scroll.position.maxScrollExtent).toDouble(),
@@ -805,20 +824,24 @@ class _EmojiPickerState extends State<EmojiPicker> {
   }
 
   void _syncActiveGroup() {
-    if (!_scroll.hasClients || _visibleGroupIds.isEmpty) return;
+    if (!mounted ||
+        widget.controller.hasQuery ||
+        _scroll.positions.length != 1 ||
+        _groupOffsets.isEmpty) {
+      return;
+    }
     final position = _scroll.position;
-    var active = position.extentAfter <= 1
-        ? _visibleGroupIds.last
-        : _visibleGroupIds.first;
-    if (position.extentAfter > 1) {
-      final marker = _scroll.offset + 8;
-      for (final id in _visibleGroupIds) {
-        final offset = _groupOffsets[id];
-        if (offset != null && offset <= marker) active = id;
+    if (!position.hasContentDimensions) return;
+    var active = _groupOffsets.keys.first;
+    if (position.extentAfter <= 1 && position.extentBefore > 1) {
+      active = _groupOffsets.keys.last;
+    } else {
+      final marker = position.pixels + 8;
+      for (final entry in _groupOffsets.entries) {
+        if (entry.value <= marker) active = entry.key;
       }
     }
-    if (active == _activeGroup || !mounted) return;
-    setState(() => _activeGroup = active);
+    _activeGroup.value = active;
   }
 }
 
@@ -991,14 +1014,20 @@ class _CategoryNavigationState extends State<_CategoryNavigation> {
       if (!mounted) return;
       final target = _categoryKeys[widget.activeGroup]?.currentContext;
       if (target == null) return;
-      // Reveal only the category strip; do not move the emoji grid or focus.
-      final scrollable = Scrollable.of(target);
       final renderObject = target.findRenderObject();
       if (renderObject == null) return;
+      final position = Scrollable.of(target).position;
+      final viewport = RenderAbstractViewport.of(renderObject);
+      final start = viewport.getOffsetToReveal(renderObject, 0).offset;
+      final end = viewport.getOffsetToReveal(renderObject, 1).offset;
+      final offset = position.pixels
+          .clamp(math.min(start, end), math.max(start, end))
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if (offset == position.pixels) return;
       unawaited(
-        scrollable.position.ensureVisible(
-          renderObject,
-          alignment: .5,
+        position.animateTo(
+          offset,
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
         ),
@@ -1017,16 +1046,24 @@ class _CategoryNavigationState extends State<_CategoryNavigation> {
           onPressed: () => widget.onSelected(group.id),
         ),
     ];
-    return SingleChildScrollView(
-      key: ValueKey(
-        widget.vertical
-            ? 'emoji-picker-category-nav-desktop'
-            : 'emoji-picker-category-nav-touch',
+    if (widget.vertical) {
+      return SingleChildScrollView(
+        key: const ValueKey('emoji-picker-category-nav-desktop'),
+        child: Column(children: children),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        key: const ValueKey('emoji-picker-category-nav-touch'),
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: children,
+          ),
+        ),
       ),
-      scrollDirection: widget.vertical ? Axis.vertical : Axis.horizontal,
-      child: widget.vertical
-          ? Column(children: children)
-          : Row(children: children),
     );
   }
 }
@@ -1053,7 +1090,10 @@ class _CategoryButton extends StatelessWidget {
         semanticLabel: group.label,
         pressed: selected,
         onPressedChanged: (_) => onPressed(),
-        size: DToggleSize.large,
+        density: DToggleDensity.chrome,
+        visualStyle: const DToggleVisualStyle(
+          borderRadius: BorderRadius.all(Radius.circular(DRadius.pill)),
+        ),
         icon: group.id == _frequentGroup
             ? const DIcon(DIcons.farClock)
             : Builder(
