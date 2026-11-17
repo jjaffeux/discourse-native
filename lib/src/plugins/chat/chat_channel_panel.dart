@@ -284,6 +284,9 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
       ChatChannelPicking() => _picking(context, mode),
     };
     return Column(
+      // A phone's sheet keeps its height as rows come and go. A desktop's
+      // dialog is as tall as what it lists.
+      mainAxisSize: context.isTouch ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
