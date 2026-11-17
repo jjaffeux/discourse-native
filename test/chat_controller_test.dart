@@ -7298,8 +7298,10 @@ void main() {
       }
       for (final actorId in [7, 8]) {
         for (final failure in [
-          const WriteException(WriteFailure.forbidden),
-          const WriteException(WriteFailure.unreachable, notSent: true),
+          if (pinned == (actorId == 7))
+            const WriteException(WriteFailure.forbidden),
+          if (pinned != (actorId == 7))
+            const WriteException(WriteFailure.unreachable, notSent: true),
           if (actorId == 8) const WriteException(WriteFailure.unreachable),
         ]) {
           test(
