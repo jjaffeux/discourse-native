@@ -2310,7 +2310,10 @@ void main() {
     }
 
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      for (final expected in marks) {
+      final isolatedMarks = platform == TargetPlatform.macOS
+          ? marks.take(3)
+          : marks.skip(3);
+      for (final expected in isolatedMarks) {
         testWidgets('a ${expected.status} topic says so on $platform', (
           tester,
         ) async {
@@ -2358,13 +2361,22 @@ void main() {
           pinned: true,
         );
 
-        final rects = [
-          for (final expected in marks) tester.getRect(mark(expected.status)),
-        ];
+        final semantics = tester.ensureSemantics();
+        final rects = <Rect>[];
+        for (final expected in marks) {
+          final finder = mark(expected.status);
+          final icon = tester.widget<DIcon>(finder);
+          expect(icon.icon, expected.icon);
+          expect(icon.size, 17);
+          expect(icon.semanticLabel, expected.label);
+          expect(tester.getSemantics(finder).label, expected.label);
+          rects.add(tester.getRect(finder));
+        }
         for (var i = 1; i < rects.length; i++) {
           expect(rects[i].left, rects[i - 1].right + DSpacing.sm);
         }
         expect(tester.takeException(), isNull);
+        semantics.dispose();
       });
     }
 
