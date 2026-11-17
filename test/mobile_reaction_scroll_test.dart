@@ -135,6 +135,126 @@ void mobileReactionScrollTests({bool native = false}) {
             }),
     );
   }
+
+  testWidgets(
+    'closing post emoji search dismisses a disconnected iOS keyboard',
+    (tester) async {
+      const site = 'https://meta.discourse.org';
+      final config = installedPlugins.models.siteConfig(const {
+        'discourse_reactions_enabled': true,
+        'discourse_reactions_reaction_for_like': 'heart',
+        'discourse_reactions_enabled_reactions': 'clap',
+        'discourse_reactions_allow_any_emoji': true,
+      }, site);
+      final posts = [
+        for (var id = 1; id <= 5; id++)
+          Post.fromJson(
+            {
+              'id': id,
+              'post_number': id,
+              'username': 'sam',
+              'cooked': '<p>Post $id</p>',
+              'actions_summary': const [
+                {'id': 2, 'can_act': true},
+              ],
+              'reactions': const <Object>[],
+              'reaction_users_count': 0,
+            },
+            site,
+            extensions: pluginRegistry,
+          ),
+      ];
+      const topic = Topic(id: 7, title: 'Discussion', slug: 'discussion');
+      await pumpShell(
+        tester,
+        phone,
+        instances: [
+          instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(username: 'reader')),
+        ],
+        api: FakeDiscourseApi(
+          feeds: const {
+            '/latest.json': [topic],
+          },
+          topics: {7: topicPayload(id: 7, title: topic.title, posts: posts)},
+          siteConfigs: {site: config},
+        ),
+        authenticator: FakeAuthenticator()..keys[site] = 'key',
+      );
+      if (native) tester.view.reset();
+      final shell = tester
+          .widget<ShellScope>(find.byType(ShellScope))
+          .notifier!;
+      shell.openTopicPost(siteUrl: site, topicId: 7, postNumber: 4);
+      await tester.pumpAndSettle();
+
+      final progress = find.byKey(const ValueKey('topic-progress-button'));
+      final reaction = find.byKey(const ValueKey('post-reaction-button-4'));
+      await tester.ensureVisible(reaction);
+      await tester.pumpAndSettle();
+      final scroll = topicPostList(tester).controller!;
+      scroll.jumpTo(
+        (scroll.offset + tester.getTopLeft(reaction).dy - 400).clamp(
+          0.0,
+          scroll.position.maxScrollExtent,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(reaction.hitTestable(), findsOneWidget);
+      final progressBounds = tester.getRect(progress);
+      final search = find.byKey(const ValueKey('emoji-picker-search'));
+
+      for (final swipe in [false, true]) {
+        await tester.tap(reaction);
+        await _settle(tester);
+        await tester.tap(find.byTooltip('More emojis'));
+        await _settle(tester);
+        if (native) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 800)),
+          );
+        } else {
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        }
+        await _settle(tester);
+        final editor = find.descendant(
+          of: search,
+          matching: find.byType(EditableText),
+        );
+        expect(tester.widget<EditableText>(editor).focusNode.hasFocus, isTrue);
+        expect(tester.view.viewInsets.bottom, greaterThan(0));
+
+        tester.testTextInput.closeConnection();
+        await tester.pump();
+        expect(tester.widget<EditableText>(editor).focusNode.hasFocus, isFalse);
+        expect(tester.view.viewInsets.bottom, greaterThan(0));
+
+        if (swipe) {
+          await tester.fling(find.text('Emoji'), const Offset(0, 350), 1200);
+        } else {
+          await tester.tap(find.byKey(const ValueKey('emoji-picker-close')));
+        }
+        await _settle(tester);
+        expect(search, findsNothing);
+        if (native) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 800)),
+          );
+          await _settle(tester);
+          expect(tester.view.viewInsets.bottom, 0, reason: 'swipe=$swipe');
+        } else {
+          expect(tester.testTextInput.hasAnyClients, isFalse);
+          expect(tester.testTextInput.isVisible, isFalse);
+          tester.view.resetViewInsets();
+          await _settle(tester);
+        }
+        expect(tester.getRect(progress), progressBounds);
+        expect(progress.hitTestable(), findsOneWidget);
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 }
 
 Future<void> _settle(WidgetTester tester) async {

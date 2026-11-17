@@ -1,5 +1,27 @@
 part of 'd_sheet.dart';
 
+void _dismissDisconnectedSheetKeyboard(BuildContext context) {
+  if (Theme.of(context).platform != TargetPlatform.iOS) return;
+  final view = View.of(context);
+  bool hasDisconnectedKeyboard() =>
+      view.viewInsets.bottom > 0 &&
+      _DSheetKeyboardTransitions.frame.value?.inset != 0 &&
+      FocusManager.instance.primaryFocus?.context
+              ?.findAncestorStateOfType<EditableTextState>() ==
+          null;
+
+  if (!hasDisconnectedKeyboard()) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!hasDisconnectedKeyboard()) return;
+    // iOS can keep the keyboard after Flutter loses its text input client.
+    // https://github.com/flutter/flutter/issues/189263
+    SystemChannels.textInput
+        .invokeMethod<void>('TextInput.clearClient')
+        .ignore();
+    SystemChannels.textInput.invokeMethod<void>('TextInput.hide').ignore();
+  });
+}
+
 typedef _DSheetSwipeExitGeometry = ({
   double origin,
   double curve,

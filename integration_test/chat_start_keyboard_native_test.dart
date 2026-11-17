@@ -23,7 +23,10 @@ void main() {
     await tester.pumpAndSettle();
     await _nativeTime(tester);
 
-    final input = tester.widget<EditableText>(find.byType(EditableText));
+    final sheet = find.byKey(const ValueKey('chat-new-direct-message-sheet'));
+    final input = tester.widget<EditableText>(
+      find.descendant(of: sheet, matching: find.byType(EditableText)),
+    );
     expect(input.focusNode.hasFocus, isTrue);
     expect(tester.view.viewInsets.bottom, greaterThan(0));
     tester.testTextInput.closeConnection();
@@ -32,15 +35,15 @@ void main() {
     expect(tester.view.viewInsets.bottom, greaterThan(0));
 
     await tester.fling(
-      find.byKey(const ValueKey('sheet-drag-handle')),
+      find.descendant(
+        of: sheet,
+        matching: find.byKey(const ValueKey('sheet-drag-handle')),
+      ),
       const Offset(0, 320),
       1200,
     );
     await _nativeTime(tester);
-    expect(
-      find.byKey(const ValueKey('chat-new-direct-message-sheet')),
-      findsNothing,
-    );
+    expect(sheet, findsNothing);
     expect(tester.view.viewInsets.bottom, 0);
   }, skip: defaultTargetPlatform != TargetPlatform.iOS);
 }

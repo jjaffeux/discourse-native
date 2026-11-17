@@ -922,6 +922,7 @@ class _DSheetCurves extends StatefulWidget {
     required this.animation,
     required this.opaque,
     this.page = false,
+    this.recoversKeyboardOnClose = false,
     this.covering,
     this.readerIdentity,
     this.routePull,
@@ -935,6 +936,7 @@ class _DSheetCurves extends StatefulWidget {
   /// Whether the backdrop is an opaque canvas until a swipe fades it.
   final bool opaque;
   final bool page;
+  final bool recoversKeyboardOnClose;
   final ValueNotifier<bool>? covering;
   final Widget Function(
     BuildContext context,
@@ -950,6 +952,7 @@ class _DSheetCurves extends StatefulWidget {
 }
 
 class _DSheetCurvesState extends State<_DSheetCurves> {
+  late AnimationStatus _status;
   late CurvedAnimation _popup;
   late CurvedAnimation _backdrop;
   final _swipeProgress = ValueNotifier(0.0);
@@ -972,6 +975,7 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   }
 
   void _create() {
+    _status = widget.animation.status;
     widget.animation.addStatusListener(_animationChanged);
     _popup = CurvedAnimation(
       parent: widget.animation,
@@ -984,7 +988,15 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
     );
   }
 
-  void _animationChanged(AnimationStatus _) => _syncCovering();
+  void _animationChanged(AnimationStatus status) {
+    final startedClosing =
+        _status.isForwardOrCompleted && !status.isForwardOrCompleted;
+    _status = status;
+    _syncCovering();
+    if (startedClosing && widget.recoversKeyboardOnClose) {
+      _dismissDisconnectedSheetKeyboard(context);
+    }
+  }
 
   void _dispose(Animation<double> animation) {
     animation.removeStatusListener(_animationChanged);
@@ -1083,6 +1095,10 @@ Widget _sheetPresentation(
         fillAvailableHeight &&
         variant != DSheetVariant.page,
     page: variant == DSheetVariant.page,
+    recoversKeyboardOnClose:
+        presentation.modal &&
+        requestedSide == DSheetSide.bottom &&
+        !retainKeyboardInsets,
     covering: covering,
     routePull: routePull,
     readerIdentity:
