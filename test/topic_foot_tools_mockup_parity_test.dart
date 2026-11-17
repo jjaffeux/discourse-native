@@ -65,10 +65,28 @@ void main() {
     );
     expect(find.descendant(of: pill, matching: level), findsOneWidget);
     expect(icons(tester, level), isNot(contains(DNativeIcons.filterChevron)));
-    expect(tester.getRect(surface(level)).size, const Size(40, 40));
     expect(
       tester.getRect(surface(level)).left,
       tester.getRect(surface(bookmark)).right,
+    );
+
+    // The pill's ends stand further in, so each glyph looks centred in the
+    // curve: the bookmark 15 from the pill's start, the level 12 from its
+    // part's start and 15 from the pill's end, at the reference's 40 at
+    // least.
+    Rect glyph(Finder control) => tester.getRect(
+      find.descendant(of: control, matching: find.byType(DIcon)).first,
+    );
+    expect(glyph(bookmark).left - tester.getRect(surface(bookmark)).left, 15);
+    expect(tester.getRect(surface(bookmark)).size, const Size(40, 40));
+    final levelSurface = tester.getRect(surface(level));
+    expect(glyph(level).left - levelSurface.left, 12);
+    expect(levelSurface.height, 40);
+    expect(
+      levelSurface.width,
+      moreOrLessEquals(
+        (12 + glyph(level).width + 15).clamp(40, double.infinity),
+      ),
     );
 
     // The menu of more is a circle of its own, its ellipsis upright.

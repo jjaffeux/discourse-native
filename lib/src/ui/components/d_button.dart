@@ -793,6 +793,14 @@ class DButton extends StatelessWidget {
         : visualDimension;
     final surfaceHeight = visualDimension;
     final iconOnlySurfaceSize = Size(surfaceWidth, surfaceHeight);
+    // A part of a floating tool pill is as wide as what it holds, and no
+    // narrower than it is tall, with its glyph from its leading inset. The
+    // pill's ends curve in on what is at them, so those stand further in.
+    final pillPart =
+        variant == DButtonVariant.tool &&
+        joined?.quiet == true &&
+        effectiveSize == DControlSize.floating;
+    final squareIcon = _iconOnly && !intrinsicIcon && !pillPart;
     var radius =
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
@@ -1025,18 +1033,30 @@ class DButton extends StatelessWidget {
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        _iconOnly && !intrinsicIcon
+        squareIcon
             ? iconOnlySurfaceSize
-            : Size(postReaction ? visualDimension : 0, surfaceHeight),
+            : Size(
+                pillPart
+                    ? surfaceHeight
+                    : postReaction
+                    ? visualDimension
+                    : 0,
+                surfaceHeight,
+              ),
       ),
-      fixedSize: _iconOnly && !intrinsicIcon
+      fixedSize: squareIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : null,
-      maximumSize: _iconOnly && !intrinsicIcon
+      maximumSize: squareIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (filterPill
+        (pillPart
+            ? EdgeInsetsDirectional.only(
+                start: joined!.first ? 15 : 12,
+                end: joined.last ? 15 : 12,
+              )
+            : filterPill
             ? const EdgeInsets.symmetric(horizontal: 9)
             : timeline
             ? (_iconOnly
@@ -1172,7 +1192,7 @@ class DButton extends StatelessWidget {
             ? SystemMouseCursors.basic
             : mouseCursor ?? SystemMouseCursors.click,
       ),
-      alignment: alignment,
+      alignment: pillPart ? AlignmentDirectional.centerStart : alignment,
       backgroundBuilder: (context, states, child) {
         final state = resolveState(states);
         final focused =

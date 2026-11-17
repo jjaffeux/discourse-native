@@ -112,6 +112,43 @@ final buttonGroupExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Floating tool pill',
+      description:
+          'Floating tools share one pill on the well fill, ruled off from '
+          'each other. Each part is as wide as its glyph and 12px insets, and '
+          'never narrower than 40. The ends curve in, so the first part '
+          'starts 15px in and the last part ends 15px in.',
+      states: const ['Floating', 'Tool', 'Ends inset 15px'],
+      code: '''DButtonGroup.tool(
+  backgroundColor: DTokens.of(context).wellFill,
+  children: [
+    DButton.iconOnly(variant: DButtonVariant.tool, size: DButtonSize.floating,
+      icon: DIcon(DIcons.farBookmark), tooltip: 'Bookmark', onPressed: bookmark),
+    DButton.iconOnly(variant: DButtonVariant.tool, size: DButtonSize.floating,
+      icon: DIcon(DIcons.bell), tooltip: 'Notifications', onPressed: level),
+    DButton.iconOnly(variant: DButtonVariant.tool, size: DButtonSize.floating,
+      icon: DIcon(DIcons.userPlus), tooltip: 'Assign', onPressed: assign),
+  ],
+)''',
+      builder: (context) => DButtonGroup.tool(
+        backgroundColor: DTokens.of(context).wellFill,
+        children: [
+          for (final (glyph, label) in [
+            (DIcons.farBookmark, 'Bookmark'),
+            (DIcons.bell, 'Notifications'),
+            (DIcons.userPlus, 'Assign'),
+          ])
+            DButton.iconOnly(
+              variant: DButtonVariant.tool,
+              size: DButtonSize.floating,
+              icon: DIcon(glyph),
+              tooltip: label,
+              onPressed: () {},
+            ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Sizes',
       description:
           'Small, default and large groups combine text and icon sizes without '
