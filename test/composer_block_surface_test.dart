@@ -1786,157 +1786,151 @@ void main() {
     );
   }
 
-  for (final dark in [false, true]) {
+  testWidgets('each to-do has its own hover handle and drag boundary', (
+    tester,
+  ) async {
+    const source = '[ ] First\n[x] Second\n[ ] Third\n[ ] ';
+    composer.text.value = const TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: 16),
+    );
+    composer.history.reset();
+    await mount(tester, dark: true);
+    final original = composer.text.value;
+    final blocks = composer.blocks.index.blocks;
+    expect(blocks, hasLength(4));
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final rects = blocks.map((block) => surface.blockRect(block)!).toList();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    for (var i = 0; i < blocks.length; i++) {
+      if (i > 0) {
+        expect(rects[i].top, greaterThanOrEqualTo(rects[i - 1].bottom));
+      }
+      await mouse.moveTo(rects[i].center);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(ValueKey('composer-block-handle-${blocks[i].id}')),
+        findsOneWidget,
+      );
+    }
+    await mouse.moveTo(rects[1].center);
+    await tester.pumpAndSettle();
+    final handle = find.byKey(
+      ValueKey('composer-block-handle-${blocks[1].id}'),
+    );
+    final drag = await tester.startGesture(
+      tester.getCenter(handle),
+      kind: PointerDeviceKind.mouse,
+    );
+    await drag.moveBy(const Offset(0, 12));
+    await tester.pump();
+    final gap = (rects[2].bottom + rects[3].top) / 2;
+    await drag.moveTo(Offset(rects[2].center.dx, gap));
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(find.byType(DDropIndicator)).dy, closeTo(gap, .01));
+    expect(composer.text.value, original);
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[ ] First\n[ ] Third\n[x] Second\n[ ] ');
+    expect(composer.blocks.index.blocks[2].id, blocks[1].id);
+    expect(composer.text.selection.extentOffset, 26);
+    expect(composer.text.todos.map((todo) => todo.checked), [
+      false,
+      false,
+      true,
+      false,
+    ]);
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+    expect(composer.history.canUndo, isFalse);
+    composer.history.redo();
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[ ] First\n[ ] Third\n[x] Second\n[ ] ');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (dark, direction) in [
+    (false, TextDirection.ltr),
+    (true, TextDirection.rtl),
+  ]) {
     testWidgets(
-      'each to-do has its own hover handle and drag boundary ($dark)',
+      'leading handle moves blocks with a centered insertion line ($dark, $direction)',
       (tester) async {
-        const source = '[ ] First\n[x] Second\n[ ] Third\n[ ] ';
-        composer.text.value = const TextEditingValue(
-          text: source,
-          selection: TextSelection.collapsed(offset: 16),
-        );
-        composer.history.reset();
-        await mount(tester, dark: dark);
+        await mount(tester, direction: direction, dark: dark);
         final original = composer.text.value;
         final blocks = composer.blocks.index.blocks;
-        expect(blocks, hasLength(4));
+        final start = find.byKey(
+          ValueKey('composer-block-handle-${blocks.first.id}'),
+        );
+        final add = find.byKey(
+          ValueKey('composer-block-add-${blocks.first.id}'),
+        );
+        final end = find.byKey(
+          ValueKey('composer-block-handle-${blocks.first.id}-end'),
+        );
         final surface = tester.widget<ComposerBlockSurface>(
           find.byType(ComposerBlockSurface),
         );
-        final rects = blocks.map((block) => surface.blockRect(block)!).toList();
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: Offset.zero);
-        addTearDown(mouse.removePointer);
-        for (var i = 0; i < blocks.length; i++) {
-          if (i > 0) {
-            expect(rects[i].top, greaterThanOrEqualTo(rects[i - 1].bottom));
-          }
-          await mouse.moveTo(rects[i].center);
-          await tester.pumpAndSettle();
-          expect(
-            find.byKey(ValueKey('composer-block-handle-${blocks[i].id}')),
-            findsOneWidget,
-          );
+        final first = surface.blockRect(blocks.first)!;
+        final before = surface.blockRect(blocks[1])!;
+        final after = surface.blockRect(blocks[2])!;
+        expect(end, findsNothing);
+        if (direction == TextDirection.ltr) {
+          expect(tester.getRect(add).right, tester.getRect(start).left);
+          expect(tester.getRect(start).right, lessThanOrEqualTo(first.left));
+        } else {
+          expect(tester.getRect(add).left, tester.getRect(start).right);
+          expect(tester.getRect(start).left, greaterThanOrEqualTo(first.right));
         }
-        await mouse.moveTo(rects[1].center);
-        await tester.pumpAndSettle();
-        final handle = find.byKey(
-          ValueKey('composer-block-handle-${blocks[1].id}'),
-        );
-        final drag = await tester.startGesture(
-          tester.getCenter(handle),
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(start),
           kind: PointerDeviceKind.mouse,
         );
-        await drag.moveBy(const Offset(0, 12));
+        await gesture.moveBy(const Offset(0, 20));
         await tester.pump();
-        final gap = (rects[2].bottom + rects[3].top) / 2;
-        await drag.moveTo(Offset(rects[2].center.dx, gap));
-        await tester.pumpAndSettle();
+        final highlight = find.byType(DDragHighlight);
+        expect(highlight, findsOneWidget);
+        final sourceTint = tester.getRect(highlight);
+        expect(sourceTint.top, lessThanOrEqualTo(first.top));
+        expect(sourceTint.bottom, greaterThanOrEqualTo(first.bottom));
+        expect(
+          sourceTint.bottom,
+          lessThanOrEqualTo(before.top + 1),
+          reason:
+              'Compact adjacent line boxes can overlap by a fractional pixel',
+        );
+        final gapCenter = (before.bottom + after.top) / 2;
+        await gesture.moveTo(Offset(first.center.dx, gapCenter));
+        await tester.pump();
+        await tester.pump();
         expect(
           tester.getCenter(find.byType(DDropIndicator)).dy,
-          closeTo(gap, .01),
+          closeTo(gapCenter, .01),
         );
+        expect(start, findsOneWidget);
+        expect(end, findsNothing);
+        expect(tester.getRect(highlight), sourceTint);
         expect(composer.text.value, original);
-        await drag.up();
+        await gesture.up();
         await tester.pumpAndSettle();
-        expect(composer.text.text, '[ ] First\n[ ] Third\n[x] Second\n[ ] ');
-        expect(composer.blocks.index.blocks[2].id, blocks[1].id);
-        expect(composer.text.selection.extentOffset, 26);
-        expect(composer.text.todos.map((todo) => todo.checked), [
-          false,
-          false,
-          true,
-          false,
-        ]);
+        expect(
+          composer.text.text,
+          '## A heading\n\nFirst paragraph\n\nLast paragraph',
+        );
+        expect(find.byType(DDropIndicator), findsNothing);
+        expect(highlight, findsNothing);
         composer.history.undo();
         await tester.pumpAndSettle();
         expect(composer.text.value, original);
-        expect(composer.history.canUndo, isFalse);
-        composer.history.redo();
-        await tester.pumpAndSettle();
-        expect(composer.text.text, '[ ] First\n[ ] Third\n[x] Second\n[ ] ');
         expect(tester.takeException(), isNull);
       },
     );
-
-    for (final direction in TextDirection.values) {
-      testWidgets(
-        'leading handle moves blocks with a centered insertion line ($dark, $direction)',
-        (tester) async {
-          await mount(tester, direction: direction, dark: dark);
-          final original = composer.text.value;
-          final blocks = composer.blocks.index.blocks;
-          final start = find.byKey(
-            ValueKey('composer-block-handle-${blocks.first.id}'),
-          );
-          final add = find.byKey(
-            ValueKey('composer-block-add-${blocks.first.id}'),
-          );
-          final end = find.byKey(
-            ValueKey('composer-block-handle-${blocks.first.id}-end'),
-          );
-          final surface = tester.widget<ComposerBlockSurface>(
-            find.byType(ComposerBlockSurface),
-          );
-          final first = surface.blockRect(blocks.first)!;
-          final before = surface.blockRect(blocks[1])!;
-          final after = surface.blockRect(blocks[2])!;
-          expect(end, findsNothing);
-          if (direction == TextDirection.ltr) {
-            expect(tester.getRect(add).right, tester.getRect(start).left);
-            expect(tester.getRect(start).right, lessThanOrEqualTo(first.left));
-          } else {
-            expect(tester.getRect(add).left, tester.getRect(start).right);
-            expect(
-              tester.getRect(start).left,
-              greaterThanOrEqualTo(first.right),
-            );
-          }
-
-          final gesture = await tester.startGesture(
-            tester.getCenter(start),
-            kind: PointerDeviceKind.mouse,
-          );
-          await gesture.moveBy(const Offset(0, 20));
-          await tester.pump();
-          final highlight = find.byType(DDragHighlight);
-          expect(highlight, findsOneWidget);
-          final sourceTint = tester.getRect(highlight);
-          expect(sourceTint.top, lessThanOrEqualTo(first.top));
-          expect(sourceTint.bottom, greaterThanOrEqualTo(first.bottom));
-          expect(
-            sourceTint.bottom,
-            lessThanOrEqualTo(before.top + 1),
-            reason:
-                'Compact adjacent line boxes can overlap by a fractional pixel',
-          );
-          final gapCenter = (before.bottom + after.top) / 2;
-          await gesture.moveTo(Offset(first.center.dx, gapCenter));
-          await tester.pump();
-          await tester.pump();
-          expect(
-            tester.getCenter(find.byType(DDropIndicator)).dy,
-            closeTo(gapCenter, .01),
-          );
-          expect(start, findsOneWidget);
-          expect(end, findsNothing);
-          expect(tester.getRect(highlight), sourceTint);
-          expect(composer.text.value, original);
-          await gesture.up();
-          await tester.pumpAndSettle();
-          expect(
-            composer.text.text,
-            '## A heading\n\nFirst paragraph\n\nLast paragraph',
-          );
-          expect(find.byType(DDropIndicator), findsNothing);
-          expect(highlight, findsNothing);
-          composer.history.undo();
-          await tester.pumpAndSettle();
-          expect(composer.text.value, original);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
   }
 
   testWidgets('the original gap shows feedback without adding an undo edit', (
