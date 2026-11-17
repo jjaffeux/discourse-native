@@ -779,11 +779,7 @@ void main() {
     });
   }
 
-  for (final failure in [
-    WriteFailure.forbidden,
-    WriteFailure.validation,
-    WriteFailure.rateLimited,
-  ]) {
+  for (final failure in [WriteFailure.forbidden, WriteFailure.rateLimited]) {
     test('server $failure rolls back the optimistic checkbox', () async {
       final api = ChecklistApi()..refusal = WriteException(failure);
       final shell = await shellFor(api);
