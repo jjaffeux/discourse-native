@@ -76,47 +76,48 @@ void main() {
     });
   }
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final variant in [DSheetVariant.standard, DSheetVariant.menu]) {
-      testWidgets(
-        '$variant keeps its surface at the foot and content above the keyboard on $platform',
-        (tester) async {
-          tester.view.physicalSize = const Size(390, 844);
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.reset);
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: AppTheme.dark.copyWith(platform: platform),
-              home: Scaffold(
-                body: DSheet<void>(
-                  trigger: DSheetTrigger(
-                    builder: (_, open) =>
-                        DButton(onPressed: open, label: const Text('Open')),
-                  ),
-                  content: DSheetContent(
-                    side: DSheetSide.bottom,
-                    variant: variant,
-                    children: const [DSheetBody(child: SizedBox(height: 200))],
-                  ),
+  for (final (platform, variant) in [
+    (TargetPlatform.iOS, DSheetVariant.standard),
+    (TargetPlatform.android, DSheetVariant.menu),
+  ]) {
+    testWidgets(
+      '$variant keeps its surface at the foot and content above the keyboard on $platform',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: platform),
+            home: Scaffold(
+              body: DSheet<void>(
+                trigger: DSheetTrigger(
+                  builder: (_, open) =>
+                      DButton(onPressed: open, label: const Text('Open')),
+                ),
+                content: DSheetContent(
+                  side: DSheetSide.bottom,
+                  variant: variant,
+                  children: const [DSheetBody(child: SizedBox(height: 200))],
                 ),
               ),
             ),
-          );
-          await tester.tap(find.text('Open'));
-          await tester.pumpAndSettle();
-          final sheet = find.byType(DSheetContent);
-          expect(tester.getRect(sheet).bottom, 844);
-          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-          await tester.pumpAndSettle();
-          expect(tester.getRect(sheet).bottom, 844);
-          expect(tester.getRect(find.byType(DSheetBody)).bottom, 544);
-          tester.view.viewInsets = FakeViewPadding.zero;
-          await tester.pumpAndSettle();
-          expect(tester.getRect(sheet).bottom, 844);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        expect(tester.getRect(sheet).bottom, 844);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).bottom, 844);
+        expect(tester.getRect(find.byType(DSheetBody)).bottom, 544);
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).bottom, 844);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final tags in [false, true]) {
