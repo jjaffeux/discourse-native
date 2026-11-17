@@ -833,7 +833,8 @@ class _TopicActionsButtonState extends State<TopicActionsButton> {
                 ? DTokens.of(context).wellFill
                 : null,
             tooltip: context.l10n.topicActionsMenu,
-            icon: const DIcon(DIcons.ellipsis),
+            // Upright, as a menu of more stands on a phone.
+            icon: const DIcon(DIcons.ellipsisVertical),
           ),
         ),
       ),

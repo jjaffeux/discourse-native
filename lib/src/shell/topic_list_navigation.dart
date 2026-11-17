@@ -318,7 +318,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                         categoryId: categoryId,
                         size: DButtonSize.filter,
                         quiet: true,
-                        showChevron: true,
                       )
                     else if (showsNotificationLevel && tag != null)
                       TagNotificationLevelButton(
@@ -326,7 +325,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                         tag: tag,
                         size: DButtonSize.filter,
                         quiet: true,
-                        showChevron: true,
                       ),
                     ?trailing,
                   ];
