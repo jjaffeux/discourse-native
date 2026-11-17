@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/write_failure.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_panel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -407,6 +409,47 @@ void main() {
     expect(_retry, findsNothing);
   });
 
+  testWidgets('a phone prepares channel rows as they approach the viewport', (
+    tester,
+  ) async {
+    final api = _PanelApi(
+      chatBrowsePagesByKey: {
+        _key(): ChatChannelBrowsePage(
+          channels: [
+            for (var id = 1; id <= _pageSize; id++)
+              _channel(
+                id,
+                description:
+                    'Share work in progress and get feedback from '
+                    'the rest of the team before it ships.',
+              ),
+          ],
+        ),
+      },
+    );
+    late Store store;
+    await _pumpPanel(
+      tester,
+      api,
+      phone: true,
+      chatStore: (policy) => store = Store(policy: policy),
+    );
+    expect(_offsets(api), [0]);
+    expect(_row(1).hitTestable(), findsOneWidget);
+    expect(_row(_pageSize), findsNothing);
+    final entries = store.statisticsForTesting.entriesFor<ChatChannel>(_site);
+
+    await tester.scrollUntilVisible(
+      _row(_pageSize),
+      350,
+      scrollable: _scrollable,
+    );
+    await tester.pumpAndSettle();
+    expect(_row(_pageSize).hitTestable(), findsOneWidget);
+    expect(_offsets(api), [0]);
+    expect(entries, inExclusiveRange(0, _pageSize));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('scrolling to the end lists the next page once', (tester) async {
     final api = _PanelApi(
       chatBrowsePagesByKey: {
@@ -735,6 +778,7 @@ Future<ShellController> _pumpPanel(
   bool settle = true,
   bool loadChannels = false,
   String words = '',
+  ChatStoreFactory? chatStore,
 }) async {
   tester.view.physicalSize = phone
       ? const Size(390, 844)
@@ -742,8 +786,12 @@ Future<ShellController> _pumpPanel(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await prepareNativeUiEvidence(tester);
+  final plugins = chatStore == null
+      ? installedPlugins
+      : installBundledPluginsWithChatStore(chatStore);
+  if (chatStore != null) addTearDown(plugins.close);
   final controller = ShellController(
-    plugins: installedPlugins,
+    plugins: plugins,
     instanceStore: FakeInstanceStore([
       instance(Uri.parse(_site).host).copyWith(user: _user),
     ]),

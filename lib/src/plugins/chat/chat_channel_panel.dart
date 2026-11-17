@@ -343,22 +343,7 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
       return _scroll(const [_ChatChannelPanelSkeleton(rows: 4)]);
     }
     final error = browse.error;
-    return _scroll([
-      for (final channel in channels)
-        ValueListenableBuilder<ChatChannel?>(
-          key: ValueKey(channel.id),
-          valueListenable: widget.chat.channelRef(widget.siteUrl, channel.id),
-          builder: (context, current, _) => _ChatChannelBrowseRow(
-            channel: current ?? channel,
-            busy: _writing.contains(channel.id),
-            nameSize: _size(DiscourseTypography.rowTitle),
-            countSize: _size(DiscourseTypography.xs),
-            aboutSize: _size(DiscourseTypography.preview),
-            onOpen: () => unawaited(_open(current ?? channel)),
-            onFollow: (following) =>
-                unawaited(_follow(current ?? channel, following)),
-          ),
-        ),
+    final trailing = <Widget>[
       if (channels.isEmpty && error == null)
         _note(
           context,
@@ -399,7 +384,37 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
           onLoad: () => unawaited(browse.loadMore()),
           child: const SizedBox.shrink(),
         ),
-    ]);
+    ];
+    late final indices = {
+      for (var index = 0; index < channels.length; index++)
+        channels[index].id: index,
+    };
+    return ListView.builder(
+      key: const ValueKey('chat-channel-panel-list'),
+      shrinkWrap: !context.isTouch,
+      padding: const EdgeInsets.only(top: 6),
+      itemCount: channels.length + trailing.length,
+      findChildIndexCallback: (key) =>
+          key is ValueKey<int> ? indices[key.value] : null,
+      itemBuilder: (context, index) {
+        if (index >= channels.length) return trailing[index - channels.length];
+        final channel = channels[index];
+        return ValueListenableBuilder<ChatChannel?>(
+          key: ValueKey(channel.id),
+          valueListenable: widget.chat.channelRef(widget.siteUrl, channel.id),
+          builder: (context, current, _) => _ChatChannelBrowseRow(
+            channel: current ?? channel,
+            busy: _writing.contains(channel.id),
+            nameSize: _size(DiscourseTypography.rowTitle),
+            countSize: _size(DiscourseTypography.xs),
+            aboutSize: _size(DiscourseTypography.preview),
+            onOpen: () => unawaited(_open(current ?? channel)),
+            onFollow: (following) =>
+                unawaited(_follow(current ?? channel, following)),
+          ),
+        );
+      },
+    );
   }
 
   Widget _picking(BuildContext context, ChatChannelPicking mode) {
