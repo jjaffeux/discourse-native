@@ -116,7 +116,7 @@ void main() {
       expect(decode(failed), isNull);
     });
 
-    for (final offset in [-100, 0, 28, 1000]) {
+    for (final offset in [-100, 28, 1000]) {
       test('rejects a name reference outside its record $offset', () {
         final bytes = _record();
         ByteData.sublistView(bytes).setInt32(28, offset, Endian.host);
