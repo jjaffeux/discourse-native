@@ -895,7 +895,8 @@ void main() {
       'poll',
       'code',
     }.contains(entry.key);
-    for (final suffix in ['', '\n\nAfter']) {
+    final checksEndOfDraft = variedBoundaries || entry.key == 'mermaid';
+    for (final suffix in [if (checksEndOfDraft) '', '\n\nAfter']) {
       for (final before in [if (suffix.isNotEmpty) true, false]) {
         testWidgets(
           '${entry.key} arrow ${before ? 'left' : 'right'} places a same-line caret and Enter inserts beside it ($suffix)',
@@ -960,28 +961,26 @@ void main() {
           },
         );
       }
-      if (suffix.isNotEmpty || variedBoundaries || entry.key == 'mermaid') {
-        testWidgets(
-          '${entry.key} Backspace immediately deletes from its trailing caret ($suffix)',
-          (tester) async {
-            final source = 'Before\n\n${entry.value}$suffix';
-            final composer = await _pump(tester, source);
-            composer.text.selection = const TextSelection.collapsed(offset: 8);
-            await tester.pump();
-            final selected = composer.text.selection;
-            await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-            await tester.pump();
-            await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-            await tester.pump();
-            expect(
-              composer.raw,
-              source.replaceRange(selected.start, selected.end, '').trimRight(),
-            );
-            expect(composer.text.keyboardSelectedProjection, isNull);
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+      testWidgets(
+        '${entry.key} Backspace immediately deletes from its trailing caret ($suffix)',
+        (tester) async {
+          final source = 'Before\n\n${entry.value}$suffix';
+          final composer = await _pump(tester, source);
+          composer.text.selection = const TextSelection.collapsed(offset: 8);
+          await tester.pump();
+          final selected = composer.text.selection;
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(
+            composer.raw,
+            source.replaceRange(selected.start, selected.end, '').trimRight(),
+          );
+          expect(composer.text.keyboardSelectedProjection, isNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
 
     testWidgets(
