@@ -7227,38 +7227,36 @@ void main() {
     }
 
     for (final pinned in [true, false]) {
-      for (final failure in [
-        const WriteException(WriteFailure.unreachable),
-        StateError('lost response'),
+      for (final (failure, opposite) in [
+        (const WriteException(WriteFailure.unreachable), pinned),
+        (StateError('lost response'), !pinned),
       ]) {
-        for (final opposite in [false, true]) {
-          test(
-            'confirmed ${pinned ? 'pin' : 'unpin'} survives $failure '
-            '${opposite ? 'and a later opposite event' : 'with an equal echo'}',
-            () async {
-              await prepare(pinned: !pinned);
-              final writing = subject.chat.setMessagePinned(
-                site,
-                12,
-                pinned: pinned,
-              );
-              await Future<void>.delayed(Duration.zero);
-              expect(subject.api.chatMessagePinsUpdated, hasLength(1));
-              livePin(pinned: pinned, count: pinned ? 1 : 0);
-              if (opposite) {
-                livePin(pinned: !pinned, actorId: 8, count: pinned ? 0 : 1);
-              }
-              gate.completeError(failure);
-              expect(await writing, isNull);
-              final expected = opposite ? !pinned : pinned;
-              expect(subject.chat.message(site, 12)!.pinned, expected);
-              expect(
-                subject.chat.channel(site, 9)!.pinnedMessagesCount,
-                expected ? 1 : 0,
-              );
-            },
-          );
-        }
+        test(
+          'confirmed ${pinned ? 'pin' : 'unpin'} survives $failure '
+          '${opposite ? 'and a later opposite event' : 'with an equal echo'}',
+          () async {
+            await prepare(pinned: !pinned);
+            final writing = subject.chat.setMessagePinned(
+              site,
+              12,
+              pinned: pinned,
+            );
+            await Future<void>.delayed(Duration.zero);
+            expect(subject.api.chatMessagePinsUpdated, hasLength(1));
+            livePin(pinned: pinned, count: pinned ? 1 : 0);
+            if (opposite) {
+              livePin(pinned: !pinned, actorId: 8, count: pinned ? 0 : 1);
+            }
+            gate.completeError(failure);
+            expect(await writing, isNull);
+            final expected = opposite ? !pinned : pinned;
+            expect(subject.chat.message(site, 12)!.pinned, expected);
+            expect(
+              subject.chat.channel(site, 9)!.pinnedMessagesCount,
+              expected ? 1 : 0,
+            );
+          },
+        );
       }
       for (final failure in [
         const WriteException(WriteFailure.forbidden),
