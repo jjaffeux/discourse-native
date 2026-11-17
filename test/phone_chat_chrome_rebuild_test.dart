@@ -179,11 +179,11 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      // The chat counted is drawn: unread, it leads its group on the page and
-      // in the forum surface's side panel behind it. Its first count redraws
-      // the row boxed in both and re-lays their lists (228 over the chrome's
-      // 637); each later one redraws two count chips and the chrome (41).
-      expect(rebuilds, lessThanOrEqualTo(1235));
+      // The chat counted is drawn: unread, it leads its group on the page.
+      // Its first count redraws the row boxed and re-lays the list over the
+      // chrome's 637; each later one redraws its count chip and the chrome.
+      // The drawer's copy of the list is out of sight and holds.
+      expect(rebuilds, lessThanOrEqualTo(802));
     }, variant: _ios);
 
     testWidgets('on the Forum tab redraws the chrome only for the indicator', (
@@ -203,7 +203,85 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(rebuilds, lessThanOrEqualTo(1577));
+      expect(rebuilds, lessThanOrEqualTo(529));
+    }, variant: _ios);
+  });
+
+  group('a chat list kept out of sight', () {
+    final drawer = find.byKey(
+      const ValueKey('mobile-navigation-panel'),
+      skipOffstage: false,
+    );
+    Finder inDrawer(Finder finder) =>
+        find.descendant(of: drawer, matching: finder, skipOffstage: false);
+    final chip = find.byKey(
+      const ValueKey('chat-inbox-unread-20'),
+      skipOffstage: false,
+    );
+
+    testWidgets('holds while the drawer is closed and is current as it opens', (
+      tester,
+    ) async {
+      final shell = await _pumpPhone(tester);
+      shell.selectMobilePanel('chat');
+      await tester.pumpAndSettle();
+      expect(inDrawer(find.text('Channel 1', skipOffstage: false)), findsOne);
+
+      for (var event = 0; event < 10; event++) {
+        _readCredit(20, 3 + event);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      // Nobody can see the drawer's copy, so it has not followed the counts.
+      expect(inDrawer(chip), findsNothing);
+
+      shell.toggleMobileSidebar();
+      // The frame that starts to show it already has the count and the order.
+      await tester.pump();
+      expect(
+        inDrawer(
+          find.descendant(
+            of: chip,
+            matching: find.text('12', skipOffstage: false),
+            skipOffstage: false,
+          ),
+        ),
+        findsOne,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(inDrawer(find.text('Channel 20'))).dy,
+        lessThan(tester.getTopLeft(inDrawer(find.text('Channel 1'))).dy),
+      );
+      expect(tester.takeException(), isNull);
+    }, variant: _ios);
+
+    testWidgets('behind the Forum tab is current when Chat is shown', (
+      tester,
+    ) async {
+      final shell = await _pumpPhone(tester);
+      shell.selectMobilePanel('chat');
+      await tester.pumpAndSettle();
+      shell.selectMobilePanel('forum');
+      await tester.pumpAndSettle();
+
+      for (var event = 0; event < 10; event++) {
+        _readCredit(20, 3 + event);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      shell.selectMobilePanel('chat');
+      await tester.pump();
+      final shown = find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-unread-20')),
+        matching: find.text('12'),
+      );
+      expect(shown, findsOne);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('Channel 20').hitTestable()).dy,
+        lessThan(tester.getTopLeft(find.text('Channel 1').hitTestable()).dy),
+      );
+      expect(tester.takeException(), isNull);
     }, variant: _ios);
   });
 

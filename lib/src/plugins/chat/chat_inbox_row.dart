@@ -673,19 +673,25 @@ class _ChatInboxEntryState extends State<ChatInboxEntry> {
           selected: shell.visibleChannelId == widget.channelId,
           user: shell.currentUser,
         ),
-        builder: (context, state, _) => ValueListenableBuilder<ChatChannel?>(
-          valueListenable: PluginUiScope.require(
+        builder: (context, state, _) {
+          final ref = PluginUiScope.require(
             context,
             chatControllerService,
-          ).channelRef(widget.siteUrl, widget.channelId),
-          // The id came from the store, so a gap means the channel was
-          // just removed and the list is one frame from dropping it.
-          builder: (context, channel, _) => channel == null
-              ? const SizedBox.shrink()
-              : _ChatInboxLiveCount(
-                  count: chatInboxUnreadCount(channel),
-                  child: _rowFor(context, channel, state),
-                ),
-        ),
+          ).channelRef(widget.siteUrl, widget.channelId);
+          return DShownListenableBuilder(
+            listenable: ref,
+            builder: (context, _) {
+              // The id came from the store, so a gap means the channel was
+              // just removed and the list is one frame from dropping it.
+              final channel = ref.value;
+              return channel == null
+                  ? const SizedBox.shrink()
+                  : _ChatInboxLiveCount(
+                      count: chatInboxUnreadCount(channel),
+                      child: _rowFor(context, channel, state),
+                    );
+            },
+          );
+        },
       );
 }

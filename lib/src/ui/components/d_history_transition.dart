@@ -962,11 +962,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                     Offstage(
                       key: const ValueKey('history-live-navigation'),
                       offstage: !_navigationOpen && !_openingNavigation,
-                      child: _navigationMotion(
-                        context,
-                        navigationSurface,
-                        width: width,
-                        navigation: true,
+                      // Kept for the swipe that reveals it; out of sight it
+                      // neither animates nor follows what it listens to.
+                      child: TickerMode(
+                        enabled: _navigationOpen || _openingNavigation,
+                        child: _navigationMotion(
+                          context,
+                          navigationSurface,
+                          width: width,
+                          navigation: true,
+                        ),
                       ),
                     ),
                   if (active && _navigationOpen) preview(snapshot),

@@ -161,6 +161,11 @@ class _ChatListingState extends State<ChatListing> {
   // reorder hands back the rows whose inputs held as they stand.
   var _kept = <Key, (Object, Widget)>{};
 
+  // A list kept out of sight, behind another tab or in the closed drawer,
+  // is laid out again once, when it is shown.
+  late final _heard = DShownListening(_changed);
+  late final _roomsHeard = DShownListening(_roomsChanged);
+
   String get _siteUrl => widget.siteUrl;
 
   @override
@@ -172,13 +177,16 @@ class _ChatListingState extends State<ChatListing> {
     if (!identical(chat, _chat) ||
         !identical(rooms, _rooms) ||
         !identical(shell, _shell)) {
-      _sources?.removeListener(_changed);
-      _rooms?.removeListener(_roomsChanged);
       _chat = chat;
-      _rooms = rooms?..addListener(_roomsChanged);
+      _rooms = rooms;
       _shell = shell;
-      _sources = Listenable.merge([chat, chat.inboxFilters, shell])
-        ..addListener(_changed);
+      _sources = Listenable.merge([chat, chat.inboxFilters, shell]);
+    }
+    _heard.attach(context, _sources!);
+    if (rooms != null) {
+      _roomsHeard.attach(context, rooms);
+    } else {
+      _roomsHeard.dispose();
     }
     _layout = _read();
     _view = null;
@@ -296,8 +304,8 @@ class _ChatListingState extends State<ChatListing> {
 
   @override
   void dispose() {
-    _sources?.removeListener(_changed);
-    _rooms?.removeListener(_roomsChanged);
+    _heard.dispose();
+    _roomsHeard.dispose();
     super.dispose();
   }
 
