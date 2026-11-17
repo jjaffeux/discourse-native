@@ -7361,10 +7361,6 @@
   "@yourConnectionChangedReopenMovePostsAndTryAgain": {
     "description": "English UI message used by shell/shell_controller.dart. Keep placeholders intact."
   },
-  "yourConnectionChangedReopenChangeOwnerAndTryAgain": "Your connection changed. Reopen Change owner and try again.",
-  "@yourConnectionChangedReopenChangeOwnerAndTryAgain": {
-    "description": "English UI message used by shell/shell_controller.dart. Keep placeholders intact."
-  },
   "yourConnectionChangedReopenTheActionAndTryAgain": "Your connection changed. Reopen the action and try again.",
   "@yourConnectionChangedReopenTheActionAndTryAgain": {
     "description": "English UI message used by shell/shell_controller.dart. Keep placeholders intact."
@@ -8341,28 +8337,8 @@
   "@changePostOwner": {
     "description": "English UI message used by shell/topic_change_owner.dart. Keep placeholders intact."
   },
-  "assignByToAnotherAccount": "{count, plural, =1{Assign {count} post by @{oldUsername} to another account.} other{Assign {count} posts by @{oldUsername} to another account.}}",
-  "@assignByToAnotherAccount": {
-    "description": "English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.",
-    "placeholders": {
-      "count": {
-        "type": "num"
-      },
-      "oldUsername": {
-        "type": "String"
-      }
-    }
-  },
   "searchUsers": "Search users",
   "@searchUsers": {
-    "description": "English UI message used by shell/topic_change_owner.dart. Keep placeholders intact."
-  },
-  "searchForTheNewOwner": "Search for the new owner.",
-  "@searchForTheNewOwner": {
-    "description": "English UI message used by shell/topic_change_owner.dart. Keep placeholders intact."
-  },
-  "noUsersFound": "No users found.",
-  "@noUsersFound": {
     "description": "English UI message used by shell/topic_change_owner.dart. Keep placeholders intact."
   },
   "changeOwner": "Change owner",
@@ -21563,5 +21539,57 @@
         "type": "String"
       }
     }
-  }
+  },
+  "nothingMatchesTerm": "Nothing matches “{term}”",
+  "@nothingMatchesTerm": {"description": "Said under a people picker's field when what is typed finds no one.", "placeholders": {"term": {"type": "String"}}},
+  "assignTopicTo": "Assign topic to…",
+  "@assignTopicTo": {"description": "Placeholder of the phone's people picker field when assigning a topic."},
+  "reassignTopicTo": "Reassign topic to…",
+  "@reassignTopicTo": {"description": "Placeholder of the phone's people picker field when reassigning a topic."},
+  "assignPostTo": "Assign post to…",
+  "@assignPostTo": {"description": "Placeholder of the phone's people picker field when assigning a post."},
+  "reassignPostTo": "Reassign post to…",
+  "@reassignPostTo": {"description": "Placeholder of the phone's people picker field when reassigning a post."},
+  "changeOwnerTo": "Change owner to…",
+  "@changeOwnerTo": {"description": "Placeholder of the phone's people picker field when changing who owns posts."},
+  "chooseWhoLooksAfterTopic": "Choose who should look after this topic.",
+  "@chooseWhoLooksAfterTopic": {"description": "Note above the desktop people picker when assigning a topic."},
+  "chooseWhoLooksAfterPost": "Choose who should look after this post.",
+  "@chooseWhoLooksAfterPost": {"description": "Note above the desktop people picker when assigning a post."},
+  "chooseWhoPostsBelongTo": "{count, plural, =1{Choose who this post should belong to.} other{Choose who these {count} posts should belong to.}}",
+  "@chooseWhoPostsBelongTo": {"description": "Note above the desktop people picker when changing who owns posts.", "placeholders": {"count": {"type": "int"}}},
+  "assignedTopicToName": "Assigned topic to {name}",
+  "@assignedTopicToName": {"description": "Toast after a topic is assigned or reassigned.", "placeholders": {"name": {"type": "String"}}},
+  "assignedToName": "Assigned to {name}",
+  "@assignedToName": {"description": "Toast after a post is assigned, and the label of the topic's assign shortcut when it has one assignment.", "placeholders": {"name": {"type": "String"}}},
+  "unassignedFromTopic": "Unassigned from topic",
+  "@unassignedFromTopic": {"description": "Toast after a topic's assignment is taken back."},
+  "unassignedFromPostNumber": "Unassigned from post #{postNumber}",
+  "@unassignedFromPostNumber": {"description": "Toast after a post's assignment is taken back from the topic's assignments sheet.", "placeholders": {"postNumber": {"type": "int"}}},
+  "ownerChangedTo": "Owner changed to {name}",
+  "@ownerChangedTo": {"description": "Toast after posts are given to a new owner.", "placeholders": {"name": {"type": "String"}}},
+  "topicAssignedTo": "Topic assigned to {name}",
+  "@topicAssignedTo": {"description": "News line on a topic's first post saying who the topic is assigned to.", "placeholders": {"name": {"type": "String"}}},
+  "postNumberAssignedTo": "Post #{postNumber} assigned to {name}",
+  "@postNumberAssignedTo": {"description": "Line in the note box under an assigned post.", "placeholders": {"postNumber": {"type": "int"}, "name": {"type": "String"}}},
+  "assignedTopicTo": "Assigned topic to",
+  "@assignedTopicTo": {"description": "Line over the assignee's name in the topic's assignments sheet."},
+  "assignedPostNumberTo": "Assigned post #{postNumber} to",
+  "@assignedPostNumberTo": {"description": "Line over the assignee's name in the topic's assignments sheet.", "placeholders": {"postNumber": {"type": "int"}}},
+  "reassignPost": "Reassign post",
+  "@reassignPost": {"description": "Action giving a post's assignment to someone else."},
+  "unassignFromTopicAction": "Unassign from topic",
+  "@unassignFromTopicAction": {"description": "First post menu action taking the topic's assignment back."},
+  "unassignFromPost": "Unassign from post",
+  "@unassignFromPost": {"description": "Post menu action taking the post's assignment back."},
+  "unassignNameFromPost": "Unassign {name} from post",
+  "@unassignNameFromPost": {"description": "Action taking a post's assignment back from the named assignee.", "placeholders": {"name": {"type": "String"}}},
+  "unassignNameFromPostNumber": "Unassign {name} from post #{postNumber}",
+  "@unassignNameFromPostNumber": {"description": "Accessible name of the unassign button in the topic's assignments sheet.", "placeholders": {"name": {"type": "String"}, "postNumber": {"type": "int"}}},
+  "changeAssignmentAction": "Change assignment",
+  "@changeAssignmentAction": {"description": "Tooltip of the pencil that reassigns or unassigns an assignment."},
+  "assignmentCount": "{count, plural, =1{1 assignment} other{{count} assignments}}",
+  "@assignmentCount": {"description": "Label of the topic's assign shortcut when the topic holds several assignments.", "placeholders": {"count": {"type": "int"}}},
+  "editNoteAndStatus": "Edit note and status",
+  "@editNoteAndStatus": {"description": "Action opening an assignment's note and status form."}
 }

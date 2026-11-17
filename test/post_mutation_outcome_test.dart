@@ -436,7 +436,7 @@ void main() {
 
   for (final width in [390.0, 1000.0]) {
     testWidgets(
-      'unknown owner dialog at $width offers reads and never resubmits its command',
+      'unknown owner change at $width offers reads and never resubmits it',
       (tester) async {
         await prepareNativeUiEvidence(tester);
         final (:shell, :api) = await _fixture();
@@ -444,15 +444,15 @@ void main() {
         api.readFailure = StateError('Offline');
         await _openOwner(tester, shell, api, width);
         await _submit(tester);
-        final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
-        expect(tester.widget<DButton>(submit).onPressed, isNull);
         expect(
-          find.byKey(const ValueKey('post-mutation-refresh')),
-          findsOneWidget,
+          find.byKey(const ValueKey('person-picker-search')),
+          findsNothing,
         );
+        final refresh = find.widgetWithText(DButton, 'Refresh');
+        expect(refresh, findsOneWidget);
         await captureNativeUi(tester, 'unknown-owner-${width.toInt()}');
         expect(api.writes, 1);
-        await tester.tap(find.byKey(const ValueKey('post-mutation-refresh')));
+        await tester.tap(refresh);
         await tester.pumpAndSettle();
         expect(api.writes, 1);
         expect(
@@ -462,9 +462,8 @@ void main() {
           findsOneWidget,
         );
         api.readFailure = null;
-        await tester.tap(find.byKey(const ValueKey('post-mutation-refresh')));
+        await tester.tap(refresh);
         await tester.pumpAndSettle();
-        expect(tester.widget<DButton>(submit).onPressed, isNull);
         expect(
           find.text(
             'The view was refreshed. Review it before taking another action.',
@@ -594,7 +593,7 @@ void main() {
       await _openOwner(tester, shell, api, 1000);
       await _submit(tester);
       expect(
-        find.byKey(const ValueKey('topic-change-owner-dialog')),
+        find.byKey(const ValueKey('person-picker-search')),
         findsNothing,
       );
       expect(
@@ -682,7 +681,7 @@ Future<void> _openOwner(
     ),
   );
   await tester.enterText(
-    find.byKey(const ValueKey('topic-change-owner-search')),
+    find.byKey(const ValueKey('person-picker-search')),
     'recipient',
   );
   await tester.pump(const Duration(milliseconds: 350));
@@ -722,7 +721,7 @@ Future<void> _openMutation(
 }
 
 Future<void> _submit(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('topic-change-owner-submit')));
+  await tester.tap(find.byKey(const ValueKey('person-picker-user-recipient')));
   await tester.pumpAndSettle();
 }
 

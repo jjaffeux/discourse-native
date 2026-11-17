@@ -5708,10 +5708,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your connection changed. Reopen Move posts and try again.';
 
   @override
-  String get yourConnectionChangedReopenChangeOwnerAndTryAgain =>
-      'Your connection changed. Reopen Change owner and try again.';
-
-  @override
   String get yourConnectionChangedReopenTheActionAndTryAgain =>
       'Your connection changed. Reopen the action and try again.';
 
@@ -6443,24 +6439,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get changePostOwner => 'Change post owner';
 
   @override
-  String assignByToAnotherAccount(num count, String oldUsername) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Assign $count posts by @$oldUsername to another account.',
-      one: 'Assign $count post by @$oldUsername to another account.',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get searchUsers => 'Search users';
-
-  @override
-  String get searchForTheNewOwner => 'Search for the new owner.';
-
-  @override
-  String get noUsersFound => 'No users found.';
 
   @override
   String get changeOwner => 'Change owner';
@@ -16557,4 +16536,120 @@ class AppLocalizationsEn extends AppLocalizations {
   String requestedLinkUnknownSite(String host) {
     return '$host isn’t one of your sites.';
   }
+
+  @override
+  String nothingMatchesTerm(String term) {
+    return 'Nothing matches “$term”';
+  }
+
+  @override
+  String get assignTopicTo => 'Assign topic to…';
+
+  @override
+  String get reassignTopicTo => 'Reassign topic to…';
+
+  @override
+  String get assignPostTo => 'Assign post to…';
+
+  @override
+  String get reassignPostTo => 'Reassign post to…';
+
+  @override
+  String get changeOwnerTo => 'Change owner to…';
+
+  @override
+  String get chooseWhoLooksAfterTopic =>
+      'Choose who should look after this topic.';
+
+  @override
+  String get chooseWhoLooksAfterPost =>
+      'Choose who should look after this post.';
+
+  @override
+  String chooseWhoPostsBelongTo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Choose who these $count posts should belong to.',
+      one: 'Choose who this post should belong to.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String assignedTopicToName(String name) {
+    return 'Assigned topic to $name';
+  }
+
+  @override
+  String assignedToName(String name) {
+    return 'Assigned to $name';
+  }
+
+  @override
+  String get unassignedFromTopic => 'Unassigned from topic';
+
+  @override
+  String unassignedFromPostNumber(int postNumber) {
+    return 'Unassigned from post #$postNumber';
+  }
+
+  @override
+  String ownerChangedTo(String name) {
+    return 'Owner changed to $name';
+  }
+
+  @override
+  String topicAssignedTo(String name) {
+    return 'Topic assigned to $name';
+  }
+
+  @override
+  String postNumberAssignedTo(int postNumber, String name) {
+    return 'Post #$postNumber assigned to $name';
+  }
+
+  @override
+  String get assignedTopicTo => 'Assigned topic to';
+
+  @override
+  String assignedPostNumberTo(int postNumber) {
+    return 'Assigned post #$postNumber to';
+  }
+
+  @override
+  String get reassignPost => 'Reassign post';
+
+  @override
+  String get unassignFromTopicAction => 'Unassign from topic';
+
+  @override
+  String get unassignFromPost => 'Unassign from post';
+
+  @override
+  String unassignNameFromPost(String name) {
+    return 'Unassign $name from post';
+  }
+
+  @override
+  String unassignNameFromPostNumber(String name, int postNumber) {
+    return 'Unassign $name from post #$postNumber';
+  }
+
+  @override
+  String get changeAssignmentAction => 'Change assignment';
+
+  @override
+  String assignmentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count assignments',
+      one: '1 assignment',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get editNoteAndStatus => 'Edit note and status';
 }

@@ -9770,12 +9770,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/shell_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Your connection changed. Reopen Change owner and try again.'**
-  String get yourConnectionChangedReopenChangeOwnerAndTryAgain;
-
-  /// English UI message used by shell/shell_controller.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Your connection changed. Reopen the action and try again.'**
   String get yourConnectionChangedReopenTheActionAndTryAgain;
 
@@ -10998,26 +10992,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{Assign {count} post by @{oldUsername} to another account.} other{Assign {count} posts by @{oldUsername} to another account.}}'**
-  String assignByToAnotherAccount(num count, String oldUsername);
-
-  /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Search users'**
   String get searchUsers;
-
-  /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Search for the new owner.'**
-  String get searchForTheNewOwner;
-
-  /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'No users found.'**
-  String get noUsersFound;
 
   /// English UI message used by shell/topic_change_owner.dart. Keep placeholders intact.
   ///
@@ -26359,6 +26335,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{host} isn’t one of your sites.'**
   String requestedLinkUnknownSite(String host);
+
+  /// Said under a people picker's field when what is typed finds no one.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches “{term}”'**
+  String nothingMatchesTerm(String term);
+
+  /// Placeholder of the phone's people picker field when assigning a topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign topic to…'**
+  String get assignTopicTo;
+
+  /// Placeholder of the phone's people picker field when reassigning a topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign topic to…'**
+  String get reassignTopicTo;
+
+  /// Placeholder of the phone's people picker field when assigning a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign post to…'**
+  String get assignPostTo;
+
+  /// Placeholder of the phone's people picker field when reassigning a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign post to…'**
+  String get reassignPostTo;
+
+  /// Placeholder of the phone's people picker field when changing who owns posts.
+  ///
+  /// In en, this message translates to:
+  /// **'Change owner to…'**
+  String get changeOwnerTo;
+
+  /// Note above the desktop people picker when assigning a topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who should look after this topic.'**
+  String get chooseWhoLooksAfterTopic;
+
+  /// Note above the desktop people picker when assigning a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who should look after this post.'**
+  String get chooseWhoLooksAfterPost;
+
+  /// Note above the desktop people picker when changing who owns posts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Choose who this post should belong to.} other{Choose who these {count} posts should belong to.}}'**
+  String chooseWhoPostsBelongTo(int count);
+
+  /// Toast after a topic is assigned or reassigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned topic to {name}'**
+  String assignedTopicToName(String name);
+
+  /// Toast after a post is assigned, and the label of the topic's assign shortcut when it has one assignment.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to {name}'**
+  String assignedToName(String name);
+
+  /// Toast after a topic's assignment is taken back.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned from topic'**
+  String get unassignedFromTopic;
+
+  /// Toast after a post's assignment is taken back from the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned from post #{postNumber}'**
+  String unassignedFromPostNumber(int postNumber);
+
+  /// Toast after posts are given to a new owner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner changed to {name}'**
+  String ownerChangedTo(String name);
+
+  /// News line on a topic's first post saying who the topic is assigned to.
+  ///
+  /// In en, this message translates to:
+  /// **'Topic assigned to {name}'**
+  String topicAssignedTo(String name);
+
+  /// Line in the note box under an assigned post.
+  ///
+  /// In en, this message translates to:
+  /// **'Post #{postNumber} assigned to {name}'**
+  String postNumberAssignedTo(int postNumber, String name);
+
+  /// Line over the assignee's name in the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned topic to'**
+  String get assignedTopicTo;
+
+  /// Line over the assignee's name in the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned post #{postNumber} to'**
+  String assignedPostNumberTo(int postNumber);
+
+  /// Action giving a post's assignment to someone else.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign post'**
+  String get reassignPost;
+
+  /// First post menu action taking the topic's assignment back.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign from topic'**
+  String get unassignFromTopicAction;
+
+  /// Post menu action taking the post's assignment back.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign from post'**
+  String get unassignFromPost;
+
+  /// Action taking a post's assignment back from the named assignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign {name} from post'**
+  String unassignNameFromPost(String name);
+
+  /// Accessible name of the unassign button in the topic's assignments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign {name} from post #{postNumber}'**
+  String unassignNameFromPostNumber(String name, int postNumber);
+
+  /// Tooltip of the pencil that reassigns or unassigns an assignment.
+  ///
+  /// In en, this message translates to:
+  /// **'Change assignment'**
+  String get changeAssignmentAction;
+
+  /// Label of the topic's assign shortcut when the topic holds several assignments.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 assignment} other{{count} assignments}}'**
+  String assignmentCount(int count);
+
+  /// Action opening an assignment's note and status form.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit note and status'**
+  String get editNoteAndStatus;
 }
 
 class _AppLocalizationsDelegate
