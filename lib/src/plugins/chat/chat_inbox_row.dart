@@ -394,11 +394,7 @@ class ChatInboxRow extends StatelessWidget {
             ],
           ),
           count: fresh
-              ? DBadge.unreadChip(
-                  key: ValueKey('chat-inbox-unread-${channel.id}'),
-                  count: count,
-                  semanticLabel: context.l10n.unreadChatplugin(count),
-                )
+              ? _ChatInboxUnreadChip(channelId: channel.id, count: count)
               : muted && count > 0
               ? DNotificationDot(
                   key: ValueKey('chat-inbox-muted-unread-${channel.id}'),
@@ -477,6 +473,54 @@ class ChatInboxRow extends StatelessWidget {
       ],
     );
   }
+}
+
+/// How much is new in the chat a row draws, handed down by [ChatInboxEntry]
+/// so a count that moves redraws the chip and not the row around it.
+class _ChatInboxLiveCount extends InheritedWidget {
+  const _ChatInboxLiveCount({required this.count, required super.child});
+
+  final int count;
+
+  @override
+  bool updateShouldNotify(_ChatInboxLiveCount oldWidget) =>
+      count != oldWidget.count;
+}
+
+class _ChatInboxUnreadChip extends StatelessWidget {
+  const _ChatInboxUnreadChip({required this.channelId, required this.count});
+
+  final int channelId;
+
+  /// The count when the row was drawn, for a row drawn outside an entry.
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final count =
+        context
+            .dependOnInheritedWidgetOfExactType<_ChatInboxLiveCount>()
+            ?.count ??
+        this.count;
+    return DBadge.unreadChip(
+      key: ValueKey('chat-inbox-unread-$channelId'),
+      count: count,
+      semanticLabel: context.l10n.unreadChatplugin(count),
+    );
+  }
+}
+
+/// What a row draws of [channel]: all of it but how many are new, which its
+/// chip draws alone. Whether any are new stays, since that boxes the row.
+ChatChannel _rowShape(ChatChannel channel) {
+  final tracking = channel.tracking;
+  return channel.withTrackingState(
+    tracking: ChatTracking(
+      unreadCount: tracking.unreadCount.clamp(0, 1),
+      mentionCount: tracking.mentionCount.clamp(0, 1),
+      watchedThreadsUnreadCount: tracking.watchedThreadsUnreadCount,
+    ),
+  );
 }
 
 /// When something was last said, as a row's tail says it: the time today,
@@ -572,6 +616,9 @@ class ChatInboxEntry extends StatefulWidget {
 
 class _ChatInboxEntryState extends State<ChatInboxEntry> {
   Widget? _content;
+  ChatInboxRow? _row;
+  ChatChannel? _rowDrawn;
+  ({bool selected, DiscourseUser? user})? _rowState;
 
   @override
   void didUpdateWidget(ChatInboxEntry oldWidget) {
@@ -583,7 +630,36 @@ class _ChatInboxEntryState extends State<ChatInboxEntry> {
         oldWidget.menuButton != widget.menuButton ||
         oldWidget.found != widget.found) {
       _content = null;
+      _row = null;
     }
+  }
+
+  // Every message and read credit in the chat notifies its channel, and most
+  // move only its count, so the row stands as drawn unless more changed.
+  ChatInboxRow _rowFor(
+    BuildContext context,
+    ChatChannel channel,
+    ({bool selected, DiscourseUser? user}) state,
+  ) {
+    final drawn = _rowShape(channel);
+    if (_row case final row? when drawn == _rowDrawn && state == _rowState) {
+      return row;
+    }
+    _rowDrawn = drawn;
+    _rowState = state;
+    return _row = ChatInboxRow(
+      siteUrl: widget.siteUrl,
+      channel: channel,
+      frame: widget.frame,
+      selected: state.selected,
+      showStar: widget.showStar,
+      menuButton: widget.menuButton,
+      found: widget.found,
+      onPressed: () => PluginUiScope.require(
+        context,
+        chatShellService,
+      ).openChannel(widget.channelId),
+    );
   }
 
   @override
@@ -606,18 +682,9 @@ class _ChatInboxEntryState extends State<ChatInboxEntry> {
           // just removed and the list is one frame from dropping it.
           builder: (context, channel, _) => channel == null
               ? const SizedBox.shrink()
-              : ChatInboxRow(
-                  siteUrl: widget.siteUrl,
-                  channel: channel,
-                  frame: widget.frame,
-                  selected: state.selected,
-                  showStar: widget.showStar,
-                  menuButton: widget.menuButton,
-                  found: widget.found,
-                  onPressed: () => PluginUiScope.require(
-                    context,
-                    chatShellService,
-                  ).openChannel(widget.channelId),
+              : _ChatInboxLiveCount(
+                  count: chatInboxUnreadCount(channel),
+                  child: _rowFor(context, channel, state),
                 ),
         ),
       );

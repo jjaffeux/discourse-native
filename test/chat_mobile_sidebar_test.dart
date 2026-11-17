@@ -49,7 +49,11 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
 
 /// The production mobile shell on its Chat tab, with more conversations than
 /// a phone shows at once.
-Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
+Future<void> _pumpChatInbox(
+  WidgetTester tester,
+  Size size, {
+  int channels = 20,
+}) async {
   final config = SiteConfig(
     plugins: PluginData.none.withValue(
       chatSettingsDataKey,
@@ -79,7 +83,7 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
         _site: ChatChannels(
           hasThreads: true,
           public: [
-            for (var id = 1; id <= 20; id++)
+            for (var id = 1; id <= channels; id++)
               ChatChannel(
                 id: id,
                 title: 'Channel $id',
@@ -92,7 +96,7 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
           ],
           direct: const [],
           newChannelBusLastId: 1,
-          newMessageBusLastIds: {for (var id = 1; id <= 20; id++) id: 1},
+          newMessageBusLastIds: {for (var id = 1; id <= channels; id++) id: 1},
         ),
       },
     ),
@@ -322,6 +326,73 @@ void main() {
       expect(frames.entries, 0, reason: 'No visible row changed');
       expect(frames.filterBars, 0, reason: 'The filter did not change');
       expect(frames.navigation, 0, reason: 'Site settings did not change');
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
+    'counts arriving for one chat redraw that chat alone, however many are listed',
+    (tester) async {
+      Future<({int rows, int elements})> unreadArrivals(int channels) async {
+        await _pumpChatInbox(tester, phone, channels: channels);
+        // The oldest chat, below the fold until it turns unread and leads.
+        final oldest = channels;
+        final rows = <int>[];
+        var elements = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          elements++;
+          if (element.widget case ChatInboxRow(:final channel)) {
+            rows.add(channel.id);
+          }
+          previous?.call(element, builtOnce);
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        final tracker = FakeSiteTracker.built.last;
+        for (var event = 0; event < 10; event++) {
+          tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+            'channel_id': oldest,
+            'last_read_message_id': 1,
+            'unread_count': 3 + event,
+          });
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        debugOnRebuildDirtyWidget = previous;
+        expect(
+          tester.getTopLeft(_row(oldest)).dy,
+          lessThan(tester.getTopLeft(_row(1)).dy),
+          reason: 'What is unread leads its group',
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(
+              ValueKey('chat-inbox-unread-$oldest'),
+              skipOffstage: false,
+            ),
+            matching: find.text('12', skipOffstage: false),
+            skipOffstage: false,
+          ),
+          findsWidgets,
+        );
+        // Only the chat that turned unread is drawn again, boxed, once in
+        // the page and once in the sidebar panel kept behind it; the counts
+        // after that redraw its chip alone.
+        expect(rows.toSet(), {oldest});
+        expect(rows, hasLength(lessThanOrEqualTo(2)));
+        return (rows: rows.length, elements: elements);
+      }
+
+      final few = await unreadArrivals(20);
+      final many = await unreadArrivals(80);
+      // ignore: avoid_print
+      print(
+        'PERF_PROOF chat-list-unread-arrivals '
+        'rows_20=${few.rows} elements_20=${few.elements} '
+        'rows_80=${many.rows} elements_80=${many.elements}',
+      );
+      expect(many.rows, few.rows);
+      expect(many.elements, few.elements);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
