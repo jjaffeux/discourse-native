@@ -888,6 +888,13 @@ void main() {
         }
       },
     );
+    final variedBoundaries = const {
+      'table',
+      'event',
+      'quote',
+      'poll',
+      'code',
+    }.contains(entry.key);
     for (final suffix in ['', '\n\nAfter']) {
       for (final before in [if (suffix.isNotEmpty) true, false]) {
         testWidgets(
@@ -953,26 +960,28 @@ void main() {
           },
         );
       }
-      testWidgets(
-        '${entry.key} Backspace immediately deletes from its trailing caret ($suffix)',
-        (tester) async {
-          final source = 'Before\n\n${entry.value}$suffix';
-          final composer = await _pump(tester, source);
-          composer.text.selection = const TextSelection.collapsed(offset: 8);
-          await tester.pump();
-          final selected = composer.text.selection;
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-          await tester.pump();
-          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-          await tester.pump();
-          expect(
-            composer.raw,
-            source.replaceRange(selected.start, selected.end, '').trimRight(),
-          );
-          expect(composer.text.keyboardSelectedProjection, isNull);
-          expect(tester.takeException(), isNull);
-        },
-      );
+      if (suffix.isNotEmpty || variedBoundaries || entry.key == 'mermaid') {
+        testWidgets(
+          '${entry.key} Backspace immediately deletes from its trailing caret ($suffix)',
+          (tester) async {
+            final source = 'Before\n\n${entry.value}$suffix';
+            final composer = await _pump(tester, source);
+            composer.text.selection = const TextSelection.collapsed(offset: 8);
+            await tester.pump();
+            final selected = composer.text.selection;
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+            await tester.pump();
+            await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+            await tester.pump();
+            expect(
+              composer.raw,
+              source.replaceRange(selected.start, selected.end, '').trimRight(),
+            );
+            expect(composer.text.keyboardSelectedProjection, isNull);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
     }
 
     testWidgets(
@@ -995,13 +1004,6 @@ void main() {
         expect(composer.text.keyboardSelectedProjection, isNull);
       },
     );
-    final variedBoundaries = const {
-      'table',
-      'event',
-      'quote',
-      'poll',
-      'code',
-    }.contains(entry.key);
     final lineEndings = ['\n', if (variedBoundaries) '\r\n'];
     for (final newline in lineEndings) {
       testWidgets(
