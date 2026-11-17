@@ -16,6 +16,8 @@ class MobilePageTitle extends StatefulWidget {
     required this.entry,
     required this.history,
     required this.siteUrl,
+    this.previousEntry,
+    this.showPreviousTitle = false,
     this.titleFallback,
     this.previousTitleFallback,
   });
@@ -23,7 +25,9 @@ class MobilePageTitle extends StatefulWidget {
   final ValueListenable<DPageHeader?> header;
   final String siteUrl;
   final Object entry;
+  final Object? previousEntry;
   final Object history;
+  final bool showPreviousTitle;
   final String? titleFallback;
   final ({Object entry, String title})? previousTitleFallback;
 
@@ -116,11 +120,54 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
       valueListenable: widget.header,
       builder: (context, page, _) => ListenableBuilder(
         listenable: page ?? widget.header,
-        builder: (context, _) =>
-            _withSheetPull(context, _currentTitle(context, page)),
+        builder: (context, _) => widget.showPreviousTitle
+            ? _coveredTitle(context)
+            : _withSheetPull(context, _currentTitle(context, page)),
       ),
     ),
   );
+
+  _TitlePresentation? get _previousPresentation {
+    final fallback = widget.previousTitleFallback;
+    return _presentations[widget.previousEntry] ??
+        (fallback != null && fallback.entry == widget.previousEntry
+            ? (
+                title: fallback.title,
+                leading: null,
+                metadata: null,
+                opacity: 1.0,
+              )
+            : null);
+  }
+
+  Widget _coveredTitle(BuildContext context) {
+    final presentation = _previousPresentation;
+    if (presentation == null) {
+      return _withSwipe(context, const SizedBox.shrink(), ready: false);
+    }
+    _remember(presentation);
+    return _withSwipe(
+      context,
+      ExcludeSemantics(
+        child: Opacity(
+          opacity: presentation.opacity,
+          child: _identity(
+            context,
+            presentation.title,
+            presentation.leading,
+            presentation.metadata,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _remember(_TitlePresentation presentation) {
+    _presentations[widget.entry] = presentation;
+    while (_presentations.length > 8) {
+      _presentations.remove(_presentations.keys.first);
+    }
+  }
 
   Widget? _currentTitle(BuildContext context, DPageHeader? page) {
     final title = page?.titleText;
@@ -130,15 +177,12 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
           ? null
           : ExcludeSemantics(child: _identity(context, fallback, null, null));
     }
-    _presentations[widget.entry] = (
+    _remember((
       title: title,
       leading: page.leading,
       metadata: page.metadata,
       opacity: page.barOpacity,
-    );
-    while (_presentations.length > 8) {
-      _presentations.remove(_presentations.keys.first);
-    }
+    ));
     final opacity = page.barOpacity;
     final shown = opacity >= .5;
     // The fade follows every scroll frame, so it must not repaint
@@ -173,7 +217,8 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
   Widget _withSheetPull(BuildContext context, Widget? current) {
     final progress = DSheetDragScope.dismissProgressOf(context);
     final previous = DPageHeaderHost.previousTitleOf(context);
-    final title = previous?.title ?? widget.previousTitleFallback?.title;
+    final cached = previous == null ? _previousPresentation : null;
+    final title = previous?.title ?? cached?.title;
     if (progress == null || title == null) {
       return _withSwipe(
         context,
@@ -203,12 +248,12 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
               IgnorePointer(
                 child: ExcludeSemantics(
                   child: Opacity(
-                    opacity: pull,
+                    opacity: pull * (cached?.opacity ?? 1),
                     child: _identity(
                       context,
                       title,
-                      previous?.leading,
-                      previous?.metadata,
+                      previous?.leading ?? cached?.leading,
+                      previous?.metadata ?? cached?.metadata,
                     ),
                   ),
                 ),

@@ -518,12 +518,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                         }
                                         return MobilePageTitle(
                                           entry: entry,
+                                          previousEntry: previousEntry,
                                           history: (
                                             owner,
                                             shell.mobileNavigation.historyId,
                                           ),
                                           header: titleHeader,
                                           siteUrl: instance.url,
+                                          showPreviousTitle: searchOpen,
                                           titleFallback: titleFallback,
                                           previousTitleFallback:
                                               previousTitleFallback,

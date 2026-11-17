@@ -761,7 +761,7 @@ void main({bool useDeviceMetrics = false}) {
     }
 
     _testPresentation(
-      'mobile $platform keeps the Messages title hidden as Search opens',
+      'mobile $platform keeps the Messages title visible as Search opens',
       (tester) async {
         debugDefaultTargetPlatformOverride = platform;
         final shell = await _pumpSearch(tester, size: phone);
@@ -772,6 +772,7 @@ void main({bool useDeviceMetrics = false}) {
           matching: find.text('Messages'),
         );
         expect(title, findsOneWidget);
+        final titlePosition = tester.getTopLeft(title);
 
         await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
         await tester.pump();
@@ -783,12 +784,37 @@ void main({bool useDeviceMetrics = false}) {
         }
         for (var frame = 0; frame < 45; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
-          expect(title, findsNothing, reason: 'Search opening frame $frame');
+          expect(title, findsOneWidget, reason: 'Search opening frame $frame');
+          expect(tester.getTopLeft(title), titlePosition);
+          final fade = tester.renderObject<RenderAnimatedOpacity>(
+            find
+                .ancestor(of: title, matching: find.byType(AnimatedOpacity))
+                .first,
+          );
+          expect(fade.opacity.value, 1);
         }
         expect(_editor(tester).focusNode.hasFocus, isTrue);
         if (_useDeviceMetrics) {
           expect(tester.view.viewInsets.bottom, greaterThan(0));
         }
+
+        await tester.binding.handlePopRoute();
+        if (_useDeviceMetrics) {
+          for (
+            var frame = 0;
+            frame < 30 && tester.view.viewInsets.bottom > 0;
+            frame++
+          ) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          expect(tester.view.viewInsets.bottom, 0);
+        } else {
+          tester.view.resetViewInsets();
+        }
+        await tester.pumpAndSettle();
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(title.hitTestable(), findsOneWidget);
+        expect(tester.getTopLeft(title), titlePosition);
       },
     );
 

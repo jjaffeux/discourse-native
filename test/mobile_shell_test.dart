@@ -5637,13 +5637,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('Search slides over Chat and reveals its title on a pull', (
+  _mobileTest('Search keeps the Chats title visible during a pull', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
     await _tapDockTab(tester, 'panel/chat');
     final title = find.descendant(of: _header, matching: find.text('Chats'));
     expect(title, findsOneWidget);
+    final titlePosition = tester.getTopLeft(title);
     final chat = find.byType(ChatMobileSidebar);
     final fullWidth = tester.getRect(chat).width;
 
@@ -5654,7 +5655,7 @@ void main() {
     addTearDown(tester.view.resetViewInsets);
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     await tester.pumpAndSettle();
-    expect(title, findsNothing);
+    expect(tester.getTopLeft(title), titlePosition);
     expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
 
     final handle = find.byKey(const ValueKey('sheet-drag-handle'));
@@ -5666,13 +5667,12 @@ void main() {
     expect(tester.getCenter(handle).dy, greaterThan(start.dy));
     expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
     expect(shell.currentContent?.isGlobalSearch, isTrue);
-    expect(title, findsOneWidget);
-    expect(tester.getRect(_header).contains(tester.getCenter(title)), isTrue);
+    expect(tester.getTopLeft(title), titlePosition);
 
     await swipe.cancel();
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-    expect(title, findsNothing);
+    expect(tester.getTopLeft(title), titlePosition);
     expect(tester.getRect(chat).width, closeTo(fullWidth, .01));
 
     await tester.drag(handle, const Offset(0, 400));
