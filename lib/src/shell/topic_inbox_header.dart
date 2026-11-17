@@ -875,7 +875,6 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                   ),
                 if (instance?.isConnected == true)
                   TopicNotificationLevelButton(
-                    showChevron: true,
                     siteUrl: siteUrl,
                     topic: topic,
                     variant: DButtonVariant.tool,

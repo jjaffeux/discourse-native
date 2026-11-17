@@ -65,22 +65,62 @@ class TopicProgressButton extends StatelessWidget {
         (boundedPosition).toString(),
         (boundedTotal).toString(),
       ),
-      label: DefaultTextStyle.merge(
-        style: TextStyle(
-          fontWeight: mobile ? FontWeight.w400 : FontWeight.w600,
+      label: FittedBox(
+        fit: BoxFit.scaleDown,
+        // Set solid, so the larger figure keeps to the control's height.
+        child: TopicPostCount(
+          position: boundedPosition,
+          total: boundedTotal,
+          height: 1,
         ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            '$boundedPosition / $boundedTotal',
-            textDirection: TextDirection.ltr,
-            maxLines: 1,
-            softWrap: false,
-            style: const TextStyle(
-              fontFeatures: [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+}
+
+/// Where the reader is in a topic, said the same on the button to its
+/// timeline and in the timeline itself: the post they are at, large and
+/// strong, then out of how many, quieter.
+class TopicPostCount extends StatelessWidget {
+  const TopicPostCount({
+    super.key,
+    required this.position,
+    required this.total,
+    this.height,
+  });
+
+  final int position;
+  final int total;
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return Text.rich(
+      TextSpan(
+        text: '$position',
+        style: TextStyle(
+          color: tokens.foreground,
+          fontSize: DiscourseTypography.lg,
+          fontWeight: FontWeight.w700,
+        ),
+        children: [
+          TextSpan(
+            text: ' / $total',
+            style: TextStyle(
+              color: Color.lerp(tokens.background, tokens.foreground, .50),
+              fontSize: DiscourseTypography.control,
+              fontWeight: FontWeight.w400,
             ),
           ),
-        ),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      softWrap: false,
+      style: TextStyle(
+        height: height,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }
@@ -653,31 +693,11 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
             Semantics(
               label: context.l10n.postOf(at.toString(), total.toString()),
               excludeSemantics: true,
-              child: Text.rich(
-                TextSpan(
-                  text: at.toString(),
-                  style: TextStyle(
-                    color: tokens.foreground,
-                    fontSize: DiscourseTypography.lg,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: ' / $total',
-                      style: TextStyle(
-                        color: muted,
-                        fontSize: DiscourseTypography.control,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
+              child: TopicPostCount(
                 key: const ValueKey('topic-progress-selection'),
-                textDirection: TextDirection.ltr,
-                style: const TextStyle(
-                  height: 1.5,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
+                position: at,
+                total: total,
+                height: 1.5,
               ),
             ),
           ],
