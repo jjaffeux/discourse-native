@@ -1297,10 +1297,12 @@ class DButton extends StatelessWidget {
             softWrap: false,
             overflow: TextOverflow.ellipsis,
             child: leadingIcon == null
-                ? ExcludeSemantics(
-                    excluding: semanticLabel != null,
-                    child: label,
-                  )
+                ? inlineMetadata
+                      ? label
+                      : ExcludeSemantics(
+                          excluding: semanticLabel != null,
+                          child: label,
+                        )
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1391,14 +1393,13 @@ class DButton extends StatelessWidget {
 
     // The exterior ring paints beyond the Material, so the button never clips.
     Widget result = inlineMetadata
-        ? DTouchTarget(
-            child: _DInlineButtonPrimitive(
-              onPressed: enabled ? linkActivation.onPressed : null,
-              style: style,
-              focusNode: focusNode,
-              autofocus: autofocus,
-              child: child,
-            ),
+        ? _DInlineButtonPrimitive(
+            onPressed: enabled ? linkActivation.onPressed : null,
+            style: style,
+            focusNode: focusNode,
+            autofocus: autofocus,
+            excludeSemantics: semanticLabel != null,
+            child: child,
           )
         : _DPressableButton(
             onPressed: enabled ? linkActivation.onPressed : null,
@@ -1702,6 +1703,7 @@ class _DInlineButtonPrimitive extends StatefulWidget {
     required this.style,
     required this.focusNode,
     required this.autofocus,
+    required this.excludeSemantics,
     required this.child,
   });
 
@@ -1709,6 +1711,10 @@ class _DInlineButtonPrimitive extends StatefulWidget {
   final ButtonStyle style;
   final FocusNode? focusNode;
   final bool autofocus;
+
+  /// Whether the button's own label replaces what its content says, which
+  /// its semantics node then leaves out instead of an ExcludeSemantics box.
+  final bool excludeSemantics;
   final Widget child;
 
   @override
@@ -1846,6 +1852,7 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
     // rebuilds whenever focus arrives or leaves.
     return Semantics(
       container: true,
+      excludeSemantics: widget.excludeSemantics,
       enabled: _enabled,
       onTap: _enabled ? _activate : null,
       onFocus: defaultTargetPlatform != TargetPlatform.iOS && canRequestFocus
@@ -1868,30 +1875,28 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
                 : null,
             onExit: (_) => _update(WidgetState.hovered, false),
             onPointerDown: _pointerDown,
-            child: ConstrainedBox(
-              constraints: constraints,
-              child: IconTheme(
-                data:
-                    (context
-                                .dependOnInheritedWidgetOfExactType<IconTheme>()
-                                ?.data ??
-                            const IconThemeData.fallback())
-                        .merge(
-                          IconThemeData(
-                            color: style.iconColor!.resolve(_states),
-                            size: style.iconSize!.resolve(_states),
-                          ),
+            constraints: constraints,
+            child: IconTheme(
+              data:
+                  (context
+                              .dependOnInheritedWidgetOfExactType<IconTheme>()
+                              ?.data ??
+                          const IconThemeData.fallback())
+                      .merge(
+                        IconThemeData(
+                          color: style.iconColor!.resolve(_states),
+                          size: style.iconSize!.resolve(_states),
                         ),
-                child: DImplicitTransition<TextStyle>(
-                  value: style.textStyle!
-                      .resolve(_states)!
-                      .copyWith(color: style.foregroundColor!.resolve(_states)),
-                  duration: style.animationDuration!,
-                  lerp: _lerpTextStyle,
-                  builder: (context, textStyle) => DefaultTextStyle(
-                    style: textStyle,
-                    child: style.backgroundBuilder!(context, _states, content),
-                  ),
+                      ),
+              child: DImplicitTransition<TextStyle>(
+                value: style.textStyle!
+                    .resolve(_states)!
+                    .copyWith(color: style.foregroundColor!.resolve(_states)),
+                duration: style.animationDuration!,
+                lerp: _lerpTextStyle,
+                builder: (context, textStyle) => DefaultTextStyle(
+                  style: textStyle,
+                  child: style.backgroundBuilder!(context, _states, content),
                 ),
               ),
             ),
@@ -1910,19 +1915,22 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
   }
 }
 
-/// An inline button's hover region that also takes its presses, so the
-/// button needs no GestureDetector of its own: one render object instead of
-/// two, and no listener or detector elements.
+/// An inline button's hover region that also takes its presses, is its touch
+/// target and holds its size, so the button needs no GestureDetector,
+/// DTouchTarget or ConstrainedBox of its own: one render object instead of
+/// four, and no listener or detector elements.
 class _PressRegion extends MouseRegion {
   const _PressRegion({
     super.onEnter,
     super.onExit,
     super.cursor,
     required this.onPointerDown,
+    required this.constraints,
     super.child,
   });
 
   final PointerDownEventListener onPointerDown;
+  final BoxConstraints constraints;
 
   @override
   RenderMouseRegion createRenderObject(BuildContext context) => _PressRegionBox(
@@ -1930,6 +1938,7 @@ class _PressRegion extends MouseRegion {
     onExit: onExit,
     cursor: cursor,
     onPointerDown: onPointerDown,
+    constraints: constraints,
   );
 
   @override
@@ -1938,19 +1947,82 @@ class _PressRegion extends MouseRegion {
     covariant _PressRegionBox renderObject,
   ) {
     super.updateRenderObject(context, renderObject);
-    renderObject.onPointerDown = onPointerDown;
+    renderObject
+      ..onPointerDown = onPointerDown
+      ..additionalConstraints = constraints;
   }
 }
 
-class _PressRegionBox extends RenderMouseRegion {
+/// Lays its child out as a [RenderConstrainedBox] would.
+class _PressRegionBox extends RenderMouseRegion with DTouchTargetBox {
   _PressRegionBox({
     super.onEnter,
     super.onExit,
     super.cursor,
     required this.onPointerDown,
-  });
+    required BoxConstraints constraints,
+  }) : _additional = constraints;
 
   PointerDownEventListener onPointerDown;
+
+  BoxConstraints _additional;
+  set additionalConstraints(BoxConstraints value) {
+    if (_additional == value) return;
+    _additional = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      _intrinsicWidth(super.computeMinIntrinsicWidth(height));
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _intrinsicWidth(super.computeMaxIntrinsicWidth(height));
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _intrinsicHeight(super.computeMinIntrinsicHeight(width));
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      _intrinsicHeight(super.computeMaxIntrinsicHeight(width));
+
+  double _intrinsicWidth(double child) =>
+      _additional.hasBoundedWidth && _additional.hasTightWidth
+      ? _additional.minWidth
+      : _additional.hasInfiniteWidth
+      ? child
+      : _additional.constrainWidth(child);
+
+  double _intrinsicHeight(double child) =>
+      _additional.hasBoundedHeight && _additional.hasTightHeight
+      ? _additional.minHeight
+      : _additional.hasInfiniteHeight
+      ? child
+      : _additional.constrainHeight(child);
+
+  @override
+  double? computeDryBaseline(
+    covariant BoxConstraints constraints,
+    TextBaseline baseline,
+  ) => child?.getDryBaseline(_additional.enforce(constraints), baseline);
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) =>
+      child?.getDryLayout(_additional.enforce(constraints)) ??
+      _additional.enforce(constraints).constrain(Size.zero);
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = _additional.enforce(constraints).constrain(Size.zero);
+      return;
+    }
+    child.layout(_additional.enforce(constraints), parentUsesSize: true);
+    size = child.size;
+  }
 
   @override
   void handleEvent(PointerEvent event, HitTestEntry entry) {

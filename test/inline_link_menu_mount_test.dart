@@ -175,11 +175,17 @@ void main() {
 }
 
 /// The after-numbers of the proof, so a regression fails here.
+///
+/// A post's date is a pressable that opens its share sheet, where it was
+/// plain text: its tooltip mounts four render objects and its inline button
+/// seven. Inline buttons came down by three each in the same change, which
+/// the avatar's and the username's buttons pay back, so every post mounts
+/// five more render objects than before the date became pressable.
 const _renderObjectBudget = {
-  TargetPlatform.macOS: 1097,
-  TargetPlatform.iOS: 1191,
+  TargetPlatform.macOS: 1115,
+  TargetPlatform.iOS: 1214,
 };
-const _elementBudget = {TargetPlatform.macOS: 2839, TargetPlatform.iOS: 3115};
+const _elementBudget = {TargetPlatform.macOS: 2945, TargetPlatform.iOS: 3253};
 
 const _site = 'https://meta.discourse.org';
 const _reader = DiscourseUser(id: 7, username: 'reader');
