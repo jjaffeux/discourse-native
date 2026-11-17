@@ -1963,6 +1963,62 @@ void main() {
       });
     }
 
+    testWidgets('phone toolbar overflow blends into the capsule', (
+      tester,
+    ) async {
+      const size = Size(320, 800);
+      final composer = ComposerController(
+        _newTopicTarget,
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async =>
+                throw StateError('The picker is not invoked by this test.'),
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: 320 * tester.view.devicePixelRatio,
+      );
+      addTearDown(tester.view.resetViewInsets);
+      await _pumpPanel(
+        tester,
+        shell,
+        composer,
+        size: size,
+        height: size.height,
+        resizeToAvoidBottomInset: false,
+      );
+      composer.focus.requestFocus();
+      composer.insertEmoji('wave');
+      composer.insertEmoji('smile');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-undo')));
+      await tester.pumpAndSettle();
+
+      final forward = find.byKey(
+        const ValueKey('composer-toolbar-scroll-forward'),
+      );
+      expect(forward, findsOneWidget);
+      final viewport = tester.getRect(
+        find.byKey(const ValueKey('composer-toolbar-scroll')),
+      );
+      final pixels = await _toolbarPixels(tester, name: 'phone-overflow');
+      final rowStart = viewport.center.dy.floor() * size.width.toInt();
+      final edge = viewport.right.floor();
+      expect(
+        pixels.getUint32((rowStart + edge - 2) * 4),
+        pixels.getUint32((rowStart + edge + 2) * 4),
+      );
+
+      await tester.tap(forward);
+      await tester.pumpAndSettle();
+      expect(forward, findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-toolbar-scroll-backward')),
+        findsOneWidget,
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
     testWidgets('does not show toolbar chevrons when all tools fit', (
       tester,
     ) async {

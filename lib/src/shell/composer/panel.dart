@@ -4766,7 +4766,9 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pointsRight = forward == (textDirection == TextDirection.ltr);
-    final fadeColor = _composerFooterColor(context);
+    final fadeColor = context.isTouch
+        ? DCard.surfaceColorOf(context)
+        : _composerFooterColor(context);
 
     return Container(
       width:
