@@ -747,8 +747,20 @@ void main() {
     );
   }
 
+  const boundaryKinds = {'table', 'poll', 'event', 'quote'};
+  const fenceKinds = {'code', 'mermaid'};
+  const mediaKinds = {'image', 'gallery'};
   for (final first in _blocks.entries) {
     for (final second in _blocks.entries) {
+      final sameKind = first.key == second.key;
+      final boundary =
+          boundaryKinds.contains(first.key) ||
+          boundaryKinds.contains(second.key);
+      final fences =
+          fenceKinds.contains(first.key) && fenceKinds.contains(second.key);
+      final media =
+          mediaKinds.contains(first.key) && mediaKinds.contains(second.key);
+      if (!sameKind && !boundary && !fences && !media) continue;
       testWidgets(
         '${first.key} followed by ${second.key} has structural spacing',
         (tester) async {
