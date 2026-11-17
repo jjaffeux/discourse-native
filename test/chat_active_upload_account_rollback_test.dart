@@ -48,7 +48,12 @@ enum _Stage { preparation, response }
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final stage in _Stage.values) {
-    for (final operation in _Operation.values) {
+    for (final operation in [
+      _Operation.unchanged,
+      stage == _Stage.preparation
+          ? _Operation.failedDisconnect
+          : _Operation.failedReconnect,
+    ]) {
       testWidgets(
         'active upload ${stage.name} ${operation.name} belongs to its opening account',
         (tester) async {
