@@ -296,14 +296,6 @@ void main() {
       final api = await _pump(tester, supported: false);
       final shell = ShellScope.read(tester.element(primaryMainContent));
       final navigation = shell.pluginSession.require(chatShellService);
-      final browse = _sidebar(
-        find.byKey(const ValueKey(ChatRoute.browseRouteId)),
-      );
-      expect(browse, findsOneWidget);
-      await tester.tap(browse);
-      await tester.pumpAndSettle();
-      expect(navigation.currentContent?.id, ChatRoute.browseRouteId);
-
       navigation.openChannels();
       await tester.pumpAndSettle();
       expect(

@@ -27,7 +27,6 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
-import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
@@ -4606,7 +4605,6 @@ void main() {
       'Preferences',
       'Summary',
       'Activity',
-      'Channels',
       'Threads',
     ]);
     expect(tester.takeException(), isNull);
@@ -4633,7 +4631,6 @@ void main() {
       'Preferences',
       'Summary',
       'Activity',
-      'Channels',
       'Threads',
     ]);
     expect(tester.takeException(), isNull);
@@ -4737,7 +4734,6 @@ void main() {
   for (final (label, id, page) in [
     ('Summary', 'summary', find.byType(UserSummaryView)),
     ('Activity', 'activity', find.byType(UserActivityView)),
-    ('Channels', 'chat-browse', find.byType(ChatBrowseChannelsView)),
     ('Threads', 'chat-my-threads', find.byType(ChatMyThreadsView)),
   ]) {
     _mobileTest(
@@ -5719,12 +5715,20 @@ void main() {
     );
     expect(peer('Browse channels'), findsOneWidget);
     expect(peer('Threads'), findsOneWidget);
+    final chats = shell.currentContent?.id;
     await tester.ensureVisible(peer('Browse channels'));
     await tester.tap(peer('Browse channels'));
     await tester.pumpAndSettle();
-    expect(shell.currentContent?.id, 'chat-browse');
-    shell.handleBack();
+    final panel = find.byKey(const ValueKey('chat-channel-panel-field'));
+    expect(panel, findsOneWidget);
+    expect(
+      shell.currentContent?.id,
+      chats,
+      reason: 'Channels are browsed in a panel over the page, not on one',
+    );
+    await tester.tapAt(const Offset(20, 60));
     await tester.pumpAndSettle();
+    expect(panel, findsNothing);
     await tester.ensureVisible(peer('Threads'));
     await tester.tap(peer('Threads'));
     await tester.pumpAndSettle();
@@ -5735,7 +5739,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final directory in ['channels', 'threads']) {
+  for (final directory in ['threads']) {
     _mobileTest('Chat compose survives returning from $directory', (
       tester,
     ) async {
@@ -5746,10 +5750,7 @@ void main() {
 
       await tester.tap(find.byKey(ValueKey('chat-inbox-$directory-card')));
       await tester.pumpAndSettle();
-      expect(
-        shell.currentContent?.id,
-        directory == 'channels' ? 'chat-browse' : 'chat-my-threads',
-      );
+      expect(shell.currentContent?.id, 'chat-my-threads');
       await tester.tap(find.byKey(const ValueKey('chat-inbox-back')));
       await tester.pumpAndSettle();
 

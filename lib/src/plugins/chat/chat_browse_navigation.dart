@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'chat_shell_service.dart';
 
-enum ChatBrowsePage { chats, channels, threads }
+enum ChatBrowsePage { chats, threads }
 
 /// Directory pages return to the inbox, which owns their entry cards.
 class ChatBrowseBack extends StatelessWidget {
@@ -21,87 +21,6 @@ class ChatBrowseBack extends StatelessWidget {
       label: Text(context.l10n.chats),
       onPressed: () =>
           PluginUiScope.require(context, chatShellService).openChats(),
-    ),
-  );
-}
-
-/// A directory filter names its dimension until the reader narrows it.
-class ChatBrowseFilter<T> extends StatelessWidget {
-  const ChatBrowseFilter({
-    super.key,
-    required this.label,
-    required this.semanticLabel,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-    this.icon,
-    this.optionIcons = const {},
-    this.emphasized = false,
-    this.mobileSheetVariant = DSheetVariant.adaptiveMenu,
-  });
-
-  final String label;
-  final String semanticLabel;
-  final T value;
-  final Map<T, String> options;
-  final ValueChanged<T> onChanged;
-  final Widget? icon;
-  final Map<T, Widget> optionIcons;
-  final bool emphasized;
-  final DSheetVariant mobileSheetVariant;
-
-  @override
-  Widget build(BuildContext context) => DReferenceTextScale(
-    child: DDropdownMenu(
-      sheetOnMobile: true,
-      mobileSheetVariant: mobileSheetVariant,
-      content: DDropdownMenuContent(
-        width: 220,
-        align: DPopoverAlign.start,
-        semanticLabel: semanticLabel,
-        children: [
-          DDropdownMenuRadioGroup<T>(
-            value: value,
-            onChanged: onChanged,
-            children: [
-              for (final option in options.entries)
-                DDropdownMenuRadioItem<T>(
-                  value: option.key,
-                  closeOnSelect: true,
-                  leading: optionIcons[option.key],
-                  child: Text(option.value),
-                ),
-            ],
-          ),
-        ],
-      ),
-      child: DDropdownMenuTrigger(
-        builder: (context, state) => DButton(
-          size: DControlSize.filter,
-          variant: emphasized
-              ? DButtonVariant.quietSelected
-              : DButtonVariant.quiet,
-          semanticLabel: '$semanticLabel, $label',
-          focusNode: state.focusNode,
-          hasPopup: true,
-          expanded: state.open,
-          onPressed: state.toggle,
-          icon: icon,
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: DSpacing.controlGap,
-            children: [
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     ),
   );
 }

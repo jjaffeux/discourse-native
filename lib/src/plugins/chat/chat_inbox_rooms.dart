@@ -35,8 +35,13 @@ final class ChatInboxRoom {
 }
 
 final class ChatInboxRooms extends FrameSafeNotifier {
-  ChatInboxRooms(this.filters);
+  ChatInboxRooms(this.filters, {required this.listedInSide});
   final ChatInboxFilters filters;
+
+  /// Whether chat's own list stands beside the forum for a site, carrying
+  /// the rooms as its rows. Without chat there is no such list, and the rooms'
+  /// provider lists them in a section of its own.
+  final bool Function(String siteUrl) listedInSide;
   ChatInboxRoomProvider? _provider;
 
   bool available(String siteUrl) => _provider?.available(siteUrl) ?? false;

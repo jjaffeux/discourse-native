@@ -898,7 +898,7 @@ void main() {
               } else {
                 expect(
                   gated.currentContent?.id,
-                  stage == 'snapshot' ? ChatRoute.browseRouteId : 'chat-c-21',
+                  stage == 'snapshot' ? ChatRoute.inboxRouteId : 'chat-c-21',
                 );
                 expect(
                   gated.currentWorkspace!.tabById(otherTab),
@@ -1761,7 +1761,7 @@ void main() {
     });
 
     group('sidebar workflows', () {
-      testWidgets('lists desktop directory destinations above the inbox', (
+      testWidgets('the desktop side is the one list under its controls', (
         tester,
       ) async {
         await shell.chat.loadChannels(_site);
@@ -1791,17 +1791,8 @@ void main() {
 
         await tester.pumpAndSettle();
         expect(sections.map((section) => section.id), [
-          'chat-directories',
           'chat-inbox',
-        ]);
-        expect(
-          sections.first.destinations.map((destination) => destination.id),
-          [
-            ChatRoute.inboxRouteId,
-            ChatRoute.browseRouteId,
-            ChatRoute.myThreadsRouteId,
-          ],
-        );
+        ], reason: 'The ways to the threads and to every channel are its rows');
         final inbox = sections.last;
         expect(inbox.id, 'chat-inbox');
         expect(inbox.showHeader, isFalse);
@@ -1815,23 +1806,23 @@ void main() {
         expect(filters, findsOneWidget);
         final conversation = find.byKey(const ValueKey('chat-inbox-channel-9'));
         expect(conversation, findsOneWidget);
-        // The inbox controls are held above every scrolling section, so the
-        // directories sit between them and the inbox's conversations.
+        // The way to the threads heads the channels, under the controls.
+        final threads = find.byKey(const ValueKey('chat-inbox-threads-card'));
+        expect(threads, findsOneWidget);
+        expect(
+          tester.getTopLeft(threads).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(filters).dy),
+        );
+        expect(
+          tester.getBottomLeft(threads).dy,
+          lessThanOrEqualTo(tester.getTopLeft(conversation).dy),
+        );
         for (final routeId in [
           ChatRoute.inboxRouteId,
           ChatRoute.browseRouteId,
           ChatRoute.myThreadsRouteId,
         ]) {
-          final destination = find.byKey(ValueKey(routeId));
-          expect(destination, findsOneWidget);
-          expect(
-            tester.getTopLeft(destination).dy,
-            greaterThanOrEqualTo(tester.getBottomLeft(filters).dy),
-          );
-          expect(
-            tester.getBottomLeft(destination).dy,
-            lessThanOrEqualTo(tester.getTopLeft(conversation).dy),
-          );
+          expect(find.byKey(ValueKey(routeId)), findsNothing);
         }
       });
 
@@ -1920,7 +1911,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final threads = find.byKey(const ValueKey(ChatRoute.myThreadsRouteId));
+        final threads = find.byKey(const ValueKey('chat-inbox-threads-card'));
         expect(threads, findsOneWidget);
         await tester.tap(threads);
         await tester.pump();
@@ -1961,7 +1952,6 @@ void main() {
         await tester.pump();
         expect(shell.currentContent?.id, 'chat-c-9-t-3');
         expect(shell.contentStack.map((route) => route.id), [
-          'chat-c-9',
           ChatRoute.myThreadsRouteId,
           'chat-c-9-t-3',
         ]);

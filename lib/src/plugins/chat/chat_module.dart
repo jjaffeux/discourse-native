@@ -139,7 +139,11 @@ final class ChatModule implements PluginModule {
             );
           },
         );
-        final inboxRooms = ChatInboxRooms(controller.inboxFilters);
+        late final ChatShellService shell;
+        final inboxRooms = ChatInboxRooms(
+          controller.inboxFilters,
+          listedInSide: (siteUrl) => shell.listsSide(siteUrl),
+        );
         final conversations = ChatControllerConversationCapability(controller);
         final searchController = ChatSearchController(
           api: chatApi,
@@ -149,7 +153,7 @@ final class ChatModule implements PluginModule {
             .require(corePluginBookmarkPort)
             .forTarget(chatMessageBookmarkTarget);
         final routeNavigation = bindings.require(corePluginRouteNavigationPort);
-        final shell = ChatShellService(
+        shell = ChatShellService(
           chat: controller,
           host: navigation,
           routeNavigation: routeNavigation,

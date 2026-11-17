@@ -96,10 +96,7 @@ void main() {
               baselineScale: 17 / 14,
             ),
           );
-          for (final page in [
-            ChatBrowsePage.channels,
-            ChatBrowsePage.threads,
-          ]) {
+          for (final page in [ChatBrowsePage.threads]) {
             await _tab(tester, page);
             for (final key in [
               'chat-inbox-back',
@@ -127,13 +124,7 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final view in [
-      'chats',
-      'channels',
-      'joined',
-      'threads',
-      'channel threads',
-    ]) {
+    for (final view in ['chats', 'joined', 'threads', 'channel threads']) {
       for (final empty in [false, true]) {
         testWidgets('pull refreshes $view with empty=$empty on ${platform.name}', (
           tester,
@@ -163,8 +154,6 @@ void main() {
           switch (view) {
             case 'chats':
               break;
-            case 'channels':
-              await _tab(tester, ChatBrowsePage.channels);
             case 'joined':
               await fixture.show(
                 const ChatChannelsView(
@@ -329,17 +318,6 @@ void main() {
         }
         expect(find.byKey(const ValueKey('user-presence-menu')), findsNothing);
 
-        await _tab(tester, ChatBrowsePage.channels);
-        await _pick(tester, 'chat-browse-status', 'Closed');
-        expect(
-          fixture.api.chatBrowseRequested.last.status,
-          ChatChannelBrowseStatus.closed,
-        );
-        await _pick(tester, 'chat-browse-joined', 'Joined');
-        expect(
-          fixture.chat.inboxFilters.browseFor(_site).membership,
-          ChatChannelJoinedFilter.joined,
-        );
         await _tab(tester, ChatBrowsePage.threads);
         final navigation = tester.getRect(
           find.byKey(const ValueKey('chat-inbox-back')),
@@ -360,49 +338,6 @@ void main() {
       }),
     );
   }
-
-  testWidgets(
-    'channel membership sheet fills the viewport foot and dismisses on touch',
-    (tester) async {
-      await _pump(
-        tester,
-        size: const Size(430, 932),
-        platform: defaultTargetPlatform,
-        safeArea: const EdgeInsets.only(top: 47, bottom: 34),
-      );
-      await _tab(tester, ChatBrowsePage.channels);
-
-      Future<void> open() async {
-        await tester.tap(find.byKey(const ValueKey('chat-browse-joined')));
-        await tester.pumpAndSettle();
-        _expectMenuPresentation(tester, mobile: true);
-        expect(
-          tester
-              .widget<DSheetContent>(find.byType(DSheetContent))
-              .semanticLabel,
-          'Membership',
-        );
-      }
-
-      await open();
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsNothing);
-      await open();
-      await tester.drag(
-        find.byKey(const ValueKey('sheet-drag-handle')),
-        const Offset(0, 300),
-        kind: ui.PointerDeviceKind.touch,
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-    variant: const TargetPlatformVariant({
-      TargetPlatform.iOS,
-      TargetPlatform.android,
-    }),
-  );
 
   {
     testWidgets(
@@ -456,9 +391,7 @@ void main() {
   for (final width in [320.0, 900.0]) {
     for (final page in ChatBrowsePage.values) {
       testWidgets(
-        page == ChatBrowsePage.channels
-            ? 'channels cards align with the filters at width $width'
-            : '${page.name} content aligns with its dividers at width $width',
+        '${page.name} content aligns with its dividers at width $width',
         (tester) async {
           final fixture = await _pump(
             tester,
@@ -473,22 +406,9 @@ void main() {
             addTearDown(provider.dispose);
             await tester.pumpAndSettle();
           }
-          if (page == ChatBrowsePage.channels) {
-            final controls = tester.getRect(
-              find.byKey(const ValueKey('chat-browse-controls')),
-            );
-            final card = tester.getRect(
-              find.byKey(const ValueKey('chat-browse-channel-1')),
-            );
-            expect(card.left, closeTo(controls.left, .01));
-            expect(card.right, lessThanOrEqualTo(controls.right + .01));
-            expect(tester.takeException(), isNull);
-            return;
-          }
           final row = find.byKey(
             ValueKey(switch (page) {
               ChatBrowsePage.chats => 'chat-inbox-channel-1',
-              ChatBrowsePage.channels => 'chat-browse-channel-1',
               ChatBrowsePage.threads => 'chat-my-thread-1',
             }),
           );
@@ -632,17 +552,6 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pump();
         expect(tester.takeException(), isNull);
-        if (page == ChatBrowsePage.channels) {
-          final card = find
-              .descendant(of: skeleton, matching: find.byType(DPlaceCard))
-              .first;
-          expect(tester.getRect(card).left, tester.getRect(skeleton).left);
-          gate.complete();
-          await tester.pumpAndSettle();
-          expect(skeleton, findsNothing);
-          expect(tester.takeException(), isNull);
-          return;
-        }
         final row = find
             .descendant(of: skeleton, matching: find.byType(DItem))
             .first;
@@ -714,31 +623,10 @@ void main() {
     },
   );
 
-  testWidgets('leaving from the channel menu keeps the browse page open', (
-    tester,
-  ) async {
-    final fixture = await _pump(tester);
-    await _tab(tester, ChatBrowsePage.channels);
-    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-button-1')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-leave-1')));
-    await tester.pumpAndSettle();
-    expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
-    expect(find.byKey(const ValueKey('chat-join-1')), findsOneWidget);
-  });
-
   testWidgets(
     'inbox cards open directories and retain filters across return navigation',
     (tester) async {
-      final fixture = await _pump(tester);
-      await _tab(tester, ChatBrowsePage.channels);
-      expect(find.text('Browse channels'), findsOneWidget);
-      expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
-      await tester.enterText(find.byType(EditableText), 'general');
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pumpAndSettle();
-      await _pick(tester, 'chat-browse-status', 'Closed');
-      await _pick(tester, 'chat-browse-joined', 'Joined');
+      await _pump(tester);
       await _tab(tester, ChatBrowsePage.threads);
       expect(
         find.descendant(
@@ -752,43 +640,10 @@ void main() {
       expect(find.text('Second thread'), findsNothing);
       await _tab(tester, ChatBrowsePage.chats);
       expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
-      await _tab(tester, ChatBrowsePage.channels);
-      expect(
-        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-        'general',
-      );
-      expect(find.text('Closed'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('chat-browse-joined')),
-          matching: find.text('Joined'),
-        ),
-        findsOneWidget,
-      );
       await _tab(tester, ChatBrowsePage.threads);
       expect(find.text('First thread'), findsOneWidget);
       expect(find.text('Second thread'), findsNothing);
       expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'channel browsing uses live unread tracking without additional requests',
-    (tester) async {
-      final fixture = await _pump(tester);
-      await _tab(tester, ChatBrowsePage.channels);
-      expect(_unreadOn(1), findsOneWidget);
-      expect(_unreadOn(2, '3'), findsOneWidget);
-      final browseRequests = fixture.api.chatBrowseRequested.length;
-      expect(browseRequests, greaterThan(0));
-      fixture.api.chatChannelsBySite[_site] = ChatChannels(
-        public: [_channel(1, 'general'), _channel(2, 'workshop', unread: 4)],
-      );
-      await fixture.chat.loadChannels(_site, force: true);
-      await tester.pumpAndSettle();
-      expect(_unreadOn(1), findsNothing);
-      expect(_unreadOn(2, '4'), findsOneWidget);
-      expect(fixture.api.chatBrowseRequested, hasLength(browseRequests));
     },
   );
 
@@ -1010,9 +865,11 @@ void main() {
     expect(find.text('Starred'), findsOneWidget);
     expect(find.text('general'), findsOneWidget);
     await _capture(tester, 'inbox-by-type');
+    final page = fixture.shell.currentContent?.id;
     await tester.tap(find.byKey(const ValueKey('chat-inbox-channels-card')));
     await tester.pumpAndSettle();
-    expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
+    expect(_channelPanel, findsOneWidget);
+    expect(fixture.shell.currentContent?.id, page);
     expect(tester.takeException(), isNull);
   });
 
@@ -1124,7 +981,7 @@ void main() {
         size: const Size(390, 844),
       );
       for (final (key, route) in [
-        ('chat-inbox-channels-card', ChatRoute.browseRouteId),
+        ('chat-inbox-channels-card', null),
         ('chat-inbox-threads-card', ChatRoute.myThreadsRouteId),
       ]) {
         await fixture.show(_sidebarInbox());
@@ -1135,9 +992,23 @@ void main() {
           tester.getRect(navigation).top,
           greaterThan(tester.getRect(switches).bottom),
         );
+        final before = fixture.shell.currentContent?.id;
         await tester.tap(navigation);
         await tester.pumpAndSettle();
-        expect(fixture.shell.currentContent?.id, route);
+        if (route == null) {
+          // Channels are browsed in a panel over the side, not on a page.
+          expect(_channelPanel, findsOneWidget);
+          expect(fixture.shell.currentContent?.id, before);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          if (_channelPanel.evaluate().isNotEmpty) {
+            await tester.tapAt(const Offset(20, 60));
+            await tester.pumpAndSettle();
+          }
+          expect(_channelPanel, findsNothing);
+        } else {
+          expect(fixture.shell.currentContent?.id, route);
+        }
         expect(tester.takeException(), isNull);
       }
     });
@@ -1243,10 +1114,7 @@ Widget _sidebarInbox({List<Widget> trailingSlivers = const []}) => Builder(
   },
 );
 
-Finder _unreadOn(int channelId, [String count = '1']) => find.descendant(
-  of: find.byKey(ValueKey('chat-browse-channel-$channelId')),
-  matching: find.text(count),
-);
+final _channelPanel = find.byKey(const ValueKey('chat-channel-panel-field'));
 
 Rect _rowContentBounds(WidgetTester tester, Finder row) {
   final parts = find.descendant(
@@ -1275,13 +1143,7 @@ Future<void> _tab(
     await tester.pumpAndSettle();
   }
   if (page == ChatBrowsePage.chats) return;
-  final target = find.byKey(
-    ValueKey(
-      page == ChatBrowsePage.channels
-          ? 'chat-inbox-channels-card'
-          : 'chat-inbox-threads-card',
-    ),
-  );
+  final target = find.byKey(const ValueKey('chat-inbox-threads-card'));
   // The ways are rows of the list, which builds only what is in view.
   if (target.evaluate().isEmpty) {
     await tester.scrollUntilVisible(
@@ -1313,6 +1175,22 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
     expect(find.byType(DDropdownMenuContent), findsNothing);
     return;
   }
+  if (key == 'chat-threads-channel-filter') {
+    // The pill opens the channel panel, where the one pressed is the choice.
+    await tester.tap(find.byKey(ValueKey(key)));
+    await tester.pumpAndSettle();
+    expect(_channelPanel, findsOneWidget);
+    await _capture(tester, key);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-channel-panel-list')),
+        matching: find.text(value),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_channelPanel, findsNothing);
+    return;
+  }
   await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
   final mobile = switch (Theme.of(
@@ -1325,9 +1203,6 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
   if (mobile) {
     final label = switch (key) {
       'chat-inbox-sort-filter' => 'Chat order',
-      'chat-browse-status' => 'Status',
-      'chat-browse-joined' => 'Membership',
-      'chat-threads-channel-filter' => 'Channel',
       _ => throw StateError('Unknown chat filter: $key'),
     };
     expect(
@@ -1342,19 +1217,13 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
       label,
     );
   }
-  final channel = key == 'chat-threads-channel-filter';
-  expect(
-    channel
-        ? find.byType(DCommandList<int>)
-        : find.byType(DDropdownMenuContent),
-    findsOneWidget,
-  );
+  expect(find.byType(DDropdownMenuContent), findsOneWidget);
   await _capture(tester, key);
   await tester.tap(
     find.byWidgetPredicate(
       (widget) =>
           widget is Semantics &&
-          (channel || widget.properties.inMutuallyExclusiveGroup == true) &&
+          widget.properties.inMutuallyExclusiveGroup == true &&
           widget.properties.label == value,
     ),
   );

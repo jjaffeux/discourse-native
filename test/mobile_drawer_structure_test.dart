@@ -464,7 +464,8 @@ void main() {
     expect(tester.getRect(filters), atRest);
     expect(
       tester.getSize(find.widgetWithText(DButton, 'New voice room')).height,
-      40,
+      closeTo(34, .1),
+      reason: 'The rooms close the one list, with its own way to make one',
     );
     await _capture(tester, 'chat-drawer-voice-section');
     expect(tester.takeException(), isNull);

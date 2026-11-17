@@ -6,11 +6,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_channel_destination.dart';
 import 'chat_channel_info_view.dart';
+import 'chat_channel_panel.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
@@ -323,53 +323,13 @@ class ChatPlugin
     if (siteUrl == null) return const [];
     final chat = PluginUiScope.require(context, chatControllerService);
 
-    final chatAvailable = shell.chatAvailable(siteUrl);
-    if (!chatAvailable) return const [];
-    final authenticatedChatAvailable =
-        chatAvailable && shell.currentUser != null;
-    final publicChannelsEnabled =
-        chatAvailable &&
-        chat.siteConfigFor(siteUrl).chatSettings.publicChannelsEnabled;
     final actions = _panelActions(shell, siteUrl);
 
-    final directoryOpen = {
-      ChatRoute.inboxRouteId,
-      ChatRoute.browseRouteId,
-      ChatRoute.myThreadsRouteId,
-    }.contains(shell.currentContent?.id);
+    // The side is the Chats page's list: the way to the threads, the way to
+    // every channel and the voice rooms are rows of it, so it is the one
+    // section.
     return [
-      if (!context.isTouch && !directoryOpen)
-        SidebarSection(
-          id: 'chat-directories',
-          title: appL10n.chat,
-          showHeader: false,
-          collapsible: false,
-          destinations: [
-            if (authenticatedChatAvailable)
-              SidebarDestination(
-                id: ChatRoute.inboxRouteId,
-                label: appL10n.chats,
-                icon: DIcons.comment,
-                onTap: () => shell.openChats(newTab: true),
-              ),
-            if (authenticatedChatAvailable && publicChannelsEnabled)
-              SidebarDestination(
-                id: ChatRoute.browseRouteId,
-                label: appL10n.channels,
-                icon: DIcons.hashtag,
-                onTap: () => shell.openBrowseChannels(newTab: true),
-              ),
-            if (actions.myThreads)
-              SidebarDestination(
-                id: ChatRoute.myThreadsRouteId,
-                label: appL10n.threads,
-                icon: DIcons.comments,
-                onTap: () => shell.openMyThreads(newTab: true),
-              ),
-          ],
-        ),
-      if (authenticatedChatAvailable ||
-          (publicChannelsEnabled && chat.publicChannels(siteUrl).isNotEmpty))
+      if (shell.listsSide(siteUrl))
         SidebarSection(
           id: 'chat-inbox',
           title: appL10n.chats,
@@ -547,13 +507,6 @@ class ChatPlugin
     final chat = PluginUiScope.require(context, chatControllerService);
     final settings = chat.siteConfigFor(site).chatSettings;
     return [
-      if (shell.isConnected(site) && settings.publicChannelsEnabled)
-        SidebarDestination(
-          id: ChatRoute.browseRouteId,
-          label: context.l10n.channels,
-          icon: DIcons.hashtag,
-          onTap: shell.openBrowseChannels,
-        ),
       if (shell.isConnected(site) && settings.threadsEnabled)
         SidebarDestination(
           id: ChatRoute.myThreadsRouteId,
@@ -609,7 +562,8 @@ class ChatPlugin
               kind: listKind,
             );
     }
-    if (route.id == ChatRoute.inboxRouteId) {
+    if (route.id == ChatRoute.inboxRouteId ||
+        route.id == ChatRoute.browseRouteId) {
       final siteUrl = shell.currentSiteUrl;
       if (siteUrl == null) return const SizedBox.shrink();
       final rooms = PluginUiScope.optional(context, chatInboxRoomsService);
@@ -617,26 +571,22 @@ class ChatPlugin
         listenable: Listenable.merge([shell, ?rooms]),
         builder: (context, _) =>
             shell.chatAvailable(siteUrl) || rooms?.available(siteUrl) == true
-            ? ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl)
+            ? ChatChannelPanelRequests(
+                key: ValueKey((siteUrl, route.id)),
+                siteUrl: siteUrl,
+                asked:
+                    route.id == ChatRoute.browseRouteId &&
+                    shell.chat
+                        .siteConfigFor(siteUrl)
+                        .chatSettings
+                        .publicChannelsEnabled,
+                child: ChatMobileSidebar(
+                  key: ValueKey(siteUrl),
+                  siteUrl: siteUrl,
+                ),
+              )
             : Center(child: Text(context.l10n.chatIsNotAvailable)),
       );
-    }
-    if (route.id == ChatRoute.browseRouteId) {
-      final siteUrl = shell.currentSiteUrl;
-      final available =
-          siteUrl != null &&
-          shell.isConnected(siteUrl) &&
-          shell.chat
-              .siteConfigFor(siteUrl)
-              .chatSettings
-              .publicChannelsEnabled &&
-          shell.currentUser?.hasChatEnabled != false &&
-          shell.currentTotals?.hasChatEnabled == true;
-      return siteUrl == null
-          ? const SizedBox.shrink()
-          : !available
-          ? Center(child: Text(context.l10n.chatChannelsAreNotAvailable))
-          : ChatBrowseChannelsView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     if (ChatRoute.channelIdFromThreadsRoute(route.id) case final channelId?) {
       final siteUrl = shell.currentSiteUrl;

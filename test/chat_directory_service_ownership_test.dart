@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
-import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -26,7 +23,7 @@ import 'support/native_ui_evidence.dart';
 const _site = 'https://meta.discourse.org';
 const _channelId = 9;
 
-enum _Directory { channels, myThreads, channelThreads }
+enum _Directory { myThreads, channelThreads }
 
 void main() {
   for (final directory in _Directory.values) {
@@ -42,12 +39,8 @@ void main() {
           await tester.pumpAndSettle();
           final view = find.byKey(ValueKey(directory));
           final state = tester.state(view);
-          final oldLabel = directory == _Directory.channels
-              ? 'Old channel'
-              : 'Old thread';
-          final newLabel = directory == _Directory.channels
-              ? 'New channel'
-              : 'New thread';
+          const oldLabel = 'Old thread';
+          const newLabel = 'New thread';
           expect(find.text(oldLabel), findsWidgets);
           await captureNativeUi(
             tester,
@@ -74,20 +67,6 @@ void main() {
             tester,
             '${directory.name}-replacement-$disposeOld',
           );
-          if (directory == _Directory.channels) {
-            expect(
-              tester
-                  .widget<TextField>(
-                    find.descendant(
-                      of: find.byKey(const ValueKey('chat-browse-filter')),
-                      matching: find.byType(TextField),
-                    ),
-                  )
-                  .controller!
-                  .text,
-              'new',
-            );
-          }
           if (directory == _Directory.channelThreads) {
             expect(
               second.shell.pluginSession
@@ -103,35 +82,9 @@ void main() {
       );
     }
   }
-
-  testWidgets('a retired browse response cannot replace the new owner rows', (
-    tester,
-  ) async {
-    final gate = Completer<void>();
-    addTearDown(() {
-      if (!gate.isCompleted) gate.complete();
-    });
-    final first = await _fixture('Old', browseGate: gate);
-    final second = await _fixture('New');
-    await _mount(tester, first, _Directory.channels);
-    await tester.pump(const Duration(milliseconds: 50));
-    final view = find.byKey(const ValueKey(_Directory.channels));
-    final state = tester.state(view);
-
-    await _mount(tester, second, _Directory.channels);
-    await tester.pumpAndSettle();
-    expect(tester.state(view), same(state));
-    expect(find.text('New channel'), findsOneWidget);
-
-    gate.complete();
-    await tester.pumpAndSettle();
-    expect(find.text('New channel'), findsOneWidget);
-    expect(find.text('Old channel'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
 }
 
-Future<_Fixture> _fixture(String label, {Completer<void>? browseGate}) async {
+Future<_Fixture> _fixture(String label) async {
   final user = DiscourseUser(
     id: label == 'Old' ? 7 : 8,
     username: label.toLowerCase(),
@@ -169,10 +122,7 @@ Future<_Fixture> _fixture(String label, {Completer<void>? browseGate}) async {
       FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
         channels: [channel],
       ),
-      FakeDiscourseApi.chatBrowseKey(filter: label.toLowerCase()):
-          ChatChannelBrowsePage(channels: [channel]),
     },
-    chatBrowseGate: browseGate,
     chatChannelThreadPagesByKey: {
       FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 0): ChatThreadPage(
         threads: [
@@ -208,7 +158,6 @@ Future<_Fixture> _fixture(String label, {Completer<void>? browseGate}) async {
   await shell.load();
   final chat = shell.pluginSession.require(chatControllerService);
   await chat.loadChannels(_site);
-  chat.inboxFilters.browseFor(_site).query = label.toLowerCase();
   return fixture;
 }
 
@@ -226,10 +175,6 @@ Future<void> _mount(
         builder: nativeUiEvidenceBuilder,
         home: Scaffold(
           body: switch (directory) {
-            _Directory.channels => ChatBrowseChannelsView(
-              key: ValueKey(directory),
-              siteUrl: _site,
-            ),
             _Directory.myThreads => ChatMyThreadsView(
               key: ValueKey(directory),
               siteUrl: _site,

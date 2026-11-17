@@ -393,7 +393,11 @@ void main() {
             find.byKey(const ValueKey('sheet-drag-handle')),
           );
           final search = tester.getRect(find.byKey(const ValueKey('search')));
-          expect(search.top - grabber.bottom, lessThan(24));
+          expect(
+            search.top - grabber.bottom,
+            inInclusiveRange(0, 24),
+            reason: 'The field starts under the grabber, not behind it',
+          );
           expect(
             tester.widget<DSheetContent>(sheet).fillAvailableHeight,
             isTrue,

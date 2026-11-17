@@ -384,7 +384,19 @@ void main() {
     expect(find.text('Results'), findsNothing);
     await tester.tap(browse);
     await tester.pumpAndSettle();
-    expect(fixture.chat.inboxFilters.browseFor(_site).query, 'zebra');
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: find.byKey(const ValueKey('chat-channel-panel-field')),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller
+          .text,
+      'zebra',
+      reason: 'The panel opens over the page, holding the words',
+    );
   });
 
   testWidgets('the side draws the page\'s list: the same rows, groups and '

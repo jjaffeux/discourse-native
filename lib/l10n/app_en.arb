@@ -171,6 +171,12 @@
   "@chatBrowseAllChannels": {"description": "Row under the chats found by some words, leading to every channel."},
   "chatBrowseAllChannelsFor": "Channels you are not in, for “{query}”",
   "@chatBrowseAllChannelsFor": {"description": "Line under Browse all channels, naming the words carried there.", "placeholders": {"query": {"type": "String"}}},
+  "chatNoChannelsMatch": "No channels match “{query}”",
+  "@chatNoChannelsMatch": {"description": "Empty result for the words typed in the channel panel's field.", "placeholders": {"query": {"type": "String"}}},
+  "chatJoinChannelNamed": "Join {channel}",
+  "@chatJoinChannelNamed": {"description": "Accessible name of a channel row's Join chip in the channel panel.", "placeholders": {"channel": {"type": "String"}}},
+  "chatLeaveChannelNamed": "Leave {channel}",
+  "@chatLeaveChannelNamed": {"description": "Accessible name of a channel row's Leave chip in the channel panel.", "placeholders": {"channel": {"type": "String"}}},
   "chatNoneMatch": "None of your chats match “{query}”",
   "@chatNoneMatch": {"description": "Empty result for the words typed in chat's own field.", "placeholders": {"query": {"type": "String"}}},
   "destinationBookmarkPageType": "Page",
@@ -15711,30 +15717,6 @@
       }
     }
   },
-  "unreadChatbrowsechannelsview": "{unread, select, true{{unreadValue2, plural, =1{{statusNull, select, true{{appL10nNo} unread message} other{{appL10nNo} unread message · {status}}}} other{{statusNull, select, true{{appL10nNo} unread messages} other{{appL10nNo} unread messages · {status}}}}}} other{{unreadValue2, plural, =1{{statusNull, select, true{{unreadValue6} unread message} other{{unreadValue6} unread message · {status}}}} other{{statusNull, select, true{{unreadValue6} unread messages} other{{unreadValue6} unread messages · {status}}}}}}}",
-  "@unreadChatbrowsechannelsview": {
-    "description": "English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.",
-    "placeholders": {
-      "unread": {
-        "type": "String"
-      },
-      "unreadValue2": {
-        "type": "num"
-      },
-      "statusNull": {
-        "type": "String"
-      },
-      "appL10nNo": {
-        "type": "String"
-      },
-      "status": {
-        "type": "String"
-      },
-      "unreadValue6": {
-        "type": "String"
-      }
-    }
-  },
   "menu": "{channelTitle} menu",
   "@menu": {
     "description": "English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.",
@@ -16809,24 +16791,6 @@
         "type": "String"
       },
       "appL10nCollapse": {
-        "type": "String"
-      }
-    }
-  },
-  "messageChatbrowsechannelsview": "{following, select, true{{appL10nLeave} {channelTitle}} other{{appL10nJoin} {channelTitle}}}",
-  "@messageChatbrowsechannelsview": {
-    "description": "English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.",
-    "placeholders": {
-      "following": {
-        "type": "String"
-      },
-      "appL10nLeave": {
-        "type": "String"
-      },
-      "channelTitle": {
-        "type": "String"
-      },
-      "appL10nJoin": {
         "type": "String"
       }
     }

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
+import 'chat_channel_panel.dart';
 import 'chat_controller.dart';
 import 'chat_find_field.dart';
 import 'chat_inbox.dart';
@@ -55,15 +56,11 @@ class ChatListing extends StatefulWidget {
     required this.place,
     required this.frame,
     required this.builder,
-    this.includeRooms = true,
   });
 
   final String siteUrl;
   final ChatInboxPlace place;
   final ChatInboxRowFrame frame;
-
-  /// False where another owner lists the rooms beside this list.
-  final bool includeRooms;
   final Widget Function(BuildContext context, ChatListingView view) builder;
 
   @override
@@ -81,7 +78,6 @@ final class _ChatListingLayout {
     required this.freshIds,
     required this.lines,
     required this.rooms,
-    required this.roomsElsewhere,
     required this.canCreateRoom,
     required this.loading,
     required this.refreshing,
@@ -101,10 +97,6 @@ final class _ChatListingLayout {
   final List<int> freshIds;
   final Map<int, ChatInboxFoundLine> lines;
   final List<_Room> rooms;
-
-  /// Rooms another owner lists beside this list, which is then neither alone
-  /// nor empty.
-  final bool roomsElsewhere;
   final bool canCreateRoom;
   final bool loading;
   final bool refreshing;
@@ -120,7 +112,6 @@ final class _ChatListingLayout {
       other is _ChatListingLayout &&
       sort == other.sort &&
       query == other.query &&
-      roomsElsewhere == other.roomsElsewhere &&
       canCreateRoom == other.canCreateRoom &&
       loading == other.loading &&
       refreshing == other.refreshing &&
@@ -139,7 +130,6 @@ final class _ChatListingLayout {
   int get hashCode => Object.hash(
     sort,
     query,
-    roomsElsewhere,
     canCreateRoom,
     loading,
     refreshing,
@@ -204,9 +194,8 @@ class _ChatListingState extends State<ChatListing> {
     }
   }
 
-  List<ChatInboxRoom> _listedRooms() => !widget.includeRooms
-      ? const []
-      : _rooms?.roomsFor(widget.place, _siteUrl) ?? const [];
+  List<ChatInboxRoom> _listedRooms() =>
+      _rooms?.roomsFor(widget.place, _siteUrl) ?? const [];
 
   _ChatListingLayout _read() {
     final chat = _chat!;
@@ -256,11 +245,7 @@ class _ChatListingState extends State<ChatListing> {
             loading: room.loading,
           ),
       ],
-      roomsElsewhere:
-          !widget.includeRooms &&
-          (_rooms?.roomsFor(widget.place, _siteUrl).isNotEmpty ?? false),
-      canCreateRoom:
-          widget.includeRooms && _rooms?.createRoom(_siteUrl) != null,
+      canCreateRoom: _rooms?.createRoom(_siteUrl) != null,
       loading:
           available &&
           !chat.channelsLoaded(_siteUrl) &&
@@ -310,11 +295,9 @@ class _ChatListingState extends State<ChatListing> {
     _view = null;
   });
 
-  void _browse(String query) {
-    final chat = _chat!;
-    if (query.isNotEmpty) chat.inboxFilters.browseFor(_siteUrl).query = query;
-    _shell!.openBrowseChannels();
-  }
+  void _browse(String words) => unawaited(
+    showChatChannelBrowser(context, siteUrl: _siteUrl, words: words),
+  );
 
   ChatListingView _buildView(BuildContext context) {
     final chat = _chat!;
@@ -346,8 +329,7 @@ class _ChatListingState extends State<ChatListing> {
     }
     final rooms = _listedRooms();
     final showRooms = rooms.isNotEmpty || (layout.canCreateRoom && !finding);
-    final alone =
-        sections.length + (showRooms || layout.roomsElsewhere ? 1 : 0) == 1;
+    final alone = sections.length + (showRooms ? 1 : 0) == 1;
     final fresh = layout.freshIds.toSet();
     final entries = <Widget>[];
 
@@ -507,9 +489,7 @@ class _ChatListingState extends State<ChatListing> {
     }
 
     final nothingListed =
-        sections.every((section) => section.channels.isEmpty) &&
-        rooms.isEmpty &&
-        !layout.roomsElsewhere;
+        sections.every((section) => section.channels.isEmpty) && rooms.isEmpty;
     if (finding) {
       // What is found among your own chats, then the way to every channel,
       // the words carried there.
@@ -642,7 +622,7 @@ class _ChatListingControlsState extends State<ChatListingControls> {
   }
 }
 
-/// Chat's controls pin across conversations and the voice room section.
+/// Chat's controls pin over its list as it scrolls under them.
 class ChatSidebarInboxHeader extends StatelessWidget {
   const ChatSidebarInboxHeader({super.key, required this.siteUrl});
 
@@ -684,7 +664,6 @@ class ChatSidebarInbox extends StatelessWidget {
     siteUrl: siteUrl,
     place: ChatInboxPlace.side,
     frame: frame,
-    includeRooms: false,
     builder: (context, view) => view.loading
         ? const SliverToBoxAdapter(child: _ChatSidebarInboxSkeleton())
         : SliverList.builder(

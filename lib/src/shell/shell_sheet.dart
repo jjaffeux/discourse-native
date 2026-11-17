@@ -225,7 +225,11 @@ class _SheetBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!untitled)
+        // The grabber is drawn over the sheet's top, where a heading has its
+        // own inset. A field with no heading over it starts below the grabber.
+        if (untitled)
+          const SizedBox(height: 23)
+        else
           Padding(
             padding: EdgeInsets.symmetric(horizontal: headingInset),
             child: DSheetHeader(

@@ -64,6 +64,10 @@ final class ChatShellService
   final PluginRoutePresentationHost? _presentationHost;
   final PluginPostFlagCatalogReader _postFlagCatalog;
   final ChatNavigationHandoff navigation = ChatNavigationHandoff();
+
+  /// The channel panel asked for through [openBrowseChannels]. The Chats page
+  /// takes it once it is on screen, and drops one whose account has gone.
+  final channelPanelRequest = ValueNotifier<ChatChannelPanelRequest?>(null);
   final ValueNotifier<int> _changes = ValueNotifier(0);
   int _urlOpenGeneration = 0;
   bool _disposed = false;
@@ -590,19 +594,23 @@ final class ChatShellService
     if (message != null) await chat.reconcileMessageBookmark(siteUrl, message);
   }
 
-  void openChats({bool newTab = false}) {
+  /// Whether chat's list stands beside the forum for [siteUrl]: for a reader
+  /// signed in to chat, or for anyone a forum shows its public channels to.
+  bool listsSide(String siteUrl) =>
+      chatAvailable(siteUrl) &&
+      (currentUser != null ||
+          (chat.siteConfigFor(siteUrl).chatSettings.publicChannelsEnabled &&
+              chat.publicChannels(siteUrl).isNotEmpty));
+
+  void openChats() {
     _activateSeparatedPane();
-    if (newTab) {
-      _host.openPageTab(chatInboxRoute());
-    } else {
-      _host.selectDestination(
-        SidebarDestination(
-          id: ChatRoute.inboxRouteId,
-          label: appL10n.chats,
-          icon: DIcons.comment,
-        ),
-      );
-    }
+    _host.selectDestination(
+      SidebarDestination(
+        id: ChatRoute.inboxRouteId,
+        label: appL10n.chats,
+        icon: DIcons.comment,
+      ),
+    );
   }
 
   void openChannels() {
@@ -616,46 +624,29 @@ final class ChatShellService
     );
   }
 
-  void openBrowseChannels({bool newTab = false}) {
-    _activateSeparatedPane();
-    if (newTab) {
-      _host.openPageTab(
-        ContentRoute(
-          destination: const ExtensionDestination(ChatRoute.browseRouteId),
-          title: appL10n.channels,
-          icon: DIcons.hashtag,
-        ),
-      );
-    } else {
-      _host.selectDestination(
-        SidebarDestination(
-          id: ChatRoute.browseRouteId,
-          label: appL10n.channels,
-          icon: DIcons.hashtag,
-        ),
-      );
-    }
+  /// Shows the Chats page with the channel panel over it, for what has no
+  /// page of its own to show the panel over. [words] open in its field.
+  void openBrowseChannels({String words = ''}) {
+    final siteUrl = currentSiteUrl;
+    if (siteUrl == null) return;
+    openChats();
+    if (!chat.siteConfigFor(siteUrl).chatSettings.publicChannelsEnabled) return;
+    channelPanelRequest.value = (
+      siteUrl: siteUrl,
+      words: words,
+      lease: chat.captureSession(siteUrl),
+    );
   }
 
-  void openMyThreads({bool newTab = false}) {
+  void openMyThreads() {
     _activateSeparatedPane();
-    if (newTab) {
-      _host.openPageTab(
-        ContentRoute(
-          destination: const ExtensionDestination(ChatRoute.myThreadsRouteId),
-          title: appL10n.threads,
-          icon: DIcons.comments,
-        ),
-      );
-    } else {
-      _host.selectDestination(
-        SidebarDestination(
-          id: ChatRoute.myThreadsRouteId,
-          label: appL10n.threads,
-          icon: DIcons.comments,
-        ),
-      );
-    }
+    _host.selectDestination(
+      SidebarDestination(
+        id: ChatRoute.myThreadsRouteId,
+        label: appL10n.threads,
+        icon: DIcons.comments,
+      ),
+    );
   }
 
   void openSearch() {
@@ -1119,6 +1110,7 @@ final class ChatShellService
     _host.changes.removeListener(_handleHostChanged);
     _routeRefreshers.clear();
     navigation.dispose();
+    channelPanelRequest.dispose();
     _changes.dispose();
   }
 }
