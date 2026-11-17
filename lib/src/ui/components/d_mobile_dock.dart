@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show ValueListenable, listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
@@ -163,6 +163,32 @@ final class DMobileDockPeek {
   DMobileDockSaying? _waiting;
   Timer? _retry;
 
+  final _lifted = ValueNotifier(false);
+
+  /// Whether the bar holding this peek stands lifted, to peek or to say
+  /// something: what floats just over the bar rises with it as far
+  /// ([DMobileDockGeometry.peek]) on its own time, so the bar does not cover
+  /// it. False again as the bar starts back down or a pull takes it over.
+  ValueListenable<bool> get lifted => _lifted;
+
+  void _setLifted(bool lifted) {
+    if (!_disposed) _lifted.value = lifted;
+  }
+
+  /// The session's peek over [child], for the bar and for what floats
+  /// over it.
+  static Widget scope({required DMobileDockPeek peek, required Widget child}) =>
+      _PeekScope(peek: peek, child: child);
+
+  /// The session's peek above [context], read once: it lasts the session.
+  static DMobileDockPeek? maybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<_PeekScope>()?.peek;
+
+  /// Whether the session's bar stands lifted, never with no session.
+  static ValueListenable<bool> liftedOf(BuildContext context) =>
+      maybeOf(context)?.lifted ?? _never;
+  static final ValueListenable<bool> _never = ValueNotifier(false);
+
   /// How long a saying stands; while the bar is out, covered, under a sheet
   /// or put away, how often it is tried again and how many times before it
   /// is dropped: what was done under a sheet still open by then is in the
@@ -215,6 +241,45 @@ final class DMobileDockPeek {
     _retry?.cancel();
     _retry = null;
     _waiting = null;
+    _lifted.dispose();
+  }
+}
+
+class _PeekScope extends InheritedWidget {
+  const _PeekScope({required this.peek, required super.child});
+
+  final DMobileDockPeek peek;
+
+  @override
+  bool updateShouldNotify(_PeekScope oldWidget) =>
+      !identical(peek, oldWidget.peek);
+}
+
+/// Rises [child] with the session's bar as it lifts, as far and on the
+/// bar's own settle spring, so what floats just over the bar is not covered
+/// by it.
+class DMobileDockLift extends StatelessWidget {
+  const DMobileDockLift({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final lifted = DMobileDockPeek.liftedOf(context);
+    final peek = DMobileDockGeometry.of(context).peek;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: lifted,
+      builder: (context, up, child) => TweenAnimationBuilder<double>(
+        tween: Tween(end: up ? -peek : 0),
+        duration: reduced ? Duration.zero : DMobileDock.settleDuration,
+        curve: DMobileDock.settleCurve,
+        builder: (context, y, child) =>
+            Transform.translate(offset: Offset(0, y), child: child),
+        child: child,
+      ),
+      child: child,
+    );
   }
 }
 
@@ -672,7 +737,13 @@ class _DMobileDockState extends State<DMobileDock>
   /// A dock given another session's peek, or taken out of the tree, leaves
   /// [peek] to whichever bar holds it next.
   void _leave(DMobileDockPeek? peek) {
-    if (peek != null && identical(peek._dock, this)) peek._dock = null;
+    if (peek != null && identical(peek._dock, this)) {
+      peek._dock = null;
+      // Told after the tree is built: what follows the lift rebuilds on it.
+      scheduleMicrotask(() {
+        if (peek._dock == null) peek._setLifted(false);
+      });
+    }
   }
 
   /// Due, the bar lifts unless it cannot grow, the footer is away, it is
@@ -699,6 +770,7 @@ class _DMobileDockState extends State<DMobileDock>
     _peekStep++;
     setState(() => _peek = _Peek.up);
     _showLayer();
+    widget.peek?._setLifted(true);
     _peekLift.animateTo(
       1,
       duration: reduced ? Duration.zero : DMobileDock.settleDuration,
@@ -736,6 +808,7 @@ class _DMobileDockState extends State<DMobileDock>
     _peekNext = null;
     final reduced = MediaQuery.disableAnimationsOf(context);
     setState(() => _peek = _Peek.down);
+    widget.peek?._setLifted(false);
     _peekClock.value = 0;
     final step = ++_peekStep;
     _peekLift
@@ -771,6 +844,7 @@ class _DMobileDockState extends State<DMobileDock>
     _peekLift.value = 0;
     _peekClock.value = 0;
     setState(() => _peek = _Peek.down);
+    widget.peek?._setLifted(false);
     _peekNext = Timer(
       reduced ? Duration.zero : DSwipeHint.goneAfter,
       _peekOver,
@@ -790,6 +864,7 @@ class _DMobileDockState extends State<DMobileDock>
     _peek = _Peek.none;
     _saying = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _peek == _Peek.none) widget.peek?._setLifted(false);
       if (mounted && !_layered) _portal.hide();
     });
   }

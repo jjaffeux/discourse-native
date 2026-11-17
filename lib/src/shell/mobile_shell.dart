@@ -933,7 +933,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           // A composer's sheet covers the shell from inside it; the panel, which
           // paints over the shell, must not stand over the sheet.
           covered: ComposerPresentationScope.hasMobileSheetOf(context),
-          peek: panelScope?.peek,
+          peek: DMobileDockPeek.maybeOf(context),
           collapsedDestination: DMobileDockItem(
             key: const ValueKey('mobile-dock-reveal'),
             collapsed: true,

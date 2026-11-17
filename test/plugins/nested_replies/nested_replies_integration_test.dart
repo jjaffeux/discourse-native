@@ -841,6 +841,10 @@ void main() {
         };
         fixture.shell.openTopic(fixture.row);
         await _frames(tester);
+        // The bar's opening peek lifts what floats over it for a while; the
+        // corner is measured once it has settled.
+        await tester.pump(const Duration(seconds: 5));
+        await _frames(tester);
         final reader = find.byType(NestedRepliesReader);
         final readerState = tester.state(reader);
         final historyEntry = fixture.shell.mobileNavigation.entryId;

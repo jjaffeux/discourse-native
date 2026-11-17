@@ -290,6 +290,79 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('what floats over the bar rises with it on the bar\'s spring, '
+      'and comes down as the bar starts down', (tester) async {
+    final peek = DMobileDockPeek();
+    addTearDown(peek.dispose);
+    const floating = ValueKey('floating');
+    final lifts = <bool>[];
+    peek.lifted.addListener(() => lifts.add(peek.lifted.value));
+    await tester.pumpWidget(
+      DMobileDockPeek.scope(
+        peek: peek,
+        child: fixture(
+          foot: 34,
+          peek: peek,
+          page: const Positioned(
+            left: 0,
+            bottom: 120,
+            child: DMobileDockLift(
+              child: SizedBox(key: floating, width: 40, height: 40),
+            ),
+          ),
+        ),
+      ),
+    );
+    final rest = tester.getRect(find.byKey(floating));
+    peek.say(_bookmarked);
+    await tester.pump();
+    expect(peek.lifted.value, isTrue);
+    // A touch past, as the bar goes, then where the bar stands.
+    await tester.pump(const Duration(milliseconds: 230));
+    expect(tester.getRect(find.byKey(floating)).top, lessThan(rest.top - 47));
+    await tester.pump(const Duration(milliseconds: 230));
+    expect(
+      tester.getRect(find.byKey(floating)).top,
+      closeTo(rest.top - 47, .01),
+    );
+    await tester.pump(const Duration(milliseconds: 1940));
+    expect(peek.lifted.value, isFalse);
+    await tester.pump(const Duration(milliseconds: 480));
+    expect(tester.getRect(find.byKey(floating)), rest);
+    expect(lifts, [true, false]);
+
+    // Taken out of the tree while lifted, the bar leaves it down.
+    peek.say(_bookmarked);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(peek.lifted.value, isTrue);
+    await tester.pumpWidget(
+      DMobileDockPeek.scope(peek: peek, child: fixture()),
+    );
+    await tester.pump();
+    expect(peek.lifted.value, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a pull taking the lift over lets what floats come down', (
+    tester,
+  ) async {
+    final peek = DMobileDockPeek();
+    addTearDown(peek.dispose);
+    await tester.pumpWidget(fixture(foot: 34, peek: peek));
+    peek.say(_bookmarked);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(peek.lifted.value, isTrue);
+    final gesture = await tester.createGesture();
+    await gesture.down(tester.getCenter(find.byKey(const ValueKey('Topics'))));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -12));
+    await tester.pump();
+    expect(peek.lifted.value, isFalse);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   group('toasts', () {
     test('a plain toast goes to the teller; anything more stays a card', () {
       final controller = DToastController();

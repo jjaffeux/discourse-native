@@ -899,69 +899,72 @@ class _MobileShellState extends State<_MobileShell> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: false,
-    onPopInvokedWithResult: (didPop, result) {
-      if (didPop) return;
-      // A composer's sheet and the bar's panel each take the back themselves.
-      if (ComposerPresentationScope.hasMobileSheetOf(context) ||
-          _dockPanelOut.value) {
-        return;
-      } else if (!ShellScope.read(context).handleBack()) {
-        unawaited(SystemNavigator.pop());
-      }
-    },
-    child: MobileDockPanelScope(
-      out: _dockPanelOut,
-      peek: _dockPeek,
-      child: ForumWindowBackground(
-        mobile: true,
-        child: ShellSelector<bool>(
-          select: (shell) =>
-              shell.currentContent?.isGlobalSearch == true &&
-              !shell.mobileNavigation.sidebarOpen,
-          builder: (context, searchOpen, child) => SafeArea(
-            bottom:
-                defaultTargetPlatform == TargetPlatform.android && !searchOpen,
-            child: child!,
-          ),
-          child:
-              ShellSelector<
-                ({InstanceLoadStatus loadStatus, bool hasInstances})
-              >(
-                select: (shell) => (
-                  loadStatus: shell.loadStatus,
-                  hasInstances: shell.hasInstances,
+  Widget build(BuildContext context) => DMobileDockPeek.scope(
+    peek: _dockPeek,
+    child: PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // A composer's sheet and the bar's panel each take the back themselves.
+        if (ComposerPresentationScope.hasMobileSheetOf(context) ||
+            _dockPanelOut.value) {
+          return;
+        } else if (!ShellScope.read(context).handleBack()) {
+          unawaited(SystemNavigator.pop());
+        }
+      },
+      child: MobileDockPanelScope(
+        out: _dockPanelOut,
+        child: ForumWindowBackground(
+          mobile: true,
+          child: ShellSelector<bool>(
+            select: (shell) =>
+                shell.currentContent?.isGlobalSearch == true &&
+                !shell.mobileNavigation.sidebarOpen,
+            builder: (context, searchOpen, child) => SafeArea(
+              bottom:
+                  defaultTargetPlatform == TargetPlatform.android &&
+                  !searchOpen,
+              child: child!,
+            ),
+            child:
+                ShellSelector<
+                  ({InstanceLoadStatus loadStatus, bool hasInstances})
+                >(
+                  select: (shell) => (
+                    loadStatus: shell.loadStatus,
+                    hasInstances: shell.hasInstances,
+                  ),
+                  builder: (context, state, _) {
+                    Widget homeStatus(Widget child) => Row(
+                      children: [
+                        const SizedBox(
+                          width: AdaptiveShell.railWidth,
+                          child: InstanceRail(),
+                        ),
+                        Expanded(child: child),
+                      ],
+                    );
+                    if (state.loadStatus == InstanceLoadStatus.loading) {
+                      return homeStatus(const _ShellLoadProgress());
+                    }
+                    if (state.loadStatus == InstanceLoadStatus.failed) {
+                      return homeStatus(const _ShellLoadFailure());
+                    }
+                    if (!state.hasInstances) {
+                      return homeStatus(const EmptyState());
+                    }
+                    return _PageComposerDock(
+                      child: MobileForumRoot(
+                        content: MainContent(
+                          key: ComposerPresentationScope.contentKeyOf(context),
+                          layout: ShellLayout.compact,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                builder: (context, state, _) {
-                  Widget homeStatus(Widget child) => Row(
-                    children: [
-                      const SizedBox(
-                        width: AdaptiveShell.railWidth,
-                        child: InstanceRail(),
-                      ),
-                      Expanded(child: child),
-                    ],
-                  );
-                  if (state.loadStatus == InstanceLoadStatus.loading) {
-                    return homeStatus(const _ShellLoadProgress());
-                  }
-                  if (state.loadStatus == InstanceLoadStatus.failed) {
-                    return homeStatus(const _ShellLoadFailure());
-                  }
-                  if (!state.hasInstances) {
-                    return homeStatus(const EmptyState());
-                  }
-                  return _PageComposerDock(
-                    child: MobileForumRoot(
-                      content: MainContent(
-                        key: ComposerPresentationScope.contentKeyOf(context),
-                        layout: ShellLayout.compact,
-                      ),
-                    ),
-                  );
-                },
-              ),
+          ),
         ),
       ),
     ),

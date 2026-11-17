@@ -179,6 +179,26 @@ void main() {
     }
   }, variant: platforms);
 
+  testWidgets('the foot rises with the bar as it lifts to say something', (
+    tester,
+  ) async {
+    await pumpMobileTopicFixture(tester);
+    final progress = find.byKey(const ValueKey('topic-progress-button'));
+    final dock = find.byType(DMobileDock);
+    final rest = tester.getRect(progress);
+    final peek = DMobileDockPeek.maybeOf(tester.element(dock))!;
+    final lift = DMobileDockGeometry.of(tester.element(dock)).peek;
+    expect(peek.say(const DMobileDockSaying(text: 'Bookmarked')), isTrue);
+    await tester.pump();
+    // On its own curve, 420 ms, to as far as the bar lifts.
+    await tester.pump(const Duration(milliseconds: 420));
+    expect(tester.getRect(progress).top, closeTo(rest.top - lift, .01));
+    await tester.pump(const Duration(milliseconds: 1980));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.getRect(progress), rest);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets('the timeline says the count as its button does', (tester) async {
     await pumpMobileTopicFixture(tester);
     await tester.tap(find.byKey(const ValueKey('topic-progress-button')));

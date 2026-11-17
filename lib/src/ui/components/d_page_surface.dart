@@ -18,6 +18,7 @@ import '../foundation/surface_depth.dart';
 import '../foundation/touch_target.dart';
 import 'd_card.dart';
 import 'd_header_morph.dart';
+import 'd_mobile_dock.dart';
 import 'd_page_header.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
@@ -1696,9 +1697,12 @@ class DPageHeaderGeometry extends ChangeNotifier {
   /// Stable leading space inside the scroll content.
   Widget get spacer => inset(const SizedBox.shrink(), fullExtent: true);
 
-  /// Keeps an overlay above the floating footer as its height changes.
-  Widget footerInset(Widget child) =>
-      _FooterInset(geometry: this, child: child);
+  /// Keeps an overlay above the floating footer as its height changes, and
+  /// rising with a phone's bar as it lifts.
+  Widget footerInset(Widget child) => _FooterInset(
+    geometry: this,
+    child: DMobileDockLift(child: child),
+  );
 
   /// Places an overlay below the visible header, or reserves the full header
   /// for a loading body. Floating insets move during paint; full insets reserve
