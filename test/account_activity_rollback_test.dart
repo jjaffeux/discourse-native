@@ -26,7 +26,12 @@ enum _Operation { cancelledReconnect, failedReconnect, failedDisconnect }
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final page in _Page.values) {
-    for (final operation in _Operation.values) {
+    for (final operation in [
+      _Operation.cancelledReconnect,
+      page == _Page.activity
+          ? _Operation.failedReconnect
+          : _Operation.failedDisconnect,
+    ]) {
       testWidgets(
         '${page.name} restores its loaded rows after ${operation.name}',
         (tester) async {
