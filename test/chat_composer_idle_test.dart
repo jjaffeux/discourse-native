@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
@@ -101,7 +102,14 @@ void main() {
         'server_published_total_rebuilds_$name=${counts.total}',
       );
       expect(tester.takeException(), isNull);
-      expect(find.text('Arrival 209.', findRichText: true), findsOneWidget);
+      // The side's list says a chat's last line too, so look in the channel.
+      expect(
+        find.descendant(
+          of: find.byType(ChatChannelView),
+          matching: find.text('Arrival 209.', findRichText: true),
+        ),
+        findsOneWidget,
+      );
       expect(counts.composer, 0);
 
       tracker.deliverPluginMessage('/chat/channel-edits', {
