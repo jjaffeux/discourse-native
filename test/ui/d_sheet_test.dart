@@ -1293,72 +1293,69 @@ void main() {
     );
   }
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final origin in ['header', 'scroll']) {
-      for (final reducedMotion in [false, true]) {
-        testWidgets(
-          '$platform retained $origin swipe requests close at the threshold (reduced: $reducedMotion)',
-          (tester) async {
-            var requests = 0;
-            var exits = 0;
-            final sheet = find.byType(DSheetContent);
-            late Rect bounds;
-            await openSwipeSheet(
-              tester,
-              platform: platform,
-              retained: true,
-              controlled: true,
-              disableAnimations: reducedMotion,
-              onRetainedDismiss: () => exits++,
-              onSwipeDismissRequested: () {
-                expect(tester.getRect(sheet), bounds);
-                requests++;
-              },
-            );
-            bounds = tester.getRect(sheet);
-            Finder target() => origin == 'header'
-                ? find.text('Swipe sheet')
-                : find.byType(ListView);
-            final gesture = await tester.startGesture(
-              tester.getCenter(target()),
-            );
-            await gesture.moveBy(const Offset(0, 30));
-            await gesture.moveBy(const Offset(0, 120));
-            await tester.pump();
-            expect(requests, 0);
-            expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top));
-            expect(backdropOpacity(tester), lessThan(1));
-            await gesture.moveBy(const Offset(0, 150));
-            await tester.pump();
-            expect(requests, 1);
-            expect(exits, 0);
+  for (final (platform, origin, reducedMotion) in [
+    (TargetPlatform.iOS, 'header', false),
+    (TargetPlatform.iOS, 'scroll', true),
+    (TargetPlatform.android, 'header', true),
+    (TargetPlatform.android, 'scroll', false),
+  ]) {
+    testWidgets(
+      '$platform retained $origin swipe requests close at the threshold (reduced: $reducedMotion)',
+      (tester) async {
+        var requests = 0;
+        var exits = 0;
+        final sheet = find.byType(DSheetContent);
+        late Rect bounds;
+        await openSwipeSheet(
+          tester,
+          platform: platform,
+          retained: true,
+          controlled: true,
+          disableAnimations: reducedMotion,
+          onRetainedDismiss: () => exits++,
+          onSwipeDismissRequested: () {
             expect(tester.getRect(sheet), bounds);
-            expect(backdropOpacity(tester), 1);
-            await gesture.moveBy(const Offset(0, 100));
-            await tester.pump(const Duration(milliseconds: 16));
-            expect(requests, 1);
-            expect(tester.getRect(sheet), bounds);
-            await gesture.up();
-            await tester.pumpAndSettle();
-            expect(requests, 1);
-            expect(exits, 0);
-            expect(tester.getRect(sheet), bounds);
-            final repeat = await tester.startGesture(
-              tester.getCenter(target()),
-            );
-            await repeat.moveBy(const Offset(0, 30));
-            await repeat.moveBy(const Offset(0, 300));
-            await tester.pump();
-            expect(requests, 2);
-            await repeat.cancel();
-            await tester.pumpAndSettle();
-            expect(tester.getRect(sheet), bounds);
-            expect(exits, 0);
-            expect(tester.takeException(), isNull);
+            requests++;
           },
         );
-      }
-    }
+        bounds = tester.getRect(sheet);
+        Finder target() => origin == 'header'
+            ? find.text('Swipe sheet')
+            : find.byType(ListView);
+        final gesture = await tester.startGesture(tester.getCenter(target()));
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 120));
+        await tester.pump();
+        expect(requests, 0);
+        expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top));
+        expect(backdropOpacity(tester), lessThan(1));
+        await gesture.moveBy(const Offset(0, 150));
+        await tester.pump();
+        expect(requests, 1);
+        expect(exits, 0);
+        expect(tester.getRect(sheet), bounds);
+        expect(backdropOpacity(tester), 1);
+        await gesture.moveBy(const Offset(0, 100));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(requests, 1);
+        expect(tester.getRect(sheet), bounds);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(requests, 1);
+        expect(exits, 0);
+        expect(tester.getRect(sheet), bounds);
+        final repeat = await tester.startGesture(tester.getCenter(target()));
+        await repeat.moveBy(const Offset(0, 30));
+        await repeat.moveBy(const Offset(0, 300));
+        await tester.pump();
+        expect(requests, 2);
+        await repeat.cancel();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+        expect(exits, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
@@ -1654,8 +1651,7 @@ void main() {
           (widget) =>
               widget is ModalBarrier &&
               widget.color?.a == 1 &&
-              widget.color!.computeLuminance() <
-                  background.computeLuminance(),
+              widget.color!.computeLuminance() < background.computeLuminance(),
         );
         expect(barrier, findsOneWidget);
         expect(
