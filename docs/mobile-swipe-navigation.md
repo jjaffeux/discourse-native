@@ -28,6 +28,7 @@ Moving out of the corner cannot turn sidebar access into Back.
 Vertical scrolling, downward sheet dismissal, and multi-touch gestures do not commit horizontal navigation.
 Travel of 64 logical pixels or a forward flick commits the action. Short drags and cancelled gestures restore the current page.
 Reduced motion preserves these actions without moving the page.
+A topic that rose over the header is drawn at that height during the swipe. Arriving, it covers the header as it slides in. Revealed by Back, it covers the header only where the departing page has left.
 The menu button and existing Back controls remain available.
 
 ## Desktop trackpad

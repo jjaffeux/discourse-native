@@ -59,6 +59,10 @@ final class DHistoryNavigation {
 /// The incoming page grows from 94% to full size with the swipe. Shallow
 /// parallax separates the pages during a drag. Background
 /// pages stay inside the viewport, shrinking as a forward page covers them.
+/// A destination that sat higher in the frame than this page, such as a sheet
+/// raised over a header, is drawn where it sat: an incoming page covers that
+/// band as it arrives, and a revealed page shows there only where this page
+/// has left. Paint the page above such chrome while [swipeOf] is non-null.
 /// The background page lightens as it is revealed and darkens as it is covered.
 /// Tab switches slide directionally, fading the incoming page over the outgoing
 /// snapshot so solid page fills do not expose the surrounding canvas.
@@ -988,7 +992,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       builder: (context, constraints) {
         _size = constraints.biggest;
         final previous = _previews[widget.previousEntry];
+        // A live previous preview is laid out in this page's box, unaligned.
+        final destinationOrigin =
+            reducedMotion ||
+                !(_dragging || _settling) ||
+                _back && widget.previousPreview != null
+            ? null
+            : _previewOrigin;
         return ClipRect(
+          clipper: _HistoryPageClipper(destinationOrigin, _pageOrigin),
           child: AnimatedBuilder(
             animation: _progress,
             child: _HistoryPageScope(
@@ -1085,7 +1097,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   if (!_openingNavigation && widget.previousPreview != null)
                     previewLayer(widget.previousPreview!, back: true)
                   else if (!_openingNavigation && active && _back)
-                    previewLayer(preview, back: true),
+                    ClipPath(
+                      clipBehavior: Clip.hardEdge,
+                      clipper: _HistoryRevealClipper(
+                        destinationOrigin,
+                        _pageOrigin,
+                        _sign * _size.width * p,
+                      ),
+                      child: previewLayer(preview, back: true),
+                    ),
                   if (switching)
                     Transform.translate(
                       key: const ValueKey('history-outgoing-tab'),
@@ -1100,31 +1120,40 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         ),
                       ),
                     ),
-                  Transform.translate(
-                    key: ValueKey(
-                      switching ? 'history-incoming-tab' : 'history-live-page',
-                    ),
-                    offset: Offset(
-                      switching
-                          ? _tabSign * _tabTravel * (1 - p)
-                          : _sign * _size.width * p * (_back ? 1 : _parallax),
-                      0,
-                    ),
-                    child: Transform.scale(
-                      scale: switching || _back
-                          ? 1
-                          : 1 - (1 - _previewScale) * p,
-                      child: ColorFiltered(
-                        colorFilter: _back ? clear : dim,
-                        child: IgnorePointer(
-                          ignoring: _dragging || _settling || switching,
-                          child: ExcludeFocus(
-                            excluding: _coveringPage,
-                            child: ExcludeSemantics(
+                  // The raised boundary admits the destination alone. This
+                  // page's shadow stays inside its own box.
+                  ClipRect(
+                    clipBehavior: destinationOrigin == null
+                        ? Clip.none
+                        : Clip.hardEdge,
+                    child: Transform.translate(
+                      key: ValueKey(
+                        switching
+                            ? 'history-incoming-tab'
+                            : 'history-live-page',
+                      ),
+                      offset: Offset(
+                        switching
+                            ? _tabSign * _tabTravel * (1 - p)
+                            : _sign * _size.width * p * (_back ? 1 : _parallax),
+                        0,
+                      ),
+                      child: Transform.scale(
+                        scale: switching || _back
+                            ? 1
+                            : 1 - (1 - _previewScale) * p,
+                        child: ColorFiltered(
+                          colorFilter: _back ? clear : dim,
+                          child: IgnorePointer(
+                            ignoring: _dragging || _settling || switching,
+                            child: ExcludeFocus(
                               excluding: _coveringPage,
-                              child: Opacity(
-                                opacity: switching ? p : 1,
-                                child: child,
+                              child: ExcludeSemantics(
+                                excluding: _coveringPage,
+                                child: Opacity(
+                                  opacity: switching ? p : 1,
+                                  child: child,
+                                ),
                               ),
                             ),
                           ),
@@ -1158,9 +1187,73 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   }
 }
 
+/// How far above the live page a destination sat when it was captured.
+double _historyLift(Offset? destination, ValueGetter<Offset> pageOrigin) =>
+    destination == null ? 0 : math.max(0, pageOrigin().dy - destination.dy);
+
+/// The page's own box, raised to admit a destination that sat higher.
+///
+/// The frame positions its page after laying it out, so the page's origin is
+/// read when the clip is resolved for painting.
+class _HistoryPageClipper extends CustomClipper<Rect> {
+  const _HistoryPageClipper(this.destination, this.pageOrigin);
+  final Offset? destination;
+  final ValueGetter<Offset> pageOrigin;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(
+    0,
+    -_historyLift(destination, pageOrigin),
+    size.width,
+    size.height,
+  );
+
+  @override
+  Rect getApproximateClipRect(Size size) => getClip(size);
+
+  @override
+  bool shouldReclip(_HistoryPageClipper oldClipper) =>
+      destination != oldClipper.destination;
+}
+
+/// Bounds a revealed page to the live page's box, and above that box to the
+/// band the live page has already left.
+class _HistoryRevealClipper extends CustomClipper<Path> {
+  const _HistoryRevealClipper(this.destination, this.pageOrigin, this.travel);
+  final Offset? destination;
+  final ValueGetter<Offset> pageOrigin;
+
+  /// The live page's signed horizontal offset.
+  final double travel;
+
+  @override
+  Path getClip(Size size) {
+    final lift = _historyLift(destination, pageOrigin);
+    final path = Path()..addRect(Offset.zero & size);
+    if (lift > 0) {
+      path.addRect(
+        travel > 0
+            ? Rect.fromLTRB(0, -lift, travel, 0)
+            : Rect.fromLTRB(size.width + travel, -lift, size.width, 0),
+      );
+    }
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_HistoryRevealClipper oldClipper) =>
+      destination != oldClipper.destination || travel != oldClipper.travel;
+}
+
 class _HistoryImageAlignment extends FlowDelegate {
   _HistoryImageAlignment(this.offset);
   final ValueGetter<Offset> offset;
+
+  // A destination can be taller than the live page. Its image keeps its own
+  // height instead of being cropped to this page's box.
+  @override
+  BoxConstraints getConstraintsForChild(int i, BoxConstraints constraints) =>
+      BoxConstraints.tightFor(width: constraints.maxWidth);
 
   @override
   void paintChildren(FlowPaintingContext context) {
