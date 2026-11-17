@@ -102,6 +102,29 @@ void main() {
       );
     }
 
+    // Where you are is a pill as tall as the dock's circle, 18 in at either
+    // side, and the tools stand centred on it.
+    final countPill = tester.getRect(surface(progress));
+    final countText = tester.getRect(
+      find.descendant(of: progress, matching: find.byType(TopicPostCount)),
+    );
+    expect(
+      countPill.height,
+      moreOrLessEquals(
+        DMobileDockGeometry.of(
+          tester.element(find.byKey(const ValueKey('mobile-bottom-bar'))),
+        ).circle,
+      ),
+    );
+    expect(countText.left - countPill.left, moreOrLessEquals(18));
+    expect(countPill.right - countText.right, moreOrLessEquals(18));
+    for (final tool in [bookmark, more]) {
+      expect(
+        tester.getRect(surface(tool)).center.dy,
+        moreOrLessEquals(countPill.center.dy),
+      );
+    }
+
     // The count reads as the timeline says it: where you are large and
     // strong, out of how many small and quiet, in tabular figures.
     final count = find.descendant(

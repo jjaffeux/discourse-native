@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../foundation/app_text_scaler.dart';
+
 /// Where one item of the row sits, from the row's start.
 typedef DMobileDockSlot = ({double start, double width});
 
@@ -51,8 +53,16 @@ class DMobileDockGeometry {
         growth: _growthOf(context),
       );
 
-  static double _growthOf(BuildContext context) =>
-      math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11);
+  static double _growthOf(BuildContext context, [TextScaler? scaler]) => math
+      .max(0.0, (scaler ?? MediaQuery.textScalerOf(context)).scale(11) - 11);
+
+  /// The folded bar's circle as the bar draws it, read from inside reference
+  /// chrome as well, which scales its own text differently from the bar: what
+  /// stands beside the circle is as tall as it.
+  static double circleOf(BuildContext context) => DMobileDockGeometry(
+    foot: 0,
+    growth: _growthOf(context, DReferenceTextScale.readingScalerOf(context)),
+  ).circle;
 
   /// The screen's bottom safe inset, which is 0 while the keyboard is up.
   final double foot;

@@ -24,6 +24,7 @@ import '../foundation/touch_target.dart';
 import 'd_fit_row.dart';
 import 'd_kbd.dart';
 import 'd_link_interaction.dart';
+import 'd_mobile_dock_geometry.dart';
 import 'd_spinner.dart';
 import 'd_tooltip.dart';
 
@@ -141,6 +142,11 @@ enum DButtonDensity {
 
   /// Active destination remaining in a folded mobile dock.
   mobileDockCollapsed,
+
+  /// A pill as tall as the mobile dock's folded circle beside it
+  /// ([DMobileDockGeometry.circle]), with 18px insets and 15px text: where a
+  /// reader is in a topic, at a phone's foot.
+  dockRound,
 
   /// Inset window actions: 32 by 28px, 15px icons and a flat hover tint.
   /// Pair with a small capsule DCard. The visible bounds are the hit bounds.
@@ -576,6 +582,7 @@ class DButton extends StatelessWidget {
     final mobileDock = density == DButtonDensity.mobileDock || mobileDockTile;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
     final mobileDockCollapsed = density == DButtonDensity.mobileDockCollapsed;
+    final dockRound = density == DButtonDensity.dockRound;
 
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
@@ -609,6 +616,8 @@ class DButton extends StatelessWidget {
               : size);
     final fontSize = floatingCall
         ? 11.5
+        : dockRound
+        ? 15.0
         : timelineEnd
         ? 12.5
         : postReaction
@@ -683,6 +692,8 @@ class DButton extends StatelessWidget {
                   1.5
         : postReaction
         ? DPostReactionStyle.height(MediaQuery.textScalerOf(context))
+        : dockRound
+        ? DMobileDockGeometry.circleOf(context)
         : header
         ? (wideHeader ? 36 : 28) +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
@@ -1058,6 +1069,8 @@ class DButton extends StatelessWidget {
               )
             : filterPill
             ? const EdgeInsets.symmetric(horizontal: 9)
+            : dockRound
+            ? const EdgeInsets.symmetric(horizontal: 18)
             : timeline
             ? (_iconOnly
                   ? EdgeInsets.zero

@@ -63,7 +63,15 @@ class TopicCornerControls extends StatelessWidget {
             const Duration(milliseconds: 420),
           ),
           curve: const Cubic(.32, .72, 0, 1),
-          child: Align(alignment: AlignmentDirectional.bottomEnd, child: child),
+          // The controls are [height] tall at least, centred on it, so a
+          // shorter row still settles on the corner it was measured for.
+          child: Align(
+            alignment: AlignmentDirectional.bottomEnd,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: height),
+              child: Align(widthFactor: 1, heightFactor: 1, child: child),
+            ),
+          ),
         );
       },
       child: child,
