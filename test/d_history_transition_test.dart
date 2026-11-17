@@ -162,7 +162,31 @@ void main() {
       await gesture.cancel();
       await tester.pumpAndSettle();
 
+      var captures = 0;
+      final previousOnCreate = ui.Image.onCreate;
+      ui.Image.onCreate = (image) {
+        previousOnCreate?.call(image);
+        if (image.debugGetOpenHandleStackTraces()!.length == 1) captures++;
+      };
+      addTearDown(() => ui.Image.onCreate = previousOnCreate);
+      final returnSwipe = await _drag(tester, fromRight: true, distance: 160);
+      final framePreview = find.byKey(const ValueKey('history-frame-preview'));
+      expect(framePreview, findsOneWidget);
+      await returnSwipe.up();
+      await tester.pumpAndSettle();
+      expect(open, isFalse);
+      expect(
+        find.byKey(const ValueKey('history-outgoing-navigation')),
+        findsNothing,
+      );
+      final swipeCaptures = captures;
+
+      update(() => open = true);
+      await tester.pumpAndSettle();
+      captures = 0;
       update(() => open = false);
+      await tester.pump();
+      expect(framePreview, findsOneWidget);
       await tester.pumpAndSettle();
       expect(focus.hasFocus, isFalse);
       expect(find.bySemanticsLabel('Navigation action'), findsNothing);
@@ -170,6 +194,7 @@ void main() {
         find.widgetWithText(DButton, 'Reading action').hitTestable(),
         findsOneWidget,
       );
+      expect((swipe: swipeCaptures, button: captures), (swipe: 0, button: 1));
       semantics.dispose();
       expect(tester.takeException(), isNull);
     },

@@ -2190,7 +2190,18 @@ class _DMobileDockState extends State<DMobileDock>
                     ),
                   ),
                 ),
-                Opacity(opacity: movingMark == null ? 1 : 0, child: marks),
+                // The marks stay in the bar's full-width slots as the
+                // folding surface clips them.
+                PositionedDirectional(
+                  start: 0,
+                  top: 0,
+                  width: constraints.maxWidth,
+                  height: DMobileDockGeometry.markHeight,
+                  child: Opacity(
+                    opacity: movingMark == null ? 1 : 0,
+                    child: marks,
+                  ),
+                ),
                 ?movingMark,
               ],
             ),

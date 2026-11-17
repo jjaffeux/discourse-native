@@ -5,7 +5,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderOpacity;
+import 'package:flutter/rendering.dart' show RenderOpacity, RenderStack;
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -714,6 +714,33 @@ void main() {
     expect(tester.widget<Text>(name).maxLines, 1);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('the tab bar folds without relaying out its selection marks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(fixture());
+    await tester.pumpAndSettle();
+    var marks = tester.renderObject(
+      find.byKey(const ValueKey('mobile-dock-mark-1')),
+    );
+    while (marks is! RenderStack) {
+      marks = marks.parent!;
+    }
+
+    for (final collapsed in [true, false]) {
+      await tester.pumpWidget(fixture(collapsed: collapsed));
+      final initialWidth = tester.getSize(_surface).width;
+      final initialConstraints = marks.constraints;
+      var constraintChanges = 0;
+      for (var frame = 0; frame < 8; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (marks.constraints != initialConstraints) constraintChanges++;
+      }
+      expect(tester.getSize(_surface).width, isNot(initialWidth));
+      expect(constraintChanges, 0);
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('folded dock retains only a bounded reveal target', (
     tester,
   ) async {

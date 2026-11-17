@@ -11,11 +11,13 @@ import 'package:discourse_native/discourse_ui.dart'
         DMarkerVariant,
         DSeparator,
         DTokens;
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -40,6 +42,45 @@ import 'support/topic_post_list.dart';
 const newSinceLastVisit = 'New since your last visit';
 
 void main() {
+  testWidgets('first topic layout shares the date marker pass', (tester) async {
+    final site = instance('meta.example');
+    const postCount = 60;
+    const firstOffscreenPost = 31;
+    final store = _CountingPostStore(firstOffscreenPost);
+    final controller = _controller(site, store: store);
+    addTearDown(controller.dispose);
+    await controller.load();
+    final early = DateTime(2026, 10);
+    final posts = [
+      for (var id = 1; id <= postCount; id++)
+        _post(id, day: early.add(Duration(days: id)), long: true),
+    ];
+    store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'First frame',
+          stream: [for (final post in posts) post.id],
+          postsCount: posts.length,
+        ),
+      )
+      ..putAll(site.url, posts);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'first-frame', title: 'First frame'),
+    );
+    store.offscreenReads = 0;
+    await tester.pumpWidget(_topicView(controller));
+    expect(find.byType(TopicPostSliver), findsOneWidget);
+    expect(find.text('Post $firstOffscreenPost'), findsNothing);
+    // One read for the loaded window, one for both kinds of date markers.
+    expect(
+      store.offscreenReads,
+      lessThanOrEqualTo(2 * (postCount - firstOffscreenPost + 1)),
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   testWidgets('floating date push retains the date artwork', (tester) async {
     final site = instance('meta.example');
     final firstDay = DateTime(2020, 1, 2);
@@ -1139,10 +1180,28 @@ Post _post(int id, {required DateTime day, bool long = false}) => Post(
   createdAt: day.add(Duration(minutes: id)),
 );
 
-ShellController _controller(DiscourseInstance site, {FakeDiscourseApi? api}) {
+class _CountingPostStore extends Store {
+  _CountingPostStore(this.firstOffscreenPost);
+
+  final int firstOffscreenPost;
+  int offscreenReads = 0;
+
+  @override
+  T? read<T extends Storable<T>>(String siteUrl, Object id) {
+    if (T == Post && id is int && id >= firstOffscreenPost) offscreenReads++;
+    return super.read<T>(siteUrl, id);
+  }
+}
+
+ShellController _controller(
+  DiscourseInstance site, {
+  FakeDiscourseApi? api,
+  Store? store,
+}) {
   final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
   return ShellController(
     instanceStore: FakeInstanceStore([site]),
+    store: store,
     api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
     authenticator: authenticator,
     drafts: FakeDraftStore(),

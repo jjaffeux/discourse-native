@@ -161,8 +161,8 @@ class DHistoryTransition extends StatefulWidget {
   /// Includes button transitions, interactive swipes, and their reversals.
   static double navigationProgressOf(BuildContext context) =>
       context
-          .dependOnInheritedWidgetOfExactType<_HistorySwipeScope>()
-          ?.navigationProgress ??
+          .dependOnInheritedWidgetOfExactType<_HistoryNavigationScope>()
+          ?.progress ??
       0;
 
   final Object history;
@@ -350,8 +350,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   void didUpdateWidget(DHistoryTransition oldWidget) {
     super.didUpdateWidget(oldWidget);
     final committed = _committedEntry == widget.entry;
-    final navigationChanged =
-        oldWidget.navigation?.entry == oldWidget.entry || _navigationOpen;
+    final wasNavigation = oldWidget.navigation?.entry == oldWidget.entry;
+    final navigationChanged = wasNavigation || _navigationOpen;
     _committedEntry = null;
     if (oldWidget.entry != widget.entry ||
         oldWidget.history != widget.history) {
@@ -368,8 +368,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             !committed &&
             !MediaQuery.disableAnimationsOf(context) &&
             _routeIsCurrent) {
+      final keepDeparture = oldWidget.history == widget.history;
       final boundary = _boundary.currentContext?.findRenderObject();
-      final image = _coveringPage
+      // The page boundary is offstage while the live sidebar is open. Only
+      // the frame contains the outgoing sidebar artwork.
+      final image = wasNavigation || (_navigationOpen && !keepDeparture)
+          ? null
+          : _coveringPage
           ? _preview?.clone()
           : boundary is _HistoryRepaintBoundary
           ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
@@ -377,7 +382,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       final frameImage = navigationChanged
           ? _navigationDeparture?.clone() ?? _snapshotFrame()
           : null;
-      if (oldWidget.history == widget.history) {
+      if (keepDeparture) {
         _resetGesture();
         if (image != null) {
           _remember(
@@ -404,14 +409,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       // The descendant still contains the outgoing page's last painted frame.
       // Capture it before rebuilding that one live renderer for the new entry.
       final boundary = _boundary.currentContext?.findRenderObject();
-      if (!_coveringPage && boundary is _HistoryRepaintBoundary) {
+      if (!wasNavigation &&
+          !_coveringPage &&
+          boundary is _HistoryRepaintBoundary) {
         final image = boundary.snapshot(MediaQuery.devicePixelRatioOf(context));
         if (image != null) {
           _remember(
             oldWidget.entry,
             oldWidget.previousEntry,
             image,
-            frame: navigationChanged
+            frame: _navigationOpen
                 ? _navigationDeparture?.clone() ?? _snapshotFrame()
                 : null,
           );
@@ -792,15 +799,17 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
           },
           child: AnimatedBuilder(
             animation: _progress,
-            builder: (context, child) => _HistorySwipeScope(
-              navigationProgress: _navigationProgress,
-              swipe:
-                  !_switchingTab &&
-                      (_dragging || _settling) &&
-                      !MediaQuery.disableAnimationsOf(context)
-                  ? (entry: _target!, progress: _progress.value)
-                  : null,
-              child: child!,
+            builder: (context, child) => _HistoryNavigationScope(
+              progress: _navigationProgress,
+              child: _HistorySwipeScope(
+                swipe:
+                    !_switchingTab &&
+                        (_dragging || _settling) &&
+                        !MediaQuery.disableAnimationsOf(context)
+                    ? (entry: _target!, progress: _progress.value)
+                    : null,
+                child: child!,
+              ),
             ),
             child: Builder(
               builder: (context) {
@@ -1277,19 +1286,23 @@ class _HistoryImageAlignment extends FlowDelegate {
 }
 
 class _HistorySwipeScope extends InheritedWidget {
-  const _HistorySwipeScope({
-    required this.swipe,
-    required this.navigationProgress,
-    required super.child,
-  });
+  const _HistorySwipeScope({required this.swipe, required super.child});
 
   final ({Object entry, double progress})? swipe;
-  final double navigationProgress;
 
   @override
   bool updateShouldNotify(_HistorySwipeScope oldWidget) =>
-      swipe != oldWidget.swipe ||
-      navigationProgress != oldWidget.navigationProgress;
+      swipe != oldWidget.swipe;
+}
+
+class _HistoryNavigationScope extends InheritedWidget {
+  const _HistoryNavigationScope({required this.progress, required super.child});
+
+  final double progress;
+
+  @override
+  bool updateShouldNotify(_HistoryNavigationScope oldWidget) =>
+      progress != oldWidget.progress;
 }
 
 class _HistoryFrameSnapshot {

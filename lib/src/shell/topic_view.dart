@@ -181,7 +181,11 @@ class TopicPostPresentation extends StatelessWidget {
 }
 
 typedef _TopicDayStart = ({DateTime day, int postIndex});
-typedef _TopicTimeGap = ({int daysSince, int postIndex});
+typedef _TopicDateMarkers = ({
+  List<_TopicDayStart> dayStarts,
+  Map<int, DateTime> dayByPostIndex,
+  Map<int, int> timeGapByPostIndex,
+});
 
 /// Returns the web-style horizontal eyeline used to choose the current post.
 ///
@@ -846,82 +850,61 @@ class _TopicViewState extends State<TopicView>
     _viewport.updateFloatingDay(day, offset);
   }
 
-  List<_TopicDayStart> _dayStarts(
+  ({String site, List<int> posts, DateTime today, int gapDays})?
+  _dateMarkerInputs;
+  late _TopicDateMarkers _cachedDateMarkers;
+
+  _TopicDateMarkers _dateMarkers(
     ShellController controller,
     String siteUrl,
     List<int> postIds,
-    DateTime today,
-  ) {
-    // Rebuilding this on every build costs a store read per loaded post, and
-    // the floating-day push animation rebuilds per frame. Snapshots allocate
-    // a fresh id list each time, so value equality is the usable key; the
-    // int comparison is far cheaper than the reads it saves. Created-at never
-    // changes for a held post, so the same ids on the same reader day mean the
-    // same day starts.
-    if (_dayStartsSite == siteUrl &&
-        _dayStartsToday == today &&
-        listEquals(_dayStartsFor, postIds)) {
-      return _dayStartsCache;
+    DateTime today, {
+    required int showAfterDays,
+  }) {
+    // Creation times stay fixed for held posts. The ordered IDs also let
+    // the reader reuse its markers across equivalent snapshots.
+    final previous = _dateMarkerInputs;
+    if (previous != null &&
+        previous.site == siteUrl &&
+        previous.today == today &&
+        previous.gapDays == showAfterDays &&
+        listEquals(previous.posts, postIds)) {
+      return _cachedDateMarkers;
     }
-    final starts = <_TopicDayStart>[];
+    final dayStarts = <_TopicDayStart>[];
+    final dayByPostIndex = <int, DateTime>{};
+    final timeGapByPostIndex = <int, int>{};
     DateTime? previousDay;
+    DateTime? previousCreatedAt;
     for (var index = 0; index < postIds.length; index++) {
       final post = controller.store.read<Post>(siteUrl, postIds[index]);
-      final day = calendarDay(post?.createdAt);
+      final createdAt = post?.createdAt;
+      final day = calendarDay(createdAt);
       final isTodaysOpeningPost = post?.postNumber == 1 && day == today;
       if (day != null && day != previousDay && !isTodaysOpeningPost) {
-        starts.add((day: day, postIndex: index));
+        dayStarts.add((day: day, postIndex: index));
+        dayByPostIndex[index] = day;
       }
       previousDay = day;
-    }
-    _dayStartsCache = starts;
-    _dayStartsFor = postIds;
-    _dayStartsSite = siteUrl;
-    _dayStartsToday = today;
-    return starts;
-  }
 
-  List<_TopicDayStart> _dayStartsCache = const [];
-  List<int>? _dayStartsFor;
-  String? _dayStartsSite;
-  DateTime? _dayStartsToday;
-
-  List<_TopicTimeGap> _timeGaps(
-    ShellController controller,
-    String siteUrl,
-    List<int> postIds,
-    int showAfterDays,
-  ) {
-    if (_timeGapsSite == siteUrl &&
-        _timeGapsShowAfterDays == showAfterDays &&
-        listEquals(_timeGapsFor, postIds)) {
-      return _timeGapsCache;
-    }
-
-    final gaps = <_TopicTimeGap>[];
-    Post? previous;
-    for (var index = 0; index < postIds.length; index++) {
-      final post = controller.store.read<Post>(siteUrl, postIds[index]);
-      final daysSince = timeGapDaysBetween(
-        previous?.createdAt,
-        post?.createdAt,
-      );
+      final daysSince = timeGapDaysBetween(previousCreatedAt, createdAt);
       if (daysSince != null && daysSince > showAfterDays) {
-        gaps.add((daysSince: daysSince, postIndex: index));
+        timeGapByPostIndex[index] = daysSince;
       }
-      previous = post;
+      previousCreatedAt = createdAt;
     }
-    _timeGapsCache = gaps;
-    _timeGapsFor = postIds;
-    _timeGapsSite = siteUrl;
-    _timeGapsShowAfterDays = showAfterDays;
-    return gaps;
+    _dateMarkerInputs = (
+      site: siteUrl,
+      posts: postIds,
+      today: today,
+      gapDays: showAfterDays,
+    );
+    return _cachedDateMarkers = (
+      dayStarts: dayStarts,
+      dayByPostIndex: dayByPostIndex,
+      timeGapByPostIndex: timeGapByPostIndex,
+    );
   }
-
-  List<_TopicTimeGap> _timeGapsCache = const [];
-  List<int>? _timeGapsFor;
-  String? _timeGapsSite;
-  int? _timeGapsShowAfterDays;
 
   void _noteWhatIsOnScreen(
     ShellController controller,
@@ -1763,25 +1746,14 @@ class _TopicViewState extends State<TopicView>
     }
     _reader.postWidth = readingLane.width;
     _viewport.updateLaidOutSnapshot(snapshot);
-    final dayStarts = _dayStarts(
+    final (:dayStarts, :dayByPostIndex, :timeGapByPostIndex) = _dateMarkers(
       controller,
       siteUrl,
       postIds,
       calendarDay(widget.now?.call() ?? DateTime.now())!,
+      showAfterDays: snapshot.showTimeGapDays,
     );
     _laidOutDayStarts = dayStarts;
-    final dayByPostIndex = {
-      for (final start in dayStarts) start.postIndex: start.day,
-    };
-    final timeGapByPostIndex = {
-      for (final gap in _timeGaps(
-        controller,
-        siteUrl,
-        postIds,
-        snapshot.showTimeGapDays,
-      ))
-        gap.postIndex: gap.daysSince,
-    };
     // Hold the entry boundary while reading advances in the background. A
     // partial page must not mistake its first loaded row for the first unread.
     final lastRead = _visitLastReadPostNumber;

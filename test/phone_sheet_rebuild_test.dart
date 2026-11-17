@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
+import 'package:discourse_native/src/shell/mobile_scroll_dock.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -63,6 +64,36 @@ int _rebuildsOf<T extends Widget>(List<(Element, Widget)> rebuilt) =>
     rebuilt.where((rebuild) => rebuild.$2 is T).length;
 
 void main() {
+  testWidgets('Back and Forward swipe frames leave the dock alone', (
+    tester,
+  ) async {
+    final shell = await pumpTopicSheetScrollFixture(tester);
+    final frame = find.byKey(const ValueKey('mobile-root'));
+    final bounds = tester.getRect(frame);
+    final rebuilt = _recordRebuilds(tester);
+
+    for (final back in [true, false]) {
+      final direction = back ? 1.0 : -1.0;
+      final gesture = await tester.startGesture(
+        Offset(back ? bounds.left + 5 : bounds.right - 5, bounds.center.dy),
+      );
+      await gesture.moveBy(Offset(direction * 80, 0));
+      await tester.pump();
+      final livePage = find.byKey(const ValueKey('mobile-content-panel'));
+      final initialOffset = tester.getTopLeft(livePage).dx;
+      rebuilt.clear();
+      for (var frame = 0; frame < 8; frame++) {
+        await gesture.moveBy(Offset(direction * 8, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(tester.getTopLeft(livePage).dx, isNot(initialOffset));
+      expect(_rebuildsOf<MobileScrollDock>(rebuilt), 0);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.isTopic, !back);
+    }
+  }, variant: _phones);
+
   // Android keeps the list in the topic sheet's source slot. iOS moves the
   // list beneath each topic sheet, which rebuilds it as it moves.
   testWidgets(
