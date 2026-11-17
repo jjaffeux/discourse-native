@@ -12,6 +12,7 @@ class DTokens extends ThemeExtension<DTokens> {
   static final _controlThemes = Expando<DControlTheme>();
   static final _buttonThemes = Expando<DControlTheme>();
   static final _readTitleColors = Expando<Color>();
+  static final _postActionForegroundShares = Expando<double>();
   static final _menuGrabMarkColors = Expando<Color>();
   static final _referenceSurfaces = Expando<ReferenceSurfaces>();
 
@@ -162,6 +163,20 @@ class DTokens extends ThemeExtension<DTokens> {
   Color get inlineCodeBorder => Color.lerp(background, foreground, .24)!;
 
   Color get mutedForeground => colors.onSurfaceVariant;
+
+  /// The mockup's muted foreground mix for post actions, rounded up to a
+  /// tenth of a percentage point.
+  double get postActionForegroundShare => _postActionForegroundShares[this] ??=
+      (shareFor(
+                foreground,
+                background,
+                _reference.grounds,
+                textContrast + contrastMargin,
+                .50,
+              ) *
+              1000)
+          .ceil() /
+      1000;
 
   /// Palette ink for outlines, off states, and grab bars.
   Color get subtleMark => Color.lerp(background, foreground, .40)!;

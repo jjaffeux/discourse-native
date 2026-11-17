@@ -909,10 +909,13 @@ class DButton extends StatelessWidget {
             !states.contains(WidgetState.disabled) &&
             (states.contains(WidgetState.hovered) ||
                 states.contains(WidgetState.pressed));
+        final restingShare = tokens.postActionForegroundShare;
         final foreground = Color.lerp(
           tokens.background,
           tokens.foreground,
-          interacting || states.contains(WidgetState.focused) ? .62 : .32,
+          interacting || states.contains(WidgetState.focused)
+              ? math.max(.62, restingShare)
+              : restingShare,
         )!;
         return DButtonStateStyle(
           foregroundColor: foreground,

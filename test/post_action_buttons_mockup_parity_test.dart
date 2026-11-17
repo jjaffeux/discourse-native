@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
@@ -44,7 +45,8 @@ void main() {
     }
   });
 
-  for (final dark in [false, true]) {
+  // Computed by themeMixes in the mockup for the Discourse palette.
+  for (final (dark, iconColor) in [(false, 0xff5f5f5f), (true, 0xffafafaf)]) {
     testWidgets('production Reply and More match bare post actions ($dark)', (
       tester,
     ) async {
@@ -77,8 +79,10 @@ void main() {
       );
       await shell.loadTopic(7, 'a-topic');
       final key = GlobalKey();
-      final theme = AppTheme.forBrightness(
-        dark ? Brightness.dark : Brightness.light,
+      final brightness = dark ? Brightness.dark : Brightness.light;
+      final palette = forumThemePresets.firstWhere((p) => p.id == 'discourse');
+      final theme = AppTheme.fromPalette(
+        palette.resolve(brightness),
         fontFamily: 'Lato',
       );
       Future<void> mount({
@@ -100,7 +104,7 @@ void main() {
                   child: RepaintBoundary(
                     key: key,
                     child: ColoredBox(
-                      color: theme.scaffoldBackgroundColor,
+                      color: theme.shell.content,
                       child: SizedBox(
                         width: scale == 1 ? 440 : 320,
                         height: 130,
@@ -149,10 +153,7 @@ void main() {
 
         final icon = find.descendant(of: button, matching: find.byType(DIcon));
         expect(IconTheme.of(tester.element(icon)).size, 13);
-        expect(
-          IconTheme.of(tester.element(icon)).color,
-          Color.lerp(tokens.background, tokens.foreground, .32),
-        );
+        expect(IconTheme.of(tester.element(icon)).color?.toARGB32(), iconColor);
       }
       expect(tester.getRect(reply).left - tester.getRect(more).right, 4);
       await _capture(
@@ -168,10 +169,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
       final icon = find.descendant(of: reply, matching: find.byType(DIcon));
-      expect(
-        IconTheme.of(tester.element(icon)).color,
-        Color.lerp(tokens.background, tokens.foreground, .62),
-      );
+      expect(IconTheme.of(tester.element(icon)).color?.toARGB32(), iconColor);
       expect(buttonSurface(tester, of: reply).borderColor, Colors.transparent);
       expect(
         buttonSurface(tester, of: reply).color,
