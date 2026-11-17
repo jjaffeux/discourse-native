@@ -2164,6 +2164,8 @@ void _registerShellNavigationTests() {
 
       await pumpShell(tester, desktop, store: store, api: api);
 
+      await tester.tap(find.widgetWithText(DButton, 'Add a site'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'meta.discourse.org');
       await tester.tap(find.text('Connect'));
       await tester.pumpAndSettle();
@@ -2207,6 +2209,8 @@ void _registerShellNavigationTests() {
         authenticator: authenticator,
       );
 
+      await tester.tap(find.widgetWithText(DButton, 'Add a site'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'meetup.discourse.org');
       await tester.tap(find.text('Connect'));
       await tester.pumpAndSettle();
@@ -2285,6 +2289,8 @@ void _registerShellNavigationTests() {
 
       await pumpShell(tester, desktop, store: store, api: api);
 
+      await tester.tap(find.widgetWithText(DButton, 'Add a site'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'example.com');
       await tester.tap(find.text('Connect'));
       await tester.pumpAndSettle();

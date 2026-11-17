@@ -123,7 +123,7 @@ void main() {
     }, variant: TargetPlatformVariant.only(platform));
 
     testWidgets(
-      '${platform.name} empty startup opens Add Forum and can reopen it after dismissal',
+      '${platform.name} empty startup waits for Add a site to be tapped',
       (tester) async {
         await _pumpApp(
           tester,
@@ -132,11 +132,16 @@ void main() {
           MemoryForumTabPersistence(),
         );
         expect(find.byType(EmptyState), findsOneWidget);
-        expect(find.byType(DInput), findsOneWidget);
-        expect(
-          find.text('Enter the address of a Discourse forum.'),
-          findsOneWidget,
+        final addSite = find.widgetWithText(DButton, 'Add a site');
+        final formDescription = find.text(
+          'Enter the address of a Discourse forum.',
         );
+        expect(formDescription, findsNothing);
+        expect(addSite.hitTestable(), findsOneWidget);
+
+        await tester.tap(addSite);
+        await tester.pumpAndSettle();
+        expect(formDescription, findsOneWidget);
         // A phone's sheet is put away by its grabber; a desktop dialog closes.
         if (platform == TargetPlatform.iOS) {
           await tester.drag(
@@ -147,16 +152,10 @@ void main() {
           await tester.tap(find.byTooltip('Close').last);
         }
         await tester.pumpAndSettle();
-        expect(
-          find.text('Enter the address of a Discourse forum.'),
-          findsNothing,
-        );
-        await tester.tap(find.widgetWithText(DButton, 'Add a site'));
+        expect(formDescription, findsNothing);
+        await tester.tap(addSite);
         await tester.pumpAndSettle();
-        expect(
-          find.text('Enter the address of a Discourse forum.'),
-          findsOneWidget,
-        );
+        expect(formDescription, findsOneWidget);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
