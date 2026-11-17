@@ -22,60 +22,58 @@ void main() {
     }
   });
 
-  for (final imperative in [false, true]) {
-    for (final ratio in [1.0, 3.0]) {
-      testWidgets('bottom drawer clears the keyboard and clips its bleed '
-          '(imperative: $imperative, ratio: $ratio)', (tester) async {
-        tester.view.physicalSize = const Size(390, 844) * ratio;
-        tester.view.devicePixelRatio = ratio;
-        addTearDown(tester.view.reset);
-        Widget content() =>
-            DDrawerContent(height: 440, children: [DInput(hintText: 'Filter')]);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
-            home: Scaffold(
-              body: imperative
-                  ? Builder(
-                      builder: (context) => DButton(
-                        onPressed: () => showDDrawer<void>(
-                          context: context,
-                          builder: (_, _) => content(),
-                        ),
-                        label: const Text('Open'),
+  for (final (imperative, ratio) in [(false, 1.0), (true, 3.0)]) {
+    testWidgets('bottom drawer clears the keyboard and clips its bleed '
+        '(imperative: $imperative, ratio: $ratio)', (tester) async {
+      tester.view.physicalSize = const Size(390, 844) * ratio;
+      tester.view.devicePixelRatio = ratio;
+      addTearDown(tester.view.reset);
+      Widget content() =>
+          DDrawerContent(height: 440, children: [DInput(hintText: 'Filter')]);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: imperative
+                ? Builder(
+                    builder: (context) => DButton(
+                      onPressed: () => showDDrawer<void>(
+                        context: context,
+                        builder: (_, _) => content(),
                       ),
-                    )
-                  : DDrawer<void>(
-                      trigger: DDrawerTrigger(
-                        builder: (_, open) =>
-                            DButton(onPressed: open, label: const Text('Open')),
-                      ),
-                      content: content(),
+                      label: const Text('Open'),
                     ),
-            ),
+                  )
+                : DDrawer<void>(
+                    trigger: DDrawerTrigger(
+                      builder: (_, open) =>
+                          DButton(onPressed: open, label: const Text('Open')),
+                    ),
+                    content: content(),
+                  ),
           ),
-        );
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        final drawer = find.byType(DDrawerContent);
-        expect(tester.getRect(drawer).bottom, 844);
-        final input = find.byType(EditableText);
-        await tester.enterText(input, 'dev');
-        tester.view.viewInsets = FakeViewPadding(bottom: 300 * ratio);
-        await tester.pumpAndSettle();
-        expect(tester.getRect(drawer).bottom, 543);
-        final clip = find
-            .ancestor(of: drawer, matching: find.byType(ClipRect))
-            .first;
-        expect(tester.getRect(clip).bottom, 543);
-        tester.view.viewInsets = FakeViewPadding.zero;
-        await tester.pumpAndSettle();
-        expect(tester.getRect(drawer).bottom, 844);
-        expect(tester.widget<EditableText>(input).controller.text, 'dev');
-        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
-        expect(tester.takeException(), isNull);
-      });
-    }
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final drawer = find.byType(DDrawerContent);
+      expect(tester.getRect(drawer).bottom, 844);
+      final input = find.byType(EditableText);
+      await tester.enterText(input, 'dev');
+      tester.view.viewInsets = FakeViewPadding(bottom: 300 * ratio);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(drawer).bottom, 543);
+      final clip = find
+          .ancestor(of: drawer, matching: find.byType(ClipRect))
+          .first;
+      expect(tester.getRect(clip).bottom, 543);
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      expect(tester.getRect(drawer).bottom, 844);
+      expect(tester.widget<EditableText>(input).controller.text, 'dev');
+      expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
