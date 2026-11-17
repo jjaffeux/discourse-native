@@ -1474,6 +1474,8 @@ class PostMoreActionsButton extends StatelessWidget {
       explicitChildNodes: true,
       child: DDropdownMenu(
         controller: scope.menu,
+        sheetOnMobile: true,
+        mobileSheetVariant: DSheetVariant.adaptiveMenu,
         onOpenChange: (open, reason) {
           if (open) {
             (() => WidgetsBinding.instance.addPostFrameCallback((_) {

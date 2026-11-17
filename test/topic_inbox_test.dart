@@ -3812,8 +3812,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.widgetWithText(DDropdownMenuItem, 'Edit'), findsOneWidget);
     expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsOneWidget);
-    await tester.tap(more);
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
+    expect(find.widgetWithText(DDropdownMenuItem, 'Edit'), findsNothing);
 
     await tester.tap(reply);
     await tester.pumpAndSettle();

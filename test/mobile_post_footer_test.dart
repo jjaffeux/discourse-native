@@ -105,22 +105,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('mobile overflow keeps Edit and Bookmark available', (
-    tester,
-  ) async {
-    final (controller, _) = await _pumpFooter(tester);
-    await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsOneWidget);
-    await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Edit'));
-    await tester.pumpAndSettle();
-    expect(
-      (controller.visibleComposer?.target as PostEditingComposerTarget?)
-          ?.editingPostId,
-      1,
-    );
-    expect(tester.takeException(), isNull);
-  });
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('post actions open in a bottom sheet on ${platform.name}', (
+      tester,
+    ) async {
+      final (controller, _) = await _pumpFooter(tester, platform: platform);
+      await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byType(DSheetContent);
+      expect(sheet, findsOneWidget);
+      expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+      expect(
+        find.descendant(of: sheet, matching: find.text('Bookmark')),
+        findsOneWidget,
+      );
+      await tester.tap(find.descendant(of: sheet, matching: find.text('Edit')));
+      await tester.pumpAndSettle();
+
+      expect(sheet, findsNothing);
+      expect(
+        (controller.visibleComposer?.target as PostEditingComposerTarget?)
+            ?.editingPostId,
+        1,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('empty reactions leave React and Reply accessible', (
     tester,
@@ -174,6 +185,7 @@ void main() {
     expect(find.byTooltip('Bookmark this post'), findsNothing);
     await tester.tap(more);
     await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
     expect(find.widgetWithText(DDropdownMenuItem, 'Edit'), findsOneWidget);
     expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsOneWidget);
     expect(tester.takeException(), isNull);
