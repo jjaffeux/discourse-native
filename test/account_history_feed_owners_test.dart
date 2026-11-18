@@ -14,66 +14,60 @@ const _siteUrl = 'https://meta.discourse.org';
 void main() {
   for (final bookmarks in [true, false]) {
     final label = bookmarks ? 'bookmarks' : 'activity';
-    for (final probe in [
-      'retained rows',
-      'default reload',
-      'pending successor',
-    ]) {
-      test('$label $probe on bare account retirement', () async {
-        final api = _HistoryApi();
-        final lifecycle = SiteLifecycle();
-        final credentials = FakeApiCredentialReader()
-          ..keys[_siteUrl] = 'old-key';
-        final bookmarkOwner = BookmarkListOwner(
-          api: api,
-          credentials: credentials,
-          lifecycle: lifecycle,
-          changed: () {},
-        );
-        final activityOwner = UserActivityOwner(
-          api: api,
-          credentials: credentials,
-          lifecycle: lifecycle,
-          changed: () {},
-        );
-        addTearDown(bookmarkOwner.dispose);
-        addTearDown(activityOwner.dispose);
-        final site = instance(
-          'meta.discourse.org',
-        ).copyWith(user: const DiscourseUser(id: 7, username: 'sam'));
-        Future<void> load() =>
-            bookmarks ? bookmarkOwner.load(site) : activityOwner.load(site);
-        final old = load();
-        await api.started.future;
-        if (probe != 'pending successor') {
-          api.complete(0);
-          await old;
-        }
-        lifecycle.invalidate(_siteUrl);
-        if (probe == 'retained rows') {
-          expect(
-            bookmarks
-                ? bookmarkOwner.feedFor(_siteUrl).bookmarks
-                : activityOwner.feedFor(_siteUrl).items,
-            isEmpty,
+    for (final pending in [false, true]) {
+      test(
+        '$label reloads after bare account retirement (pending: $pending)',
+        () async {
+          final api = _HistoryApi();
+          final lifecycle = SiteLifecycle();
+          final credentials = FakeApiCredentialReader()
+            ..keys[_siteUrl] = 'old-key';
+          final bookmarkOwner = BookmarkListOwner(
+            api: api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+            changed: () {},
           );
-        } else {
+          final activityOwner = UserActivityOwner(
+            api: api,
+            credentials: credentials,
+            lifecycle: lifecycle,
+            changed: () {},
+          );
+          addTearDown(bookmarkOwner.dispose);
+          addTearDown(activityOwner.dispose);
+          final site = instance(
+            'meta.discourse.org',
+          ).copyWith(user: const DiscourseUser(id: 7, username: 'sam'));
+          Future<void> load() =>
+              bookmarks ? bookmarkOwner.load(site) : activityOwner.load(site);
+          Iterable<Object> rows() => bookmarks
+              ? bookmarkOwner.feedFor(_siteUrl).bookmarks
+              : activityOwner.feedFor(_siteUrl).items;
+          final old = load();
+          await api.started.future;
+          if (!pending) {
+            api.complete(0);
+            await old;
+            expect(rows(), isNotEmpty);
+          }
+          lifecycle.invalidate(_siteUrl);
+          expect(rows(), isEmpty);
+
           credentials.keys[_siteUrl] = 'new-key';
           final successor = load();
-          if (probe == 'pending successor') {
-            expect(identical(successor, old), isFalse);
-          }
+          if (pending) expect(successor, isNot(same(old)));
           await pumpEventQueue();
           expect(api._calls, 2);
           expect(api.keys, ['old-key', 'new-key']);
           api.complete(1);
           await successor;
-          if (probe == 'pending successor') {
+          if (pending) {
             api.complete(0);
             await old;
           }
-        }
-      });
+        },
+      );
     }
   }
 
