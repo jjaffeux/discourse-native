@@ -25,18 +25,32 @@ final _onePixelPng = base64Decode(
 );
 
 void main() {
-  const cases = [
-    (
-      name: 'root-relative URLs on a subfolder forum',
-      siteUrl: 'https://example.com/community',
-      prefix: '/community/uploads/default/',
-      target: 'https://example.com/community/uploads/default/',
-    ),
+  const sharedCases = [
     (
       name: 'root-relative URLs outside the forum directory',
       siteUrl: 'https://example.com/community',
       prefix: '/uploads/default/',
       target: 'https://example.com/uploads/default/',
+    ),
+    (
+      name: 'relative URLs with an encoded forum path and port',
+      siteUrl: 'https://example.com:8443/some%20community',
+      prefix: 'uploads/default/',
+      target: 'https://example.com:8443/some%20community/uploads/default/',
+    ),
+    (
+      name: 'protocol-relative CDN URLs on an HTTP forum',
+      siteUrl: 'http://example.com:3000/community',
+      prefix: '//cdn.example.com:8443/uploads/',
+      target: 'https://cdn.example.com:8443/uploads/',
+    ),
+  ];
+  const previewCases = [
+    (
+      name: 'root-relative URLs on a subfolder forum',
+      siteUrl: 'https://example.com/community',
+      prefix: '/community/uploads/default/',
+      target: 'https://example.com/community/uploads/default/',
     ),
     (
       name: 'relative URLs on a subfolder forum',
@@ -57,12 +71,6 @@ void main() {
       target: 'https://example.com:8443/some%20community/uploads/default/',
     ),
     (
-      name: 'relative URLs with an encoded forum path and port',
-      siteUrl: 'https://example.com:8443/some%20community',
-      prefix: 'uploads/default/',
-      target: 'https://example.com:8443/some%20community/uploads/default/',
-    ),
-    (
       name: 'root-relative URLs on a root forum',
       siteUrl: 'https://example.com',
       prefix: '/uploads/default/',
@@ -80,15 +88,9 @@ void main() {
       prefix: 'https://cdn.example.com:8443/uploads/',
       target: 'https://cdn.example.com:8443/uploads/',
     ),
-    (
-      name: 'protocol-relative CDN URLs on an HTTP forum',
-      siteUrl: 'http://example.com:3000/community',
-      prefix: '//cdn.example.com:8443/uploads/',
-      target: 'https://cdn.example.com:8443/uploads/',
-    ),
   ];
 
-  for (final input in cases) {
+  for (final input in [...sharedCases, ...previewCases]) {
     testWidgets('opens the previewed chat image for ${input.name}', (
       tester,
     ) async {
@@ -126,7 +128,9 @@ void main() {
       expect(requests, [('GET', thumbnailUrl), ('GET', fullUrl)]);
       expect(tester.takeException(), isNull);
     });
+  }
 
+  for (final input in sharedCases) {
     testWidgets('launches the chat attachment for ${input.name}', (
       tester,
     ) async {
