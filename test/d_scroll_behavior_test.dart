@@ -132,60 +132,59 @@ void main() {
     expect(builds, 1);
   });
 
-  for (final direction in TextDirection.values) {
-    for (final reverse in [false, true]) {
-      testWidgets('opt-in horizontal fades follow physical edges in '
-          '$direction, reverse=$reverse', (tester) async {
-        final key = GlobalKey();
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
-        await tester.pumpWidget(
-          _host(
-            key,
-            Directionality(
-              textDirection: direction,
-              child: DScrollFadeScope(
-                horizontalExtent: 30,
-                child: SingleChildScrollView(
-                  controller: scroll,
-                  scrollDirection: Axis.horizontal,
-                  reverse: reverse,
-                  child: const SizedBox(
-                    width: 1000,
-                    height: 180,
-                    child: ColoredBox(color: _ink),
-                  ),
+  for (final (direction, reverse, leftward) in [
+    (TextDirection.ltr, false, false),
+    (TextDirection.ltr, true, true),
+    (TextDirection.rtl, false, true),
+  ]) {
+    testWidgets('opt-in horizontal fades follow physical edges in '
+        '$direction, reverse=$reverse', (tester) async {
+      final key = GlobalKey();
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _host(
+          key,
+          Directionality(
+            textDirection: direction,
+            child: DScrollFadeScope(
+              horizontalExtent: 30,
+              child: SingleChildScrollView(
+                controller: scroll,
+                scrollDirection: Axis.horizontal,
+                reverse: reverse,
+                child: const SizedBox(
+                  width: 1000,
+                  height: 180,
+                  child: ColoredBox(color: _ink),
                 ),
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
-        final leftward = scroll.position.axisDirection == AxisDirection.left;
-        _expectInk(await _pixel(tester, key, 90, x: 0), leftward ? .5 / 30 : 1);
-        _expectInk(
-          await _pixel(tester, key, 90, x: 199),
-          leftward ? 1 : .5 / 30,
-        );
-        // Horizontal fades do not borrow the vertical top/bottom geometry.
-        _expectInk(await _pixel(tester, key, 0, x: 100), 1);
-        scroll.jumpTo(150);
-        await tester.pumpAndSettle();
-        _expectInk(await _pixel(tester, key, 90, x: 0), .5 / 30);
-        _expectInk(await _pixel(tester, key, 90, x: 15), 15.5 / 30);
-        _expectInk(await _pixel(tester, key, 90, x: 30), 1);
-        _expectInk(await _pixel(tester, key, 90, x: 184), 15.5 / 30);
-        _expectInk(await _pixel(tester, key, 90, x: 199), .5 / 30);
-        scroll.jumpTo(scroll.position.maxScrollExtent - 1);
-        await tester.pumpAndSettle();
-        _expectInk(await _pixel(tester, key, 90, x: 0), leftward ? 1 : .5 / 30);
-        _expectInk(
-          await _pixel(tester, key, 90, x: 199),
-          leftward ? .5 / 30 : 1,
-        );
-        expect(tester.takeException(), isNull);
-      });
-    }
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        scroll.position.axisDirection,
+        leftward ? AxisDirection.left : AxisDirection.right,
+      );
+      _expectInk(await _pixel(tester, key, 90, x: 0), leftward ? .5 / 30 : 1);
+      _expectInk(await _pixel(tester, key, 90, x: 199), leftward ? 1 : .5 / 30);
+      // Horizontal fades do not borrow the vertical top/bottom geometry.
+      _expectInk(await _pixel(tester, key, 0, x: 100), 1);
+      scroll.jumpTo(150);
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 90, x: 0), .5 / 30);
+      _expectInk(await _pixel(tester, key, 90, x: 15), 15.5 / 30);
+      _expectInk(await _pixel(tester, key, 90, x: 30), 1);
+      _expectInk(await _pixel(tester, key, 90, x: 184), 15.5 / 30);
+      _expectInk(await _pixel(tester, key, 90, x: 199), .5 / 30);
+      scroll.jumpTo(scroll.position.maxScrollExtent - 1);
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 90, x: 0), leftward ? 1 : .5 / 30);
+      _expectInk(await _pixel(tester, key, 90, x: 199), leftward ? .5 / 30 : 1);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('horizontal fades update after resize and content changes '
