@@ -283,74 +283,71 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
-  for (final group in [null, 'team']) {
+  testWidgets('personal Unread messages remove read ones after moving on', (
+    tester,
+  ) async {
+    final folder = ContentRoute.messages(mode: MessageListMode.unread);
+    final (shell, api, _) = await _setup(tester, folder: folder, count: 2);
+    await _openBeside(tester, _card(1));
+    await shell.markTopicRead(_site, 1, 10, caughtUp: true);
+    await tester.pumpAndSettle();
+    expect(_card(1), findsOneWidget);
+    expect(tester.widget<DItem>(_card(1)).selected, isTrue);
+
+    await _openBeside(tester, _card(2));
+    expect(_card(1), findsNothing);
+    expect(tester.widget<DItem>(_card(2)).selected, isTrue);
+    expect(shell.currentFeed!.topicIds, [2]);
+    expect(shell.topicFeeds.feedFor(_site, folder.id)!.topicIds, [1, 2]);
+
+    await shell.markTopicRead(_site, 2, 10, caughtUp: true);
+    shell.closeTopicListReader();
+    await tester.pumpAndSettle();
+    expect(_card(2), findsNothing);
+    expect(find.text("You're all caught up."), findsOneWidget);
+    expect(
+      api.feedPaths.where((path) => path == _folderPath(folder)),
+      hasLength(1),
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('group Unread messages list a read one again after a reply', (
+    tester,
+  ) async {
     final folder = ContentRoute.messages(
-      groupName: group,
+      groupName: 'team',
       mode: MessageListMode.unread,
     );
-    final name = group == null ? 'personal' : 'group';
+    final (shell, api, rows) = await _setup(tester, folder: folder, count: 2);
+    await shell.markTopicRead(_site, 1, 10, caughtUp: true);
+    await tester.pumpAndSettle();
+    expect(_card(1), findsNothing);
 
-    testWidgets('$name Unread messages remove read ones after moving on', (
-      tester,
-    ) async {
-      final (shell, api, _) = await _setup(tester, folder: folder, count: 2);
-      await _openBeside(tester, _card(1));
-      await shell.markTopicRead(_site, 1, 10, caughtUp: true);
-      await tester.pumpAndSettle();
-      expect(_card(1), findsOneWidget);
-      expect(tester.widget<DItem>(_card(1)).selected, isTrue);
+    // Core's inbox lists read messages too.
+    shell.selectMessageListMode(MessageListMode.inbox);
+    await tester.pumpAndSettle();
+    expect(shell.currentFeed!.topicIds, [1, 2]);
+    expect(_card(1), findsOneWidget);
+    shell.selectMessageListMode(MessageListMode.unread);
+    await tester.pumpAndSettle();
+    expect(_card(1), findsNothing);
 
-      await _openBeside(tester, _card(2));
-      expect(_card(1), findsNothing);
-      expect(tester.widget<DItem>(_card(2)).selected, isTrue);
-      expect(shell.currentFeed!.topicIds, [2]);
-      expect(shell.topicFeeds.feedFor(_site, folder.id)!.topicIds, [1, 2]);
+    // A response older than the read must not bring the message back.
+    await shell.loadFeed(folder.id, force: true);
+    await tester.pumpAndSettle();
+    expect(_card(1), findsNothing);
 
-      await shell.markTopicRead(_site, 2, 10, caughtUp: true);
-      shell.closeTopicListReader();
-      await tester.pumpAndSettle();
-      expect(_card(2), findsNothing);
-      expect(find.text("You're all caught up."), findsOneWidget);
-      expect(
-        api.feedPaths.where((path) => path == _folderPath(folder)),
-        hasLength(1),
-      );
-      expect(tester.takeException(), isNull);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-    testWidgets('$name Unread messages list a read one again after a reply', (
-      tester,
-    ) async {
-      final (shell, api, rows) = await _setup(tester, folder: folder, count: 2);
-      await shell.markTopicRead(_site, 1, 10, caughtUp: true);
-      await tester.pumpAndSettle();
-      expect(_card(1), findsNothing);
-
-      // Core's inbox lists read messages too.
-      shell.selectMessageListMode(MessageListMode.inbox);
-      await tester.pumpAndSettle();
-      expect(shell.currentFeed!.topicIds, [1, 2]);
-      expect(_card(1), findsOneWidget);
-      shell.selectMessageListMode(MessageListMode.unread);
-      await tester.pumpAndSettle();
-      expect(_card(1), findsNothing);
-
-      // A response older than the read must not bring the message back.
-      await shell.loadFeed(folder.id, force: true);
-      await tester.pumpAndSettle();
-      expect(_card(1), findsNothing);
-
-      api.feeds[_folderPath(folder)] = [
-        _row(1, message: true, highestPostNumber: 11, lastReadPostNumber: 10),
-        rows[1],
-      ];
-      await shell.loadFeed(folder.id, force: true);
-      await tester.pumpAndSettle();
-      expect(shell.currentFeed!.topicIds, [1, 2]);
-      expect(_card(1), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-  }
+    api.feeds[_folderPath(folder)] = [
+      _row(1, message: true, highestPostNumber: 11, lastReadPostNumber: 10),
+      rows[1],
+    ];
+    await shell.loadFeed(folder.id, force: true);
+    await tester.pumpAndSettle();
+    expect(shell.currentFeed!.topicIds, [1, 2]);
+    expect(_card(1), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('last read topic stays open until the reader closes', (
     tester,
