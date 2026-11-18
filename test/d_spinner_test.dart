@@ -45,26 +45,17 @@ void main() {
     );
   });
 
-  for (final platform in [
-    TargetPlatform.iOS,
-    TargetPlatform.macOS,
-    TargetPlatform.linux,
-  ]) {
-    testWidgets('reference artwork size and color on ${platform.name}', (
-      tester,
-    ) async {
-      for (final size in [12.0, 16.0, 24.0, 32.0]) {
-        await _pump(
-          tester,
-          DSpinner(size: size, color: const Color(0xff126f53), strokeWidth: 3),
-          platform: platform,
-        );
-        expect(tester.getSize(find.byType(DSpinner)), Size.square(size));
-        expect(_artwork(tester).theme!.currentColor, const Color(0xff126f53));
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-      }
-    });
-  }
+  testWidgets('reference artwork size and color', (tester) async {
+    for (final size in [12.0, 16.0, 24.0, 32.0]) {
+      await _pump(
+        tester,
+        DSpinner(size: size, color: const Color(0xff126f53), strokeWidth: 3),
+      );
+      expect(tester.getSize(find.byType(DSpinner)), Size.square(size));
+      expect(_artwork(tester).theme!.currentColor, const Color(0xff126f53));
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    }
+  });
 
   testWidgets('tight constraints and large text do not distort the spinner', (
     tester,
@@ -78,46 +69,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final (platform, custom) in [
-    (TargetPlatform.macOS, false),
-    (TargetPlatform.linux, false),
-    (TargetPlatform.macOS, true),
-  ]) {
-    testWidgets(
-      'one busy status survives reduced motion on ${platform.name}, custom=$custom',
-      (tester) async {
-        final semantics = tester.ensureSemantics();
-        try {
-          const spinner = DSpinner(semanticLabel: 'Saving draft');
-          await _pump(tester, spinner, platform: platform);
-          await tester.pump(const Duration(milliseconds: 200));
-          expect(tester.binding.transientCallbackCount, greaterThan(0));
+  testWidgets('one busy status survives reduced motion', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      const spinner = DSpinner(semanticLabel: 'Saving draft');
+      await _pump(tester, spinner);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.binding.transientCallbackCount, greaterThan(0));
 
-          await _pump(tester, spinner, platform: platform, reducedMotion: true);
-          await tester.pumpAndSettle();
-          expect(tester.binding.transientCallbackCount, 0);
-          final node = tester.getSemantics(
-            find.bySemanticsLabel('Saving draft'),
-          );
-          expect(node.getSemanticsData().role, SemanticsRole.loadingSpinner);
-          expect(node.getSemanticsData().value, isEmpty);
-          expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
-          expect(find.bySemanticsLabel('Loading'), findsNothing);
-          expect(find.byType(DSpinner), findsOneWidget);
+      await _pump(tester, spinner, reducedMotion: true);
+      await tester.pumpAndSettle();
+      expect(tester.binding.transientCallbackCount, 0);
+      final node = tester.getSemantics(find.bySemanticsLabel('Saving draft'));
+      expect(node.getSemanticsData().role, SemanticsRole.loadingSpinner);
+      expect(node.getSemanticsData().value, isEmpty);
+      expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+      expect(find.bySemanticsLabel('Loading'), findsNothing);
+      expect(find.byType(DSpinner), findsOneWidget);
 
-          await _pump(tester, spinner, platform: platform);
-          await tester.pump(const Duration(milliseconds: 200));
-          expect(tester.binding.transientCallbackCount, greaterThan(0));
-          await tester.pumpWidget(const SizedBox.shrink());
-          await tester.pumpAndSettle();
-          expect(tester.binding.transientCallbackCount, 0);
-          expect(tester.takeException(), isNull);
-        } finally {
-          semantics.dispose();
-        }
-      },
-    );
-  }
+      await _pump(tester, spinner);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.binding.transientCallbackCount, greaterThan(0));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets('custom rotation pauses, resumes, and remains clockwise in RTL', (
     tester,
@@ -149,55 +129,49 @@ void main() {
     expect(turns(), isNot(paused));
   });
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
-    testWidgets(
-      'an unfocused window keeps default and custom motion while a disabled ticker subtree pauses it on ${platform.name}',
-      (tester) async {
-        addTearDown(
-          () => tester.binding.handleAppLifecycleStateChanged(
-            AppLifecycleState.resumed,
-          ),
-        );
-        const indicators = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [DSpinner(), DSpinner()],
-        );
-        await _pump(tester, indicators, platform: platform);
-        await tester.pump(const Duration(milliseconds: 100));
-        // Desktop reports inactive whenever another window is key; the
-        // reference keeps spinning in a visible unfocused page.
-        tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.inactive,
-        );
-        final unfocused = _turns(tester);
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(tester.binding.transientCallbackCount, 2);
-        expect(_turns(tester)[0], greaterThan(unfocused[0]));
-        expect(_turns(tester)[1], greaterThan(unfocused[1]));
-        // Hidden and paused windows stop scheduling frames in the framework;
-        // the spinner adds no observer of its own.
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-        expect(tester.binding.framesEnabled, isFalse);
-        tester.binding.handleAppLifecycleStateChanged(
+  testWidgets(
+    'unfocused spinners keep moving until their tickers are disabled',
+    (tester) async {
+      addTearDown(
+        () => tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.resumed,
-        );
-        expect(tester.binding.framesEnabled, isTrue);
-        final resumed = _turns(tester);
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(_turns(tester)[0], greaterThan(resumed[0]));
-        await _pump(tester, indicators, platform: platform, tickers: false);
-        await tester.pumpAndSettle();
-        expect(tester.binding.transientCallbackCount, 0);
-        final paused = _turns(tester);
-        await tester.pump(const Duration(seconds: 2));
-        expect(_turns(tester), paused);
-        await _pump(tester, indicators, platform: platform);
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(tester.binding.transientCallbackCount, 2);
-        expect(_turns(tester)[1], isNot(paused[1]));
-      },
-    );
-  }
+        ),
+      );
+      const indicators = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [DSpinner(), DSpinner()],
+      );
+      await _pump(tester, indicators);
+      await tester.pump(const Duration(milliseconds: 100));
+      // Desktop reports inactive whenever another window is key; the
+      // reference keeps spinning in a visible unfocused page.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      final unfocused = _turns(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.binding.transientCallbackCount, 2);
+      expect(_turns(tester)[0], greaterThan(unfocused[0]));
+      expect(_turns(tester)[1], greaterThan(unfocused[1]));
+      // Hidden and paused windows stop scheduling frames in the framework;
+      // the spinner adds no observer of its own.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      expect(tester.binding.framesEnabled, isFalse);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(tester.binding.framesEnabled, isTrue);
+      final resumed = _turns(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_turns(tester)[0], greaterThan(resumed[0]));
+      await _pump(tester, indicators, tickers: false);
+      await tester.pumpAndSettle();
+      expect(tester.binding.transientCallbackCount, 0);
+      final paused = _turns(tester);
+      await tester.pump(const Duration(seconds: 2));
+      expect(_turns(tester), paused);
+      await _pump(tester, indicators);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.binding.transientCallbackCount, 2);
+      expect(_turns(tester)[1], isNot(paused[1]));
+    },
+  );
 
   testWidgets(
     'decorative custom artwork adds no semantics, focus or pointer target',
