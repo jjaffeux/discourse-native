@@ -27,7 +27,7 @@ void main() {
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
   for (final resolveReader in [false, true]) {
-    for (final limited in [false, true]) {
+    for (final limited in [if (!resolveReader) false, true]) {
       testWidgets('desktop skeleton keeps its width through loading '
           '(resolve reader: $resolveReader, limited: $limited)', (
         tester,

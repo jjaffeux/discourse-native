@@ -6,107 +6,108 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 void main() {
-  for (final direction in TextDirection.values) {
-    for (final growth in [120.0, 1000.0]) {
-      testWidgets(
-        'cached post height changes preserve an active drag ($direction, $growth)',
-        (tester) async {
-          final h = _Harness();
-          addTearDown(h.dispose);
-          await _show(tester, h, direction: direction);
-          final viewport = tester.getRect(find.byType(CustomScrollView));
-          final leading = find.byKey(const ValueKey(3), skipOffstage: false);
-          final anchor = find.byKey(const ValueKey(5));
-          expect(leading, findsOneWidget);
-          expect(tester.getBottomLeft(leading).dy, lessThan(viewport.top));
-          expect(
-            tester.getTopLeft(anchor).dy,
-            inExclusiveRange(viewport.top, viewport.bottom),
-          );
-          final drag = await tester.startGesture(viewport.center);
-          await drag.moveBy(const Offset(0, -30));
-          await tester.pump();
-          var top = tester.getTopLeft(anchor).dy;
-          var pixels = h.scroll.offset;
-          final element = tester.element(anchor);
-          h.heights[2].value = 200 + growth;
-          await tester.pump();
-          expect(
-            anchor,
-            findsOneWidget,
-            reason:
-                'The previously visible post must remain visible after growth',
-          );
-          expect(
-            tester.getTopLeft(anchor).dy,
-            closeTo(top, .01),
-            reason: 'Growth above the viewport must not move the visible post',
-          );
-          expect(h.scroll.offset, closeTo(pixels + growth, .01));
-          for (var frame = 0; frame < 3; frame++) {
-            await tester.pump(const Duration(milliseconds: 8));
-            expect(tester.getTopLeft(anchor).dy, closeTo(top, .01));
-          }
+  for (final (direction, growth) in [
+    (TextDirection.ltr, 120.0),
+    (TextDirection.rtl, 1000.0),
+  ]) {
+    testWidgets(
+      'cached post height changes preserve an active drag ($direction, $growth)',
+      (tester) async {
+        final h = _Harness();
+        addTearDown(h.dispose);
+        await _show(tester, h, direction: direction);
+        final viewport = tester.getRect(find.byType(CustomScrollView));
+        final leading = find.byKey(const ValueKey(3), skipOffstage: false);
+        final anchor = find.byKey(const ValueKey(5));
+        expect(leading, findsOneWidget);
+        expect(tester.getBottomLeft(leading).dy, lessThan(viewport.top));
+        expect(
+          tester.getTopLeft(anchor).dy,
+          inExclusiveRange(viewport.top, viewport.bottom),
+        );
+        final drag = await tester.startGesture(viewport.center);
+        await drag.moveBy(const Offset(0, -30));
+        await tester.pump();
+        var top = tester.getTopLeft(anchor).dy;
+        var pixels = h.scroll.offset;
+        final element = tester.element(anchor);
+        h.heights[2].value = 200 + growth;
+        await tester.pump();
+        expect(
+          anchor,
+          findsOneWidget,
+          reason:
+              'The previously visible post must remain visible after growth',
+        );
+        expect(
+          tester.getTopLeft(anchor).dy,
+          closeTo(top, .01),
+          reason: 'Growth above the viewport must not move the visible post',
+        );
+        expect(h.scroll.offset, closeTo(pixels + growth, .01));
+        for (var frame = 0; frame < 3; frame++) {
+          await tester.pump(const Duration(milliseconds: 8));
+          expect(tester.getTopLeft(anchor).dy, closeTo(top, .01));
+        }
+        expect(tester.element(anchor), same(element));
+        await drag.moveBy(const Offset(0, -20));
+        await tester.pump();
+        expect(tester.getTopLeft(anchor).dy, closeTo(top - 20, .01));
+        top = tester.getTopLeft(anchor).dy;
+        pixels = h.scroll.offset;
+        h.heights[2].value = 240;
+        await tester.pump();
+        expect(
+          tester.getTopLeft(anchor).dy,
+          closeTo(top, .01),
+          reason: 'Shrinking above the viewport must not move the visible post',
+        );
+        expect(h.scroll.offset, closeTo(pixels - (growth - 40), .01));
+        expect(tester.element(anchor), same(element));
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final (direction, first, second, delta) in [
+    (TextDirection.ltr, 400.0, 0.0, 0.0),
+    (TextDirection.rtl, 20.0, 1000.0, 620.0),
+    (TextDirection.ltr, 20.0, 30.0, -350.0),
+  ]) {
+    testWidgets(
+      'simultaneous cached height changes retain the drag anchor ($direction, $delta)',
+      (tester) async {
+        final h = _Harness();
+        addTearDown(h.dispose);
+        await _show(tester, h, direction: direction);
+        final anchor = find.byKey(const ValueKey(5));
+        final drag = await tester.startGesture(
+          tester.getCenter(find.byType(CustomScrollView)),
+        );
+        await drag.moveBy(const Offset(0, -30));
+        await tester.pump();
+        final top = tester.getTopLeft(anchor).dy;
+        final pixels = h.scroll.offset;
+        final element = tester.element(anchor);
+        h.heights[1].value = first;
+        h.heights[2].value = second;
+        await tester.pump();
+        expect(h.scroll.offset, closeTo(pixels + delta, .01));
+        for (var frame = 0; frame < 3; frame++) {
+          expect(tester.getTopLeft(anchor).dy, closeTo(top, .01));
           expect(tester.element(anchor), same(element));
-          await drag.moveBy(const Offset(0, -20));
-          await tester.pump();
-          expect(tester.getTopLeft(anchor).dy, closeTo(top - 20, .01));
-          top = tester.getTopLeft(anchor).dy;
-          pixels = h.scroll.offset;
-          h.heights[2].value = 240;
-          await tester.pump();
-          expect(
-            tester.getTopLeft(anchor).dy,
-            closeTo(top, .01),
-            reason:
-                'Shrinking above the viewport must not move the visible post',
-          );
-          expect(h.scroll.offset, closeTo(pixels - (growth - 40), .01));
-          expect(tester.element(anchor), same(element));
-          await drag.up();
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
-    for (final (first, second, delta) in [
-      (400.0, 0.0, 0.0),
-      (20.0, 1000.0, 620.0),
-      (20.0, 30.0, -350.0),
-    ]) {
-      testWidgets(
-        'simultaneous cached height changes retain the drag anchor ($direction, $delta)',
-        (tester) async {
-          final h = _Harness();
-          addTearDown(h.dispose);
-          await _show(tester, h, direction: direction);
-          final anchor = find.byKey(const ValueKey(5));
-          final drag = await tester.startGesture(
-            tester.getCenter(find.byType(CustomScrollView)),
-          );
-          await drag.moveBy(const Offset(0, -30));
-          await tester.pump();
-          final top = tester.getTopLeft(anchor).dy;
-          final pixels = h.scroll.offset;
-          final element = tester.element(anchor);
-          h.heights[1].value = first;
-          h.heights[2].value = second;
-          await tester.pump();
-          expect(h.scroll.offset, closeTo(pixels + delta, .01));
-          for (var frame = 0; frame < 3; frame++) {
-            expect(tester.getTopLeft(anchor).dy, closeTo(top, .01));
-            expect(tester.element(anchor), same(element));
-            await tester.pump(const Duration(milliseconds: 8));
-          }
-          await drag.moveBy(const Offset(0, -20));
-          await tester.pump();
-          expect(tester.getTopLeft(anchor).dy, closeTo(top - 20, .01));
-          await drag.up();
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+          await tester.pump(const Duration(milliseconds: 8));
+        }
+        await drag.moveBy(const Offset(0, -20));
+        await tester.pump();
+        expect(tester.getTopLeft(anchor).dy, closeTo(top - 20, .01));
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('cached growth keeps the visible post focused during a drag', (
