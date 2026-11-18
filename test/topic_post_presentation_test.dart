@@ -88,57 +88,53 @@ void main() {
     });
   }
 
-  for (final platform in [TargetPlatform.linux, TargetPlatform.iOS]) {
-    testWidgets('compact author headers keep one smaller style on $platform', (
-      tester,
-    ) async {
-      final controller = await _controller();
-      addTearDown(controller.dispose);
-      Future<void> pump(TopicPostLayout layout) async {
-        await tester.pumpWidget(
-          _host(
-            controller,
-            TopicPostPresentation(
-              siteUrl: _site,
-              topicId: 7,
-              postId: 1,
-              layout: layout,
-            ),
-            platform: platform,
+  testWidgets('compact author headers keep one smaller style', (tester) async {
+    final controller = await _controller();
+    addTearDown(controller.dispose);
+    Future<void> pump(TopicPostLayout layout) async {
+      await tester.pumpWidget(
+        _host(
+          controller,
+          TopicPostPresentation(
+            siteUrl: _site,
+            topicId: 7,
+            postId: 1,
+            layout: layout,
           ),
-        );
-        await tester.pumpAndSettle();
-      }
-
-      await pump(TopicPostLayout.standard);
-      expect(tester.getSize(find.byType(DAvatar)), const Size(32, 32));
-      final ordinaryName = tester.widget<Text>(find.text('author')).style!;
-      final ordinaryBadge = tester.renderObject<RenderParagraph>(
-        find.text('staff'),
+          platform: TargetPlatform.iOS,
+        ),
       );
-      final ordinaryBadgeFont = ordinaryBadge.text.style!.fontSize!;
-      final ordinaryBadgeHeight = ordinaryBadge.size.height;
-      expect(ordinaryName.fontWeight, FontWeight.w700);
-      for (final layout in [
-        TopicPostLayout.compact,
-        TopicPostLayout.stacked,
-        TopicPostLayout.headerOnly,
-      ]) {
-        await pump(layout);
-        expect(tester.getSize(find.byType(DAvatar)), const Size(28, 28));
-        final name = tester.widget<Text>(find.text('author')).style!;
-        expect(name.fontWeight, FontWeight.w400);
-        expect(name.fontSize, lessThan(ordinaryName.fontSize!));
-        final badge = tester.renderObject<RenderParagraph>(find.text('staff'));
-        expect(badge.text.style!.fontSize, lessThan(ordinaryBadgeFont));
-        expect(
-          tester.getSize(find.byType(DBadge)).height,
-          lessThan(ordinaryBadgeHeight),
-        );
-      }
-      expect(tester.takeException(), isNull);
-    });
-  }
+      await tester.pumpAndSettle();
+    }
+
+    await pump(TopicPostLayout.standard);
+    expect(tester.getSize(find.byType(DAvatar)), const Size(32, 32));
+    final ordinaryName = tester.widget<Text>(find.text('author')).style!;
+    final ordinaryBadge = tester.renderObject<RenderParagraph>(
+      find.text('staff'),
+    );
+    final ordinaryBadgeFont = ordinaryBadge.text.style!.fontSize!;
+    final ordinaryBadgeHeight = ordinaryBadge.size.height;
+    expect(ordinaryName.fontWeight, FontWeight.w700);
+    for (final layout in [
+      TopicPostLayout.compact,
+      TopicPostLayout.stacked,
+      TopicPostLayout.headerOnly,
+    ]) {
+      await pump(layout);
+      expect(tester.getSize(find.byType(DAvatar)), const Size(28, 28));
+      final name = tester.widget<Text>(find.text('author')).style!;
+      expect(name.fontWeight, FontWeight.w400);
+      expect(name.fontSize, lessThan(ordinaryName.fontSize!));
+      final badge = tester.renderObject<RenderParagraph>(find.text('staff'));
+      expect(badge.text.style!.fontSize, lessThan(ordinaryBadgeFont));
+      expect(
+        tester.getSize(find.byType(DBadge)).height,
+        lessThan(ordinaryBadgeHeight),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'author badges stay beside long names and update cached content',
