@@ -716,12 +716,13 @@ class _ChatChannelPanelChips extends StatelessWidget {
       ],
     );
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(_rowInset, 8, _rowInset, 8),
-      // Scrolled across as one line. A chip brought into focus brings itself
-      // into view, so the line is no stop of its own for the keyboard.
+    // Scrolled across as one line. A chip brought into focus brings itself
+    // into view, so the line is no stop of its own for the keyboard.
+    return DScrollFadeScope(
+      horizontalExtent: 28,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: _rowInset, vertical: 8),
         child: IntrinsicHeight(
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -107,7 +107,7 @@ whose matching message was never loaded is not found by it.
 | 40 | Done | 56270–56353, 42976 (`channelMembers`), 15040 (`channelStatus`): each channel one row: its mark, its name and how many are in it on one line with the count giving way first, a Join or Leave chip, then what it is about in full | `_ChatChannelBrowseRow`: a menu-shaped `DItem`, the name and `memberships_count` in one line of text so the count is what is cut, the status after it unless open, `description` under it with no line limit. The chip is the sheet's own chip, a `DToggle` chosen while it offers Join. Real fields: `memberships_count`, `status`, `description`, `current_user_membership.following` and `meta.can_join_chat_channel` from `Chat::ChannelSerializer` | "channels are browsed in a panel that opens on Not joined and Open" on iOS and macOS; captures `channel-panel-browse-phone.png`, `channel-panel-browse-desktop.png` |
 | 40a | Done | 36028–36029: the chip joins or leaves | `ChatController.updateChannelFollowing`. The chip waits while its write is unanswered, and the directory admits one follow write per channel, so a leave cannot be sent ahead of the join it would undo. A join the server refuses says why in a toast. A channel that is closed or cannot be joined has a disabled chip | "a channel is joined and left from its row", "a refused join says why"; `chat_channel_follow_ordering_test.dart` |
 | 41 | Done | 36030–36034: pressing a channel opens it and puts the panel away | `_open`: the channel is resolved, the sheet closed, the channel opened. One that cannot be resolved says so and keeps the panel | "pressing a channel opens it and puts the panel away", "a channel that cannot be opened"; `mobile_chat_sheet_test.dart` "a channel opened from the channel panel" |
-| 42 | Done | 56360–56380, 25963–25966: chips at the foot, All, Joined, Not joined, then Open, Closed, Archived, opening on Not joined and Open; pressing the status chosen lets every status back in | `_ChatChannelPanelChips`: two `DToggleGroup`s at the kit's chip preset in the `DSheetScrollBody` footer, which steps out of the way as the list is read. Membership narrows what is listed here; status is asked of the server. What they are set to is kept for the forum between openings, as the mockup keeps it while it runs | "the chips narrow by membership here and by status there", "what was chosen at the foot is kept for the next opening"; `chat_browse_session_test.dart` |
+| 42 | Done | 56360–56380, 25963–25966: chips at the foot, All, Joined, Not joined, then Open, Closed, Archived, opening on Not joined and Open; pressing the status chosen lets every status back in | `_ChatChannelPanelChips`: two `DToggleGroup`s at the kit's chip preset in the `DSheetScrollBody` footer, which steps out of the way as the list is read. The strip fades at each edge with more chips beyond it. Membership narrows what is listed here; status is asked of the server. What they are set to is kept for the forum between openings, as the mockup keeps it while it runs | "the chips narrow by membership here and by status there", "what was chosen at the foot is kept for the next opening"; `chat_browse_session_test.dart` |
 | 43 | Done | 56216–56223, 56355–56359: the field "Find a channel"; "No channels match “words”" | `SheetSearch`; the server finds by name as the words are typed. The panel always opens empty or on the words carried to it. With nothing typed and nothing listed it says "No channels match these filters." | "a channel is found by name along the field" |
 | 44 | Done | 56236–56268: picking, All channels first, the name alone, a check on the one picked, its row in the active fill | `_picking`: `DItem`s with the strong neutral selection, the ink at 13% as `--state-active` is, and an 11 check in the accent. Found by name among what is listed | `chat_my_threads_view_test.dart` |
 | 45 | Done | 56086–56096: a channel's mark in the panel is its `#` in its colour on nothing, in the 14 slot every menu row keeps | `ChatChannelMark`, in both modes | Same tests |
@@ -118,7 +118,7 @@ refresher, a menu on each card, and the unread count of a joined channel.
 The mockup's panel has none of them. The panel asks again each time it
 opens, each time its words change and each time a status chip is pressed.
 
-Three small departures, each on the real data's side:
+Two differences in how the panel renders:
 
 - Sizes. `IN_SHEET` (56086) gives a page's sizes in a phone's sheet, which
   draws what it holds 17/13 larger. Taken literally it also shrinks the
@@ -126,8 +126,6 @@ Three small departures, each on the real data's side:
   list has it", so the desktop draws 14.5, 12 and 12.5.
 - A channel's emoji is not drawn in the panel. The mockup's mark is the `#`
   alone.
-- The line of chips does not fade at its ends. The kit fades a single group
-  of chips; the panel's line holds two groups and a rule between them.
 
 ### The side
 
