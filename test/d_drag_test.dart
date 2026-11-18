@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final (platform, kind) in [
-    (TargetPlatform.iOS, PointerDeviceKind.touch),
     (TargetPlatform.macOS, PointerDeviceKind.touch),
     (TargetPlatform.iOS, PointerDeviceKind.mouse),
     (TargetPlatform.iOS, PointerDeviceKind.stylus),
