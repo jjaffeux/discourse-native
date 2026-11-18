@@ -63,7 +63,7 @@ It slides upward and fades out as the tab bar slides down; both return with the 
 The content expands into the header's space while moving horizontally.
 The sidebar starts transparent and fades in with the reveal, reversing the same fade during return.
 
-During Back and Forward swipes, the bar crossfades between the visits' retained titles, status icons, categories and tags.
+During animated Back and Forward swipes, the bar crossfades between the visits' retained titles, status icons, categories and tags.
 These inert identities use the same bounded history lifetime as page previews and clear when the journey or account changes.
 A title that arrives after loading fades in over 100 milliseconds.
 
@@ -78,8 +78,10 @@ It captures the visit's `entryId` and calls Back only while that entry remains c
 Android keeps its stable source viewport and separate reader key; the other path keeps its visit-keyed viewport.
 [`DHistoryTransition`](../lib/src/ui/components/d_history_transition.dart) cancels stale gesture completion when its entry, history, owner, or route changes.
 These guards prevent an old animation from navigating a newer visit.
+The transition animates a swipe when it has a snapshot or a live preview of the destination.
+If neither is available, the current page and header stay in place until the swipe commits. The destination then renders as the current visit.
 
-A committed page swipe keeps its incoming image over the single live renderer while that renderer restores.
+A committed page swipe with a cached preview keeps its incoming image over the single live renderer while that renderer restores.
 Any other return to the previous visit, such as a pulled-down sheet or Back, prepares the same image but shows it only if the restored page defers its reveal while laying out its first frame.
 A topic pulled down to the topic it was opened from therefore never shows that topic loading, and a page that is ready at once, such as a retained list, never shows a stale image.
 `DHistoryTransition.deferPageRevealOf(context)` returns a release callback during this handoff.

@@ -680,6 +680,51 @@ void main() {
     });
   }
 
+  for (final back in [true, false]) {
+    testWidgets('a missing ${back ? 'Back' : 'Forward'} preview keeps the page '
+        'in place until a swipe commits', (tester) async {
+      final state = await _pump(tester);
+      state.visit(1);
+      await tester.pumpAndSettle();
+      if (back) {
+        // A viewport width change invalidates every preview.
+        await tester.binding.setSurfaceSize(const Size(420, 600));
+      } else {
+        state.visit(0);
+        await tester.pumpAndSettle();
+        tester.binding.handleMemoryPressure();
+      }
+      await tester.pumpAndSettle();
+      final origin = _paintedRect(tester, _live);
+
+      Future<TestGesture> drag(double distance) async {
+        final gesture = await tester.startGesture(
+          Offset(back ? 5 : origin.right - 5, 250),
+        );
+        await gesture.moveBy(
+          Offset(back ? distance : -distance, 0),
+          timeStamp: const Duration(milliseconds: 200),
+        );
+        await tester.pump();
+        expect(_paintedRect(tester, _live), origin);
+        expect(state.index, back ? 1 : 0);
+        return gesture;
+      }
+
+      final short = await drag(40);
+      await short.up(timeStamp: const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(state.swipes, 0);
+
+      final long = await drag(140);
+      await long.up(timeStamp: const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(state.swipes, 1);
+      expect(find.text('Page ${back ? 0 : 1}'), findsOneWidget);
+      expect(_paintedRect(tester, _live), origin);
+    });
+  }
+
   testWidgets('a live previous preview is ready on first reveal and inert', (
     tester,
   ) async {

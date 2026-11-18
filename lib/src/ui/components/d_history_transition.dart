@@ -67,12 +67,11 @@ final class DHistoryNavigation {
 /// Tab switches slide directionally, fading the incoming page over the outgoing
 /// snapshot so solid page fills do not expose the surrounding canvas.
 ///
-/// History previews are in-memory snapshots. Up to eight recently visited
-/// pages are retained, at most one million pixels each.
-/// Unvisited/evicted pages and platform views use the background as a fallback.
-/// Supply [previousPreview] or [nextPreview] for an adjacent navigation surface
-/// that must be ready on its first reveal. These remain mounted offstage, with
-/// focus, semantics and interaction excluded until they become the real page.
+/// History previews are in-memory snapshots of up to eight recently visited
+/// pages. If the destination has no preview, the current page stays in place
+/// during the swipe and navigation happens on release.
+/// Supply [previousPreview] for a live Back preview. It stays mounted offstage
+/// and has no focus, semantics or interaction during the swipe.
 /// Theme, viewport width and history changes discard snapshots. Memory pressure
 /// releases forward previews but retains the bounded chain behind this page,
 /// including the underlays needed when dismissing nested reading sheets.
@@ -229,6 +228,28 @@ class DHistoryTransition extends StatefulWidget {
   State<DHistoryTransition> createState() => _DHistoryTransitionState();
 }
 
+enum _HistoryDirection {
+  back,
+  forward,
+  openNavigation;
+
+  bool get isBack => this != forward;
+}
+
+class _HistorySwipe {
+  _HistorySwipe({
+    required this.direction,
+    required this.entry,
+    required this.animated,
+  });
+
+  final _HistoryDirection direction;
+  final Object entry;
+  final bool animated;
+  double distance = 0;
+  bool settling = false;
+}
+
 class _DHistoryTransitionState extends State<DHistoryTransition>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _edgeWidth = 48.0;
@@ -268,16 +289,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   Size _size = Size.zero;
   Size _frameSize = Size.zero;
   double _gestureWidth = 0;
-  bool _back = false;
-  bool _openingNavigation = false;
-  bool _dragging = false;
-  bool _settling = false;
+  _HistorySwipe? _swipe;
   bool _switchingTab = false;
   bool _switchingNavigation = false;
   bool _clipTab = false;
   bool _animatePageEntrance = true;
   double _tabSign = 1;
-  double _distance = 0;
   int _generation = 0;
 
   ModalRoute<Object?>? _route;
@@ -286,6 +303,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   bool get _routeIsCurrent => _route?.isCurrent ?? true;
   bool get _coveringPage => _handingOff && _handoffCovers;
   bool get _rtl => Directionality.of(context) == TextDirection.rtl;
+  bool get _back => _swipe?.direction.isBack ?? false;
+  bool get _openingNavigation =>
+      _swipe?.direction == _HistoryDirection.openNavigation;
   double get _sign => _back != _rtl ? 1 : -1;
   bool get _navigationOpen => widget.navigation?.entry == widget.entry;
   bool get _navigationTransition =>
@@ -296,20 +316,25 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       return _navigationOpen ? _progress.value : 1 - _progress.value;
     }
     if (_openingNavigation) return _progress.value;
-    if (_navigationOpen && (_dragging || _settling)) return 1 - _progress.value;
+    if (_navigationOpen && _swipe != null) return 1 - _progress.value;
     return _navigationOpen ? 1 : 0;
   }
 
-  Object? get _target => _openingNavigation
-      ? widget.navigation?.entry
-      : _back
-      ? widget.previousEntry
-      : widget.nextEntry;
-  VoidCallback? get _navigate => _openingNavigation
-      ? widget.navigation?.onOpen
-      : _back
-      ? widget.onBack
-      : widget.onForward;
+  ({Object entry, VoidCallback navigate})? _destination(
+    _HistoryDirection direction,
+  ) {
+    final (entry, navigate) = switch (direction) {
+      _HistoryDirection.back => (widget.previousEntry, widget.onBack),
+      _HistoryDirection.forward => (widget.nextEntry, widget.onForward),
+      _HistoryDirection.openNavigation => (
+        widget.navigation?.entry,
+        widget.navigation?.onOpen,
+      ),
+    };
+    return entry == null || navigate == null
+        ? null
+        : (entry: entry, navigate: navigate);
+  }
 
   @override
   void initState() {
@@ -439,14 +464,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
           _queuePageReveal();
         }
       }
-    } else if ((_dragging || _settling) &&
-        (_navigate == null ||
-            _target !=
-                (_openingNavigation
-                    ? oldWidget.navigation?.entry
-                    : _back
-                    ? oldWidget.previousEntry
-                    : oldWidget.nextEntry))) {
+    } else if (_swipe case final swipe?
+        when _destination(swipe.direction)?.entry != swipe.entry ||
+            (swipe.animated &&
+                swipe.direction == _HistoryDirection.back &&
+                _preview == null &&
+                widget.previousPreview == null)) {
       _resetGesture();
     }
   }
@@ -474,13 +497,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _handoffCovers = false;
     _revealHolds.clear();
     _revealScheduled = false;
-    _dragging = false;
-    _settling = false;
+    _swipe = null;
     _switchingTab = false;
     _switchingNavigation = false;
     _clipTab = false;
-    _distance = 0;
-    _openingNavigation = false;
     _progress.stop();
     if (_progress.value != 0) _progress.value = 0;
     final preview = _preview;
@@ -563,8 +583,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   bool _allowsPointer(PointerDownEvent event) {
     if (event.kind != PointerDeviceKind.touch ||
         _pointers.length > 1 ||
-        _dragging ||
-        _settling ||
+        _swipe != null ||
         _switchingTab ||
         !_routeIsCurrent ||
         _size.isEmpty ||
@@ -585,90 +604,121 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             (widget.backSwipeAnywhere || leading <= _edgeWidth));
   }
 
-  bool _allowsDirection(Offset origin, double distance) {
+  _HistoryDirection? _directionAt(Offset origin, double distance) {
     final leading = _rtl ? _gestureWidth - origin.dx : origin.dx;
     final back = _rtl ? distance < 0 : distance > 0;
-    return back
-        ? _navigationOrigin(origin) ||
-              (widget.previousEntry != null &&
-                  widget.onBack != null &&
-                  (widget.backSwipeAnywhere || leading <= _edgeWidth))
-        : widget.nextEntry != null &&
-              widget.onForward != null &&
-              leading >= _gestureWidth - _edgeWidth;
+    if (!back) {
+      return leading >= _gestureWidth - _edgeWidth
+          ? _HistoryDirection.forward
+          : null;
+    }
+    if (_navigationOrigin(origin)) return _HistoryDirection.openNavigation;
+    return widget.backSwipeAnywhere || leading <= _edgeWidth
+        ? _HistoryDirection.back
+        : null;
+  }
+
+  bool _allowsDirection(Offset origin, double distance) {
+    final direction = _directionAt(origin, distance);
+    return direction != null && _destination(direction) != null;
   }
 
   void _start(DragStartDetails details, double distance) {
     if (_pointers.length != 1 || !_routeIsCurrent) return;
+    final direction = _directionAt(details.localPosition, distance);
+    if (direction == null) return;
+    final entry = _destination(direction)?.entry;
+    if (entry == null) return;
     setState(() {
       if (_handingOff) _resetGesture();
-      _back = _rtl ? distance < 0 : distance > 0;
-      _openingNavigation = _back && _navigationOrigin(details.localPosition);
+      final preview = _previews[entry];
+      final image = _navigationOpen ? preview?.frame?.image : preview?.image;
+      final animated =
+          !MediaQuery.disableAnimationsOf(context) &&
+          (image != null ||
+              direction == _HistoryDirection.openNavigation ||
+              direction == _HistoryDirection.back &&
+                  widget.previousPreview != null);
+      _swipe = _HistorySwipe(
+        direction: direction,
+        entry: entry,
+        animated: animated,
+      );
       if (_openingNavigation) _navigationDeparture = _snapshotFrame();
-      _dragging = true;
-      _distance = 0;
-      final preview = _previews[_target];
-      _preview = (_navigationOpen ? preview?.frame?.image : preview?.image)
-          ?.clone();
+      _preview = animated ? image?.clone() : null;
       _previewPageTop = _navigationOpen ? preview?.frame?.pageTop ?? 0 : 0;
-      _previewOrigin = _navigationTransition ? null : preview?.origin;
+      _previewOrigin = animated && !_navigationTransition
+          ? preview?.origin
+          : null;
     });
   }
 
   void _update(DragUpdateDetails details) {
-    if (!_dragging) return;
+    final swipe = _swipe;
+    if (swipe == null || swipe.settling) return;
     if (!_routeIsCurrent || _pointers.length > 1) {
       unawaited(_settle(false));
       return;
     }
     final width = _navigationTransition ? _gestureWidth : _size.width;
-    _distance = (_distance + details.primaryDelta! * _sign).clamp(0, width);
-    _progress.value = _distance / width;
+    swipe.distance = (swipe.distance + details.primaryDelta! * _sign).clamp(
+      0,
+      width,
+    );
+    if (swipe.animated) _progress.value = swipe.distance / width;
   }
 
   void _end(DragEndDetails details) {
-    if (!_dragging) return;
+    final swipe = _swipe;
+    if (swipe == null || swipe.settling) return;
     final velocity = (details.primaryVelocity ?? 0) * _sign;
     final commit = velocity.abs() >= 650
-        ? velocity > 0 && _progress.value > 0
-        : _distance >= _commitDistance;
+        ? velocity > 0 && swipe.distance > 0
+        : swipe.distance >= _commitDistance;
     unawaited(_settle(commit, velocity: velocity));
   }
 
   Future<void> _settle(bool commit, {double velocity = 0}) async {
-    if (!_dragging) return;
-    _dragging = false;
-    _settling = true;
+    final swipe = _swipe;
+    if (swipe == null || swipe.settling) return;
+    swipe.settling = true;
     final generation = ++_generation;
-    final remaining = commit ? 1 - _progress.value : _progress.value;
-    final milliseconds = velocity > 0 && commit
-        ? (remaining * _size.width / velocity * 1000).clamp(
-            DMotion.close.inMilliseconds,
-            DMotion.change.inMilliseconds,
-          )
-        : (DMotion.change.inMilliseconds * math.sqrt(remaining)).clamp(
-            DMotion.close.inMilliseconds,
-            DMotion.change.inMilliseconds,
-          );
-    try {
-      await _progress
-          .animateTo(
-            commit ? 1 : 0,
-            duration: DMotion.duration(
-              context,
-              Duration(milliseconds: milliseconds.round()),
-            ),
-            curve: Curves.easeOutCubic,
-          )
-          .orCancel;
-    } on TickerCanceled {
-      return;
+    if (swipe.animated) {
+      final remaining = commit ? 1 - _progress.value : _progress.value;
+      final milliseconds = velocity > 0 && commit
+          ? (remaining * _size.width / velocity * 1000).clamp(
+              DMotion.close.inMilliseconds,
+              DMotion.change.inMilliseconds,
+            )
+          : (DMotion.change.inMilliseconds * math.sqrt(remaining)).clamp(
+              DMotion.close.inMilliseconds,
+              DMotion.change.inMilliseconds,
+            );
+      try {
+        await _progress
+            .animateTo(
+              commit ? 1 : 0,
+              duration: DMotion.duration(
+                context,
+                Duration(milliseconds: milliseconds.round()),
+              ),
+              curve: Curves.easeOutCubic,
+            )
+            .orCancel;
+      } on TickerCanceled {
+        return;
+      }
     }
     if (!mounted || generation != _generation) return;
-    final navigate = commit && _routeIsCurrent ? _navigate : null;
+    final destination = commit && _routeIsCurrent
+        ? _destination(swipe.direction)
+        : null;
+    final navigate = destination?.entry == swipe.entry
+        ? destination?.navigate
+        : null;
     // A sidebar changes tabIndex as well as entry. The drag has already carried
     // it into place, so its committed update must not start another animation.
-    _committedEntry = navigate != null ? _target : null;
+    _committedEntry = navigate != null ? swipe.entry : null;
     final departure = navigate == null ? null : _navigationDeparture;
     if (departure != null) _navigationDeparture = null;
     setState(_resetGesture);
@@ -762,7 +812,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         _frameSize = constraints.biggest;
         if (widthChanged) {
           _clear();
-        } else if (_dragging || _settling) {
+        } else if (_swipe != null) {
           _resetGesture();
         }
       }
@@ -802,12 +852,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             builder: (context, child) => _HistoryNavigationScope(
               progress: _navigationProgress,
               child: _HistorySwipeScope(
-                swipe:
-                    !_switchingTab &&
-                        (_dragging || _settling) &&
-                        !MediaQuery.disableAnimationsOf(context)
-                    ? (entry: _target!, progress: _progress.value)
-                    : null,
+                swipe: switch (_swipe) {
+                  final swipe? when swipe.animated => (
+                    entry: swipe.entry,
+                    progress: _progress.value,
+                  ),
+                  _ => null,
+                },
                 child: child!,
               ),
             ),
@@ -866,8 +917,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             child: IgnorePointer(
               ignoring:
                   revealing ||
-                  _navigationTransition &&
-                      (_dragging || _settling || switching),
+                  _navigationTransition && (_swipe != null || switching),
               child: ExcludeFocus(
                 excluding: revealing,
                 child: Opacity(
@@ -997,7 +1047,6 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
 
   Widget _buildPage(BuildContext context) {
     final tokens = DTokens.of(context);
-    final background = tokens.background;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1005,9 +1054,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         final previous = _previews[widget.previousEntry];
         // A live previous preview is laid out in this page's box, unaligned.
         final destinationOrigin =
-            reducedMotion ||
-                !(_dragging || _settling) ||
-                _back && widget.previousPreview != null
+            _swipe?.animated != true || _back && widget.previousPreview != null
             ? null
             : _previewOrigin;
         return ClipRect(
@@ -1041,27 +1088,25 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 BlendMode.srcATop,
               );
               const elevation = BoxDecoration(boxShadow: []);
-              Widget preview({Color? tint}) => ExcludeSemantics(
+              Widget preview(ui.Image image, {Color? tint}) => ExcludeSemantics(
                 child: IgnorePointer(
-                  child: _preview == null
-                      ? ColoredBox(color: _historyTintedFill(background, tint))
-                      : Flow(
-                          clipBehavior: Clip.none,
-                          delegate: _HistoryImageAlignment(
-                            () => _previewOrigin == null
-                                ? Offset.zero
-                                : _previewOrigin! - _pageOrigin(),
-                          ),
-                          children: [
-                            RawImage(
-                              image: _preview,
-                              color: tint,
-                              colorBlendMode: BlendMode.srcATop,
-                              fit: BoxFit.fitWidth,
-                              alignment: Alignment.topCenter,
-                            ),
-                          ],
-                        ),
+                  child: Flow(
+                    clipBehavior: Clip.none,
+                    delegate: _HistoryImageAlignment(
+                      () => _previewOrigin == null
+                          ? Offset.zero
+                          : _previewOrigin! - _pageOrigin(),
+                    ),
+                    children: [
+                      RawImage(
+                        image: image,
+                        color: tint,
+                        colorBlendMode: BlendMode.srcATop,
+                        fit: BoxFit.fitWidth,
+                        alignment: Alignment.topCenter,
+                      ),
+                    ],
+                  ),
                 ),
               );
               Widget previewLayer(Widget preview, {required bool back}) =>
@@ -1110,7 +1155,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       ),
                       back: true,
                     )
-                  else if (!_openingNavigation && active && _back)
+                  else if (_preview case final image?
+                      when !_openingNavigation && active && _back)
                     ClipPath(
                       clipBehavior: Clip.hardEdge,
                       clipper: _HistoryRevealClipper(
@@ -1118,7 +1164,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         _pageOrigin,
                         _sign * _size.width * p,
                       ),
-                      child: previewLayer(preview(tint: dimColor), back: true),
+                      child: previewLayer(
+                        preview(image, tint: dimColor),
+                        back: true,
+                      ),
                     ),
                   if (switching)
                     Transform.translate(
@@ -1159,7 +1208,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         child: ColorFiltered(
                           colorFilter: _back ? clear : dim,
                           child: IgnorePointer(
-                            ignoring: _dragging || _settling || switching,
+                            ignoring: _swipe != null || switching,
                             child: ExcludeFocus(
                               excluding: _coveringPage,
                               child: ExcludeSemantics(
@@ -1175,14 +1224,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       ),
                     ),
                   ),
-                  if (active && !_back) previewLayer(preview(), back: false),
+                  if (_preview case final image? when active && !_back)
+                    previewLayer(preview(image), back: false),
                   if (_handingOff)
                     _HistoryHandoffCover(
                       covering: () => _coveringPage,
                       child: Opacity(
                         key: const ValueKey('history-page-handoff'),
                         opacity: 1 - _progress.value,
-                        child: preview(),
+                        child: preview(_preview!),
                       ),
                     ),
                 ],
