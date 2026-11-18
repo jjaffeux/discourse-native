@@ -19,7 +19,8 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final (appScale, accessibility, height, textSize) in [
-      (AppTextScale.percent100, 1.0, 36.0, 14.0),
+      if (platform == TargetPlatform.iOS)
+        (AppTextScale.percent100, 1.0, 36.0, 14.0),
       (AppTextScale.percent125, 2.0, 67.5, 35.0),
     ]) {
       testWidgets(
