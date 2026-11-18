@@ -26,6 +26,10 @@ void main() {
           size != DControlSize.filter) {
         continue;
       }
+      if (platform == TargetPlatform.android &&
+          scale != (size == DControlSize.filter ? 2 : 1)) {
+        continue;
+      }
       final phoneFilter =
           size == DControlSize.filter && platform != TargetPlatform.macOS;
       // Touch sidebars are drawer rows with their own 40pt geometry.
