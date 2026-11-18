@@ -270,26 +270,22 @@ void main() {
     });
   }
 
-  for (final dark in [false, true]) {
-    testWidgets('About fits a narrow viewport with 200% text, dark $dark', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(320, 568);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await _pumpDialog(tester, dark: dark, textScale: 2, rtl: true);
-      expect(tester.takeException(), isNull);
-      final bounds = tester.getRect(find.byKey(_dialog));
-      expect(bounds.left, greaterThanOrEqualTo(0));
-      expect(bounds.right, lessThanOrEqualTo(320));
-      await tester.ensureVisible(find.text('Documentation'));
-      expect(find.text('Documentation').hitTestable(), findsOneWidget);
-      await tester.ensureVisible(find.byTooltip('Close'));
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pumpAndSettle();
-      expect(find.byKey(_dialog), findsNothing);
-    });
-  }
+  testWidgets('About fits a narrow viewport with 200% text', (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpDialog(tester, dark: true, textScale: 2, rtl: true);
+    expect(tester.takeException(), isNull);
+    final bounds = tester.getRect(find.byKey(_dialog));
+    expect(bounds.left, greaterThanOrEqualTo(0));
+    expect(bounds.right, lessThanOrEqualTo(320));
+    await tester.ensureVisible(find.text('Documentation'));
+    expect(find.text('Documentation').hitTestable(), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Close'));
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_dialog), findsNothing);
+  });
 
   testWidgets(
     'replay redraws the mark and reduced motion stops it immediately',

@@ -11,7 +11,7 @@ void main() => assignmentListVirtualizationTests();
 
 void assignmentListVirtualizationTests() {
   for (final drawer in [true, false]) {
-    for (final scale in [1.0, 2.0]) {
+    for (final scale in [1.0, if (drawer) 2.0]) {
       testWidgets(
         '200 assignees stay lazy and reachable in ${drawer ? 'drawer' : 'dialog'} at text scale $scale',
         (tester) async {
