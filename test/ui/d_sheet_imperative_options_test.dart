@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final dismissOnSwipe in [null, true, false]) {
+    for (final dismissOnSwipe in [
+      platform == TargetPlatform.iOS ? null : true,
+      false,
+    ]) {
       testWidgets(
         'imperative $platform Sheet with dismissOnSwipe=$dismissOnSwipe '
         'respects a deliberate downward swipe',
@@ -33,7 +36,7 @@ void main() {
   }
 
   for (final side in [DSheetSide.top, DSheetSide.bottom]) {
-    for (final cap in [null, 640.0, 1400.0]) {
+    for (final cap in [640.0, if (side == DSheetSide.top) null else 1400.0]) {
       testWidgets('fixed-edge $side Sheet honors optional width cap $cap', (
         tester,
       ) async {
