@@ -10,10 +10,14 @@ import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
+import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -27,6 +31,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
+import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/dock_corner.dart';
 import 'support/fakes.dart';
@@ -55,6 +60,7 @@ Future<ShellController> _fixture(
   bool direct = false,
   bool browse = false,
   FakeForumTabStore? forumTabs,
+  DateTime Function()? chatClock,
   void Function(FakeDiscourseApi)? onApi,
 }) async {
   final channel = ChatChannel(
@@ -69,6 +75,18 @@ Future<ShellController> _fixture(
     tester,
     size: size,
     forumTabs: forumTabs,
+    pluginManifest: chatClock == null
+        ? null
+        : PluginManifest([
+            for (final module in bundledWidgetTestManifest.modules)
+              if (module is ChatModule)
+                ChatModule(
+                  apiFactory: (transport) => transport as ChatApi,
+                  clock: chatClock,
+                )
+              else
+                module,
+          ]),
     chatBrowsePage: browse ? ChatChannelBrowsePage(channels: [channel]) : null,
     onApi: onApi,
     conversations: ChatChannels(
@@ -591,6 +609,88 @@ void main() {
     expect(shell.currentContent?.id, ChatRoute.channelsRouteId);
     expect(_sheet, findsNothing);
     expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
+  testWidgets('swiping forward restores the channel scroll position', (
+    tester,
+  ) async {
+    var chatTime = DateTime.utc(2026, 10, 1, 1);
+    late FakeDiscourseApi api;
+    final shell = await _fixture(
+      tester,
+      chatClock: () => chatTime,
+      onApi: (value) => api = value,
+    );
+    final channel = find
+        .byKey(const ValueKey('chat-inbox-channel-10'))
+        .hitTestable();
+    await tester.tap(channel);
+    await tester.pumpAndSettle();
+    final channelVisit = shell.mobileNavigation.entryId;
+    double channelOffset() =>
+        tester.state<ScrollableState>(_channelScroll).position.pixels;
+    expect(channelOffset(), 0);
+    await tester.drag(_channelScroll, const Offset(0, 360));
+    await tester.pumpAndSettle();
+    final before = channelOffset();
+    expect(before, greaterThan(100));
+    final visibleMessages = find.byType(ChatMessageTile).hitTestable();
+    final messageId = tester
+        .widget<ChatMessageTile>(visibleMessages.at(2))
+        .messageId;
+    final message = find
+        .byKey(ValueKey('chat-message-$messageId'))
+        .hitTestable();
+    final messageTop = tester.getTopLeft(message).dy;
+
+    Future<void> swipeBack() async {
+      await tester.dragFrom(
+        Offset(100, tester.getCenter(_header).dy),
+        const Offset(180, 0),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await swipeBack();
+    expect(shell.mobileNavigation.atRoot, isTrue);
+    expect(_channelScroll, findsNothing);
+
+    Future<void> swipeForward() async {
+      final surface = tester.getRect(find.byKey(const ValueKey('mobile-root')));
+      await tester.dragFrom(
+        Offset(surface.right - 5, surface.center.dy),
+        const Offset(-180, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.entryId, same(channelVisit));
+      expect(channelOffset(), closeTo(before, 1));
+      expect(tester.getTopLeft(message).dy, closeTo(messageTop, 1));
+    }
+
+    await swipeForward();
+    await swipeBack();
+    chatTime = chatTime.add(const Duration(minutes: 1));
+    final pageKey = FakeDiscourseApi.chatMessagesKey(10);
+    final page = api.chatMessagesByKey[pageKey]!;
+    api.chatMessagesByKey[pageKey] = (
+      messages: [page.messages.last],
+      canLoadMorePast: true,
+      canLoadMoreFuture: false,
+      targetMessageId: null,
+    );
+    api.chatMessagesByKey[FakeDiscourseApi.chatMessagesKey(10, after: 40)] = (
+      messages: const [],
+      canLoadMorePast: false,
+      canLoadMoreFuture: false,
+      targetMessageId: null,
+    );
+    await swipeForward();
+
+    await swipeBack();
+    await tester.tap(channel);
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.entryId, isNot(same(channelVisit)));
+    expect(channelOffset(), isNot(closeTo(before, 1)));
   }, variant: _platforms);
 
   testWidgets('swiping down a thread preserves the channel scroll position', (

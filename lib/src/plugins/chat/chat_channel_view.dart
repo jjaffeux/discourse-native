@@ -130,9 +130,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     siteUrl: widget.siteUrl,
     target: ChatChannelTarget(widget.channelId),
     onAcquire: () {
-      if (_opened) {
-        unawaited(_viewing.reader.open());
-      }
+      if (_opened) _openVisit();
     },
     onShellChanged: _handleShellChanged,
     onReaderChanged: _handleTimeChanged,
@@ -191,8 +189,19 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     }
     if (!_consumeNavigation() && !_opened) {
       _opened = true;
-      unawaited(_viewing.reader.open());
+      _openVisit();
     }
+  }
+
+  void _openVisit() {
+    final storage = PluginUiScope.visitStorageOf(context);
+    final saved =
+        storage?.readState(
+              context,
+              identifier: _chatHistoryKey(widget.siteUrl, widget.channelId),
+            )
+            as _ChatHistoryPosition?;
+    unawaited(_viewing.reader.open(resumeMessageId: saved?.messageId));
   }
 
   bool _consumeNavigation() {
@@ -878,6 +887,16 @@ class _ChatDayExtents {
   }
 }
 
+typedef _ChatHistoryPosition = ({
+  double pixels,
+  int? newestId,
+  int? messageId,
+  double? offsetFromRowTop,
+});
+
+Object _chatHistoryKey(String siteUrl, int channelId) =>
+    (#chatHistory, siteUrl, channelId);
+
 class _StreamState extends State<ChatMessageStream>
     with WidgetsBindingObserver {
   static const EdgeInsets _streamPadding = EdgeInsets.symmetric(vertical: 8);
@@ -904,6 +923,11 @@ class _StreamState extends State<ChatMessageStream>
   ({String siteUrl, ChatStreamTarget target, int messageId})? _seen;
 
   final _viewport = ChatViewportTransitions();
+  PageStorageBucket? _historyStorage;
+  _ChatHistoryPosition? _historyPosition;
+  VoidCallback? _releaseHistoryReveal;
+
+  Object get _historyKey => _chatHistoryKey(widget.siteUrl, widget.channelId);
 
   final _floatingDay = FrameSafeValueNotifier<DateTime?>(null);
   final _floatingDayOffset = FrameSafeValueNotifier<double>(0);
@@ -1103,6 +1127,7 @@ class _StreamState extends State<ChatMessageStream>
   @override
   void dispose() {
     _viewport.retire();
+    _releaseHistoryReveal?.call();
     WidgetsBinding.instance.removeObserver(this);
     _headerGeometry?.removeListener(_scheduleLook);
     _shell?.removeListener(_readDwell.sync);
@@ -1164,6 +1189,7 @@ class _StreamState extends State<ChatMessageStream>
       );
       if (_anchorIfFresh()) return;
 
+      _rememberHistoryPosition();
       _syncFloatingDay();
       _fillTowardsPresent();
       _noteWhatIsOnScreen(recheckVisibleRead: recheckVisibleRead);
@@ -1202,6 +1228,15 @@ class _StreamState extends State<ChatMessageStream>
       lastReadOnOpen: stream.lastReadOnOpen,
       newestId: stream.newestId,
     );
+    final saved = _historyPosition;
+    _historyPosition = null;
+    if (saved != null &&
+        widget.highlightMessageId == null &&
+        _restoreHistoryPosition(saved)) {
+      _readDwell.cancel();
+      _seen = null;
+      return true;
+    }
     final target = landing.messageId;
     final index = target == null ? null : _rowOf(target);
 
@@ -1227,6 +1262,64 @@ class _StreamState extends State<ChatMessageStream>
     return true;
   }
 
+  void _rememberHistoryPosition() {
+    final storage = _historyStorage;
+    if (storage == null ||
+        !_tickerEnabled ||
+        _viewport.anchoring ||
+        !_list.isAttached ||
+        !_scroll.hasClients) {
+      return;
+    }
+    final position = _scroll.position;
+    final pixels = position.pixels.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    final range = _list.visibleRange;
+    final anchor = pixels == 0 || range == null
+        ? null
+        : _recentMessages.middleIn(range);
+    final top = anchor == null ? null : _topScrollOffsetOf(anchor);
+    final saved = (
+      pixels: pixels,
+      newestId: widget.stream.newestId,
+      messageId: anchor?.widget.messages.firstOrNull?.value?.id,
+      offsetFromRowTop: top == null ? null : pixels - top,
+    );
+    storage.writeState(context, saved, identifier: _historyKey);
+  }
+
+  bool _restoreHistoryPosition(_ChatHistoryPosition saved) {
+    final position = _scroll.position;
+    void jumpTo(double pixels) => _scroll.jumpTo(
+      pixels.clamp(position.minScrollExtent, position.maxScrollExtent),
+    );
+
+    if (saved.pixels == 0 || saved.newestId == widget.stream.newestId) {
+      jumpTo(saved.pixels);
+      _settleAnchor();
+      return true;
+    }
+    final id = saved.messageId;
+    final row = id == null ? null : _rowOf(id);
+    if (row == null) return false;
+
+    _jumpToRow(row, .5);
+    final token = _viewport.beginLanding();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_viewport.isCurrentLanding(token)) return;
+      final anchor = _recentMessages._mountedRows
+          .where((candidate) => candidate.widget.index == row)
+          .firstOrNull;
+      final top = anchor == null ? null : _topScrollOffsetOf(anchor);
+      if (top != null) jumpTo(top + (saved.offsetFromRowTop ?? 0));
+      _settleAnchor();
+    });
+    WidgetsBinding.instance.scheduleFrame();
+    return true;
+  }
+
   /// The second jump uses measured rather than estimated row heights.
   void _landOn(int row, {required double alignment}) {
     final token = _viewport.beginLanding();
@@ -1245,6 +1338,8 @@ class _StreamState extends State<ChatMessageStream>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_viewport.isCurrentLanding(token)) return;
       _viewport.settleLanding(token);
+      _releaseHistoryReveal?.call();
+      _releaseHistoryReveal = null;
       _syncFloatingDay();
       _fillTowardsPresent();
       if (_seen != null) _readDwell.restart();
@@ -1661,6 +1756,18 @@ class _StreamState extends State<ChatMessageStream>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
+    final historyStorage = widget.target.isThread
+        ? null
+        : PluginUiScope.visitStorageOf(context);
+    if (!identical(historyStorage, _historyStorage)) {
+      _historyStorage = historyStorage;
+      _historyPosition =
+          historyStorage?.readState(context, identifier: _historyKey)
+              as _ChatHistoryPosition?;
+      if (_historyPosition != null) {
+        _releaseHistoryReveal ??= DHistoryTransition.deferPageRevealOf(context);
+      }
+    }
     final header = DPageSurface.headerGeometryOf(context);
     if (!identical(header, _headerGeometry)) {
       _headerGeometry?.removeListener(_scheduleLook);

@@ -29,10 +29,26 @@ final class ChatConversationReader {
       isCurrent ? _controller._beginViewing(_owner) : Object();
   void endViewing(Object token) => _controller._endViewing(_owner, token);
 
-  Future<void> open({int? targetMessageId, bool force = false}) async {
+  Future<void> open({
+    int? targetMessageId,
+    int? resumeMessageId,
+    bool force = false,
+  }) async {
     if (!isCurrent) return;
     final held = stream;
     final backed = _controller._canonicalWindowIsBacked(siteUrl, held);
+    if (!force &&
+        targetMessageId == null &&
+        resumeMessageId != null &&
+        backed &&
+        held.messageIds.contains(resumeMessageId)) {
+      // Refresh stale history from its newest edge without replacing the window.
+      if (!_owner.attemptedRecently && _owner.isViewing) {
+        _owner._attemptedAt = _controller._clock();
+        _controller._resyncViewedWindow(_owner);
+      }
+      return;
+    }
     if (!force &&
         targetMessageId == null &&
         _owner.attemptedRecently &&

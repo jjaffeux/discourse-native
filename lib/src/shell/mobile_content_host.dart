@@ -21,9 +21,12 @@ class _MobilePageSheet extends StatelessWidget {
   final ValueNotifier<bool>? covering;
   final bool opaqueUnderlayCard;
 
+  static final _visitStorage = Expando<PageStorageBucket>();
+
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
+    final page = reader;
     return DSheetViewport(
       key: viewportKey,
       covering: covering,
@@ -39,7 +42,7 @@ class _MobilePageSheet extends StatelessWidget {
             },
       underlay: underlay,
       opaqueUnderlayCard: opaqueUnderlayCard,
-      content: reader == null
+      content: page == null
           ? null
           : DSheetContent(
               key: readerKey,
@@ -48,7 +51,16 @@ class _MobilePageSheet extends StatelessWidget {
               showCloseButton: false,
               semanticLabel: route.title,
               backgroundColor: ForumWindowBackground.panelColor(context),
-              children: [Expanded(child: reader!)],
+              children: [
+                Expanded(
+                  child: route.destination is ExtensionDestination
+                      ? PluginUiScope.withVisitStorage(
+                          _visitStorage[entry] ??= PageStorageBucket(),
+                          page,
+                        )
+                      : page,
+                ),
+              ],
             ),
     );
   }

@@ -16,6 +16,7 @@ import '../models/topic_feed.dart';
 import '../models/topic_presentation.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/plugin_ui_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import 'badges_host.dart';

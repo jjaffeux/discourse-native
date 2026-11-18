@@ -78,6 +78,13 @@ class PluginUiScope extends InheritedWidget {
   static Widget own(PluginId owner, Widget child) =>
       _PluginUiOwnerBoundary(owner: owner, child: child);
 
+  static Widget withVisitStorage(PageStorageBucket storage, Widget child) =>
+      _PluginVisitStorage(storage: storage, child: child);
+
+  static PageStorageBucket? visitStorageOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_PluginVisitStorage>()
+      ?.storage;
+
   static PluginOwnedServices _rootServices(
     BuildContext context,
     PluginId owner,
@@ -129,6 +136,16 @@ class PluginUiScope extends InheritedWidget {
   @override
   bool updateShouldNotify(PluginUiScope oldWidget) =>
       !identical(services, oldWidget.services);
+}
+
+final class _PluginVisitStorage extends InheritedWidget {
+  const _PluginVisitStorage({required this.storage, required super.child});
+
+  final PageStorageBucket storage;
+
+  @override
+  bool updateShouldNotify(_PluginVisitStorage oldWidget) =>
+      !identical(storage, oldWidget.storage);
 }
 
 final class _PluginUiOwnerBoundary extends StatelessWidget {
