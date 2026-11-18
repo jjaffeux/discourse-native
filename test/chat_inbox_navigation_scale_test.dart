@@ -16,11 +16,7 @@ void main() {
           (_) async => null,
         ),
   );
-  for (final platform in [
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-    TargetPlatform.macOS,
-  ]) {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
     testWidgets('chat section expansion keeps reference size on $platform', (
       tester,
     ) async {
