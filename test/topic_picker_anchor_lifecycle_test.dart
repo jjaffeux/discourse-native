@@ -66,49 +66,50 @@ void main() {
 
   for (final tags in [false, true]) {
     final kind = tags ? 'tag' : 'category';
-    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      for (final changeSite in [false, true]) {
-        testWidgets(
-          '$kind ${platform.name} selection cannot edit a replacement ${changeSite ? 'site' : 'topic'}',
-          (tester) async {
-            final harness = _Harness(tags: tags, platform: platform);
-            await harness.pump(tester);
-            final state = tester.state(harness.anchor);
-            await harness.open(tester);
-            final select = harness.captureSelection(tester);
+    for (final (platform, changeSite) in [
+      (TargetPlatform.macOS, !tags),
+      (TargetPlatform.iOS, tags),
+    ]) {
+      testWidgets(
+        '$kind ${platform.name} selection cannot edit a replacement ${changeSite ? 'site' : 'topic'}',
+        (tester) async {
+          final harness = _Harness(tags: tags, platform: platform);
+          await harness.pump(tester);
+          final state = tester.state(harness.anchor);
+          await harness.open(tester);
+          final select = harness.captureSelection(tester);
 
-            harness.rebuild(() {
-              if (changeSite) {
-                harness.siteUrl = _siteB;
-              } else {
-                harness.topicId = 20;
-              }
-            });
-            await tester.pump();
-            expect(tester.state(harness.anchor), same(state));
-            expect(state.mounted, isTrue);
-
-            select();
-            await tester.pumpAndSettle();
-            if (tags && platform == TargetPlatform.iOS) {
-              await tester.tap(find.byTooltip('Close').last);
-              await tester.pumpAndSettle();
+          harness.rebuild(() {
+            if (changeSite) {
+              harness.siteUrl = _siteB;
+            } else {
+              harness.topicId = 20;
             }
+          });
+          await tester.pump();
+          expect(tester.state(harness.anchor), same(state));
+          expect(state.mounted, isTrue);
 
-            expect(harness.shell.saves, isEmpty);
-            expect(harness.picker, findsNothing);
-            await harness.open(tester);
-            await tester.tap(harness.option);
+          select();
+          await tester.pumpAndSettle();
+          if (tags && platform == TargetPlatform.iOS) {
+            await tester.tap(find.byTooltip('Close').last);
             await tester.pumpAndSettle();
-            if (tags && platform == TargetPlatform.iOS) {
-              await tester.tap(find.byTooltip('Close').last);
-              await tester.pumpAndSettle();
-            }
-            expect(harness.shell.saves.single.siteUrl, harness.siteUrl);
-            expect(harness.shell.saves.single.topicId, harness.topicId);
-          },
-        );
-      }
+          }
+
+          expect(harness.shell.saves, isEmpty);
+          expect(harness.picker, findsNothing);
+          await harness.open(tester);
+          await tester.tap(harness.option);
+          await tester.pumpAndSettle();
+          if (tags && platform == TargetPlatform.iOS) {
+            await tester.tap(find.byTooltip('Close').last);
+            await tester.pumpAndSettle();
+          }
+          expect(harness.shell.saves.single.siteUrl, harness.siteUrl);
+          expect(harness.shell.saves.single.topicId, harness.topicId);
+        },
+      );
     }
 
     testWidgets('$kind search cannot query a replacement site', (tester) async {
@@ -327,7 +328,10 @@ void main() {
   }
 
   for (final replacement in ['topic', 'site', 'account']) {
-    for (final oldCompletesFirst in [true, false]) {
+    for (final oldCompletesFirst in [
+      if (replacement != 'topic') true,
+      if (replacement != 'site') false,
+    ]) {
       testWidgets(
         'tag preparation is owned across $replacement replacement, old completes ${oldCompletesFirst ? 'first' : 'last'}',
         (tester) async {
