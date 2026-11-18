@@ -11,6 +11,7 @@ const kAttributeLiTypeRomanLower = 'i';
 const kAttributeLiTypeRomanUpper = 'I';
 const kAttributeOlReversed = 'reversed';
 const kAttributeOlStart = 'start';
+const kCssListStylePosition = 'list-style-position';
 const kCssListStyleType = 'list-style-type';
 const kCssListStyleTypeAlphaLower = 'lower-alpha';
 const kCssListStyleTypeAlphaUpper = 'upper-alpha';
@@ -105,8 +106,13 @@ class TagLi {
       return child;
     }
 
+    final markerInside =
+        listTree.getStyle(kCssListStylePosition)?.term == 'inside';
     return HtmlListItem(
-      marker: marker,
+      marker: markerInside && marker is HtmlListMarker
+          ? SizedBox(width: marker.inkWidth, child: marker)
+          : marker,
+      markerInside: markerInside,
       textAlign: resolved.get<TextAlign>(),
       textDirection: resolved.directionOrLtr,
       child: child,

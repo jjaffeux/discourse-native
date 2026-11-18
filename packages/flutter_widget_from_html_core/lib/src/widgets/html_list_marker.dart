@@ -1,6 +1,11 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+const _radiusEm = .2;
+const _circleRadiusScale = .9;
+const _circleStrokeWidth = 1.0;
+const _squareRadiusScale = .8;
+
 /// A list marker.
 class HtmlListMarker extends LeafRenderObjectWidget {
   /// The marker type.
@@ -8,6 +13,17 @@ class HtmlListMarker extends LeafRenderObjectWidget {
 
   /// The [TextStyle] to apply to this marker.
   final TextStyle textStyle;
+
+  /// The horizontal extent of the painted marker.
+  double get inkWidth {
+    final diameter = 2 * _radiusEm * (textStyle.fontSize ?? 0);
+    return switch (markerType) {
+      HtmlListMarkerType.circle =>
+        diameter * _circleRadiusScale + _circleStrokeWidth,
+      HtmlListMarkerType.square => diameter * _squareRadiusScale,
+      _ => diameter,
+    };
+  }
 
   /// Creates a marker.
   const HtmlListMarker({
@@ -130,15 +146,15 @@ class _ListMarkerRenderObject extends RenderBox {
       return;
     }
 
-    final radius = fontSize * .2;
+    final radius = fontSize * _radiusEm;
     switch (_markerType) {
       case HtmlListMarkerType.circle:
         canvas.drawCircle(
           center,
-          radius * .9,
+          radius * _circleRadiusScale,
           Paint()
             ..color = color
-            ..strokeWidth = 1
+            ..strokeWidth = _circleStrokeWidth
             ..style = PaintingStyle.stroke,
         );
       case HtmlListMarkerType.disc:
@@ -177,7 +193,7 @@ class _ListMarkerRenderObject extends RenderBox {
           ..restore();
       case HtmlListMarkerType.square:
         canvas.drawRect(
-          Rect.fromCircle(center: center, radius: radius * .8),
+          Rect.fromCircle(center: center, radius: radius * _squareRadiusScale),
           Paint()..color = color,
         );
     }

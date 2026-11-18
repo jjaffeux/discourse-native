@@ -5,6 +5,9 @@ const _kGapVsMarker = 5.0;
 
 /// A list item widget.
 class HtmlListItem extends MultiChildRenderObjectWidget {
+  /// Whether the marker takes up space on the leading side of the item.
+  final bool markerInside;
+
   /// The alignment of the item contents.
   final TextAlign? textAlign;
 
@@ -16,6 +19,7 @@ class HtmlListItem extends MultiChildRenderObjectWidget {
     Widget? child,
     super.key,
     Widget? marker,
+    this.markerInside = false,
     this.textAlign,
     required this.textDirection,
   }) : super(
@@ -30,6 +34,7 @@ class HtmlListItem extends MultiChildRenderObjectWidget {
   @override
   RenderObject createRenderObject(BuildContext context) =>
       _ListItemRenderObject(
+        markerInside: markerInside,
         textAlign: textAlign,
         textDirection: textDirection,
       );
@@ -44,6 +49,7 @@ class HtmlListItem extends MultiChildRenderObjectWidget {
   @override
   void updateRenderObject(BuildContext context, RenderObject renderObject) {
     renderObject as _ListItemRenderObject
+      ..markerInside = markerInside
       ..textAlign = textAlign
       ..textDirection = textDirection;
   }
@@ -56,10 +62,24 @@ class _ListItemRenderObject extends RenderBox
         ContainerRenderObjectMixin<RenderBox, _ListItemData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _ListItemData> {
   _ListItemRenderObject({
+    required bool markerInside,
     TextAlign? textAlign,
     required TextDirection textDirection,
-  })  : _textAlign = textAlign,
+  })  : _markerInside = markerInside,
+        _textAlign = textAlign,
         _textDirection = textDirection;
+
+  bool _markerInside;
+  set markerInside(bool value) {
+    if (_markerInside == value) {
+      return;
+    }
+    _markerInside = value;
+    markNeedsLayout();
+  }
+
+  RenderBox? get _insideMarker =>
+      _markerInside && childCount == 2 ? lastChild : null;
 
   TextAlign? get textAlign => _textAlign;
   TextAlign? _textAlign;
@@ -97,11 +117,12 @@ class _ListItemRenderObject extends RenderBox
       return null;
     }
 
-    final childConstraints = constraints.maxWidth.isFinite && textAlign != null
-        ? constraints.tighten(width: constraints.maxWidth)
-        : constraints;
-    // The first child's offset is always Offset.zero in _compute
-    return child.getDryBaseline(childConstraints, baseline);
+    final marker = _insideMarker;
+    final gutter = marker == null
+        ? 0.0
+        : marker.getDryLayout(constraints.loosen()).width + _kGapVsMarker;
+    return child.getDryBaseline(
+        _bodyConstraints(constraints, gutter), baseline);
   }
 
   @override
@@ -110,23 +131,42 @@ class _ListItemRenderObject extends RenderBox
 
   @override
   double computeMaxIntrinsicHeight(double width) =>
-      firstChild?.computeMaxIntrinsicHeight(width) ??
+      firstChild?.computeMaxIntrinsicHeight(_bodyWidth(width)) ??
       super.computeMaxIntrinsicHeight(width);
 
   @override
   double computeMaxIntrinsicWidth(double height) =>
-      firstChild?.computeMaxIntrinsicWidth(height) ??
-      super.computeMaxIntrinsicWidth(height);
+      (firstChild?.computeMaxIntrinsicWidth(height) ??
+          super.computeMaxIntrinsicWidth(height)) +
+      _intrinsicGutter(height);
 
   @override
   double computeMinIntrinsicHeight(double width) =>
-      firstChild?.computeMinIntrinsicHeight(width) ??
+      firstChild?.computeMinIntrinsicHeight(_bodyWidth(width)) ??
       super.computeMinIntrinsicHeight(width);
 
   @override
   double computeMinIntrinsicWidth(double height) =>
-      firstChild?.getMinIntrinsicWidth(height) ??
-      super.computeMinIntrinsicWidth(height);
+      (firstChild?.getMinIntrinsicWidth(height) ??
+          super.computeMinIntrinsicWidth(height)) +
+      _intrinsicGutter(height);
+
+  double _intrinsicGutter(double height) {
+    final marker = _insideMarker;
+    return marker == null
+        ? 0.0
+        : marker.getMaxIntrinsicWidth(height) + _kGapVsMarker;
+  }
+
+  double _bodyWidth(double width) =>
+      (width - _intrinsicGutter(double.infinity)).clamp(0.0, width);
+
+  BoxConstraints _bodyConstraints(BoxConstraints constraints, double gutter) {
+    final available = constraints.deflate(EdgeInsets.only(left: gutter));
+    return available.maxWidth.isFinite && textAlign != null
+        ? available.tighten(width: available.maxWidth)
+        : available;
+  }
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
@@ -153,17 +193,18 @@ class _ListItemRenderObject extends RenderBox
     }
 
     final childData = child.parentData! as _ListItemData;
-    final childConstraints = bc.maxWidth.isFinite && textAlign != null
-        ? bc.tighten(width: bc.maxWidth)
-        : bc;
-    final childSize = fn(child, childConstraints);
     final marker = childData.nextSibling;
     final markerSize = marker != null ? fn(marker, bc.loosen()) : Size.zero;
+    final gutter = _markerInside && marker != null
+        ? markerSize.width + _kGapVsMarker
+        : 0.0;
+    final childSize = fn(child, _bodyConstraints(bc, gutter));
     final height = childSize.height > 0 ? childSize.height : markerSize.height;
-    final size = bc.constrain(Size(childSize.width, height));
+    final size = bc.constrain(Size(childSize.width + gutter, height));
 
     if (identical(fn, ChildLayoutHelper.layoutChild)) {
-      childData.offset = Offset.zero;
+      final ltr = textDirection == TextDirection.ltr;
+      childData.offset = Offset(ltr ? gutter : 0, 0);
 
       if (marker != null) {
         const baseline = TextBaseline.alphabetic;
@@ -176,8 +217,8 @@ class _ListItemRenderObject extends RenderBox
 
         final markerData = marker.parentData! as _ListItemData;
         markerData.offset = Offset(
-          textDirection == TextDirection.ltr
-              ? -markerSize.width - _kGapVsMarker
+          ltr
+              ? childData.offset.dx - (markerSize.width + _kGapVsMarker)
               : childSize.width + _kGapVsMarker,
           childDistance - markerDistance,
         );

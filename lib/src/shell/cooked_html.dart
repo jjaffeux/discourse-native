@@ -250,7 +250,13 @@ class CookedHtml extends StatelessWidget {
     String linkCountForeground,
     TextStyle? linkStyle,
   ) {
-    final styles = <String, String>{...?cookedTodoStyles(element)};
+    final styles = <String, String>{
+      if (element.localName == 'ul') ...{
+        'padding-inline-start': '0',
+        'list-style-position': 'inside',
+      },
+      ...?cookedTodoStyles(element),
+    };
 
     if (element.localName == 'a') {
       styles['text-decoration'] =

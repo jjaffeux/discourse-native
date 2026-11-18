@@ -209,6 +209,51 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  for (final direction in ['ltr', 'rtl']) {
+    testWidgets('bullets start at the text edge and nest in $direction', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(430, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await pumpCooked(tester, '''
+        <div dir="$direction">
+          <h2>Acceptance criteria</h2>
+          <ul><li>Top-level item
+            <ul><li>Nested item
+              <ul><li>Deeply nested item</li></ul>
+            </li></ul>
+          </li></ul>
+        </div>
+        ''');
+
+      double leadingEdge(Finder finder) => direction == 'ltr'
+          ? tester.getTopLeft(finder).dx
+          : tester.getTopRight(finder).dx;
+
+      double textEdge(String label) =>
+          leadingEdge(find.text(label, findRichText: true));
+
+      double markerEdge(HtmlListMarkerType type) => leadingEdge(
+        find.byWidgetPredicate(
+          (widget) => widget is HtmlListMarker && widget.markerType == type,
+        ),
+      );
+
+      expect(
+        markerEdge(HtmlListMarkerType.disc),
+        closeTo(textEdge('Acceptance criteria'), .01),
+      );
+      expect(
+        markerEdge(HtmlListMarkerType.circle),
+        closeTo(textEdge('Top-level item'), .01),
+      );
+      expect(
+        markerEdge(HtmlListMarkerType.square),
+        closeTo(textEdge('Nested item'), .01),
+      );
+    });
+  }
+
   testWidgets(
     'prose uses the reading font with local styles and keeps explicit code fonts',
     (tester) async {
