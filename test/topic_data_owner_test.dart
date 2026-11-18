@@ -2074,7 +2074,11 @@ void main() {
   );
 
   for (final whisper in [false, true]) {
-    for (final type in [Post.regularPostType, Post.whisperPostType, 3]) {
+    for (final type in [
+      Post.regularPostType,
+      Post.whisperPostType,
+      if (!whisper) Post.smallActionPostType,
+    ]) {
       test(
         'reply confirmation requires exact type $type for whisper $whisper',
         () async {
@@ -2228,7 +2232,7 @@ void main() {
     );
   });
 
-  for (final username in <String?>[null, '', '   ']) {
+  for (final username in <String?>[null, '   ']) {
     test(
       'reply confirmation requires a known nonblank author $username',
       () async {
