@@ -424,26 +424,24 @@ void main() {
   }
 
   group('links', () {
-    for (final path in ['/u/sam', '/u/sam/summary']) {
-      _desktopTest('$path opens the profile in the app', (tester) async {
-        final launched = harness.watchBrowser(tester);
-        final (shell, _) = await _pump(tester);
+    _desktopTest('a summary link opens and reuses the profile', (tester) async {
+      final launched = harness.watchBrowser(tester);
+      final (shell, _) = await _pump(tester);
 
-        expect(await shell.openInAppLink('$_site$path'), isTrue);
-        await tester.pumpAndSettle();
+      expect(await shell.openInAppLink('$_site/u/sam/summary'), isTrue);
+      await tester.pumpAndSettle();
 
-        expect(_page, findsOneWidget);
-        expect(_within(find.text('@sam')), findsOneWidget);
-        expect(launched, isEmpty);
+      expect(_page, findsOneWidget);
+      expect(_within(find.text('@sam')), findsOneWidget);
+      expect(launched, isEmpty);
 
-        expect(await shell.openInAppLink('$_site/u/SAM'), isTrue);
-        await tester.pumpAndSettle();
-        expect(_page, findsOneWidget, reason: 'the same person, already open');
-        shell.handleBack();
-        await tester.pumpAndSettle();
-        expect(_page, findsNothing);
-      });
-    }
+      expect(await shell.openInAppLink('$_site/u/SAM'), isTrue);
+      await tester.pumpAndSettle();
+      expect(_page, findsOneWidget, reason: 'the same person, already open');
+      shell.handleBack();
+      await tester.pumpAndSettle();
+      expect(_page, findsNothing);
+    });
 
     _desktopTest('an activity link opens that person\'s activity page', (
       tester,

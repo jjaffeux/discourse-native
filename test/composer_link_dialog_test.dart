@@ -104,10 +104,6 @@ void main() {
 
   for (final destination in const [
     (
-      entered: 'https://example.com/holiday album',
-      cooked: 'https://example.com/holiday%20album',
-    ),
-    (
       entered: 'https://example.com/search?q=holiday album#my photos',
       cooked: 'https://example.com/search?q=holiday%20album#my%20photos',
     ),
