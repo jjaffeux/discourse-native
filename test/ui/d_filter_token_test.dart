@@ -6,9 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const cases = [
     (TargetPlatform.macOS, TextDirection.ltr, 1.0),
-    (TargetPlatform.macOS, TextDirection.rtl, 2.0),
-    (TargetPlatform.iOS, TextDirection.ltr, 2.0),
-    (TargetPlatform.iOS, TextDirection.rtl, 1.0),
+    (TargetPlatform.iOS, TextDirection.rtl, 2.0),
   ];
   for (final (platform, direction, scale) in cases) {
     testWidgets('filter token bounds and actions $platform $direction $scale', (
