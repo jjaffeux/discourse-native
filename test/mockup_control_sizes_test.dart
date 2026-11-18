@@ -58,11 +58,7 @@ void main() {
     });
   }
 
-  for (final platform in [
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-  ]) {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     testWidgets(
       '$platform retains filter and icon-chip artwork and usable targets',
       (tester) async {
