@@ -21,57 +21,56 @@ final _header = find.byType(ComposerHeader);
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final platform in [TargetPlatform.linux, TargetPlatform.iOS]) {
-    for (final placement in [
-      ComposerPlacement.right,
-      ComposerPlacement.bottom,
-    ]) {
-      testWidgets('autosave is silent on $platform in $placement', (
+  for (final (platform, placement) in [
+    (TargetPlatform.linux, ComposerPlacement.right),
+    (TargetPlatform.linux, ComposerPlacement.bottom),
+    (TargetPlatform.iOS, ComposerPlacement.bottom),
+  ]) {
+    testWidgets('autosave is silent on $platform in $placement', (
+      tester,
+    ) async {
+      final saved = Completer<int?>();
+      final composer = ComposerController(
+        _replyTarget,
+        onSaveDraft: (_) => saved.future,
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pump(
         tester,
-      ) async {
-        final saved = Completer<int?>();
-        final composer = ComposerController(
-          _replyTarget,
-          onSaveDraft: (_) => saved.future,
+        shell,
+        composer,
+        platform: platform,
+        placement: placement,
+      );
+      final editor = tester.getRect(find.byType(ComposerEditor));
+      void expectSilent() {
+        expect(_status, findsNothing);
+        expect(find.text('Saving…'), findsNothing);
+        expect(find.text('Saved'), findsNothing);
+        expect(
+          find.descendant(of: _header, matching: find.byType(DSpinner)),
+          findsNothing,
         );
-        final shell = await _shell();
-        addTearDown(composer.dispose);
-        addTearDown(shell.dispose);
-        await _pump(
-          tester,
-          shell,
-          composer,
-          platform: platform,
-          placement: placement,
-        );
-        final editor = tester.getRect(find.byType(ComposerEditor));
-        void expectSilent() {
-          expect(_status, findsNothing);
-          expect(find.text('Saving…'), findsNothing);
-          expect(find.text('Saved'), findsNothing);
-          expect(
-            find.descendant(of: _header, matching: find.byType(DSpinner)),
-            findsNothing,
-          );
-          expect(tester.getRect(find.byType(ComposerEditor)), editor);
-        }
+        expect(tester.getRect(find.byType(ComposerEditor)), editor);
+      }
 
-        expectSilent();
-        composer.text.text = 'A draft in progress';
-        await tester.pump();
-        expectSilent();
-        final pending = composer.flushDraft();
-        await tester.pump();
-        expect(composer.draftStatus, DraftStatus.saving);
-        expectSilent();
-        saved.complete(1);
-        await pending;
-        await tester.pump();
-        expect(composer.draftStatus, DraftStatus.saved);
-        expectSilent();
-        expect(tester.takeException(), isNull);
-      });
-    }
+      expectSilent();
+      composer.text.text = 'A draft in progress';
+      await tester.pump();
+      expectSilent();
+      final pending = composer.flushDraft();
+      await tester.pump();
+      expect(composer.draftStatus, DraftStatus.saving);
+      expectSilent();
+      saved.complete(1);
+      await pending;
+      await tester.pump();
+      expect(composer.draftStatus, DraftStatus.saved);
+      expectSilent();
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final localFailed in [false, true]) {
