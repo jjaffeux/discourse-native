@@ -19,7 +19,7 @@ class MobilePageTitle extends StatefulWidget {
     this.previousEntry,
     this.showPreviousTitle = false,
     this.titleFallback,
-    this.previousTitleFallback,
+    this.visitTitles = const {},
   });
 
   final ValueListenable<DPageHeader?> header;
@@ -29,7 +29,7 @@ class MobilePageTitle extends StatefulWidget {
   final Object history;
   final bool showPreviousTitle;
   final String? titleFallback;
-  final ({Object entry, String title})? previousTitleFallback;
+  final Map<Object, String> visitTitles;
 
   static const _titleStyle = TextStyle(
     fontSize: DiscourseTypography.lg,
@@ -113,12 +113,7 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
     final swipe = DHistoryTransition.swipeOf(context);
     if (swipe == null) return identity;
     final target = _presentations[swipe.entry];
-    final fallback = widget.previousTitleFallback;
-    final title =
-        target?.title ??
-        (fallback != null && fallback.entry == swipe.entry
-            ? fallback.title
-            : null);
+    final title = target?.title ?? widget.visitTitles[swipe.entry];
     if (title == null) return identity;
     return IgnorePointer(
       child: ExcludeFocus(
@@ -157,15 +152,10 @@ class _MobilePageTitleState extends State<MobilePageTitle> {
   );
 
   _TitlePresentation? get _previousPresentation {
-    final fallback = widget.previousTitleFallback;
+    final fallback = widget.visitTitles[widget.previousEntry];
     return _presentations[widget.previousEntry] ??
-        (fallback != null && fallback.entry == widget.previousEntry
-            ? (
-                title: fallback.title,
-                leading: null,
-                metadata: null,
-                opacity: 1.0,
-              )
+        (fallback != null
+            ? (title: fallback, leading: null, metadata: null, opacity: 1.0)
             : null);
   }
 

@@ -13,7 +13,7 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.onlyPumps;
 
-  testWidgets('Forward to a topic after memory pressure keeps Topics visible', (
+  testWidgets('Forward shows the saved topic before opening it', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -51,18 +51,19 @@ void main() {
     await tester.pumpAndSettle();
     binding.handleMemoryPressure();
     await tester.pumpAndSettle();
-    final row = find.text(title).first;
-    final before = tester.getRect(row);
+    final preview = find.text('First post', findRichText: true);
+    expect(preview, findsNothing);
     final phone = tester.getRect(find.byKey(const ValueKey('mobile-root')));
     final swipe = await tester.startGesture(
       Offset(phone.right - 5, phone.center.dy),
     );
     await swipe.moveBy(
-      const Offset(-140, 0),
+      const Offset(-270, 0),
       timeStamp: const Duration(milliseconds: 200),
     );
     await tester.pump();
-    expect(tester.getRect(row), before);
+    expect(preview, findsOneWidget);
+    expect(preview.hitTestable(), findsNothing);
     expect(shell.currentContent?.isTopicList, isTrue);
 
     await swipe.up(timeStamp: const Duration(milliseconds: 400));

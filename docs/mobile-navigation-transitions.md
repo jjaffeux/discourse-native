@@ -65,6 +65,7 @@ The sidebar starts transparent and fades in with the reveal, reversing the same 
 
 During animated Back and Forward swipes, the bar crossfades between the visits' retained titles, status icons, categories and tags.
 These inert identities use the same bounded history lifetime as page previews and clear when the journey or account changes.
+If a title was evicted, the bar uses the saved visit's title.
 A title that arrives after loading fades in over 100 milliseconds.
 
 The content host in [`mobile_content_host.dart`](../lib/src/shell/mobile_content_host.dart) owns the source and search element keys.
@@ -78,8 +79,10 @@ It captures the visit's `entryId` and calls Back only while that entry remains c
 Android keeps its stable source viewport and separate reader key; the other path keeps its visit-keyed viewport.
 [`DHistoryTransition`](../lib/src/ui/components/d_history_transition.dart) cancels stale gesture completion when its entry, history, owner, or route changes.
 These guards prevent an old animation from navigating a newer visit.
-The transition animates a swipe when it has a snapshot or a live preview of the destination.
-If neither is available, the current page and header stay in place until the swipe commits. The destination then renders as the current visit.
+When a page snapshot is missing, the transition asks the phone shell to rebuild the destination from its saved visit.
+The shell draws cached topic posts or feed rows when available and uses Native loading surfaces for other destinations.
+The preview has no input, focus, semantics, or active tickers. The live workspace changes when the swipe commits.
+If the transition cannot obtain a preview, the current page and header stay in place until the swipe commits.
 
 A committed page swipe with a cached preview keeps its incoming image over the single live renderer while that renderer restores.
 Any other return to the previous visit, such as a pulled-down sheet or Back, prepares the same image but shows it only if the restored page defers its reveal while laying out its first frame.
@@ -99,6 +102,7 @@ A failed topic load releases the image so its error and retry control remain acc
 - [Search presentation](../test/search_presentation_test.dart) and [global search presentation](../test/global_search_presentation_test.dart) cover search state and activation.
 - [Mobile topic sheets](../test/mobile_topic_sheet_test.dart), [mobile chat sheets](../test/mobile_chat_sheet_test.dart), and [board sheets](../test/plugins/boards/boards_sheet_test.dart) cover child presentation and dismissal.
 - [History transitions](../test/d_history_transition_test.dart) covers gesture completion, cancellation, and history changes.
+- [Native history preview](../integration_test/mobile_history_preview_test.dart) checks that a Forward swipe reveals saved topic content after memory pressure before committing the visit.
 - [History handoff](../test/d_history_handoff_test.dart) checks image continuity, readiness holders, reduced motion and cancellation, and that Back without a swipe covers only a loading page.
 - [Topic history transitions](../test/mobile_topic_history_transition_test.dart) checks title previews and saved reading positions with synchronous and asynchronous post bodies on iOS and Android, and that dismissing a topic opened from another topic never shows the earlier one loading.
 - [Voice navigation](../test/voice_navigation_test.dart) covers room links and repeated room activation.

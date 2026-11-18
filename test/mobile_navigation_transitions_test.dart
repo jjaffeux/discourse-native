@@ -15,6 +15,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart'
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -31,6 +32,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
+import 'support/fakes.dart';
 
 const _platforms = TargetPlatformVariant({
   TargetPlatform.iOS,
@@ -56,6 +58,99 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+  testWidgets('Forward rebuilds a lost topic preview without opening it', (
+    tester,
+  ) async {
+    const post = 'Text from the saved discussion';
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topic: topicPayload(
+        id: 7,
+        title: 'Shared topic card',
+        posts: const [
+          Post(
+            id: 1,
+            postNumber: 1,
+            username: 'reader',
+            cooked: '<p>$post</p>',
+          ),
+        ],
+      ),
+    );
+    final list = shell.mobileNavigation.entryId;
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    final topic = shell.mobileNavigation.entryId;
+    expect(shell.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+    tester.binding.handleMemoryPressure();
+    await tester.pumpAndSettle();
+
+    final bounds = tester.getRect(find.byKey(const ValueKey('mobile-root')));
+    final preview = find.text(post, findRichText: true);
+
+    for (final commit in [false, true]) {
+      final gesture = await tester.startGesture(
+        Offset(bounds.right - 5, bounds.center.dy),
+      );
+      await gesture.moveBy(
+        const Offset(-270, 0),
+        timeStamp: const Duration(milliseconds: 250),
+      );
+      await tester.pump();
+      expect(preview, findsOneWidget);
+      expect(preview.hitTestable(), findsNothing);
+      expect(shell.mobileNavigation.entryId, same(list));
+
+      if (commit) {
+        await gesture.up(timeStamp: const Duration(milliseconds: 450));
+      } else {
+        await gesture.cancel();
+      }
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.entryId, same(commit ? topic : list));
+      if (!commit) expect(preview, findsNothing);
+    }
+  }, variant: _platforms);
+
+  testWidgets('Back rebuilds a lost Topics preview from cached rows', (
+    tester,
+  ) async {
+    const otherTitle = 'A second topic in the feed';
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topics: const [
+        Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
+        Topic(id: 8, title: otherTitle, slug: 'second'),
+      ],
+    );
+    final list = shell.mobileNavigation.entryId;
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    final topic = shell.mobileNavigation.entryId;
+
+    final size = tester.view.physicalSize;
+    tester.view.physicalSize = Size(size.width + 20, size.height);
+    await tester.pumpAndSettle();
+
+    final preview = find.descendant(
+      of: find.byKey(const ValueKey('history-previous-preview')),
+      matching: find.text(otherTitle),
+    );
+    expect(preview, findsNothing);
+    final gesture = await tester.startGesture(const Offset(8, 400));
+    await gesture.moveBy(const Offset(270, 0));
+    await tester.pump();
+    expect(preview, findsOneWidget);
+    expect(preview.hitTestable(), findsNothing);
+    expect(shell.mobileNavigation.entryId, same(topic));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.entryId, same(list));
+    expect(find.text(otherTitle).hitTestable(), findsOneWidget);
+  }, variant: _platforms);
 
   testWidgets('category and tag links from Topics update the same visit', (
     tester,

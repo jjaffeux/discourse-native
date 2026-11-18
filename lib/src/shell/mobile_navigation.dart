@@ -38,7 +38,7 @@ final class MobileTab {
 
 /// A mobile visit history starts at a tab root, independently of desktop tabs.
 /// Entries contain shared route metadata, never widgets or feature data. The
-/// shell projects only the current entry into the shared content renderer.
+/// shell projects the current entry into the live content renderer.
 final class MobileNavigation {
   static const maximumPages = ForumTab.maximumHistoryEntries;
 
@@ -115,6 +115,25 @@ final class MobileNavigation {
   Object get entryId => _entries[_index].id;
   Object? get previousEntryId => canGoBack ? _entries[_index - 1].id : null;
   Object? get nextEntryId => canGoForward ? _entries[_index + 1].id : null;
+
+  /// A visit that a swipe can reveal, with the route beneath it if it is a sheet.
+  /// A panel root is a visit with no document location.
+  ({ForumTabLocation? location, ContentRoute? previousRoute})? adjacentVisit(
+    Object entry,
+  ) {
+    final index = entry == previousEntryId
+        ? _index - 1
+        : entry == nextEntryId
+        ? _index + 1
+        : null;
+    if (index == null) return null;
+    return (
+      location: _entries[index].content,
+      previousRoute: index > 0
+          ? _entries[index - 1].content?.contentStack.last
+          : null,
+    );
+  }
 
   /// Starts an explicitly selected or restored document journey. Only this
   /// bootstrap operation derives initial ancestry from the document stack.

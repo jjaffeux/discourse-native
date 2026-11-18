@@ -5795,7 +5795,7 @@ void main() {
     _mobileTest(
       pullDown
           ? 'Pulling down to restored Bookmarks previews its title'
-          : 'Swiping back to restored Bookmarks shows its title on commit',
+          : 'Swiping back to restored Bookmarks rebuilds its preview',
       (tester) async {
         tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
         const bookmarks = ContentRoute(
@@ -5834,8 +5834,14 @@ void main() {
           );
           await tester.pump();
           expect(shell.currentContent?.isTopic, isTrue);
-          expect(title, pullDown ? findsOneWidget : findsNothing);
+          expect(title, findsOneWidget);
           expect(title.hitTestable(), findsNothing);
+          if (!pullDown) {
+            expect(
+              find.byKey(const ValueKey('history-previous-preview')),
+              findsOneWidget,
+            );
+          }
           return swipe;
         }
 

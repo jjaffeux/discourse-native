@@ -49,6 +49,15 @@ final class DHistoryNavigation {
   final VoidCallback onOpen;
 }
 
+/// An inert destination rebuilt for a swipe. [frameTop] is its resting top
+/// inside the transition's frame. Omit it to align with the current page.
+final class DHistoryPagePreview {
+  const DHistoryPagePreview({required this.child, this.frameTop});
+
+  final Widget child;
+  final double? frameTop;
+}
+
 /// Interactive edge swipes over a single live history page.
 ///
 /// Give each visit a stable [entry] identity and change [history] when its owner
@@ -68,8 +77,9 @@ final class DHistoryNavigation {
 /// snapshot so solid page fills do not expose the surrounding canvas.
 ///
 /// History previews are in-memory snapshots of up to eight recently visited
-/// pages. If the destination has no preview, the current page stays in place
-/// during the swipe and navigation happens on release.
+/// pages. [rebuildPreview] can reconstruct a destination from its entry when
+/// its snapshot is missing. If no preview is available, the current page
+/// stays in place during the swipe and navigation happens on release.
 /// Supply [previousPreview] for a live Back preview. It stays mounted offstage
 /// and has no focus, semantics or interaction during the swipe.
 /// Theme, viewport width and history changes discard snapshots. Memory pressure
@@ -88,6 +98,7 @@ class DHistoryTransition extends StatefulWidget {
     this.previousEntry,
     this.nextEntry,
     this.previousPreview,
+    this.rebuildPreview,
     this.navigation,
     this.backSwipeAnywhere = false,
 
@@ -207,6 +218,11 @@ class DHistoryTransition extends StatefulWidget {
   /// automatically. A [GlobalKey] can preserve it when it becomes [child].
   final Widget? previousPreview;
 
+  /// Resolves an adjacent entry once, when an animated swipe lacks artwork.
+  /// The returned page is mounted only for that swipe, without focus, input,
+  /// semantics or tickers. It must leave the active visit untouched.
+  final DHistoryPagePreview? Function(Object entry)? rebuildPreview;
+
   /// The selected tab and its visual order. Another tab slides and fades the
   /// pages towards its index, mirrored in RTL, even when [history] resets for
   /// it. Only the destination is live; the outgoing page uses a bounded
@@ -241,11 +257,13 @@ class _HistorySwipe {
     required this.direction,
     required this.entry,
     required this.animated,
+    this.rebuiltPreview,
   });
 
   final _HistoryDirection direction;
   final Object entry;
   final bool animated;
+  final DHistoryPagePreview? rebuiltPreview;
   double distance = 0;
   bool settling = false;
 }
@@ -466,9 +484,11 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       }
     } else if (_swipe case final swipe?
         when _destination(swipe.direction)?.entry != swipe.entry ||
+            (swipe.rebuiltPreview != null && widget.rebuildPreview == null) ||
             (swipe.animated &&
                 swipe.direction == _HistoryDirection.back &&
                 _preview == null &&
+                swipe.rebuiltPreview == null &&
                 widget.previousPreview == null)) {
       _resetGesture();
     }
@@ -633,23 +653,28 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       if (_handingOff) _resetGesture();
       final preview = _previews[entry];
       final image = _navigationOpen ? preview?.frame?.image : preview?.image;
-      final animated =
-          !MediaQuery.disableAnimationsOf(context) &&
-          (image != null ||
-              direction == _HistoryDirection.openNavigation ||
-              direction == _HistoryDirection.back &&
-                  widget.previousPreview != null);
+      final motion = !MediaQuery.disableAnimationsOf(context);
+      final live =
+          direction == _HistoryDirection.openNavigation ||
+          (direction == _HistoryDirection.back &&
+              widget.previousPreview != null);
+      final rebuilt = motion && !live && image == null && !_navigationOpen
+          ? widget.rebuildPreview?.call(entry)
+          : null;
+      final animated = motion && (image != null || live || rebuilt != null);
       _swipe = _HistorySwipe(
         direction: direction,
         entry: entry,
         animated: animated,
+        rebuiltPreview: rebuilt,
       );
       if (_openingNavigation) _navigationDeparture = _snapshotFrame();
       _preview = animated ? image?.clone() : null;
       _previewPageTop = _navigationOpen ? preview?.frame?.pageTop ?? 0 : 0;
-      _previewOrigin = animated && !_navigationTransition
-          ? preview?.origin
-          : null;
+      _previewOrigin = switch (rebuilt?.frameTop) {
+        final top? => Offset(_pageOrigin().dx, top),
+        null => animated && !_navigationTransition ? preview?.origin : null,
+      };
     });
   }
 
@@ -1109,41 +1134,63 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   ),
                 ),
               );
-              Widget previewLayer(Widget preview, {required bool back}) =>
-                  Offstage(
-                    key: ValueKey(
-                      back
-                          ? 'history-previous-preview'
-                          : 'history-next-preview',
-                    ),
-                    offstage: !active || _back != back,
-                    child: Transform.translate(
-                      offset: Offset(
-                        back
-                            ? -_sign * _size.width * _parallax * (1 - p)
-                            : -_sign * _size.width * (1 - p),
-                        0,
+              final rebuilt = _swipe?.rebuiltPreview;
+              final rebuiltPage = rebuilt == null
+                  ? null
+                  : rebuilt.frameTop == null
+                  ? rebuilt.child
+                  : Flow(
+                      clipBehavior: Clip.none,
+                      delegate: _HistoryImageAlignment(
+                        () => _previewOrigin! - _pageOrigin(),
                       ),
-                      child: Transform.scale(
-                        scale: reducedMotion
-                            ? 1
-                            : _previewScale + (1 - _previewScale) * p,
-                        child: DecoratedBox(
-                          decoration: back ? const BoxDecoration() : elevation,
-                          child: ExcludeSemantics(
-                            child: IgnorePointer(
-                              child: ExcludeFocus(
-                                child: TickerMode(
-                                  enabled: active && _back == back,
-                                  child: preview,
-                                ),
-                              ),
+                      children: [
+                        SizedBox(
+                          height: math.max(
+                            0,
+                            _frameSize.height - rebuilt.frameTop!,
+                          ),
+                          child: rebuilt.child,
+                        ),
+                      ],
+                    );
+              final image = _preview;
+              Widget previewLayer(
+                Widget preview, {
+                required bool back,
+              }) => Offstage(
+                key: ValueKey(
+                  back ? 'history-previous-preview' : 'history-next-preview',
+                ),
+                offstage: !active || _back != back,
+                child: Transform.translate(
+                  offset: Offset(
+                    back
+                        ? -_sign * _size.width * _parallax * (1 - p)
+                        : -_sign * _size.width * (1 - p),
+                    0,
+                  ),
+                  child: Transform.scale(
+                    scale: reducedMotion
+                        ? 1
+                        : _previewScale + (1 - _previewScale) * p,
+                    child: DecoratedBox(
+                      decoration: back ? const BoxDecoration() : elevation,
+                      child: ExcludeSemantics(
+                        child: IgnorePointer(
+                          child: ExcludeFocus(
+                            child: TickerMode(
+                              enabled:
+                                  rebuilt == null && active && _back == back,
+                              child: preview,
                             ),
                           ),
                         ),
                       ),
                     ),
-                  );
+                  ),
+                ),
+              );
               final pages = Stack(
                 fit: StackFit.expand,
                 children: [
@@ -1155,8 +1202,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       ),
                       back: true,
                     )
-                  else if (_preview case final image?
-                      when !_openingNavigation && active && _back)
+                  else if (active &&
+                      _back &&
+                      (image != null || rebuiltPage != null))
                     ClipPath(
                       clipBehavior: Clip.hardEdge,
                       clipper: _HistoryRevealClipper(
@@ -1165,7 +1213,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         _sign * _size.width * p,
                       ),
                       child: previewLayer(
-                        preview(image, tint: dimColor),
+                        rebuiltPage == null
+                            ? preview(image!, tint: dimColor)
+                            : ColorFiltered(
+                                colorFilter: dim,
+                                child: rebuiltPage,
+                              ),
                         back: true,
                       ),
                     ),
@@ -1224,8 +1277,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       ),
                     ),
                   ),
-                  if (_preview case final image? when active && !_back)
-                    previewLayer(preview(image), back: false),
+                  if (active &&
+                      !_back &&
+                      (image != null || rebuiltPage != null))
+                    previewLayer(rebuiltPage ?? preview(image!), back: false),
                   if (_handingOff)
                     _HistoryHandoffCover(
                       covering: () => _coveringPage,

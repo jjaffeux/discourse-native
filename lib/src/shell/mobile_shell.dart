@@ -25,6 +25,7 @@ import 'instance_sidebar.dart';
 import 'message_create_button.dart';
 import 'mobile_dock_panel_scope.dart';
 import 'mobile_footer_action.dart';
+import 'mobile_history_preview.dart';
 import 'mobile_navigation.dart';
 import 'mobile_page_title.dart';
 import 'mobile_place_order.dart';
@@ -310,12 +311,27 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final titleFallback = route?.isPage(CorePage.bookmarks) == true
             ? bookmarksTitle
             : null;
-        final previousTitleFallback =
-            bookmarksTitle != null &&
-                previousEntry != null &&
-                previous?.isPage(CorePage.bookmarks) == true
-            ? (entry: previousEntry, title: bookmarksTitle)
-            : null;
+        final panelLabel = panels
+            .where((entry) => entry.owner.value == panelOwner)
+            .firstOrNull
+            ?.panel
+            .label;
+        final visitTitles = <Object, String>{
+          if (!widget.boundary)
+            for (final entry in {
+              ?previousEntry,
+              ?shell.mobileNavigation.nextEntryId,
+            })
+              if ((shell.mobileNavigation
+                          .adjacentVisit(entry)
+                          ?.location
+                          ?.contentStack
+                          .last
+                          .title ??
+                      panelLabel)
+                  case final title? when title.isNotEmpty)
+                entry: title,
+        };
         final searchOverPanel =
             searchOpen && previousEntry != null && previous == null;
         Widget belowSearchHeader(Widget child, {bool inset = true}) => Builder(
@@ -527,8 +543,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                           siteUrl: instance.url,
                                           showPreviousTitle: searchOpen,
                                           titleFallback: titleFallback,
-                                          previousTitleFallback:
-                                              previousTitleFallback,
+                                          visitTitles: visitTitles,
                                         );
                                       },
                                     ),
@@ -757,6 +772,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           child: MobileHistoryGestures(
             tab: (id: selected, index: tabOrder.indexOf(selected)),
             navigationPreview: _navigationPage,
+            rebuildPreview: widget.boundary
+                ? null
+                : (context, entry) => buildMobileHistoryPreview(
+                    context,
+                    shell: shell,
+                    registry: registry,
+                    entry: entry,
+                    panelLabel: panelLabel,
+                  ),
             frameBuilder: frame,
             foregroundBuilder: foreground,
             child: Stack(
@@ -1253,6 +1277,7 @@ class MobileHistoryGestures extends StatelessWidget {
     required this.child,
     required this.tab,
     required this.navigationPreview,
+    required this.rebuildPreview,
     required this.frameBuilder,
     required this.foregroundBuilder,
   });
@@ -1261,6 +1286,8 @@ class MobileHistoryGestures extends StatelessWidget {
   /// The place the person is on, and where it stands among the places.
   final DHistoryTab tab;
   final Widget navigationPreview;
+  final DHistoryPagePreview? Function(BuildContext context, Object entry)?
+  rebuildPreview;
   final Widget Function(BuildContext context, Widget page) frameBuilder;
   final Widget Function(BuildContext context, Widget frame) foregroundBuilder;
 
@@ -1300,6 +1327,9 @@ class MobileHistoryGestures extends StatelessWidget {
           ),
           previousEntry: sidebarOpen ? null : navigation.previousEntryId,
           nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
+          rebuildPreview: rebuildPreview == null
+              ? null
+              : (entry) => rebuildPreview!(context, entry),
           onBack: !sidebarOpen && navigation.canGoBack
               ? () {
                   FocusManager.instance.primaryFocus?.unfocus();
