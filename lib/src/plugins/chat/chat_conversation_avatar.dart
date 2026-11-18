@@ -14,25 +14,44 @@ class ChatConversationAvatar extends StatelessWidget {
     required this.siteUrl,
     required this.channel,
     required this.size,
-  });
+  }) : _inbox = false;
+
+  const ChatConversationAvatar.inbox({
+    super.key,
+    required this.siteUrl,
+    required this.channel,
+    required this.size,
+  }) : _inbox = true;
 
   final String siteUrl;
   final ChatChannel channel;
   final double size;
+  final bool _inbox;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final color = channel.categoryColor ?? tokens.mutedForeground;
+    final desktopChannel =
+        _inbox && !context.isTouch && !channel.isDirectMessage;
+    final surface = desktopChannel
+        ? tokens.categoryControlSurface(color)
+        : null;
+    final background = surface?.background ?? color.withValues(alpha: .22);
     final fallback = DAvatarFallback(
-      backgroundColor: color.withValues(alpha: .22),
-      foregroundColor: color,
+      backgroundColor: background,
+      foregroundColor: surface?.foreground ?? color,
       child: channel.isDirectMessage
           ? channel.isGroup || channel.users.length > 1
                 ? DIcon(DIcons.users, size: size / 2)
                 : Text(
                     channel.title.characters.take(1).toString().toUpperCase(),
                   )
+          : desktopChannel
+          ? const DIconGlyphTheme(
+              scale: 1,
+              child: DIcon(DIcons.hashtag, size: 15),
+            )
           : Text(
               '#',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -50,7 +69,7 @@ class ChatConversationAvatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(DRadius.bubble),
         decorative: true,
         fallback: DAvatarFallback(
-          backgroundColor: color.withValues(alpha: .22),
+          backgroundColor: background,
           child: EmojiImage(
             url: emojiHost.resolveUrl(siteUrl, channel.emoji!),
             size: size / 2,

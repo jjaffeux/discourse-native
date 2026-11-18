@@ -2,7 +2,16 @@ import 'package:flutter/widgets.dart';
 
 import '../../theme/tokens.dart';
 
-/// An 8px unread or new-activity indicator, without a count or interaction.
+/// Sizes for inline indicators.
+enum DNotificationDotSize {
+  /// A 7px dot for secondary unread activity in a compact row.
+  compact,
+
+  /// An 8px dot for ordinary unread activity.
+  standard,
+}
+
+/// An unread or new-activity indicator, without a count or interaction.
 ///
 /// Use the default constructor beside text. [DNotificationDot.overlay] adds a
 /// 2px surface-colored ring within a 12px footprint when overlapping artwork.
@@ -10,16 +19,21 @@ import '../../theme/tokens.dart';
 /// text or intercepts pointer input. Use [semanticLabel] for a standalone state,
 /// or omit it when the enclosing button/row already announces the unread state.
 class DNotificationDot extends StatelessWidget {
-  const DNotificationDot({super.key, this.color, this.semanticLabel})
-    : ringColor = null,
-      _overlay = false;
+  const DNotificationDot({
+    super.key,
+    this.color,
+    this.semanticLabel,
+    this.size = DNotificationDotSize.standard,
+  }) : ringColor = null,
+       _overlay = false;
 
   const DNotificationDot.overlay({
     super.key,
     this.color,
     this.ringColor,
     this.semanticLabel,
-  }) : _overlay = true;
+  }) : size = DNotificationDotSize.standard,
+       _overlay = true;
 
   /// Defaults to the current theme's primary color.
   final Color? color;
@@ -28,13 +42,14 @@ class DNotificationDot extends StatelessWidget {
   final Color? ringColor;
 
   final String? semanticLabel;
+  final DNotificationDotSize size;
   final bool _overlay;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final dot = SizedBox.square(
-      dimension: _overlay ? 12 : 8,
+      dimension: _overlay ? 12 : (size == DNotificationDotSize.compact ? 7 : 8),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color ?? tokens.primary,

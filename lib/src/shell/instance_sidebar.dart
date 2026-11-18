@@ -690,7 +690,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                   SliverPadding(
                     padding: widget.mobile
                         ? EdgeInsets.zero
-                        : const EdgeInsets.fromLTRB(8, 2, 8, 8),
+                        : const EdgeInsets.only(top: 2, bottom: 8),
                     sliver: SliverMainAxisGroup(
                       slivers: [
                         if (showCoreSections)
@@ -739,6 +739,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                               )),
                                               siteUrl: sidebar.siteUrl!,
                                               section: section,
+                                              mobile: widget.mobile,
                                               linkEdit: _linkEdit,
                                               appendedDestinations:
                                                   section.id == 'community'
@@ -840,6 +841,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                         )),
                                         siteUrl: sidebar.siteUrl!,
                                         section: section,
+                                        mobile: widget.mobile,
                                         store: sectionStore,
                                         isSelected: pluginSelection,
                                         onNavigate: widget.onNavigate,
@@ -1272,6 +1274,7 @@ class _Section extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.section,
+    required this.mobile,
     required this.store,
     required this.isSelected,
     required this.onSelect,
@@ -1283,6 +1286,7 @@ class _Section extends StatefulWidget {
 
   final String siteUrl;
   final SidebarSection section;
+  final bool mobile;
   final _SidebarLinkEditController? linkEdit;
   final SidebarSectionStore store;
 
@@ -1826,13 +1830,24 @@ class _SectionState extends State<_Section> {
   @override
   Widget build(BuildContext context) {
     final section = widget.section;
+    // A headerless custom body owns its desktop insets across the sidebar.
+    final padding =
+        widget.mobile ||
+            (!context.isTouch &&
+                section.bodyBuilder != null &&
+                !section.showHeader)
+        ? EdgeInsets.zero
+        : const EdgeInsets.symmetric(horizontal: 8);
     if (section.loading) {
       return SliverToBoxAdapter(
-        child: _SidebarLoadingSkeleton(
-          semanticsLabel: context.l10n.loadingInstancesidebar(
-            (section.title).toString(),
+        child: Padding(
+          padding: padding,
+          child: _SidebarLoadingSkeleton(
+            semanticsLabel: context.l10n.loadingInstancesidebar(
+              (section.title).toString(),
+            ),
+            rowCount: 4,
           ),
-          rowCount: 4,
         ),
       );
     }
@@ -1879,7 +1894,7 @@ class _SectionState extends State<_Section> {
           )
         : null;
     final group = DSidebarGroup.sliver(
-      padding: EdgeInsets.zero,
+      padding: padding,
       header: !context.isTouch && sectionAction != null
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

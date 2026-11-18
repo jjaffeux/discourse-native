@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_plugin_contracts.dart'
     show DIconData, DIcons, DNativeIcons;
 import 'package:discourse_native/discourse_ui.dart';
@@ -17,13 +19,16 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/native_ui_evidence.dart';
 
@@ -436,6 +441,117 @@ void main() {
     );
   });
 
+  testWidgets('desktop channel selection aligns with the wider unread cards', (
+    tester,
+  ) async {
+    await prepareNativeUiEvidence(tester);
+    final fixture = await _pump(
+      tester,
+      size: const Size(320, 900),
+      brightness: Brightness.dark,
+    );
+    await fixture.show(const DSidebarProvider(child: InstanceSidebar()));
+    await tester.tap(_row(2));
+    await tester.pumpAndSettle();
+
+    final sidebar = tester.getRect(find.byType(InstanceSidebar));
+    final selected = tester.getRect(_row(2));
+    final unread = tester.getRect(_row(5));
+    expect(selected.left - sidebar.left, 16);
+    expect(sidebar.right - selected.right, 16);
+    expect(unread.left - sidebar.left, 4);
+    expect(sidebar.right - unread.right, 4);
+    expect(tester.getTopLeft(_mark(2)).dx - sidebar.left, 19);
+    expect(tester.getTopLeft(_mark(5)).dx - sidebar.left, 19);
+
+    Iterable<BoxDecoration> decorations(Finder scope) => tester
+        .widgetList<DecoratedBox>(
+          find.descendant(of: scope, matching: find.byType(DecoratedBox)),
+        )
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>();
+    final tokens = DTokens.of(tester.element(_row(2)));
+    final selectedFill = decorations(
+      _row(2),
+    ).firstWhere((decoration) => decoration.color == tokens.selectionTint);
+    expect(selectedFill.borderRadius, BorderRadius.zero);
+    expect(
+      decorations(_row(2)).map((decoration) => decoration.border),
+      contains(
+        BorderDirectional(start: BorderSide(color: tokens.primary, width: 3)),
+      ),
+    );
+    final unreadFill = decorations(
+      _row(5),
+    ).singleWhere((decoration) => decoration.color == tokens.unreadFill);
+    expect(unreadFill.borderRadius, BorderRadius.circular(10));
+    final count = find.byKey(const ValueKey('chat-inbox-unread-2'));
+    expect(tester.getSize(count).height, 18);
+    expect(tester.getSize(count).width, greaterThanOrEqualTo(20));
+    expect(
+      decorations(count).map((decoration) => decoration.color),
+      contains(tokens.primary.withValues(alpha: .12)),
+    );
+    final dot = find.byKey(const ValueKey('chat-inbox-muted-unread-4'));
+    expect(tester.getSize(dot), const Size.square(7));
+    expect(decorations(dot).single.color, tokens.mutedForeground);
+    final action = find.byKey(const ValueKey('chat-channel-menu-button-5'));
+    double actionOpacity(Finder action) => tester
+        .widget<Opacity>(
+          find.ancestor(of: action, matching: find.byType(Opacity)).first,
+        )
+        .opacity;
+    final selectedAction = find.byKey(
+      const ValueKey('chat-channel-menu-button-2'),
+    );
+    expect(actionOpacity(selectedAction), 0);
+    expect(action.hitTestable(), findsNothing);
+    expect(actionOpacity(action), 0);
+    await captureNativeUi(tester, 'desktop-selected-channel');
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: tester.getCenter(_row(5)));
+    await tester.pumpAndSettle();
+    expect(decorations(_row(5)), contains(unreadFill));
+    expect(actionOpacity(action), 1);
+    final menuButton = tester.getRect(action);
+    expect(menuButton.size, const Size.square(26));
+    expect(menuButton.center.dy, unread.center.dy);
+    expect(unread.right - menuButton.right, 6);
+    final surface = buttonSurface(tester, of: action);
+    expect(surface.color, tokens.raisedBackground);
+    expect(surface.borderRadius, BorderRadius.circular(7));
+    expect(
+      find.descendant(
+        of: action,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DIcon &&
+              widget.icon == DIcons.ellipsis &&
+              widget.size == 12,
+        ),
+      ),
+      findsOneWidget,
+    );
+    await captureNativeUi(tester, 'desktop-chat-hover-action');
+    await tester.tap(action, kind: PointerDeviceKind.mouse);
+    await tester.pumpAndSettle();
+    final star = find.byKey(const ValueKey('chat-channel-menu-star-5'));
+    expect(star, findsOneWidget);
+    expect(decorations(_row(2)), contains(selectedFill));
+    await mouse.moveTo(const Offset(4, 890));
+    await tester.pumpAndSettle();
+    expect(
+      actionOpacity(action),
+      1,
+      reason: 'The open menu keeps its trigger shown',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(star, findsNothing);
+  });
+
   testWidgets('voice rooms close the list under their own heading and are '
       'found by name', (tester) async {
     final fixture = await _pump(tester);
@@ -515,6 +631,7 @@ class _Fixture {
 Future<_Fixture> _pump(
   WidgetTester tester, {
   Size size = const Size(390, 1800),
+  Brightness brightness = Brightness.light,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -552,7 +669,7 @@ Future<_Fixture> _pump(
           MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.forBrightness(
-              Brightness.light,
+              brightness,
             ).copyWith(platform: TargetPlatform.macOS),
             builder: nativeUiEvidenceBuilder,
             home: Scaffold(

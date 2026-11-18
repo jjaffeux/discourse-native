@@ -10,8 +10,8 @@ final notificationDotExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'A small indicator for unread messages and new activity.',
   notes:
-      'DNotificationDot has an 8px colored center. The overlay constructor adds '
-      'a 2px surface ring within a 12px footprint. Both use live theme colors '
+      'DNotificationDot has an 8px colored center or a 7px compact center. '
+      'The overlay constructor adds a 2px surface ring within a 12px footprint. All use live theme colors '
       'and stay fixed at large text sizes. Dots do not receive focus or pointer '
       'input. Supply semanticLabel for a standalone state; omit it when the '
       'enclosing control already announces unread activity. Visibility and '
@@ -25,8 +25,9 @@ final notificationDotExamples = ComponentExamples(
       states: const ['Unread', 'Semantics', 'Large text'],
       code: '''const DNotificationDot(semanticLabel: 'Unread messages')
 DNotificationDot(
-  color: Theme.of(context).discourse.notificationIndicator,
-  semanticLabel: 'Unseen pinned messages',
+  size: DNotificationDotSize.compact,
+  color: DTokens.of(context).mutedForeground,
+  semanticLabel: 'Unread messages in muted channel',
 )''',
       builder: (context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,10 +43,11 @@ DNotificationDot(
           Row(
             spacing: DSpacing.sm,
             children: [
-              const Flexible(child: Text('Pinned messages')),
+              const Flexible(child: Text('Muted channel')),
               DNotificationDot(
-                color: Theme.of(context).discourse.notificationIndicator,
-                semanticLabel: 'Unseen pinned messages',
+                size: DNotificationDotSize.compact,
+                color: DTokens.of(context).mutedForeground,
+                semanticLabel: 'Unread messages in muted channel',
               ),
             ],
           ),

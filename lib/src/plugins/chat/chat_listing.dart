@@ -730,14 +730,13 @@ class ChatSidebarInbox extends StatelessWidget {
 
   final String siteUrl;
 
-  /// A sidebar's body is already 8 in from the panel's edge.
-  static const frame = ChatInboxRowFrame(edge: 8);
+  static const _drawerFrame = ChatInboxRowFrame(edge: 8);
 
   @override
   Widget build(BuildContext context) => ChatListing(
     siteUrl: siteUrl,
     place: ChatInboxPlace.side,
-    frame: frame,
+    frame: context.isTouch ? _drawerFrame : ChatInboxRowFrame.page,
     builder: _sliver,
   );
 
@@ -770,7 +769,10 @@ class _ChatSidebarInboxSkeleton extends StatelessWidget {
       children: [
         for (var row = 0; row < 6; row++)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.isTouch ? 8 : 16,
+              vertical: 8,
+            ),
             child: Row(
               spacing: 12,
               children: [

@@ -73,6 +73,20 @@ enum DItemMediaVariant { standard, icon, avatar }
 typedef DItemPreviewBuilder =
     ({Widget? header, Widget preview}) Function(BuildContext, BoxConstraints);
 
+/// An independent row control revealed on hover or focus within the item.
+@immutable
+class DItemHoverAction {
+  /// Places the control in the top trailing corner, 8px from both edges.
+  const DItemHoverAction.corner(this.child) : _centered = false;
+
+  /// Centers the control vertically, 6px from the trailing edge. A pointer
+  /// press that focuses the row reveals the action while hovering.
+  const DItemHoverAction.trailing(this.child) : _centered = true;
+
+  final Widget child;
+  final bool _centered;
+}
+
 /// A content row, optionally an action or link. Editable fields keep their own
 /// FormField owner; selection is controlled by the caller.
 ///
@@ -109,7 +123,7 @@ class DItem extends StatefulWidget {
     this.semanticLabel,
     this.padding,
     this.gap,
-    this.cornerAction,
+    this.hoverAction,
     this.dragData,
     this.dragFeedback,
   }) : _previewBuilder = null,
@@ -147,7 +161,7 @@ class DItem extends StatefulWidget {
        clipBehavior = Clip.none,
        padding = const EdgeInsets.fromLTRB(12, 20, 12, 22),
        gap = null,
-       cornerAction = null,
+       hoverAction = null,
        dragData = null,
        dragFeedback = null;
 
@@ -241,11 +255,9 @@ class DItem extends StatefulWidget {
   /// footer, for a reference that sets a row tighter or looser than [size].
   final double? gap;
 
-  /// An independent control in the top trailing corner, usually a small Button.
-  /// Hover or focus within the item reveals it immediately. Touch platforms and
-  /// accessible navigation keep it visible. Its focus, semantics and state stay
-  /// mounted while hidden. Reserve this corner in the header's content.
-  final Widget? cornerAction;
+  /// A control over the row. Touch platforms and accessible navigation keep
+  /// it visible. Its focus, semantics and state stay mounted while hidden.
+  final DItemHoverAction? hoverAction;
 
   /// Immutable payload offered when the entire row is dragged.
   /// Ordinary tap, focus, and link actions remain available.
@@ -370,6 +382,7 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
   bool get _focusVisible =>
       _focused && _canRequestFocus && highlightModeShowsHighlight;
   bool _focusWithin = false;
+  bool _pointerFocused = false;
   bool _pointerOnChildControl = false;
   bool get _active => widget.enabled && widget.onPressed != null;
 
@@ -680,31 +693,39 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
         child: Opacity(opacity: 1, child: result),
       );
     }
-    if (widget.cornerAction case final action?) {
+    if (widget.hoverAction case final action?) {
       final showAction =
           _hover ||
-          _focusWithin ||
+          (_focusWithin &&
+              (!action._centered ||
+                  !_focus.hasPrimaryFocus ||
+                  !_pointerFocused)) ||
           DControlStyle.isTouch(context) ||
           MediaQuery.accessibleNavigationOf(context);
+      final control = Opacity(
+        opacity: showAction ? 1 : 0,
+        alwaysIncludeSemantics: true,
+        child: action.child,
+      );
       result = Stack(
         fit: StackFit.passthrough,
         children: [
           result,
           PositionedDirectional(
-            top: DSpacing.sm,
-            end: DSpacing.sm,
-            child: Opacity(
-              opacity: showAction ? 1 : 0,
-              alwaysIncludeSemantics: true,
-              child: action,
-            ),
+            top: action._centered ? 0 : DSpacing.sm,
+            bottom: action._centered ? 0 : null,
+            end: action._centered ? DSpacing.controlGap : DSpacing.sm,
+            child: action._centered
+                ? Center(
+                    widthFactor: 1,
+                    child: IgnorePointer(ignoring: !showAction, child: control),
+                  )
+                : control,
           ),
         ],
       );
     }
-    if (widget.onPressed != null ||
-        widget.link ||
-        widget.cornerAction != null) {
+    if (widget.onPressed != null || widget.link || widget.hoverAction != null) {
       // Pointer hover remains visible while the app suppresses keyboard focus
       // rings, which follow the focus highlight mode as
       // FocusableActionDetector's do. A list mounts an item per row, so the
@@ -726,7 +747,10 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
           focusNode: _focus,
           canRequestFocus: _canRequestFocus,
           onFocusChange: (value) {
-            setState(() => _focused = value);
+            setState(() {
+              _focused = value;
+              if (!value) _pointerFocused = false;
+            });
             trackHighlightMode(engaged: value);
           },
           child: DTouchTarget(
@@ -748,6 +772,7 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
               onTap: _active
                   ? () {
                       if (_pointerOnChildControl) return;
+                      _pointerFocused = widget.hoverAction?._centered == true;
                       _focus.requestFocus();
                       linkActivation.onPressed!();
                     }
@@ -765,10 +790,13 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
       );
       result = Focus(
         canRequestFocus: false,
-        onFocusChange: widget.cornerAction == null
+        onFocusChange: widget.hoverAction == null
             ? null
             : (value) => setState(() => _focusWithin = value),
         onKeyEvent: (_, event) {
+          if (_pointerFocused && event is KeyDownEvent) {
+            setState(() => _pointerFocused = false);
+          }
           // Descendant controls own their keystrokes, including Space/Return.
           if (!_active || !_focus.hasPrimaryFocus) {
             return KeyEventResult.ignored;

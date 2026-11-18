@@ -118,8 +118,40 @@ final itemExamples = ComponentExamples(
           'The corner action appears on hover or focus, stays visible on touch '
           'and with accessible navigation, and activates independently of the card.',
       code:
-          "DItem(shape: DItemShape.card, variant: DItemVariant.outline, onPressed: select, cornerAction: DButton.iconOnly(size: DButtonSize.small, icon: DIcon(DIcons.trashCan), tooltip: 'Remove saved item', onPressed: remove), header: DItemHeader(child: preview), children: [DItemContent(children: [Text('Saved item')])])",
+          "DItem(shape: DItemShape.card, variant: DItemVariant.outline, onPressed: select, hoverAction: DItemHoverAction.corner(DButton.iconOnly(size: DButtonSize.small, icon: DIcon(DIcons.trashCan), tooltip: 'Remove saved item', onPressed: remove)), header: DItemHeader(child: preview), children: [DItemContent(children: [Text('Saved item')])])",
       builder: (_) => const _CornerActionExample(),
+    ),
+    StyleguideExample(
+      title: 'Trailing hover action',
+      description:
+          'The action stays centered vertically as the row grows. '
+          'Hover over the row or tab into it to reveal the action.',
+      code: '''DItem(
+  shape: DItemShape.fullWidth,
+  onPressed: openChannel,
+  hoverAction: DItemHoverAction.trailing(optionsButton),
+  children: [DItemContent(children: [Text('Design')])],
+)''',
+      builder: (context) => DItem(
+        shape: DItemShape.fullWidth,
+        onPressed: () => DToast.show(context, 'Design opened'),
+        hoverAction: DItemHoverAction.trailing(
+          DButton.iconOnly(
+            size: DButtonSize.segment,
+            icon: const DIcon(DIcons.ellipsis, size: 12),
+            tooltip: 'Design options',
+            onPressed: () => DToast.show(context, 'Design options opened'),
+          ),
+        ),
+        children: const [
+          DItemContent(
+            children: [
+              DItemTitle(child: Text('Design')),
+              DItemDescription(child: Text('The review moved to Friday')),
+            ],
+          ),
+        ],
+      ),
     ),
     StyleguideExample(
       title: 'Neutral selection',
@@ -337,12 +369,14 @@ class _CornerActionExampleState extends State<_CornerActionExample> {
         selected: _selected,
         selectionStyle: DItemSelectionStyle.outline,
         onPressed: () => setState(() => _selected = !_selected),
-        cornerAction: DButton.iconOnly(
-          size: DButtonSize.small,
-          variant: DButtonVariant.outline,
-          icon: const DIcon(DIcons.trashCan),
-          tooltip: 'Remove saved item',
-          onPressed: () => setState(() => _actions++),
+        hoverAction: DItemHoverAction.corner(
+          DButton.iconOnly(
+            size: DButtonSize.small,
+            variant: DButtonVariant.outline,
+            icon: const DIcon(DIcons.trashCan),
+            tooltip: 'Remove saved item',
+            onPressed: () => setState(() => _actions++),
+          ),
         ),
         header: const DItemHeader(
           child: SizedBox(

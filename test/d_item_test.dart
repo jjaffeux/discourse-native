@@ -590,13 +590,15 @@ void main() {
             DItem(
               focusNode: rowFocus,
               onPressed: () => selections++,
-              cornerAction: DButton.iconOnly(
-                key: actionKey,
-                focusNode: actionFocus,
-                size: DButtonSize.small,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Delete saved item',
-                onPressed: () => actions++,
+              hoverAction: DItemHoverAction.corner(
+                DButton.iconOnly(
+                  key: actionKey,
+                  focusNode: actionFocus,
+                  size: DButtonSize.small,
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Delete saved item',
+                  onPressed: () => actions++,
+                ),
               ),
               header: const DItemHeader(child: SizedBox(height: 72)),
               children: const [
@@ -673,12 +675,14 @@ void main() {
         await tester.pumpWidget(
           host(
             DItem(
-              cornerAction: DButton.iconOnly(
-                key: const Key('corner-action'),
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Delete saved item',
-                size: DButtonSize.small,
-                onPressed: () {},
+              hoverAction: DItemHoverAction.corner(
+                DButton.iconOnly(
+                  key: const Key('corner-action'),
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Delete saved item',
+                  size: DButtonSize.small,
+                  onPressed: () {},
+                ),
               ),
               header: const DItemHeader(child: SizedBox(height: 100)),
               children: const [

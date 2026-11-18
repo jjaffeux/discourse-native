@@ -25,41 +25,49 @@ void main() {
       same(notificationDotExamples),
     );
   });
-  testWidgets('inline and ringed dots keep an 8px center at large text sizes', (
-    tester,
-  ) async {
-    for (final direction in TextDirection.values) {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(3)),
-            child: Directionality(
-              textDirection: direction,
-              child: const Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DNotificationDot(key: ValueKey('inline')),
-                    DNotificationDot.overlay(key: ValueKey('overlay')),
-                  ],
+  testWidgets(
+    'inline, compact and ringed dots keep their sizes at large text',
+    (tester) async {
+      for (final direction in TextDirection.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(3)),
+              child: Directionality(
+                textDirection: direction,
+                child: const Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DNotificationDot(key: ValueKey('inline')),
+                      DNotificationDot(
+                        key: ValueKey('compact'),
+                        size: DNotificationDotSize.compact,
+                      ),
+                      DNotificationDot.overlay(key: ValueKey('overlay')),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      final inline = find.byKey(const ValueKey('inline'));
-      final overlay = find.byKey(const ValueKey('overlay'));
-      expect(tester.getSize(inline), const Size.square(8));
-      expect(tester.getSize(overlay), const Size.square(12));
-      expect(decoration(tester, inline).border, isNull);
-      expect(
-        decoration(tester, overlay).border!.dimensions,
-        const EdgeInsets.all(2),
-      );
-      expect(decoration(tester, overlay).shape, BoxShape.circle);
-    }
-  });
+        );
+        final inline = find.byKey(const ValueKey('inline'));
+        final compact = find.byKey(const ValueKey('compact'));
+        final overlay = find.byKey(const ValueKey('overlay'));
+        expect(tester.getSize(inline), const Size.square(8));
+        expect(tester.getSize(compact), const Size.square(7));
+        expect(tester.getSize(overlay), const Size.square(12));
+        expect(decoration(tester, inline).border, isNull);
+        expect(decoration(tester, compact).border, isNull);
+        expect(
+          decoration(tester, overlay).border!.dimensions,
+          const EdgeInsets.all(2),
+        );
+        expect(decoration(tester, overlay).shape, BoxShape.circle);
+      }
+    },
+  );
 
   testWidgets('default colors follow live themes and overrides stay explicit', (
     tester,

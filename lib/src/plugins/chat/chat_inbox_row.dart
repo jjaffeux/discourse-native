@@ -62,18 +62,20 @@ class ChatInboxRowSurface extends StatelessWidget {
     this.itemKey,
     this.selected = false,
     this.enabled = true,
+    this.highlightOnInteraction = true,
     this.semanticLabel,
-    this.cornerAction,
+    this.hoverAction,
   });
 
   final ChatInboxRowFrame frame;
   final bool boxed;
   final bool selected;
   final bool enabled;
+  final bool highlightOnInteraction;
   final Key? itemKey;
   final VoidCallback onPressed;
   final String? semanticLabel;
-  final Widget? cornerAction;
+  final DItemHoverAction? hoverAction;
 
   /// What the row is of, [ChatInboxRowFrame.mark] across.
   final Widget mark;
@@ -96,8 +98,9 @@ class ChatInboxRowSurface extends StatelessWidget {
       selected: selected,
       enabled: enabled,
       selectionStyle: DItemSelectionStyle.leadingAccent,
+      highlightOnInteraction: highlightOnInteraction,
       showSelectionIndicator: false,
-      cornerAction: cornerAction,
+      hoverAction: hoverAction,
       onPressed: onPressed,
       semanticLabel: semanticLabel,
       children: [
@@ -334,16 +337,19 @@ class ChatInboxRow extends StatelessWidget {
         frame: frame,
         boxed: fresh,
         selected: selected,
-        cornerAction: menuButton && !context.isTouch
-            ? ChatChannelMenu(
-                siteUrl: siteUrl,
-                channelId: channel.id,
-                channel: channel,
+        highlightOnInteraction: context.isTouch,
+        hoverAction: menuButton && !context.isTouch
+            ? DItemHoverAction.trailing(
+                ChatChannelMenu.sidebar(
+                  siteUrl: siteUrl,
+                  channelId: channel.id,
+                  channel: channel,
+                ),
               )
             : null,
         onPressed: onPressed,
         semanticLabel: fresh ? context.l10n.unreadConversation : null,
-        mark: ChatConversationAvatar(
+        mark: ChatConversationAvatar.inbox(
           siteUrl: siteUrl,
           channel: channel,
           size: ChatInboxRowFrame.mark,
@@ -406,6 +412,9 @@ class ChatInboxRow extends StatelessWidget {
                   key: ValueKey('chat-inbox-muted-unread-${channel.id}'),
                   color: tokens.mutedForeground,
                   semanticLabel: context.l10n.chatUnreadMuted,
+                  size: context.isTouch
+                      ? DNotificationDotSize.standard
+                      : DNotificationDotSize.compact,
                 )
               : null,
           line: _line(context, chat, currentUserId),
@@ -508,11 +517,25 @@ class _ChatInboxUnreadChip extends StatelessWidget {
             .dependOnInheritedWidgetOfExactType<_ChatInboxLiveCount>()
             ?.count ??
         this.count;
-    return DBadge.unreadChip(
-      key: ValueKey('chat-inbox-unread-$channelId'),
-      count: count,
-      semanticLabel: context.l10n.unreadChatplugin(count),
-    );
+    final key = ValueKey('chat-inbox-unread-$channelId');
+    final label = context.l10n.unreadChatplugin(count);
+    if (!context.isTouch) {
+      final tokens = DTokens.of(context);
+      return DBadge(
+        key: key,
+        size: DBadgeSize.count,
+        backgroundColor: tokens.selectionTint,
+        foregroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Color.lerp(tokens.primary, Colors.white, .28)
+            : tokens.primary,
+        semanticLabel: label,
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          textDirection: TextDirection.ltr,
+        ),
+      );
+    }
+    return DBadge.unreadChip(key: key, count: count, semanticLabel: label);
   }
 }
 

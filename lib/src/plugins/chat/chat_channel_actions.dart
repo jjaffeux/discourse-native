@@ -69,10 +69,19 @@ class ChatChannelMenu extends StatefulWidget {
     required this.channelId,
     this.child,
     this.channel,
-  });
+  }) : _sidebar = false;
+
+  const ChatChannelMenu.sidebar({
+    super.key,
+    required this.siteUrl,
+    required this.channelId,
+    required this.channel,
+  }) : _sidebar = true,
+       child = null;
 
   final String siteUrl;
   final int channelId;
+  final bool _sidebar;
 
   /// A directory row can provide a channel not yet held by the inbox.
   final ChatChannel? channel;
@@ -146,6 +155,7 @@ class _ChatChannelMenuState extends State<ChatChannelMenu> {
         siteUrl: siteUrl,
         channel: channel,
         chat: chat,
+        sidebar: widget._sidebar,
         child: child,
       ),
     );
@@ -157,12 +167,14 @@ class _ChannelMenu extends StatelessWidget {
     required this.siteUrl,
     required this.channel,
     required this.chat,
+    required this.sidebar,
     this.child,
   });
 
   final String siteUrl;
   final ChatChannel channel;
   final ChatController chat;
+  final bool sidebar;
   final Widget? child;
 
   @override
@@ -335,17 +347,32 @@ class _ChannelMenu extends StatelessWidget {
         children: items,
       ),
       child: DDropdownMenuTrigger(
-        builder: (context, menu) => DButton.iconOnly(
-          key: ValueKey('chat-channel-menu-button-${channel.id}'),
-          tooltip: context.l10n.openMenu((channel.title).toString()),
-          variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
-          focusNode: menu.focusNode,
-          expanded: menu.open,
-          hasPopup: true,
-          onPressed: menu.toggle,
-          icon: const DIcon(DIcons.ellipsisVertical),
-        ),
+        builder: (context, menu) {
+          final tokens = DTokens.of(context);
+          return DButton.iconOnly(
+            key: ValueKey('chat-channel-menu-button-${channel.id}'),
+            tooltip: context.l10n.openMenu((channel.title).toString()),
+            variant: DButtonVariant.ghost,
+            size: sidebar ? DButtonSize.segment : DButtonSize.small,
+            borderRadius: sidebar
+                ? BorderRadius.circular(DRadius.menuItem)
+                : null,
+            backgroundColor: sidebar ? tokens.raisedBackground : null,
+            interactiveBackgroundColor: sidebar
+                ? tokens.buttonTheme.accent.hover
+                : null,
+            foregroundColor: sidebar
+                ? tokens.buttonTheme.outline.foreground
+                : null,
+            focusNode: menu.focusNode,
+            expanded: menu.open,
+            hasPopup: true,
+            onPressed: menu.toggle,
+            icon: sidebar
+                ? const DIcon(DIcons.ellipsis, size: 12)
+                : const DIcon(DIcons.ellipsisVertical),
+          );
+        },
       ),
     );
   }
