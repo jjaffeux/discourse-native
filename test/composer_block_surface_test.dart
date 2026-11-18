@@ -621,194 +621,180 @@ void main() {
     );
   }
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets('mobile long press moves a block on $platform', (tester) async {
-      await mount(tester, mobile: true, platform: platform);
-      final original = composer.text.value;
-      final editor = tester.state<EditableTextState>(find.byType(EditableText));
-      final blocks = composer.blocks.index.blocks;
-      final surface = tester.widget<ComposerBlockSurface>(
-        find.byType(ComposerBlockSurface),
-      );
-      final first = surface.blockRect(blocks.first)!;
-      final second = surface.blockRect(blocks[1])!;
-      final last = surface.blockRect(blocks.last)!;
-      final gesture = await tester.startGesture(first.center);
-      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-      await tester.pump();
-      expect(find.byType(DDragHighlight), findsOneWidget);
-      await gesture.moveTo(
-        Offset(first.center.dx, (second.bottom + last.top) / 2),
-      );
-      await tester.pump();
-      await tester.pump();
-      expect(find.byType(DDropIndicator), findsOneWidget);
-      expect(tester.getRect(find.byType(DDropIndicator)).left, 16);
-      expect(composer.text.text, original.text);
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(
-        composer.text.text,
-        '## A heading\n\nFirst paragraph\n\nLast paragraph',
-      );
-      expect(composer.blocks.index.blocks[1].id, blocks.first.id);
-      expect(
-        tester.state<EditableTextState>(find.byType(EditableText)),
-        same(editor),
-      );
-      expect(find.byType(DDragHighlight), findsNothing);
-      expect(find.byType(DDropIndicator), findsNothing);
-      composer.history.undo();
-      await tester.pumpAndSettle();
-      expect(composer.text.value, original);
-      expect(composer.history.canUndo, isFalse);
-    });
-  }
+  testWidgets('mobile long press moves a block', (tester) async {
+    await mount(tester, mobile: true);
+    final original = composer.text.value;
+    final editor = tester.state<EditableTextState>(find.byType(EditableText));
+    final blocks = composer.blocks.index.blocks;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final first = surface.blockRect(blocks.first)!;
+    final second = surface.blockRect(blocks[1])!;
+    final last = surface.blockRect(blocks.last)!;
+    final gesture = await tester.startGesture(first.center);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await tester.pump();
+    expect(find.byType(DDragHighlight), findsOneWidget);
+    await gesture.moveTo(
+      Offset(first.center.dx, (second.bottom + last.top) / 2),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(DDropIndicator), findsOneWidget);
+    expect(tester.getRect(find.byType(DDropIndicator)).left, 16);
+    expect(composer.text.text, original.text);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      composer.text.text,
+      '## A heading\n\nFirst paragraph\n\nLast paragraph',
+    );
+    expect(composer.blocks.index.blocks[1].id, blocks.first.id);
+    expect(
+      tester.state<EditableTextState>(find.byType(EditableText)),
+      same(editor),
+    );
+    expect(find.byType(DDragHighlight), findsNothing);
+    expect(find.byType(DDropIndicator), findsNothing);
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+    expect(composer.history.canUndo, isFalse);
+  });
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets('mobile drop target resists finger jitter on $platform', (
+  testWidgets('mobile drop target resists finger jitter', (tester) async {
+    await mount(
       tester,
-    ) async {
-      await mount(
-        tester,
-        mobile: true,
-        platform: platform,
-        textStyle: const TextStyle(fontSize: 16, height: 2),
+      mobile: true,
+      textStyle: const TextStyle(fontSize: 16, height: 2),
+    );
+    final original = composer.text.value;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final blocks = composer.blocks.index.blocks;
+    final first = surface.blockRect(blocks.first)!;
+    final middle = surface.blockRect(blocks[1])!;
+    final last = surface.blockRect(blocks.last)!;
+    final gap = (middle.bottom + last.top) / 2;
+    final gesture = await tester.startGesture(first.center);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+
+    Future<void> move(double delta, double expected) async {
+      await gesture.moveTo(last.center + Offset(0, delta));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.getCenter(find.byType(DDropIndicator)).dy,
+        closeTo(expected, .01),
       );
+      expect(composer.text.value, original);
+    }
+
+    await move(-18, gap);
+    for (final delta in [-8.0, 8.0, -6.0, 6.0]) {
+      await move(delta, gap);
+    }
+    await move(15, last.bottom);
+    for (final delta in [8.0, -8.0, 6.0, -6.0]) {
+      await move(delta, last.bottom);
+    }
+    await move(-15, gap);
+    await move(15, last.bottom);
+    await move(-8, last.bottom);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      composer.text.text,
+      '## A heading\n\nLast paragraph\n\nFirst paragraph',
+    );
+    expect(find.byType(DDropIndicator), findsNothing);
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+    expect(composer.history.canUndo, isFalse);
+  });
+
+  testWidgets('mobile drag has one destination across blank lines', (
+    tester,
+  ) async {
+    composer.text.value = const TextEditingValue(
+      text: 'First paragraph\n\n\n\n\n## A heading\n\nLast paragraph',
+      selection: TextSelection.collapsed(offset: 2),
+    );
+    composer.history.reset();
+    await mount(tester, mobile: true, platform: TargetPlatform.android);
+    final original = composer.text.value;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final blocks = composer.blocks.index.blocks;
+    final first = surface.blockRect(blocks.first)!;
+    final middle = surface.blockRect(blocks[1])!;
+    final last = surface.blockRect(blocks.last)!;
+    final gap = (first.bottom + middle.top) / 2;
+    final gesture = await tester.startGesture(last.center);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    for (var y = middle.top - 2; y > first.bottom + 2; y -= 4) {
+      await gesture.moveTo(Offset(first.center.dx, y));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.getCenter(find.byType(DDropIndicator)).dy,
+        closeTo(gap, .01),
+        reason: 'One block boundary while the finger is at $y',
+      );
+      expect(composer.text.value, original);
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(composer.blocks.index.blocks.map((block) => block.source), [
+      'First paragraph',
+      'Last paragraph',
+      '## A heading',
+    ]);
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+  });
+
+  testWidgets(
+    'mobile drag stays in its original slot until leaving its block',
+    (tester) async {
+      composer.text.value = TextEditingValue(
+        text: '${List.filled(8, 'A tall paragraph.').join(' ')}\n\nAfter',
+        selection: const TextSelection.collapsed(offset: 2),
+      );
+      composer.history.reset();
+      await mount(tester, mobile: true, platform: TargetPlatform.android);
       final original = composer.text.value;
       final surface = tester.widget<ComposerBlockSurface>(
         find.byType(ComposerBlockSurface),
       );
-      final blocks = composer.blocks.index.blocks;
-      final first = surface.blockRect(blocks.first)!;
-      final middle = surface.blockRect(blocks[1])!;
-      final last = surface.blockRect(blocks.last)!;
-      final gap = (middle.bottom + last.top) / 2;
-      final gesture = await tester.startGesture(first.center);
+      final first = surface.blockRect(composer.blocks.index.blocks.first)!;
+      final gesture = await tester.startGesture(
+        first.center - const Offset(0, 1),
+      );
       await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-
-      Future<void> move(double delta, double expected) async {
-        await gesture.moveTo(last.center + Offset(0, delta));
+      await tester.pump();
+      final initialY = tester.getCenter(find.byType(DDropIndicator)).dy;
+      for (final y in [first.bottom - 1, first.top + 1, first.center.dy + 20]) {
+        await gesture.moveTo(Offset(first.center.dx, y));
         await tester.pump();
         await tester.pump();
         expect(
           tester.getCenter(find.byType(DDropIndicator)).dy,
-          closeTo(expected, .01),
+          closeTo(initialY, .01),
+          reason: 'The block still occupies the same slot at $y',
         );
-        expect(composer.text.value, original);
       }
-
-      await move(-18, gap);
-      for (final delta in [-8.0, 8.0, -6.0, 6.0]) {
-        await move(delta, gap);
-      }
-      await move(15, last.bottom);
-      for (final delta in [8.0, -8.0, 6.0, -6.0]) {
-        await move(delta, last.bottom);
-      }
-      await move(-15, gap);
-      await move(15, last.bottom);
-      await move(-8, last.bottom);
       await gesture.up();
-      await tester.pumpAndSettle();
-      expect(
-        composer.text.text,
-        '## A heading\n\nLast paragraph\n\nFirst paragraph',
-      );
-      expect(find.byType(DDropIndicator), findsNothing);
-      composer.history.undo();
       await tester.pumpAndSettle();
       expect(composer.text.value, original);
       expect(composer.history.canUndo, isFalse);
-    });
-  }
-
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets(
-      'mobile drag has one destination across blank lines on $platform',
-      (tester) async {
-        composer.text.value = const TextEditingValue(
-          text: 'First paragraph\n\n\n\n\n## A heading\n\nLast paragraph',
-          selection: TextSelection.collapsed(offset: 2),
-        );
-        composer.history.reset();
-        await mount(tester, mobile: true, platform: platform);
-        final original = composer.text.value;
-        final surface = tester.widget<ComposerBlockSurface>(
-          find.byType(ComposerBlockSurface),
-        );
-        final blocks = composer.blocks.index.blocks;
-        final first = surface.blockRect(blocks.first)!;
-        final middle = surface.blockRect(blocks[1])!;
-        final last = surface.blockRect(blocks.last)!;
-        final gap = (first.bottom + middle.top) / 2;
-        final gesture = await tester.startGesture(last.center);
-        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-        for (var y = middle.top - 2; y > first.bottom + 2; y -= 4) {
-          await gesture.moveTo(Offset(first.center.dx, y));
-          await tester.pump();
-          await tester.pump();
-          expect(
-            tester.getCenter(find.byType(DDropIndicator)).dy,
-            closeTo(gap, .01),
-            reason: 'One block boundary while the finger is at $y',
-          );
-          expect(composer.text.value, original);
-        }
-        await gesture.up();
-        await tester.pumpAndSettle();
-        expect(composer.blocks.index.blocks.map((block) => block.source), [
-          'First paragraph',
-          'Last paragraph',
-          '## A heading',
-        ]);
-        composer.history.undo();
-        await tester.pumpAndSettle();
-        expect(composer.text.value, original);
-      },
-    );
-
-    testWidgets(
-      'mobile drag stays in its original slot until leaving its block on $platform',
-      (tester) async {
-        composer.text.value = TextEditingValue(
-          text: '${List.filled(8, 'A tall paragraph.').join(' ')}\n\nAfter',
-          selection: const TextSelection.collapsed(offset: 2),
-        );
-        composer.history.reset();
-        await mount(tester, mobile: true, platform: platform);
-        final original = composer.text.value;
-        final surface = tester.widget<ComposerBlockSurface>(
-          find.byType(ComposerBlockSurface),
-        );
-        final first = surface.blockRect(composer.blocks.index.blocks.first)!;
-        final gesture = await tester.startGesture(
-          first.center - const Offset(0, 1),
-        );
-        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-        await tester.pump();
-        final initialY = tester.getCenter(find.byType(DDropIndicator)).dy;
-        for (final y in [
-          first.bottom - 1,
-          first.top + 1,
-          first.center.dy + 20,
-        ]) {
-          await gesture.moveTo(Offset(first.center.dx, y));
-          await tester.pump();
-          await tester.pump();
-          expect(
-            tester.getCenter(find.byType(DDropIndicator)).dy,
-            closeTo(initialY, .01),
-            reason: 'The block still occupies the same slot at $y',
-          );
-        }
-        await gesture.up();
-        await tester.pumpAndSettle();
-        expect(composer.text.value, original);
-        expect(composer.history.canUndo, isFalse);
-      },
-    );
-  }
+    },
+  );
 
   for (final cancellation in ['pointer', 'outside', 'revision']) {
     testWidgets('mobile block drag cancels on $cancellation', (tester) async {
