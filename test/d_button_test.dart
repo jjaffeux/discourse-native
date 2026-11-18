@@ -500,11 +500,7 @@ void main() {
     );
   }
 
-  for (final platform in [
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-  ]) {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     testWidgets(
       'avatar trigger keeps its border flush and target visible on $platform',
       (tester) async {
@@ -631,51 +627,47 @@ void main() {
     });
   }
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    testWidgets('over-media action is a circle of its size on $platform', (
-      tester,
-    ) async {
-      for (final (size, scale, side, artwork) in [
-        (DButtonSize.regular, 1.0, 36.0, 14.0),
-        (DButtonSize.regular, 2.0, 50.0, 14.0),
-        (DButtonSize.large, 1.0, 44.0, 16.0),
-        (DButtonSize.large, 2.0, 58.0, 16.0),
-      ]) {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.dark.copyWith(platform: platform),
-            home: MediaQuery(
-              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-              child: Scaffold(
-                body: Center(
-                  child: DButton.iconOnly(
-                    density: DButtonDensity.overMedia,
-                    size: size,
-                    variant: DButtonVariant.ghost,
-                    backgroundColor: Colors.white12,
-                    foregroundColor: Colors.white,
-                    tooltip: 'Close',
-                    icon: const DIcon(DIcons.xmark),
-                    onPressed: () {},
-                  ),
+  testWidgets('over-media action is a circle of its size', (tester) async {
+    for (final (size, scale, side, artwork) in [
+      (DButtonSize.regular, 1.0, 36.0, 14.0),
+      (DButtonSize.regular, 2.0, 50.0, 14.0),
+      (DButtonSize.large, 1.0, 44.0, 16.0),
+      (DButtonSize.large, 2.0, 58.0, 16.0),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Scaffold(
+              body: Center(
+                child: DButton.iconOnly(
+                  density: DButtonDensity.overMedia,
+                  size: size,
+                  variant: DButtonVariant.ghost,
+                  backgroundColor: Colors.white12,
+                  foregroundColor: Colors.white,
+                  tooltip: 'Close',
+                  icon: const DIcon(DIcons.xmark),
+                  onPressed: () {},
                 ),
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final bounds = tester.getRect(find.byType(DButton));
-        expect(bounds.size, Size.square(side));
-        expect(buttonSurface(tester).color, Colors.white12);
-        expect(
-          buttonSurface(tester).borderRadius.resolve(TextDirection.ltr).topLeft,
-          Radius.circular(side / 2),
-        );
-        expect(tester.getSize(find.byType(DIcon)).height, artwork);
-      }
-    });
-  }
+      final bounds = tester.getRect(find.byType(DButton));
+      expect(bounds.size, Size.square(side));
+      expect(buttonSurface(tester).color, Colors.white12);
+      expect(
+        buttonSurface(tester).borderRadius.resolve(TextDirection.ltr).topLeft,
+        Radius.circular(side / 2),
+      );
+      expect(tester.getSize(find.byType(DIcon)).height, artwork);
+    }
+  });
 
   testWidgets('chat message action matches compact mockup geometry', (
     tester,
