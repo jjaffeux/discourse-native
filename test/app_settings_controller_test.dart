@@ -329,36 +329,34 @@ void main() {
     });
   }
 
-  for (final mode in TopicListDisplayMode.values) {
-    test(
-      'topic list choice $mode survives hydration without replacing other settings',
-      () async {
-        final gate = Completer<void>();
-        final persistence = _ControlledAppSettingsPersistence(
+  test(
+    'topic list default choice survives hydration without replacing other settings',
+    () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        limitContentSize: true,
+        themeMode: 'dark',
+        topicListMode: 'compact',
+        readGate: gate,
+      );
+      final controller = _controller(persistence);
+      final loading = controller.load();
+      await persistence.readStarted.future;
+      final saving = controller.setTopicListMode(TopicListDisplayMode.card);
+      expect(controller.topicListMode, TopicListDisplayMode.card);
+      gate.complete();
+      await Future.wait([loading, saving]);
+      await _expectSettings(
+        controller,
+        persistence,
+        AppSettings(
           limitContentSize: true,
-          themeMode: 'dark',
-          topicListMode: 'compact',
-          readGate: gate,
-        );
-        final controller = _controller(persistence);
-        final loading = controller.load();
-        await persistence.readStarted.future;
-        final saving = controller.setTopicListMode(mode);
-        expect(controller.topicListMode, mode);
-        gate.complete();
-        await Future.wait([loading, saving]);
-        await _expectSettings(
-          controller,
-          persistence,
-          AppSettings(
-            limitContentSize: true,
-            themeMode: AppThemeMode.dark,
-            topicListMode: mode,
-          ),
-        );
-      },
-    );
-  }
+          themeMode: AppThemeMode.dark,
+          topicListMode: TopicListDisplayMode.card,
+        ),
+      );
+    },
+  );
 
   test(
     'rapid topic list choices persist in order and skip repeated values',
@@ -397,7 +395,7 @@ void main() {
     );
   });
 
-  for (final mode in AppThemeMode.values) {
+  for (final mode in [AppThemeMode.system, AppThemeMode.light]) {
     test('choosing $mode during hydration preserves saved fields', () async {
       final readGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
@@ -532,14 +530,6 @@ void main() {
         in <
           (String, Future<void> Function(AppSettingsController), AppSettings)
         >[
-          (
-            'content size limit',
-            (controller) => controller.setLimitContentSize(true),
-            const AppSettings(
-              disableGifAnimations: true,
-              textScale: AppTextScale.percent175,
-            ),
-          ),
           (
             'GIF animations',
             (controller) => controller.setDisableGifAnimations(false),

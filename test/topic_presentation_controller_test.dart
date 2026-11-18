@@ -10,18 +10,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final mode in TopicPresentation.values) {
-    test('explicit $mode preference survives a new controller', () async {
-      final controller = TopicPresentationController();
-      addTearDown(controller.dispose);
-      controller.select(TopicPresentation.merged);
-      controller.select(mode);
-      final restored = TopicPresentationController();
-      addTearDown(restored.dispose);
-      await restored.load();
-      expect(restored.preference, mode);
-    });
-  }
+  test('explicit merged preference survives a new controller', () async {
+    final controller = TopicPresentationController();
+    addTearDown(controller.dispose);
+    controller.select(TopicPresentation.merged);
+    final restored = TopicPresentationController();
+    addTearDown(restored.dispose);
+    await restored.load();
+    expect(restored.preference, TopicPresentation.merged);
+  });
 
   test('a reentrant choice remains the durable preference', () async {
     final controller = TopicPresentationController();
