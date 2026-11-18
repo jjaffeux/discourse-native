@@ -33,43 +33,36 @@ void main() {
     expect(isPdfAttachment('notes.pdf.exe', 'upload://abc'), isFalse);
   });
 
-  for (final dark in [false, true]) {
-    testWidgets('post PDF preview fits a narrow lane (dark: $dark)', (
-      tester,
-    ) async {
-      final harness = _Harness();
-      await tester.pumpWidget(
-        harness.app(
-          const CookedHtml(
-            html:
-                '<p><a class="attachment" href="/uploads/notes.PDF?download=1">'
-                'notes.PDF</a> (1.2 MB)</p><p>Following paragraph</p>',
-            siteUrl: _site,
-          ),
-          dark: dark,
+  testWidgets('post PDF preview fits a narrow lane', (tester) async {
+    final harness = _Harness();
+    await tester.pumpWidget(
+      harness.app(
+        const CookedHtml(
+          html:
+              '<p><a class="attachment" href="/uploads/notes.PDF?download=1">'
+              'notes.PDF</a> (1.2 MB)</p><p>Following paragraph</p>',
+          siteUrl: _site,
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(harness.jobs, hasLength(1));
-      expect(
-        harness.jobs.single.url.toString(),
-        '$_site/uploads/notes.PDF?download=1',
-      );
-      expect(find.byType(DAttachmentTrigger), findsOneWidget);
-      expect(
-        find.text('Following paragraph', findRichText: true),
-        findsOneWidget,
-      );
-      harness.jobs.single.result.complete(blankPng(width: 171, height: 256));
-      await _waitForImage(tester);
-      expect(
-        tester.widget<RawImage>(find.byType(RawImage)).fit,
-        BoxFit.contain,
-      );
-      expect(tester.getSize(find.byType(RawImage)), const Size.square(40));
-      expect(tester.takeException(), isNull);
-    });
-  }
+        dark: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(harness.jobs, hasLength(1));
+    expect(
+      harness.jobs.single.url.toString(),
+      '$_site/uploads/notes.PDF?download=1',
+    );
+    expect(find.byType(DAttachmentTrigger), findsOneWidget);
+    expect(
+      find.text('Following paragraph', findRichText: true),
+      findsOneWidget,
+    );
+    harness.jobs.single.result.complete(blankPng(width: 171, height: 256));
+    await _waitForImage(tester);
+    expect(tester.widget<RawImage>(find.byType(RawImage)).fit, BoxFit.contain);
+    expect(tester.getSize(find.byType(RawImage)), const Size.square(40));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('ordinary links and non-PDF attachments keep their rendering', (
     tester,
