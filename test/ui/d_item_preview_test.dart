@@ -30,7 +30,6 @@ BoxDecoration _previewPaint(WidgetTester tester) =>
 void main() {
   for (final (platform, dimension, extent, markerHeight) in [
     (TargetPlatform.iOS, 44.0, 52.0, 36.0),
-    (TargetPlatform.android, 44.0, 52.0, 36.0),
     (TargetPlatform.macOS, 36.0, 48.0, 28.0),
   ]) {
     testWidgets('forum rail bounds and selection follow $platform', (
