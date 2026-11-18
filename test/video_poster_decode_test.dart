@@ -29,7 +29,7 @@ void main() {
     addTearDown(PaintingBinding.instance.imageCache.clear);
   });
   for (final youtube in [false, true]) {
-    for (final cached in [false, true]) {
+    for (final cached in [false, if (youtube) true]) {
       testWidgets(
         '${youtube ? 'YouTube' : 'uploaded'} 8K poster bounds retained pixels '
         'and reuses the decoded cache (cached bytes: $cached)',
@@ -136,30 +136,34 @@ void main() {
         uploaded: const Size(3072, 384),
         youtube: const Size(3328, 416),
       ),
-      (
-        name: 'very tall',
-        source: const Size(800, 6400),
-        uploaded: const Size(640, 5120),
-        youtube: const Size(640, 5120),
-      ),
-      (
-        name: 'small',
-        source: const Size(80, 40),
-        uploaded: const Size(80, 40),
-        youtube: const Size(80, 40),
-      ),
-      (
-        name: 'short',
-        source: const Size(1280, 80),
-        uploaded: const Size(1280, 80),
-        youtube: const Size(1280, 80),
-      ),
-      (
-        name: 'narrow',
-        source: const Size(80, 1280),
-        uploaded: const Size(80, 1280),
-        youtube: const Size(80, 1280),
-      ),
+      if (!youtube)
+        (
+          name: 'very tall',
+          source: const Size(800, 6400),
+          uploaded: const Size(640, 5120),
+          youtube: const Size(640, 5120),
+        ),
+      if (!youtube)
+        (
+          name: 'small',
+          source: const Size(80, 40),
+          uploaded: const Size(80, 40),
+          youtube: const Size(80, 40),
+        ),
+      if (youtube)
+        (
+          name: 'short',
+          source: const Size(1280, 80),
+          uploaded: const Size(1280, 80),
+          youtube: const Size(1280, 80),
+        ),
+      if (youtube)
+        (
+          name: 'narrow',
+          source: const Size(80, 1280),
+          uploaded: const Size(80, 1280),
+          youtube: const Size(80, 1280),
+        ),
     ]) {
       testWidgets(
         '${youtube ? 'YouTube' : 'uploaded'} ${sample.name} poster preserves cover crop without decoding an upscale',

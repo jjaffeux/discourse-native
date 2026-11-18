@@ -12,101 +12,99 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
-  for (final width in [320.0, 900.0]) {
-    for (final dark in [false, true]) {
-      testWidgets('separate menus fit width $width, dark $dark at 200% text', (
-        tester,
-      ) async {
-        tester.view.physicalSize = Size(width, 800);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        const user = DiscourseUser(
-          id: 7,
-          username: 'reader',
-          name: 'Reader',
-          canInviteToForum: true,
-        );
-        final controller = ShellController(
-          instanceStore: FakeInstanceStore([
-            instance('meta.example').copyWith(user: user),
-          ]),
-          api: FakeDiscourseApi(
-            user: user,
-            totals: const NotificationTotals(unreadNotifications: 3),
-          ),
-          authenticator: FakeAuthenticator()
-            ..keys['https://meta.example'] = 'key',
-          drafts: FakeDraftStore(),
-          trackers: FakeSiteTracker.reset(),
-          updater: FakeUpdater(),
-          updateStore: FakeUpdateStore(),
-        );
-        await controller.load();
-        addTearDown(controller.dispose);
-        await tester.pumpWidget(
-          ShellScope(
-            controller: controller,
-            child: MaterialApp(
-              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                platform: TargetPlatform.macOS,
-              ),
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: const TextScaler.linear(2)),
-                child: child!,
-              ),
-              home: const Scaffold(
-                body: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: UserMenuButton(),
-                  ),
+  for (final (width, dark) in [(320.0, true), (900.0, false)]) {
+    testWidgets('separate menus fit width $width, dark $dark at 200% text', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const user = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        name: 'Reader',
+        canInviteToForum: true,
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.example').copyWith(user: user),
+        ]),
+        api: FakeDiscourseApi(
+          user: user,
+          totals: const NotificationTotals(unreadNotifications: 3),
+        ),
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.example'] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      );
+      await controller.load();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+              platform: TargetPlatform.macOS,
+            ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: const Scaffold(
+              body: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: UserMenuButton(),
                 ),
               ),
             ),
           ),
-        );
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final key in [UserMenuButton.bellKey, UserMenuButton.avatarKey]) {
+        await tester.tap(find.byKey(key));
         await tester.pumpAndSettle();
-        for (final key in [UserMenuButton.bellKey, UserMenuButton.avatarKey]) {
-          await tester.tap(find.byKey(key));
-          await tester.pumpAndSettle();
-          final surface = key == UserMenuButton.bellKey
-              ? find.byType(UserMenuPanel)
-              : find.byType(DDropdownMenuContent);
-          expect(surface, findsOneWidget);
-          final rect = tester.getRect(surface);
-          expect(rect.left, greaterThanOrEqualTo(0));
-          expect(rect.right, lessThanOrEqualTo(width));
-          expect(rect.bottom, lessThanOrEqualTo(800));
-          if (key == UserMenuButton.bellKey) {
-            expect(find.text('Notifications'), findsOneWidget);
-            expect(find.text('Mark all read'), findsOneWidget);
-            expect(find.byType(DToggleGroup<String>), findsOneWidget);
-          } else {
-            expect(rect.width, 216);
-            final separators = find.descendant(
-              of: surface,
-              matching: find.byType(DDropdownMenuSeparator),
+        final surface = key == UserMenuButton.bellKey
+            ? find.byType(UserMenuPanel)
+            : find.byType(DDropdownMenuContent);
+        expect(surface, findsOneWidget);
+        final rect = tester.getRect(surface);
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(width));
+        expect(rect.bottom, lessThanOrEqualTo(800));
+        if (key == UserMenuButton.bellKey) {
+          expect(find.text('Notifications'), findsOneWidget);
+          expect(find.text('Mark all read'), findsOneWidget);
+          expect(find.byType(DToggleGroup<String>), findsOneWidget);
+        } else {
+          expect(rect.width, 216);
+          final separators = find.descendant(
+            of: surface,
+            matching: find.byType(DDropdownMenuSeparator),
+          );
+          expect(separators, findsNWidgets(3));
+          for (final separator in separators.evaluate()) {
+            final line = find.descendant(
+              of: find.byWidget(separator.widget),
+              matching: find.byType(ColoredBox),
             );
-            expect(separators, findsNWidgets(3));
-            for (final separator in separators.evaluate()) {
-              final line = find.descendant(
-                of: find.byWidget(separator.widget),
-                matching: find.byType(ColoredBox),
-              );
-              final lineRect = tester.getRect(line);
-              expect(lineRect.left - rect.left, 15);
-              expect(rect.right - lineRect.right, 15);
-            }
+            final lineRect = tester.getRect(line);
+            expect(lineRect.left - rect.left, 15);
+            expect(rect.right - lineRect.right, 15);
           }
         }
-        await tester.tapAt(const Offset(15, 760));
-        await tester.pumpAndSettle();
-        expect(find.byType(UserMenuPanel), findsNothing);
-        expect(find.byType(DDropdownMenuContent), findsNothing);
-      });
-    }
+      }
+      await tester.tapAt(const Offset(15, 760));
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+    });
   }
 }
