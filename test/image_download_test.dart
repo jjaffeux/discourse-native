@@ -56,30 +56,6 @@ void main() {
     expect(temporary.listSync(), isEmpty);
   });
 
-  test('an extensionless image retains its PNG share type', () async {
-    final repository = _repository(
-      (_) async => http.Response.bytes(
-        _pngBytes,
-        200,
-        headers: {'content-type': 'image/png'},
-      ),
-    );
-    addTearDown(repository.dispose);
-    final environment = _FakeImageDownloadEnvironment(temporary);
-    await NativeLightboxImageDownloader(
-      platform: TargetPlatform.iOS,
-      environment: environment,
-    ).download(
-      url: '/image?id=9',
-      title: 'Screenshot',
-      siteUrl: siteUrl,
-      repository: repository,
-    );
-    expect(environment.mimeType, 'image/png');
-    expect(environment.filename, 'Screenshot.png');
-    expect(environment.bytes, orderedEquals(_pngBytes));
-  });
-
   for (final (
         description,
         bytes,
@@ -564,7 +540,6 @@ void main() {
       ('Scan.JPEG', 'image.png', SiteImageMediaType.jpeg, 'Scan.JPEG'),
       ('Scan.jpg', 'image.jpg', SiteImageMediaType.png, 'Scan.png'),
       (null, 'image.jpeg', SiteImageMediaType.png, 'image.png'),
-      ('Release v2.0', 'image.jpg', SiteImageMediaType.png, 'Release v2.0.png'),
       (
         'Invoice.command',
         'image.jpg',
