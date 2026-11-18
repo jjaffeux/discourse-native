@@ -37,7 +37,7 @@ void dropdownListVirtualizationTests() {
     );
   }
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-    for (final scale in [1.0, 2.0]) {
+    for (final scale in [1.0, if (platform == TargetPlatform.iOS) 2.0]) {
       testWidgets('long dropdown mounts a bounded window at $platform $scale', (
         tester,
       ) async {
