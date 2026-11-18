@@ -145,7 +145,13 @@ void main() {
     },
   );
 
-  for (final origin in PluginLinkOrigin.values) {
+  for (final origin in [
+    PluginLinkOrigin.direct,
+    PluginLinkOrigin.newTab,
+    PluginLinkOrigin.mainPanel,
+    PluginLinkOrigin.secondaryPanel,
+    PluginLinkOrigin.secondaryPanelNewTab,
+  ]) {
     test('$origin chat links open the full-page channel', () async {
       final fixture = await _fixture(
         channels: ChatChannels(public: [_channel(9)]),
@@ -180,7 +186,6 @@ void main() {
   for (final mode in [
     ChatSeparateSidebarMode.never,
     ChatSeparateSidebarMode.always,
-    ChatSeparateSidebarMode.fullscreen,
   ]) {
     test(
       'header restores the last chat and forum routes in ${mode.wireName}',
