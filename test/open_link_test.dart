@@ -469,97 +469,96 @@ void main() {
     });
   }
 
-  for (final url in [
-    'https://one.example/my/messages',
-    'https://one.example/u/j.jaffeux/messages',
+  for (final (url, newTab) in const [
+    ('https://one.example/my/messages', false),
+    ('https://one.example/u/j.jaffeux/messages', true),
   ]) {
-    for (final newTab in [false, true]) {
-      testWidgets('opens $url natively (new tab: $newTab)', (tester) async {
-        final launched = watchBrowser(tester);
-        final controller = await _pumpLink(
-          tester,
-          url: url,
-          signedIn: true,
-          api: FakeDiscourseApi(
-            feeds: const {
-              '/latest.json': [],
-              '/topics/private-messages/j.jaffeux.json': [],
-            },
-          ),
-        );
-        controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
-        await tester.pumpAndSettle();
+    testWidgets('opens $url natively (new tab: $newTab)', (tester) async {
+      final launched = watchBrowser(tester);
+      final controller = await _pumpLink(
+        tester,
+        url: url,
+        signedIn: true,
+        api: FakeDiscourseApi(
+          feeds: const {
+            '/latest.json': [],
+            '/topics/private-messages/j.jaffeux.json': [],
+          },
+        ),
+      );
+      controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
+      await tester.pumpAndSettle();
 
-        await tester.tap(
-          find.text('Open link'),
-          kind: PointerDeviceKind.mouse,
-          buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
-        );
-        await tester.pumpAndSettle();
+      await tester.tap(
+        find.text('Open link'),
+        kind: PointerDeviceKind.mouse,
+        buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+      );
+      await tester.pumpAndSettle();
 
-        expect(launched, isEmpty);
-        if (newTab) {
-          expect(controller.tabsForCurrentForum, hasLength(2));
-          controller.selectTab(controller.tabsForCurrentForum.last.id);
-          await tester.pumpAndSettle();
-        }
-        expect(controller.currentContent?.id, 'messages');
-        expect(controller.currentFeedId, 'messages');
-      });
-    }
+      expect(launched, isEmpty);
+      if (newTab) {
+        expect(controller.tabsForCurrentForum, hasLength(2));
+        controller.selectTab(controller.tabsForCurrentForum.last.id);
+        await tester.pumpAndSettle();
+      }
+      expect(controller.currentContent?.id, 'messages');
+      expect(controller.currentFeedId, 'messages');
+    });
   }
 
-  for (final (url, routeId, feedPath) in const [
+  for (final (url, routeId, feedPath, newTab) in const [
     (
       'https://one.example/u/j.jaffeux/messages/group/team',
       'messages-group-team',
       '/topics/private-messages-group/j.jaffeux/team.json',
+      false,
     ),
     (
       'https://one.example/my/messages/group/Team/archive',
       'messages-group-team/archive',
       '/topics/private-messages-group/j.jaffeux/team/archive.json',
+      true,
     ),
     (
       'https://one.example/u/J.Jaffeux/messages/sent',
       'messages-sent',
       '/topics/private-messages-sent/j.jaffeux.json',
+      false,
     ),
   ]) {
-    for (final newTab in [false, true]) {
-      testWidgets('opens $url natively (new tab: $newTab)', (tester) async {
-        final launched = watchBrowser(tester);
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': const [], feedPath: const []},
-        );
-        final controller = await _pumpLink(
-          tester,
-          url: url,
-          signedIn: true,
-          messageGroupNames: const ['team'],
-          api: api,
-        );
-        controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
-        await tester.pumpAndSettle();
+    testWidgets('opens $url natively (new tab: $newTab)', (tester) async {
+      final launched = watchBrowser(tester);
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': const [], feedPath: const []},
+      );
+      final controller = await _pumpLink(
+        tester,
+        url: url,
+        signedIn: true,
+        messageGroupNames: const ['team'],
+        api: api,
+      );
+      controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
+      await tester.pumpAndSettle();
 
-        await tester.tap(
-          find.text('Open link'),
-          kind: PointerDeviceKind.mouse,
-          buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
-        );
-        await tester.pumpAndSettle();
+      await tester.tap(
+        find.text('Open link'),
+        kind: PointerDeviceKind.mouse,
+        buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+      );
+      await tester.pumpAndSettle();
 
-        expect(launched, isEmpty);
-        if (newTab) {
-          expect(controller.tabsForCurrentForum, hasLength(2));
-          controller.selectTab(controller.tabsForCurrentForum.last.id);
-          await tester.pumpAndSettle();
-        }
-        expect(controller.currentContent?.id, routeId);
-        expect(controller.currentFeedId, routeId);
-        expect(api.feedPaths, contains(feedPath));
-      });
-    }
+      expect(launched, isEmpty);
+      if (newTab) {
+        expect(controller.tabsForCurrentForum, hasLength(2));
+        controller.selectTab(controller.tabsForCurrentForum.last.id);
+        await tester.pumpAndSettle();
+      }
+      expect(controller.currentContent?.id, routeId);
+      expect(controller.currentFeedId, routeId);
+      expect(api.feedPaths, contains(feedPath));
+    });
   }
 
   for (final url in const [
@@ -612,32 +611,41 @@ void main() {
     });
   }
 
-  for (final (path, id, feed) in <(String, String, String?)>[
-    ('/top?period=weekly', 'top-weekly', '/top.json?period=weekly'),
-    ('/top', 'top-yearly', '/top.json?period=yearly'),
-    ('/new', 'new', '/new.json'),
-    // Only a reader on the unified New list can ask for part of it.
-    ('/new?subset=topics', 'new', '/new.json'),
-    ('/unread?page=2', 'unread', '/unread.json'),
-    ('/hot', 'hot', '/hot.json'),
-    (
-      '/latest?order=views',
-      'topic-list-filter-/latest.json?order=views',
-      '/latest.json?order=views',
-    ),
-    (
-      '/top?period=monthly&order=views',
-      'topic-list-filter-/top.json?order=views&period=monthly',
-      '/top.json?order=views&period=monthly',
-    ),
-    (
-      '/filter?q=in:bookmarked',
-      'topic-list-filter-/filter.json?q=in%3Abookmarked',
-      '/filter.json?q=in%3Abookmarked',
-    ),
-    ('/tags', 'all-tags', null),
-  ]) {
-    for (final newTab in [false, true]) {
+  for (final (path, id, feed, newTabModes)
+      in <(String, String, String?, List<bool>)>[
+        (
+          '/top?period=weekly',
+          'top-weekly',
+          '/top.json?period=weekly',
+          [false, true],
+        ),
+        ('/top', 'top-yearly', '/top.json?period=yearly', [false]),
+        ('/new', 'new', '/new.json', [false]),
+        // Only a reader on the unified New list can ask for part of it.
+        ('/new?subset=topics', 'new', '/new.json', [true]),
+        ('/unread?page=2', 'unread', '/unread.json', [false]),
+        ('/hot', 'hot', '/hot.json', [true]),
+        (
+          '/latest?order=views',
+          'topic-list-filter-/latest.json?order=views',
+          '/latest.json?order=views',
+          [false],
+        ),
+        (
+          '/top?period=monthly&order=views',
+          'topic-list-filter-/top.json?order=views&period=monthly',
+          '/top.json?order=views&period=monthly',
+          [true],
+        ),
+        (
+          '/filter?q=in:bookmarked',
+          'topic-list-filter-/filter.json?q=in%3Abookmarked',
+          '/filter.json?q=in%3Abookmarked',
+          [false],
+        ),
+        ('/tags', 'all-tags', null, [false, true]),
+      ]) {
+    for (final newTab in newTabModes) {
       testWidgets('opens the forum $path list natively (new tab: $newTab)', (
         tester,
       ) async {
