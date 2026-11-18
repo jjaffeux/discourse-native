@@ -876,6 +876,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             mobileSheet && Theme.of(context).platform == TargetPlatform.android;
         if (retainedMobileSource || mobileSheet && readerPane != null) {
           final entry = controller.mobileNavigation.entryId;
+          final panelColor = ForumWindowBackground.panelColor(context);
           return _MobilePageSheet(
             route: state.route!,
             entry: entry,
@@ -886,6 +887,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 ? ValueKey(('mobile-topic-reader', entry))
                 : null,
             reader: readerPane,
+            opaqueUnderlayCard:
+                retainedMobileSource &&
+                readerPane != null &&
+                panelColor?.a == 1,
             underlay: retainedMobileSource
                 ? DCard(
                     border: false,
@@ -895,7 +900,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         : DSheetViewport.pageBorderRadius(context),
                     backgroundColor: readerPane == null
                         ? Colors.transparent
-                        : ForumWindowBackground.panelColor(context),
+                        : panelColor,
                     depth: readerPane == null ? null : DSurfaceDepth.panel,
                     clipBehavior: readerPane == null
                         ? Clip.none
@@ -905,7 +910,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 : DPageSurface(
                     border: false,
                     borderRadius: DSheetViewport.pageBorderRadius(context),
-                    backgroundColor: ForumWindowBackground.panelColor(context),
+                    backgroundColor: panelColor,
                     depth: DSurfaceDepth.panel,
                     child: listPane,
                   ),

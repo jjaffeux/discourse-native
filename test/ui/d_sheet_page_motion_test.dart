@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -462,6 +464,130 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  }
+
+  for (final (brightness, pixelRatio) in [
+    (Brightness.light, 1.0),
+    (Brightness.dark, 3.0),
+  ]) {
+    testWidgets('a retained Android card keeps its ${brightness.name} tint', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(400 * pixelRatio, 600 * pixelRatio);
+      tester.view.devicePixelRatio = pixelRatio;
+      addTearDown(tester.view.reset);
+      final open = ValueNotifier(false);
+      addTearDown(open.dispose);
+      final useOverlay = ValueNotifier(false);
+      addTearDown(useOverlay.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.forBrightness(
+            brightness,
+          ).copyWith(platform: TargetPlatform.android),
+          home: DSheetDragScope(
+            child: ListenableBuilder(
+              listenable: Listenable.merge([open, useOverlay]),
+              builder: (context, _) {
+                DSheetDragScope.reportTopBar(context, 68);
+                final tokens = DTokens.of(context);
+                return ColoredBox(
+                  color: tokens.wellFill,
+                  child: DSheetViewport(
+                    opaqueUnderlayCard: useOverlay.value,
+                    underlay: DCard(
+                      key: _underlay,
+                      border: false,
+                      spacing: 0,
+                      borderRadius: DSheetViewport.pageBorderRadius(context),
+                      backgroundColor: tokens.panelBackground,
+                      depth: DSurfaceDepth.panel,
+                      child: const Expanded(child: SizedBox.expand()),
+                    ),
+                    readerStart: open.value ? DSheetReaderStart.top : null,
+                    onDismiss: () => open.value = false,
+                    content: open.value
+                        ? const DSheetContent(
+                            side: DSheetSide.bottom,
+                            variant: DSheetVariant.page,
+                            showCloseButton: false,
+                            backgroundColor: _sheetFill,
+                            children: [Expanded(child: SizedBox.expand())],
+                          )
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      open.value = true;
+      await tester.pumpAndSettle();
+      final drag = await tester.startGesture(tester.getCenter(_handle));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 154));
+      await tester.pump();
+      final card = tester.renderObject(find.byKey(_underlay));
+
+      Future<ByteData> frame() async => (await tester.runAsync(() async {
+        final builder = ui.SceneBuilder();
+        tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final image = await scene.toImage(
+          tester.view.physicalSize.width.toInt(),
+          tester.view.physicalSize.height.toInt(),
+        );
+        try {
+          return (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+        } finally {
+          image.dispose();
+          scene.dispose();
+        }
+      }))!;
+
+      final before = await frame();
+      useOverlay.value = true;
+      await tester.pump();
+      final underlay = find.byKey(_underlay);
+      expect(tester.renderObject(underlay), same(card));
+      final after = await frame();
+      final rect = _paintedRect(tester, underlay);
+      final radius = tester
+          .widget<DCard>(underlay)
+          .borderRadius!
+          .resolve(TextDirection.ltr);
+      final shape = (radius * (rect.width / tester.getSize(underlay).width))
+          .toRRect(rect);
+      // The direct scrim can blend the same subpixel edge twice. Check that
+      // above-rounding differences stay on the card edge, including its rim.
+      final outer = shape.inflate(2 / pixelRatio);
+      final inner = shape.deflate(2 / pixelRatio);
+      var largestEdgeDifference = 0;
+      var largestOtherDifference = 0;
+      final width = tester.view.physicalSize.width.toInt();
+      for (var i = 0; i < before.lengthInBytes; i++) {
+        final difference = (before.getUint8(i) - after.getUint8(i)).abs();
+        if (difference <= 3) continue;
+        final pixel = i ~/ 4;
+        final center = Offset(
+          (pixel % width + .5) / pixelRatio,
+          (pixel ~/ width + .5) / pixelRatio,
+        );
+        if (outer.contains(center) && !inner.contains(center)) {
+          if (difference > largestEdgeDifference) {
+            largestEdgeDifference = difference;
+          }
+        } else if (difference > largestOtherDifference) {
+          largestOtherDifference = difference;
+        }
+      }
+      expect(largestOtherDifference, 0);
+      expect(largestEdgeDifference, lessThanOrEqualTo(15));
+      await drag.cancel();
+      await tester.pumpAndSettle();
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   }
 
   testWidgets('reduced motion skips entrance and depth, including mid-flight', (

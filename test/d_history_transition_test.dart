@@ -172,6 +172,10 @@ void main() {
       final returnSwipe = await _drag(tester, fromRight: true, distance: 160);
       final framePreview = find.byKey(const ValueKey('history-frame-preview'));
       expect(framePreview, findsOneWidget);
+      expect(
+        find.ancestor(of: framePreview, matching: find.byType(ColorFiltered)),
+        findsNothing,
+      );
       await returnSwipe.up();
       await tester.pumpAndSettle();
       expect(open, isFalse);
@@ -1076,6 +1080,19 @@ void main() {
                       )
                     : find.byType(RawImage)
               : _live;
+          if (back && !livePreviews) {
+            expect(
+              tester.widget<RawImage>(background).colorBlendMode,
+              BlendMode.srcATop,
+            );
+            expect(
+              find.descendant(
+                of: find.byKey(const ValueKey('history-previous-preview')),
+                matching: find.byType(ColorFiltered),
+              ),
+              findsNothing,
+            );
+          }
           final rect = _paintedRect(tester, background);
           // Snapshots include the transparent 16px gutter around the panel.
           final inset = back && !livePreviews ? rect.width / 400 * 16 : 0.0;

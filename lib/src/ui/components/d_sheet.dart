@@ -224,6 +224,7 @@ class DSheetViewport extends StatefulWidget {
     this.dismissOnBackdrop = false,
     this.onSwipeDismissRequested,
     this.underlay,
+    this.opaqueUnderlayCard = false,
     this.covering,
     this.readerStart,
   });
@@ -242,6 +243,10 @@ class DSheetViewport extends StatefulWidget {
   /// Live surfaces paint their border and rim with [pageBorderRadius].
   /// Focus, semantics and input stay excluded throughout the reveal.
   final Widget? underlay;
+
+  /// The retained source fills its rounded card with opaque paint and has
+  /// only black cast shadows outside [pageBorderRadius].
+  final bool opaqueUnderlayCard;
 
   /// Called after a downward swipe finishes moving the sheet off-screen.
   ///
@@ -404,6 +409,7 @@ class _DSheetViewportState extends State<DSheetViewport>
                 child: widget.underlay,
               ),
               covered: content != null,
+              opaqueContentTop: widget.opaqueUnderlayCard ? overlap : null,
               swipeKey: swipeKey,
             );
             return Stack(
@@ -1140,6 +1146,7 @@ Widget _sheetPageBackdrop(
   ValueNotifier<double> swipeProgress,
   Widget? underlay, {
   bool covered = true,
+  double? opaqueContentTop,
   GlobalKey<_DSheetSwipeDismissState>? swipeKey,
 }) {
   final animate = !MediaQuery.disableAnimationsOf(context);
@@ -1187,6 +1194,7 @@ Widget _sheetPageBackdrop(
             depth: depth,
             rounded: covered,
             visibleHeight: visibleHeight,
+            opaqueContentTop: opaqueContentTop,
             child: child!,
           ),
         ),

@@ -921,31 +921,28 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             final p = _navigationTransition && !reduced ? _progress.value : 0.0;
             final switching = _switchingNavigation && !reduced;
             final active = !switching && p > 0;
+            final tokens = DTokens.of(context);
+            final tint = active && _navigationOpen
+                ? tokens.colors.scrim.withValues(alpha: .40 * (1 - p))
+                : null;
             Widget preview(Widget content) => Transform.translate(
               offset: Offset(-_sign * width * (1 - p), 0),
               child: Transform.scale(
                 scale: _previewScale + (1 - _previewScale) * p,
-                child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    DTokens.of(
-                      context,
-                    ).colors.scrim.withValues(alpha: .40 * (1 - p)),
-                    BlendMode.srcATop,
-                  ),
-                  child: ExcludeSemantics(
-                    child: IgnorePointer(child: ExcludeFocus(child: content)),
-                  ),
+                child: ExcludeSemantics(
+                  child: IgnorePointer(child: ExcludeFocus(child: content)),
                 ),
               ),
             );
             final snapshot = _preview == null
-                ? ColoredBox(color: DTokens.of(context).background)
+                ? ColoredBox(color: _historyTintedFill(tokens.background, tint))
                 : CustomPaint(
                     key: const ValueKey('history-frame-preview'),
                     painter: _HistoryFramePainter(
                       _preview!,
                       _previewPageTop,
                       _navigationProgress,
+                      tint,
                     ),
                     child: const SizedBox.expand(),
                   );
@@ -1035,21 +1032,19 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               final active = !switching && p > 0;
               // Tint only painted pixels. A rectangular scrim would also
               // darken transparent page gutters and rounded corners.
-              final dim = ColorFilter.mode(
-                tokens.colors.scrim.withValues(
-                  alpha: active ? .40 * (_back ? 1 - p : p) : 0,
-                ),
-                BlendMode.srcATop,
+              final dimColor = tokens.colors.scrim.withValues(
+                alpha: active ? .40 * (_back ? 1 - p : p) : 0,
               );
+              final dim = ColorFilter.mode(dimColor, BlendMode.srcATop);
               const clear = ColorFilter.mode(
                 Colors.transparent,
                 BlendMode.srcATop,
               );
               const elevation = BoxDecoration(boxShadow: []);
-              final preview = ExcludeSemantics(
+              Widget preview({Color? tint}) => ExcludeSemantics(
                 child: IgnorePointer(
                   child: _preview == null
-                      ? ColoredBox(color: background)
+                      ? ColoredBox(color: _historyTintedFill(background, tint))
                       : Flow(
                           clipBehavior: Clip.none,
                           delegate: _HistoryImageAlignment(
@@ -1060,6 +1055,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                           children: [
                             RawImage(
                               image: _preview,
+                              color: tint,
+                              colorBlendMode: BlendMode.srcATop,
                               fit: BoxFit.fitWidth,
                               alignment: Alignment.topCenter,
                             ),
@@ -1088,15 +1085,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                             : _previewScale + (1 - _previewScale) * p,
                         child: DecoratedBox(
                           decoration: back ? const BoxDecoration() : elevation,
-                          child: ColorFiltered(
-                            colorFilter: back ? dim : clear,
-                            child: ExcludeSemantics(
-                              child: IgnorePointer(
-                                child: ExcludeFocus(
-                                  child: TickerMode(
-                                    enabled: active && _back == back,
-                                    child: preview,
-                                  ),
+                          child: ExcludeSemantics(
+                            child: IgnorePointer(
+                              child: ExcludeFocus(
+                                child: TickerMode(
+                                  enabled: active && _back == back,
+                                  child: preview,
                                 ),
                               ),
                             ),
@@ -1109,7 +1103,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 fit: StackFit.expand,
                 children: [
                   if (!_openingNavigation && widget.previousPreview != null)
-                    previewLayer(widget.previousPreview!, back: true)
+                    previewLayer(
+                      ColorFiltered(
+                        colorFilter: dim,
+                        child: widget.previousPreview!,
+                      ),
+                      back: true,
+                    )
                   else if (!_openingNavigation && active && _back)
                     ClipPath(
                       clipBehavior: Clip.hardEdge,
@@ -1118,7 +1118,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         _pageOrigin,
                         _sign * _size.width * p,
                       ),
-                      child: previewLayer(preview, back: true),
+                      child: previewLayer(preview(tint: dimColor), back: true),
                     ),
                   if (switching)
                     Transform.translate(
@@ -1175,14 +1175,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       ),
                     ),
                   ),
-                  if (active && !_back) previewLayer(preview, back: false),
+                  if (active && !_back) previewLayer(preview(), back: false),
                   if (_handingOff)
                     _HistoryHandoffCover(
                       covering: () => _coveringPage,
                       child: Opacity(
                         key: const ValueKey('history-page-handoff'),
                         opacity: 1 - _progress.value,
-                        child: preview,
+                        child: preview(),
                       ),
                     ),
                 ],
@@ -1316,9 +1316,10 @@ class _HistoryFrameSnapshot {
 }
 
 class _HistoryFramePainter extends CustomPainter {
-  const _HistoryFramePainter(this.image, this.pageTop, this.reveal);
+  const _HistoryFramePainter(this.image, this.pageTop, this.reveal, this.tint);
   final ui.Image image;
   final double pageTop, reveal;
+  final Color? tint;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1326,6 +1327,9 @@ class _HistoryFramePainter extends CustomPainter {
     final sourceTop = (pageTop * ratio).clamp(0.0, image.height.toDouble());
     final top = pageTop * (1 - reveal);
     final paint = Paint()..filterQuality = FilterQuality.low;
+    if (tint case final color?) {
+      paint.colorFilter = ColorFilter.mode(color, BlendMode.srcATop);
+    }
     canvas.drawImageRect(
       image,
       Rect.fromLTRB(
@@ -1341,8 +1345,16 @@ class _HistoryFramePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_HistoryFramePainter old) =>
-      image != old.image || pageTop != old.pageTop || reveal != old.reveal;
+      image != old.image ||
+      pageTop != old.pageTop ||
+      reveal != old.reveal ||
+      tint != old.tint;
 }
+
+// Match srcATop on the solid fallback, including a translucent background.
+Color _historyTintedFill(Color background, Color? tint) => tint == null
+    ? background
+    : Color.lerp(background, tint.withValues(alpha: background.a), tint.a)!;
 
 class _HistoryEdgeRecognizer extends HorizontalDragGestureRecognizer {
   bool Function(PointerDownEvent)? allowsPointer;

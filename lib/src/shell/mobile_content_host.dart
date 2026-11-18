@@ -9,6 +9,7 @@ class _MobilePageSheet extends StatelessWidget {
     required this.underlay,
     this.readerKey,
     this.covering,
+    this.opaqueUnderlayCard = false,
   });
 
   final ContentRoute route;
@@ -18,6 +19,7 @@ class _MobilePageSheet extends StatelessWidget {
   final Widget? reader;
   final Widget? underlay;
   final ValueNotifier<bool>? covering;
+  final bool opaqueUnderlayCard;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +38,7 @@ class _MobilePageSheet extends StatelessWidget {
               if (shell.mobileNavigation.entryId == entry) shell.handleBack();
             },
       underlay: underlay,
+      opaqueUnderlayCard: opaqueUnderlayCard,
       content: reader == null
           ? null
           : DSheetContent(

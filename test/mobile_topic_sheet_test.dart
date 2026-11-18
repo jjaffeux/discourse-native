@@ -938,6 +938,13 @@ void main() {
       await tester.pump();
       expect(tester.getRect(_sheet).top, greaterThan(bounds.top));
       expect(find.byType(TopicListView), findsOneWidget);
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final viewport = tester.widget<DSheetViewport>(
+          find.ancestor(of: _sheet, matching: find.byType(DSheetViewport)).first,
+        );
+        expect((viewport.underlay! as DCard).backgroundColor!.a, lessThan(1));
+        expect(viewport.opaqueUnderlayCard, isFalse);
+      }
       expect(tester.widget<DPageSurface>(surface).backgroundColor!.a, 1);
       expect(
         find.byKey(const ValueKey('topic-card-7')).hitTestable(),

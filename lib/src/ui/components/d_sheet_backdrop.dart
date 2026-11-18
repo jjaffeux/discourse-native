@@ -132,6 +132,7 @@ class _DSheetBackgroundMotion extends StatelessWidget {
     this.rounded = false,
     this.surroundingColor,
     this.visibleHeight,
+    this.opaqueContentTop,
     required this.child,
   });
 
@@ -139,6 +140,7 @@ class _DSheetBackgroundMotion extends StatelessWidget {
   final bool rounded;
   final Color? surroundingColor;
   final double? visibleHeight;
+  final double? opaqueContentTop;
   final Widget child;
 
   @override
@@ -148,10 +150,19 @@ class _DSheetBackgroundMotion extends StatelessWidget {
         : DTokens.of(context).colors.scrim.withValues(alpha: .24 * depth);
     final scale = 1 - .06 * depth;
     final height = visibleHeight;
+    final radius = DSheetViewport.pageBorderRadius(context);
+    final top = opaqueContentTop;
+    // Over opaque paint, black SrcATop equals a black overlay. Black shadows
+    // outside the card already have the right color and keep their alpha.
+    final overlay = top != null && tint?.withValues(alpha: 1) == Colors.black
+        ? tint
+        : null;
     final scaled = Transform.scale(
       scale: scale,
       child: _DSheetBackgroundTint(
-        tint: tint,
+        // A transparent SrcATop filter keeps Flutter's layer pixel alignment
+        // without applying a filter or allocating an offscreen target.
+        tint: overlay == null ? tint : Colors.transparent,
         child: ClipRect(
           clipBehavior: height == null ? Clip.none : Clip.hardEdge,
           clipper: height == null
@@ -159,8 +170,13 @@ class _DSheetBackgroundMotion extends StatelessWidget {
               : _DSheetBackgroundClipper(height, scale),
           child: ClipRRect(
             clipBehavior: rounded || depth > 0 ? Clip.antiAlias : Clip.none,
-            borderRadius: DSheetViewport.pageBorderRadius(context),
-            child: child,
+            borderRadius: radius,
+            child: CustomPaint(
+              foregroundPainter: overlay == null
+                  ? null
+                  : _DSheetCardScrim(overlay, radius, top!),
+              child: child,
+            ),
           ),
         ),
       ),
@@ -172,6 +188,29 @@ class _DSheetBackgroundMotion extends StatelessWidget {
       child: scaled,
     );
   }
+}
+
+class _DSheetCardScrim extends CustomPainter {
+  const _DSheetCardScrim(this.color, this.radius, this.top);
+
+  final Color color;
+  final BorderRadius radius;
+  final double top;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Rect.fromLTRB(0, top, size.width, size.height);
+    canvas.save();
+    canvas.clipRRect(radius.toRRect(bounds));
+    canvas.drawRect(bounds, Paint()..color = color);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_DSheetCardScrim oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.radius != radius ||
+      oldDelegate.top != top;
 }
 
 // Fills the edges a receding page uncovers. It never takes a hit itself, so a
