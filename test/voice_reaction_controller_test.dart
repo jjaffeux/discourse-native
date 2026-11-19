@@ -120,15 +120,12 @@ void main() {
     },
   );
 
-  test('a different room or site cannot display the active call reactions', () {
-    expect(controller.reactionsForCall(_site, 8), isNull);
-    expect(controller.reactionsForCall('https://another.example', 7), isNull);
-    expect(controller.reactionsForCall(_site, 7), isNotNull);
-  });
-
   test(
     'active call sends its session and receives each remote reaction once',
     () async {
+      expect(controller.reactionsForCall(_site, 8), isNull);
+      expect(controller.reactionsForCall('https://another.example', 7), isNull);
+      expect(controller.reactionsForCall(_site, 7), isNotNull);
       final reactions = controller.callReactions!;
       await reactions.load();
       await reactions.send('heart');
