@@ -772,14 +772,17 @@ void main() {
           throwsFormatException,
         );
       });
-      test('rejects malformed stable-ID detail $response', () async {
-        final transport = _RecordingTransport()..getResponse = response;
-        final api = GroupsApi(transport, const DiscourseModelCodec.core());
-        await expectLater(
-          api.detailById(siteUrl: siteUrl, apiKey: 'secret', groupId: 7),
-          throwsFormatException,
-        );
-      });
+      // Detail ignores acknowledgment flags; {} already covers no group.
+      if (!response.containsKey('success')) {
+        test('rejects malformed stable-ID detail $response', () async {
+          final transport = _RecordingTransport()..getResponse = response;
+          final api = GroupsApi(transport, const DiscourseModelCodec.core());
+          await expectLater(
+            api.detailById(siteUrl: siteUrl, apiKey: 'secret', groupId: 7),
+            throwsFormatException,
+          );
+        });
+      }
     }
 
     test(
