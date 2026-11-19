@@ -173,7 +173,14 @@ void main() {
   });
 
   group('lookup site icon URLs', () {
-    for (final entry in imageCases) {
+    // Keep each lookup base URL shape; emoji loading covers resolver variants.
+    for (final entry in [
+      imageCases[0],
+      imageCases[1],
+      imageCases[6],
+      imageCases[10],
+      imageCases[14],
+    ]) {
       test('resolves ${entry.description}', () async {
         final api = _lookupApi(entry.siteUrl, entry.image);
 
