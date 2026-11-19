@@ -12,37 +12,28 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'cakeday_fixture.dart';
 
 void main() {
-  testWidgets('minute timer ignores newly observed forums on the same day', (
+  testWidgets('minute timer ignores same-day forum additions and removals', (
     tester,
   ) async {
     final f = CakedayFixture();
     addTearDown(f.dispose);
     f.controller.observeDecorations(cakedaySite);
     var changes = 0;
-    f.controller.addListener(() => changes++);
+    void onChange() => changes++;
+    f.controller.addListener(onChange);
     f.controller.observeDecorations('https://second.example');
 
     await tester.pump(const Duration(minutes: 1));
     f.controller.setForeground(false);
-
     expect(changes, 0);
-  });
 
-  testWidgets('minute timer ignores forgotten forums on the same day', (
-    tester,
-  ) async {
-    final f = CakedayFixture();
-    addTearDown(f.dispose);
-    f.controller.observeDecorations(cakedaySite);
-    f.controller.observeDecorations('https://second.example');
+    f.controller.removeListener(onChange);
     f.controller.setForeground(true);
     f.controller.forget('https://second.example');
-    var changes = 0;
-    f.controller.addListener(() => changes++);
+    f.controller.addListener(onChange);
 
     await tester.pump(const Duration(minutes: 1));
     f.controller.setForeground(false);
-
     expect(changes, 0);
   });
 
