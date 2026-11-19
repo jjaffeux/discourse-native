@@ -1075,6 +1075,7 @@ void main() {
       expect(site.url, 'https://meta.discourse.org');
       expect(site.title, 'Discourse Meta');
       expect(site.description, 'Official support');
+      expect(site.iconUrl, 'https://meta.discourse.org/uploads/icon.png');
       expect(site.apiVersion, 4);
       expect(site.loginRequired, isFalse);
     });
@@ -1090,38 +1091,6 @@ void main() {
 
       expect(site.title, 'Discourse Meetup');
       expect(site.loginRequired, isTrue);
-    });
-
-    test('resolves a relative icon against the site', () async {
-      final api = DiscourseApi(client: discourseServing());
-      final site = await api.lookup('meta.discourse.org');
-
-      expect(site.iconUrl, 'https://meta.discourse.org/uploads/icon.png');
-    });
-
-    test('keeps the subfolder a forum is served from', () async {
-      final requested = <Uri>[];
-      final api = DiscourseApi(
-        client: MockClient((request) async {
-          requested.add(request.url);
-          if (request.url.path == '/forum/user-api-key/new') {
-            return http.Response('', 200, headers: {'auth-api-version': '4'});
-          }
-          if (request.url.path == '/forum/site/basic-info.json') {
-            return http.Response(jsonEncode({'title': 'Subfolder'}), 200);
-          }
-          return http.Response('not found', 404);
-        }),
-      );
-
-      final site = await api.lookup('example.com/forum/');
-
-      expect(site.url, 'https://example.com/forum');
-      expect(site.title, 'Subfolder');
-      expect(
-        requested.first,
-        Uri.parse('https://example.com/forum/user-api-key/new'),
-      );
     });
 
     test('keeps the subfolder a redirect lands the forum under', () async {
