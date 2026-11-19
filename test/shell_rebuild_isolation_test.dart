@@ -334,7 +334,7 @@ void main() {
     expect(find.text('Second site'), findsOneWidget);
   });
 
-  testWidgets('unrelated shell changes do not rebuild the topic viewport', (
+  testWidgets('shell updates isolate viewport and reader bounds', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1000, 700));
@@ -410,6 +410,37 @@ void main() {
     ]) {
       expect(rebuilt, isNot(contains(isolated)));
     }
+
+    notifications = 0;
+    var boundsNotifications = 0;
+    void countBoundsNotification() => boundsNotifications++;
+    controller.readerContentBoundsListenable.addListener(
+      countBoundsNotification,
+    );
+    addTearDown(
+      () => controller.readerContentBoundsListenable.removeListener(
+        countBoundsNotification,
+      ),
+    );
+
+    // A docked composer's reader reports a new rect after every frame of a
+    // dock drag, so each distinct report must stay off the facade.
+    for (var frame = 1; frame <= 5; frame++) {
+      final bounds = Rect.fromLTWH(0, 0, 800, 600 - frame * 10);
+      controller.reportReaderContentBounds(bounds);
+      await tester.pump();
+      expect(controller.readerContentBounds, bounds);
+    }
+    expect(boundsNotifications, 5);
+    expect(notifications, 0);
+
+    // A desktop window resize moves the reader through the mounted reporter.
+    final beforeResize = controller.readerContentBounds;
+    await tester.binding.setSurfaceSize(const Size(1100, 760));
+    await tester.pumpAndSettle();
+    expect(controller.readerContentBounds, isNot(beforeResize));
+    expect(boundsNotifications, greaterThan(5));
+    expect(notifications, 0);
   });
 
   testWidgets(
@@ -578,78 +609,6 @@ void main() {
     },
     variant: _sideloaded,
   );
-
-  testWidgets('reader bounds reports do not notify the shell facade', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 700));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final controller = ShellController(
-      instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org', title: 'Meta'),
-      ]),
-      api: FakeDiscourseApi(
-        feeds: const {
-          '/latest.json': [
-            Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
-          ],
-        },
-      ),
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
-    );
-    addTearDown(controller.dispose);
-    await controller.load();
-
-    await tester.pumpWidget(
-      ShellScope(
-        controller: controller,
-        child: MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-          home: const AdaptiveShell(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(_realTopicTitle, findsOneWidget);
-
-    var shellNotifications = 0;
-    void countShellNotification() => shellNotifications++;
-    controller.addListener(countShellNotification);
-    addTearDown(() => controller.removeListener(countShellNotification));
-    var boundsNotifications = 0;
-    void countBoundsNotification() => boundsNotifications++;
-    controller.readerContentBoundsListenable.addListener(
-      countBoundsNotification,
-    );
-    addTearDown(
-      () => controller.readerContentBoundsListenable.removeListener(
-        countBoundsNotification,
-      ),
-    );
-
-    // A docked composer's reader reports a new rect after every frame of a
-    // dock drag, so each distinct report must stay off the facade.
-    for (var frame = 1; frame <= 5; frame++) {
-      final bounds = Rect.fromLTWH(0, 0, 800, 600 - frame * 10);
-      controller.reportReaderContentBounds(bounds);
-      await tester.pump();
-      expect(controller.readerContentBounds, bounds);
-    }
-    expect(boundsNotifications, 5);
-    expect(shellNotifications, 0);
-
-    // A desktop window resize moves the reader through the mounted reporter.
-    final beforeResize = controller.readerContentBounds;
-    await tester.binding.setSurfaceSize(const Size(1100, 760));
-    await tester.pumpAndSettle();
-    expect(controller.readerContentBounds, isNot(beforeResize));
-    expect(boundsNotifications, greaterThan(5));
-    expect(shellNotifications, 0);
-  });
 
   testWidgets('reader bounds follow the sidebar as it moves', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 800));
