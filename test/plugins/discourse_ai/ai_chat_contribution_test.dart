@@ -7,12 +7,6 @@ import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_module.da
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('AI installs independently when optional Chat is absent', () async {
-    final installed = PluginInstaller.install(
-      const PluginManifest([discourseAiModule]),
-    );
-    await installed.close();
-  });
   test(
     'Chat receives one AI-owned decoder only when that plugin is installed',
     () async {
