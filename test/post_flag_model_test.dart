@@ -113,6 +113,7 @@ void main() {
       expect(post.liked, isTrue);
       expect(post.postActions.map((summary) => summary.id), [3, 91]);
       expect(post.canFlagWith(3), isTrue);
+      expect(post.canFlagWith(91), isFalse);
       expect(post.actedFlagSummaries.single.id, 91);
       expect(post.actionSummary(3)?.count, 2);
     });
@@ -149,23 +150,6 @@ void main() {
       expect(merged.liked, isTrue);
       expect(merged.likeCount, 4);
       expect(merged.actedFlagSummaries.single.id, 3);
-    });
-
-    test('decodes available and acted personalized flag state', () {
-      final available = _post({
-        'actions_summary': [
-          {'id': 3, 'can_act': true},
-        ],
-      });
-      final acted = _post({
-        'actions_summary': [
-          {'id': 3, 'acted': true},
-        ],
-      });
-
-      expect(available.canFlagWith(3), isTrue);
-      expect(acted.canFlagWith(3), isFalse);
-      expect(acted.actedFlagSummaries, hasLength(1));
     });
   });
 }
