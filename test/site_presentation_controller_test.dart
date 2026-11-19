@@ -494,6 +494,12 @@ void main() {
         controller.addListener(() => notifications++);
 
         expect(controller.appearanceFor(site), stored);
+        await controller.ensureAppearance(site);
+        expect(controller.appearanceFor(site), stored);
+        expect(api.appearanceCalls, 0);
+        expect(notifications, 0);
+        expect(persisted, isEmpty);
+
         await Future.wait([
           controller.refreshAppearance(site),
           controller.refreshAppearance(site),
@@ -508,26 +514,6 @@ void main() {
 
         await controller.ensureAppearance(site);
         expect(api.appearanceCalls, 1);
-      });
-
-      test('warm persisted values cause no churn or request', () async {
-        final appearance = siteAppearance();
-        final api = _PresentationApi()..appearance = appearance;
-        var persistenceCalls = 0;
-        final controller = _controller(
-          api,
-          persistedAppearances: {site: appearance},
-          onAppearanceLoaded: (_, _) async => persistenceCalls++,
-        );
-        var notifications = 0;
-        controller.addListener(() => notifications++);
-
-        await controller.ensureAppearance(site);
-
-        expect(controller.appearanceFor(site), appearance);
-        expect(api.appearanceCalls, 0);
-        expect(notifications, 0);
-        expect(persistenceCalls, 0);
       });
 
       test(
@@ -1127,6 +1113,13 @@ void main() {
           SiteEmoji(name: 'xsmile', url: 'xsmile.png'),
           SiteEmoji(name: 'smile', url: 'smile.png'),
           SiteEmoji(name: 'small', url: 'small.png'),
+          SiteEmoji(name: 'party_spark', url: '/uploads/party-spark.png'),
+          SiteEmoji(name: 'sparkler', url: '/uploads/sparkler.png'),
+          SiteEmoji(name: 'sparkling', url: '/images/emoji/sparkling.png'),
+          SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
+          SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
+          SiteEmoji(name: 'sparks', url: '/images/emoji/sparks.png'),
+          SiteEmoji(name: 'x_spark', url: '/uploads/x-spark.png'),
         ]);
         await Future.wait([first, second]);
 
@@ -1139,22 +1132,6 @@ void main() {
         ]);
         expect(controller.searchEmojis(site, 'sm', limit: 2).length, 2);
         expect(controller.searchEmojis(site, 'sm', limit: 0), isEmpty);
-      });
-
-      test('autocomplete retains only the best ordered matches', () async {
-        final api = _PresentationApi()
-          ..emojis = const [
-            SiteEmoji(name: 'party_spark', url: '/uploads/party-spark.png'),
-            SiteEmoji(name: 'sparkler', url: '/uploads/sparkler.png'),
-            SiteEmoji(name: 'sparkling', url: '/images/emoji/sparkling.png'),
-            SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
-            SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
-            SiteEmoji(name: 'sparks', url: '/images/emoji/sparks.png'),
-            SiteEmoji(name: 'x_spark', url: '/uploads/x-spark.png'),
-          ];
-        final controller = _controller(api);
-        await controller.ensureEmojiCatalog(site);
-
         expect(controller.searchEmojis(site, 'spark', limit: 4), const [
           SiteEmoji(name: 'spark', url: '/uploads/spark.png'),
           SiteEmoji(name: 'sparkle', url: '/images/emoji/sparkle.png'),
