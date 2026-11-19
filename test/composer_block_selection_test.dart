@@ -18,6 +18,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+// App phone navigation targets Android and iOS; Flutter.mobile adds Fuchsia.
+const _phonePlatforms = TargetPlatformVariant({
+  TargetPlatform.android,
+  TargetPlatform.iOS,
+});
+
 const _target = ReplyComposerTarget(
   privateMessageTopic: false,
   siteUrl: 'https://example.test',
@@ -136,7 +142,7 @@ void main() {
         expect(composer.text.collapsedComponents, isNotEmpty);
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: _phonePlatforms,
     );
 
     testWidgets(
@@ -158,7 +164,7 @@ void main() {
         expect(composer.text.text, source);
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: _phonePlatforms,
     );
 
     testWidgets(
@@ -187,7 +193,7 @@ void main() {
         expect(composer.raw, source);
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: _phonePlatforms,
     );
 
     for (final selected in [false, true]) {
@@ -216,7 +222,7 @@ void main() {
           expect(composer.raw, source);
           expect(tester.takeException(), isNull);
         },
-        variant: TargetPlatformVariant.mobile(),
+        variant: _phonePlatforms,
       );
     }
 
@@ -240,7 +246,7 @@ void main() {
         expect(composer.raw, source);
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: _phonePlatforms,
     );
 
     testWidgets(
@@ -304,7 +310,7 @@ void main() {
         expect(composer.raw, source);
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: _phonePlatforms,
     );
 
     testWidgets(
@@ -343,25 +349,21 @@ void main() {
     );
   }
 
-  testWidgets('mobile backspace deletes a tapped image', (tester) async {
+  testWidgets('phone image controls remove a tapped image', (tester) async {
     final source = 'Before\n\n${_blocks['image']}\n\nAfter';
     final composer = await _pump(tester, source);
     final image = composer.text.imageBlocks.single;
     await tester.tapAt(composer.text.collapsedImageGlobalRect(image)!.center);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(composer.text.keyboardSelectedImage, isNotNull);
-    final caret = composer.text.selection.extentOffset;
-    tester.testTextInput.updateEditingValue(
-      TextEditingValue(
-        text: source.replaceRange(caret - 1, caret, ''),
-        selection: TextSelection.collapsed(offset: caret - 1),
-      ),
-    );
-    await tester.pump();
+    expect(find.byKey(const ValueKey('composer-image-sheet')), findsOneWidget);
+    expect(composer.focus.hasFocus, isFalse);
+    await tester.tap(find.widgetWithText(DButton, 'Remove'));
+    await tester.pumpAndSettle();
     expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
     expect(composer.text.keyboardSelectedImage, isNull);
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.mobile());
+  }, variant: _phonePlatforms);
 
   testWidgets('mobile backspace deletes a tapped gallery', (tester) async {
     final source = 'Before\n\n${_blocks['gallery']}\n\nAfter';
@@ -388,7 +390,7 @@ void main() {
       findsNothing,
     );
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.mobile());
+  }, variant: _phonePlatforms);
 
   for (final entry in {
     for (final name in ['table', 'details', 'gallery']) name: _blocks[name]!,
@@ -430,7 +432,7 @@ void main() {
         expect(composer.raw, source);
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: _phonePlatforms,
     );
   }
 
@@ -508,7 +510,7 @@ void main() {
       }
       expect(tester.takeException(), isNull);
     },
-    variant: TargetPlatformVariant.mobile(),
+    variant: _phonePlatforms,
   );
 
   testWidgets('mobile range deletion expands both touched components', (
@@ -537,7 +539,7 @@ void main() {
     await tester.pump();
     expect(composer.raw, source);
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.mobile());
+  }, variant: _phonePlatforms);
 
   testWidgets('mobile forward delete removes an inline date', (tester) async {
     const date = '[date=2026-09-30 timezone=Etc/UTC]';
@@ -555,7 +557,7 @@ void main() {
     expect(composer.text.text, 'Before  after');
     expect(composer.text.selection, const TextSelection.collapsed(offset: 7));
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.mobile());
+  }, variant: _phonePlatforms);
 
   testWidgets('mobile backspace removes a date inside a list body', (
     tester,
@@ -588,9 +590,9 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.mobile());
+  }, variant: _phonePlatforms);
 
-  testWidgets('mobile backspace deletes a tapped image inside a list', (
+  testWidgets('phone image controls remove a tapped image inside a list', (
     tester,
   ) async {
     final source = '- Before ${_blocks['image']}';
@@ -602,17 +604,12 @@ void main() {
         .single;
     final image = body.text.imageBlocks.single;
     await tester.tapAt(body.text.collapsedImageGlobalRect(image)!.center);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(body.text.keyboardSelectedImage, isNotNull);
-    final value = body.text.value;
-    final caret = value.selection.extentOffset;
-    tester.testTextInput.updateEditingValue(
-      TextEditingValue(
-        text: value.text.replaceRange(caret - 1, caret, ''),
-        selection: TextSelection.collapsed(offset: caret - 1),
-      ),
-    );
-    await tester.pump();
+    expect(find.byKey(const ValueKey('composer-image-sheet')), findsOneWidget);
+    expect(body.focus.hasFocus, isFalse);
+    await tester.tap(find.widgetWithText(DButton, 'Remove'));
+    await tester.pumpAndSettle();
     expect(composer.raw, '- Before');
     composer.history.undo();
     await tester.pump();
@@ -620,7 +617,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
     expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.mobile());
+  }, variant: _phonePlatforms);
 
   for (final wasComposing in [false, true]) {
     testWidgets('mobile prose deletion preserves composing ($wasComposing)', (
@@ -642,7 +639,7 @@ void main() {
       await tester.pump();
       expect(composer.text.value, proposal);
       expect(tester.takeException(), isNull);
-    }, variant: TargetPlatformVariant.mobile());
+    }, variant: _phonePlatforms);
   }
 
   for (final shift in [false, true]) {
