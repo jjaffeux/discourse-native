@@ -126,7 +126,7 @@ void main() {
     expect(contrast(), greaterThanOrEqualTo(4.5));
   });
 
-  testWidgets('new theme opens the editor and saves its own appearance', (
+  testWidgets('a theme saves its appearance and reopens for editing', (
     tester,
   ) async {
     final shell = controller();
@@ -256,24 +256,8 @@ void main() {
     final edit = find.byKey(ValueKey(('edit-theme', saved.id)));
     expect(tester.widget<DButton>(edit).variant, DButtonVariant.outline);
     expect(find.byKey(ValueKey(('theme-actions', saved.id))), findsNothing);
-  });
 
-  testWidgets('editing a theme hides the appearance mode control', (
-    tester,
-  ) async {
-    final shell = controller();
-    addTearDown(shell.dispose);
-    await pumpSettings(tester, shell);
-    await tapVisible(tester, find.byKey(const ValueKey('new-theme')));
-    final name = find.descendant(
-      of: find.byKey(const ValueKey('theme-name')),
-      matching: find.byType(EditableText),
-    );
-    await tester.enterText(name, 'My theme');
-    await tester.pumpAndSettle();
-    await tapVisible(tester, find.byKey(const ValueKey('theme-save')));
-    final theme = shell.forumSettings.themesFor(site).customTheme!;
-    await tapVisible(tester, find.byKey(ValueKey(('edit-theme', theme.id))));
+    await tapVisible(tester, edit);
     expect(find.byType(ForumThemeEditor), findsOneWidget);
     expect(find.byKey(const ValueKey('appearance-mode')), findsNothing);
     expect(find.byKey(const ValueKey('theme-cancel')), findsNothing);
