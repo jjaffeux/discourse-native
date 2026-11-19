@@ -137,18 +137,23 @@ void main() {
     expect(_drawn(tester), _artwork('google'));
   });
 
-  testWidgets('adding the forum repaints an emoji that already names it', (
+  testWidgets('adding then removing a forum repaints its mounted emoji', (
     tester,
   ) async {
+    final held = _behindSignIn('google');
     final shell = _shell();
     await shell.load();
     await _mount(tester, shell);
     expect(_drawn(tester), _defaultArtwork);
 
-    await shell.addInstance(_behindSignIn('google'));
+    await shell.addInstance(held);
     await tester.pump();
 
     expect(_drawn(tester), _artwork('google'));
+
+    expect(await shell.removeInstance(held), isTrue);
+    await tester.pump();
+    expect(_drawn(tester), _defaultArtwork);
   });
 
   testWidgets('replacing the stored config repaints a mounted emoji', (
@@ -167,20 +172,5 @@ void main() {
     await tester.pump();
 
     expect(_drawn(tester), _artwork('apple'));
-  });
-
-  testWidgets('removing the forum returns a mounted emoji to the default', (
-    tester,
-  ) async {
-    final held = _behindSignIn('google');
-    final shell = _shell(stored: [held]);
-    await shell.load();
-    await _mount(tester, shell);
-    expect(_drawn(tester), _artwork('google'));
-
-    expect(await shell.removeInstance(held), isTrue);
-    await tester.pump();
-
-    expect(_drawn(tester), _defaultArtwork);
   });
 }
