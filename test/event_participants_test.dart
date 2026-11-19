@@ -81,7 +81,7 @@ void main() {
   });
 
   testWidgets(
-    'participant sheet clears a private roster and ignores a pending search when access changes',
+    'participant sheet fences stale search and restores access after read and account failures',
     (tester) async {
       final handle = ports.controller.acquire(
         eventSite,
@@ -127,26 +127,11 @@ void main() {
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(ports.channels.subscriberCount('/discourse-post-event/700'), 1);
-    },
-  );
-
-  testWidgets(
-    'participant sheet reloads its roster when access returns after a failed re-read or account refresh',
-    (tester) async {
-      final handle = ports.controller.acquire(
-        eventSite,
-        PostEvent.decode(current)!,
-      );
-      addTearDown(handle.dispose);
+      current = eventJson();
       await handle.refresh();
-      ports
-              .transport
-              .responders['GET /discourse-post-event/events/42/invitees.json?filter'] =
-          (_) => {
-            'invitees': [watching()],
-          };
       await pump(tester, (context) => showEventParticipants(context, handle));
       expect(find.text('@lee'), findsOneWidget);
+
       bool searchEnabled() =>
           tester.widget<DInput>(find.byType(DInput)).enabled;
       bool tabsEnabled() =>
