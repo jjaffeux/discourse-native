@@ -10715,7 +10715,7 @@ void main() {
       },
     );
 
-    test('a replayed add from a named reactor is not counted again', () async {
+    test('page-named and newly added reactors each settle once', () async {
       final subject = reacted(const [
         ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
       ]);
@@ -10727,16 +10727,14 @@ void main() {
         subject.store.read<ChatMessage>(site, 1)!.reactions.single,
         const ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
       );
-    });
-
-    test('a first reaction from somebody else still counts', () async {
-      final subject = reacted(const [
-        ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
-      ]);
-      final tracker = await watching(subject.chat);
 
       react(tracker, action: 'add', userId: 11);
+      expect(
+        subject.store.read<ChatMessage>(site, 1)!.reactions.single,
+        const ChatReaction(emoji: 'clap', count: 2, reactorIds: [8, 11]),
+      );
 
+      react(tracker, action: 'add', userId: 11);
       expect(
         subject.store.read<ChatMessage>(site, 1)!.reactions.single,
         const ChatReaction(emoji: 'clap', count: 2, reactorIds: [8, 11]),
@@ -10789,24 +10787,6 @@ void main() {
         );
       },
     );
-
-    test('the same add delivered twice is counted once', () async {
-      // Resubscribing replays from a position rather than from a set, so one
-      // event can arrive again on its own. The reactor it names is in the row
-      // by the second delivery, which is the whole of the test.
-      final subject = reacted(const [
-        ChatReaction(emoji: 'clap', count: 1, reactorIds: [11]),
-      ]);
-      final tracker = await watching(subject.chat);
-
-      react(tracker, action: 'add', userId: 8);
-      react(tracker, action: 'add', userId: 8);
-
-      expect(
-        subject.store.read<ChatMessage>(site, 1)!.reactions.single,
-        const ChatReaction(emoji: 'clap', count: 2, reactorIds: [11, 8]),
-      );
-    });
 
     test('an action other than add or remove changes no row', () async {
       final subject = reacted(const [
