@@ -1356,46 +1356,28 @@ void main() {
   });
 
   testWidgets(
-    'pagination does not replace the header separator with progress',
+    'directory retains rows without indicators during refresh and pagination',
     (tester) async {
-      await _pump(
-        tester,
-        const UsersPage(
-          siteUrl: 'https://example.com',
-          data: UsersPageData(
-            items: [_sam],
-            columns: [_likes],
-            loadingMore: true,
-            loaded: true,
+      for (final loadingMore in [false, true]) {
+        await _pump(
+          tester,
+          UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              items: const [_sam],
+              columns: const [_likes],
+              loading: !loadingMore,
+              loadingMore: loadingMore,
+              loaded: true,
+            ),
           ),
-        ),
-      );
-
-      expect(find.byType(DProgress), findsNothing);
-      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-      expect(tester.takeException(), isNull);
+        );
+        expect(find.byType(DProgress), findsNothing);
+        expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
     },
   );
-
-  testWidgets('directory retains rows without loading indicators', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      const UsersPage(
-        siteUrl: 'https://example.com',
-        data: UsersPageData(
-          items: [_sam],
-          columns: [_likes],
-          loading: true,
-          loaded: true,
-        ),
-      ),
-    );
-    expect(find.byType(DProgress), findsNothing);
-    expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets(
     'reference-width directory lines its filters and columns up with the title',
