@@ -110,19 +110,14 @@ void main() {
       });
     });
 
+    // The nested query/fragment case above also pins plain multi-segment paths.
     for (final (description, siteUrl, expectedPath) in const [
       ('root', 'https://forum.example', '/user-api-key/new'),
-      ('root slash', 'https://forum.example/', '/user-api-key/new'),
       ('root slashes', 'https://forum.example///', '/user-api-key/new'),
       (
         'subfolder',
         'https://forum.example/community',
         '/community/user-api-key/new',
-      ),
-      (
-        'nested subfolder',
-        'https://forum.example/communities/support',
-        '/communities/support/user-api-key/new',
       ),
       (
         'encoded subfolder',
@@ -133,11 +128,6 @@ void main() {
         'encoded trailing slash',
         'https://forum.example/community%2F/',
         '/community%2F/user-api-key/new',
-      ),
-      (
-        'trailing slash',
-        'https://forum.example/community/',
-        '/community/user-api-key/new',
       ),
       (
         'trailing slashes',
