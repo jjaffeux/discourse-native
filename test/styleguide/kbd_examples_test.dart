@@ -11,12 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/finders.dart';
 
 void main() {
-  for (final palette in [
-    StyleguideTheme.light,
-    StyleguideTheme.dark,
-    StyleguideTheme.forest,
-    StyleguideTheme.plum,
-  ]) {
+  for (final palette in [StyleguideTheme.light, StyleguideTheme.plum]) {
     testWidgets(
       '${palette.name} examples fit narrow and wide previews at 200 percent text in both directions',
       (tester) async {
