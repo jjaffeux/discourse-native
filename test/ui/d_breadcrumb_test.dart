@@ -59,38 +59,6 @@ Widget basicBreadcrumb({
 );
 
 void main() {
-  testWidgets('matches base-nova type, gaps, and artwork geometry', (
-    tester,
-  ) async {
-    await pumpBreadcrumb(
-      tester,
-      basicBreadcrumb(onHome: () {}, onComponents: () {}),
-    );
-
-    final homeStyle = tester.widget<DefaultTextStyle>(
-      find
-          .ancestor(
-            of: find.text('Home'),
-            matching: find.byType(DefaultTextStyle),
-          )
-          .first,
-    );
-    expect(homeStyle.style.fontSize, 14);
-    expect(homeStyle.style.height, 1.5);
-    for (final separator in find.byType(DBreadcrumbSeparator).evaluate()) {
-      expect(
-        tester.getSize(find.byElementPredicate((e) => e == separator)),
-        const Size(14, 14),
-      );
-    }
-
-    final home = tester.getRect(find.text('Home'));
-    final firstSeparator = tester.getRect(
-      find.byType(DBreadcrumbSeparator).first,
-    );
-    expect(firstSeparator.left - home.right, closeTo(6, .01));
-  });
-
   testWidgets(
     'links support pointer, keyboard, disabled state, and borrowed focus',
     (tester) async {
@@ -139,13 +107,36 @@ void main() {
     },
   );
 
-  testWidgets('keyboard focus ring leaves the trail layout unchanged', (
+  testWidgets('reference trail geometry stays fixed through focus', (
     tester,
   ) async {
     await pumpBreadcrumb(
       tester,
       basicBreadcrumb(onHome: () {}, onComponents: () {}),
     );
+    final homeStyle = tester.widget<DefaultTextStyle>(
+      find
+          .ancestor(
+            of: find.text('Home'),
+            matching: find.byType(DefaultTextStyle),
+          )
+          .first,
+    );
+    expect(homeStyle.style.fontSize, 14);
+    expect(homeStyle.style.height, 1.5);
+    for (final separator in find.byType(DBreadcrumbSeparator).evaluate()) {
+      expect(
+        tester.getSize(find.byElementPredicate((e) => e == separator)),
+        const Size(14, 14),
+      );
+    }
+
+    final home = tester.getRect(find.text('Home'));
+    final firstSeparator = tester.getRect(
+      find.byType(DBreadcrumbSeparator).first,
+    );
+    expect(firstSeparator.left - home.right, closeTo(6, .01));
+
     final link = find.byType(DBreadcrumbLink).first;
     final label = find.text('Home');
     final page = find.byType(DBreadcrumbPage);
