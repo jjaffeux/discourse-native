@@ -63,7 +63,7 @@ void main() {
     },
   );
 
-  testWidgets('connector gap passes clicks through to underlay', (
+  testWidgets('connector activates on strokes and keys but passes gaps', (
     tester,
   ) async {
     var underlay = 0;
@@ -100,44 +100,17 @@ void main() {
     await tester.tapAt(origin + const Offset(20, 8));
     expect(connector, 0);
     expect(underlay, 1);
-    await tester.tapAt(origin + const Offset(20, 20));
+    await tester.tapAt(origin + const Offset(3, 18));
     expect(connector, 1);
     expect(underlay, 1);
-  });
-  testWidgets('connector activates on its curve and line but not its gaps', (
-    tester,
-  ) async {
-    var activations = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 32,
-              height: 40,
-              child: DThreadConnector(
-                width: 32,
-                junction: 20,
-                onPressed: () => activations++,
-                semanticLabel: 'Collapse replies',
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    final origin = tester.getTopLeft(find.byType(DThreadConnector));
-    await tester.tapAt(origin + const Offset(20, 8));
-    expect(activations, 0);
-    await tester.tapAt(origin + const Offset(3, 18));
-    expect(activations, 1);
     await tester.tapAt(origin + const Offset(20, 20));
-    expect(activations, 2);
+    expect(connector, 2);
+    expect(underlay, 1);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    expect(activations, 4);
+    expect(connector, 4);
+    expect(underlay, 1);
   });
-
   testWidgets('continuing branches have an unbroken rail and mirror in RTL', (
     tester,
   ) async {
