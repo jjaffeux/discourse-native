@@ -64,6 +64,7 @@ void main() {
     final presses = <String>[];
     await _pump(tester, Center(child: _Control('a', presses)));
     final rect = _rect(tester, 'a');
+    expect(rect.size, const Size(30, 30));
 
     for (final (point, pressed) in [
       (rect.topCenter.translate(0, -6.5), true),
@@ -78,14 +79,6 @@ void main() {
       await tester.tapAt(point);
       expect(presses, pressed ? ['a'] : isEmpty, reason: '$point');
     }
-  });
-
-  testWidgets('the area keeps the control drawn at its own size', (
-    tester,
-  ) async {
-    await _pump(tester, const Center(child: _Control('a', [])));
-
-    expect(_rect(tester, 'a').size, const Size(30, 30));
   });
 
   testWidgets('a control already 44 in one axis only grows in the other', (
