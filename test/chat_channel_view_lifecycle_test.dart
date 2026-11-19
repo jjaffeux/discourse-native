@@ -4098,7 +4098,8 @@ void main() {
 
     // Within the present slack an arrival is not counted as unseen, and the
     // transcript follows its live edge rather than holding the reader.
-    for (final distance in [0.0, 40.0, 120.0]) {
+    // Keep the live edge and the exact inclusive slack boundary.
+    for (final distance in [0.0, 120.0]) {
       testWidgets(
         'a live message moves the transcript with the live edge for a reader '
         '${distance.round()}px from it',
