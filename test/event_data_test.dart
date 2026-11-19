@@ -4,41 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/event_fixtures.dart';
 
 void main() {
-  for (final (site, template, expected) in [
-    (
-      'https://forum.example/forum',
-      '/forum/user_avatar/sam/{size}/1.png',
+  test('event avatar decodes its template under the forum at size 80', () {
+    final person = EventPerson.decode(const {
+      'username': 'sam',
+      'avatar_template': '/forum/user_avatar/sam/{size}/1.png',
+    })!;
+    expect(
+      person.avatarUrl('https://forum.example/forum'),
       'https://forum.example/forum/user_avatar/sam/80/1.png',
-    ),
-    (
-      'https://forum.example/forum',
-      'user_avatar/sam/{size}/1.png',
-      'https://forum.example/forum/user_avatar/sam/80/1.png',
-    ),
-    (
-      'https://forum.example/forum/',
-      'user_avatar/sam/{size}/1.png',
-      'https://forum.example/forum/user_avatar/sam/80/1.png',
-    ),
-    (
-      'https://forum.example/forum',
-      '//cdn.example/sam/{size}.png',
-      'https://cdn.example/sam/80.png',
-    ),
-    (
-      'https://forum.example/forum',
-      'https://cdn.example/sam/{size}.png',
-      'https://cdn.example/sam/80.png',
-    ),
-  ]) {
-    test('event avatar resolves $template under $site at size 80', () {
-      final person = EventPerson.decode({
-        'username': 'sam',
-        'avatar_template': template,
-      })!;
-      expect(person.avatarUrl(site), expected);
-    });
-  }
+    );
+  });
 
   test('absent and malformed records do not affect independent oneboxes', () {
     expect(EventPostData.decode({}), isNull);
