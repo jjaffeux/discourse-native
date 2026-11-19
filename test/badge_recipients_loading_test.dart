@@ -83,61 +83,68 @@ Future<ShellController> _pump(
 
 http.Response _json(Object body) => http.Response(jsonEncode(body), 200);
 
+void _expectInitialLoading(
+  WidgetTester tester,
+  ShellController shell,
+  List<http.Request> sent,
+) {
+  expect(sent.map((request) => request.url.path), [
+    '/badges/1.json',
+    '/user_badges.json',
+  ]);
+  expect(shell.badges.stateFor(_site, _route).loading, isTrue);
+  expect(find.text('Recently awarded'), findsOneWidget);
+  expect(find.text('Autobiographer'), findsWidgets);
+  expect(find.byKey(const ValueKey('badge-grant-1')), findsNothing);
+  expect(find.text('No awards to display.'), findsNothing);
+  final semantics = tester.ensureSemantics();
+  final pageBounds = tester.getRect(find.byType(BadgesPage));
+  expectSkeletonFillsViewport(
+    tester,
+    label: 'Loading badges',
+    bottom: pageBounds.bottom,
+  );
+  final bounds = tester.getRect(find.byType(DSkeletonRegion));
+  expect(
+    bounds.top,
+    greaterThan(tester.getRect(find.text('Recently awarded')).bottom),
+  );
+  semantics.dispose();
+}
+
 void main() {
-  for (final size in [const Size(390, 844), const Size(1440, 1000)]) {
-    testWidgets('Native badge details fill held recipients at $size', (
-      tester,
-    ) async {
-      final grants = Completer<http.Response>();
-      addTearDown(() {
-        if (!grants.isCompleted) grants.complete(_json(badgeGrantsWire()));
-      });
-      final sent = <http.Request>[];
-      final client = MockClient((request) async {
-        sent.add(request);
-        return request.url.path == '/badges/1.json'
-            ? _json({'badge': badgeWire})
-            : grants.future;
-      });
-      addTearDown(client.close);
-      final shell = await _pump(tester, client, size: size);
-      expect(sent.map((request) => request.url.path), [
-        '/badges/1.json',
-        '/user_badges.json',
-      ]);
-      expect(shell.badges.stateFor(_site, _route).loading, isTrue);
-      expect(find.text('Recently awarded'), findsOneWidget);
-      expect(find.text('Autobiographer'), findsWidgets);
-      expect(find.byKey(const ValueKey('badge-grant-1')), findsNothing);
-      expect(find.text('No awards to display.'), findsNothing);
-      final semantics = tester.ensureSemantics();
-      final pageBounds = tester.getRect(find.byType(BadgesPage));
-      expectSkeletonFillsViewport(
-        tester,
-        label: 'Loading badges',
-        bottom: pageBounds.bottom,
-      );
-      final bounds = tester.getRect(find.byType(DSkeletonRegion));
-      expect(
-        bounds.top,
-        greaterThan(tester.getRect(find.text('Recently awarded')).bottom),
-      );
-      semantics.dispose();
-      grants.complete(_json(badgeGrantsWire()));
-      for (
-        var frame = 0;
-        frame < 20 && shell.badges.stateFor(_site, _route).loading;
-        frame++
-      ) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pumpAndSettle();
-      expect(find.byType(DSkeletonRegion), findsNothing);
-      expect(find.byKey(const ValueKey('badge-grant-1')), findsOneWidget);
-      expect(shell.badges.stateFor(_site, _route).loading, isFalse);
-      expect(tester.takeException(), isNull);
+  const size = Size(1440, 1000);
+  testWidgets('Native badge details fill held recipients at $size', (
+    tester,
+  ) async {
+    final grants = Completer<http.Response>();
+    addTearDown(() {
+      if (!grants.isCompleted) grants.complete(_json(badgeGrantsWire()));
     });
-  }
+    final sent = <http.Request>[];
+    final client = MockClient((request) async {
+      sent.add(request);
+      return request.url.path == '/badges/1.json'
+          ? _json({'badge': badgeWire})
+          : grants.future;
+    });
+    addTearDown(client.close);
+    final shell = await _pump(tester, client, size: size);
+    _expectInitialLoading(tester, shell, sent);
+    grants.complete(_json(badgeGrantsWire()));
+    for (
+      var frame = 0;
+      frame < 20 && shell.badges.stateFor(_site, _route).loading;
+      frame++
+    ) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.byKey(const ValueKey('badge-grant-1')), findsOneWidget);
+    expect(shell.badges.stateFor(_site, _route).loading, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final outcome in ['empty', 'error']) {
     testWidgets('Native badge recipient loading completes to $outcome', (
@@ -182,11 +189,15 @@ void main() {
     });
   }
 
-  testWidgets('badge recipient paging retains rows with visible progress', (
+  testWidgets('mobile badge loading and paging retain rows with progress', (
     tester,
   ) async {
+    final grants = Completer<http.Response>();
     final next = Completer<http.Response>();
     addTearDown(() {
+      if (!grants.isCompleted) {
+        grants.complete(_json(badgeGrantsWire(count: 96, total: 97)));
+      }
       if (!next.isCompleted) next.complete(_json(badgeGrantsWire(offset: 96)));
     });
     final sent = <http.Request>[];
@@ -196,12 +207,26 @@ void main() {
         return _json({'badge': badgeWire});
       }
       if (request.url.queryParameters['offset'] == '0') {
-        return _json(badgeGrantsWire(count: 96, total: 97));
+        return grants.future;
       }
       return next.future;
     });
     addTearDown(client.close);
     final shell = await _pump(tester, client);
+    _expectInitialLoading(tester, shell, sent);
+    grants.complete(_json(badgeGrantsWire(count: 96, total: 97)));
+    for (
+      var frame = 0;
+      frame < 20 && shell.badges.stateFor(_site, _route).loading;
+      frame++
+    ) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.byKey(const ValueKey('badge-grant-1')), findsOneWidget);
+    expect(shell.badges.stateFor(_site, _route).loading, isFalse);
+    expect(tester.takeException(), isNull);
     final last = find.byKey(const ValueKey('badge-grant-96'));
     final more = find.text('Load more');
     await tester.scrollUntilVisible(
