@@ -492,19 +492,6 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
-  testWidgets('going back from a board shows the directory already loaded', (
-    tester,
-  ) async {
-    final shell = await _openBoard(tester);
-    shell.handleBack();
-    await tester.pump();
-    expect(shell.currentContent?.id, 'boards');
-    expect(find.byType(DSpinner), findsNothing);
-    expect(find.text('Product roadmap'), findsOneWidget);
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  }, variant: platforms);
-
   testWidgets('a restored board reveals the directory while pulled down', (
     tester,
   ) async {
@@ -600,8 +587,11 @@ void main() {
         .length;
     expect(find.text('Improve search'), findsOneWidget);
     shell.handleBack();
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(shell.currentContent?.id, 'boards');
+    expect(find.byType(DSpinner), findsNothing);
+    expect(find.text('Product roadmap'), findsOneWidget);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Product roadmap'));
     await tester.pump();
     expect(shell.currentContent?.id, 'boards/1');
