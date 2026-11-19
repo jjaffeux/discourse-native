@@ -76,7 +76,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('card owns one accessible action and its native metrics', (
+  testWidgets('card keeps accessible metrics and targets through hover', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -104,15 +104,39 @@ void main() {
     expect(data.label, contains('Support'));
     expect(data.label, contains('42 topics'));
     expect(data.hasAction(SemanticsAction.tap), isTrue);
-    await tester.tapAt(rect.topLeft + const Offset(1, 1));
+    final decoration = find.descendant(
+      of: find.byType(DPlaceCard),
+      matching: find.byType(AnimatedContainer),
+    );
+    BoxDecoration surface() =>
+        tester.widget<AnimatedContainer>(decoration).decoration!
+            as BoxDecoration;
+    expect(surface().boxShadow, isEmpty);
+    final original = tester.getRect(find.byType(GestureDetector).last);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(original.center);
+    await tester.pumpAndSettle();
+    expect(surface().boxShadow, isEmpty);
+    expect(
+      tester.getTopLeft(find.byType(GestureDetector).last).dy,
+      closeTo(original.top, .01),
+    );
+    await tester.tapAt(Offset(original.right + 3, original.center.dy));
     expect(presses, 0);
-    await tester.tapAt(rect.bottomLeft + const Offset(14, -3));
+    await tester.tapAt(original.center);
     expect(presses, 1);
+    await mouse.removePointer();
+
+    await tester.tapAt(rect.topLeft + const Offset(1, 1));
+    expect(presses, 1);
+    await tester.tapAt(rect.bottomLeft + const Offset(14, -3));
+    expect(presses, 2);
     focus.requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    expect(presses, 3);
+    expect(presses, 4);
     semantics.dispose();
   });
 
@@ -187,36 +211,6 @@ void main() {
       findsOneWidget,
     );
     semantics.dispose();
-  });
-
-  testWidgets('hover keeps the card flat and preserves its target', (
-    tester,
-  ) async {
-    var presses = 0;
-    await _mount(tester, _card(onPressed: () => presses++));
-    final decoration = find.descendant(
-      of: find.byType(DPlaceCard),
-      matching: find.byType(AnimatedContainer),
-    );
-    BoxDecoration surface() =>
-        tester.widget<AnimatedContainer>(decoration).decoration!
-            as BoxDecoration;
-    expect(surface().boxShadow, isEmpty);
-    final original = tester.getRect(find.byType(GestureDetector).last);
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(original.center);
-    await tester.pumpAndSettle();
-    expect(surface().boxShadow, isEmpty);
-    expect(
-      tester.getTopLeft(find.byType(GestureDetector).last).dy,
-      closeTo(original.top, .01),
-    );
-    await tester.tapAt(Offset(original.right + 3, original.center.dy));
-    expect(presses, 0);
-    await tester.tapAt(original.center);
-    expect(presses, 1);
-    await mouse.removePointer();
   });
 
   testWidgets('selected card keeps an inset accent ring and keyboard focus', (
