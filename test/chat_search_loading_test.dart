@@ -27,61 +27,43 @@ const _mobile = TargetPlatformVariant({
 final _field = find.byKey(const ValueKey('chat-search-field'));
 
 void main() {
-  testWidgets(
-    'mobile chat search shows a skeleton during debounce and first page',
-    (tester) async {
-      final gate = Completer<void>();
-      addTearDown(() {
-        if (!gate.isCompleted) gate.complete();
-      });
-      final api = _LoadingApi(gate, heldOffset: 0);
-      final shell = await _pump(tester, api);
-      final search = shell.pluginSession.require(chatSearchControllerService);
-      final semantics = tester.ensureSemantics();
-      try {
-        await tester.enterText(_field, 'deploy');
-        await tester.pump(const Duration(milliseconds: 50));
-        expect(search.globalState(_site).phase, ChatSearchPhase.waiting);
-        expect(find.byType(DSkeletonRegion), findsOneWidget);
-        expect(find.bySemanticsLabel('Searching…'), findsOneWidget);
-      } finally {
-        semantics.dispose();
-      }
-
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(api.chatSearchesRequested.map((query) => query.offset), [0]);
-      expect(search.globalState(_site).phase, ChatSearchPhase.loading);
-      expect(find.byType(DSkeleton), findsWidgets);
-      expect(find.byType(DSpinner), findsNothing);
-      expect(_field.hitTestable(), findsOneWidget);
-      final skeleton = tester.getRect(find.byType(DSkeletonRegion));
-      expect(skeleton.top, greaterThan(tester.getRect(_field).bottom));
-      expect(skeleton.height, greaterThan(300));
-      expect(skeleton.width, lessThanOrEqualTo(320));
-      expect(tester.takeException(), isNull);
-
-      gate.complete();
-      await tester.pumpAndSettle();
-      expect(find.byType(DSkeletonRegion), findsNothing);
-      expect(find.text('deploy 1', findRichText: true), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-    variant: _mobile,
-  );
-
-  testWidgets('mobile chat search keeps results and shows a paging skeleton', (
+  testWidgets('mobile chat search retains results through loading and paging', (
     tester,
   ) async {
     final gate = Completer<void>();
+    final pagingGate = Completer<void>();
     addTearDown(() {
       if (!gate.isCompleted) gate.complete();
+      if (!pagingGate.isCompleted) pagingGate.complete();
     });
-    final api = _LoadingApi(gate, heldOffset: 2);
+    final api = _LoadingApi({0: gate, 2: pagingGate});
     final shell = await _pump(tester, api);
-    await tester.enterText(_field, 'deploy');
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
     final search = shell.pluginSession.require(chatSearchControllerService);
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.enterText(_field, 'deploy');
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(search.globalState(_site).phase, ChatSearchPhase.waiting);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.bySemanticsLabel('Searching…'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(api.chatSearchesRequested.map((query) => query.offset), [0]);
+    expect(search.globalState(_site).phase, ChatSearchPhase.loading);
+    expect(find.byType(DSkeleton), findsWidgets);
+    expect(find.byType(DSpinner), findsNothing);
+    expect(_field.hitTestable(), findsOneWidget);
+    final skeleton = tester.getRect(find.byType(DSkeletonRegion));
+    expect(skeleton.top, greaterThan(tester.getRect(_field).bottom));
+    expect(skeleton.height, greaterThan(300));
+    expect(skeleton.width, lessThanOrEqualTo(320));
+    expect(tester.takeException(), isNull);
+
+    gate.complete();
+    await tester.pump();
     expect(search.globalState(_site).hits, hasLength(2));
     await tester.pump();
     expect(api.chatSearchesRequested.map((query) => query.offset), [0, 2]);
@@ -93,7 +75,7 @@ void main() {
     expect(find.widgetWithText(DButton, 'Load more'), findsNothing);
     expect(tester.takeException(), isNull);
 
-    gate.complete();
+    pagingGate.complete();
     await tester.pumpAndSettle();
     expect(find.byType(DSkeletonRegion), findsNothing);
     expect(search.globalState(_site).hits, hasLength(3));
@@ -152,7 +134,7 @@ Future<ShellController> _pump(WidgetTester tester, FakeDiscourseApi api) async {
 }
 
 class _LoadingApi extends FakeDiscourseApi {
-  _LoadingApi(this.completion, {required this.heldOffset})
+  _LoadingApi(this.completions)
     : super(
         user: _user,
         chatSearchPagesByKey: {
@@ -165,8 +147,7 @@ class _LoadingApi extends FakeDiscourseApi {
           ),
         },
       );
-  final Completer<void> completion;
-  final int heldOffset;
+  final Map<int, Completer<void>> completions;
 
   @override
   Future<ChatSearchPage> searchChatMessages({
@@ -191,7 +172,8 @@ class _LoadingApi extends FakeDiscourseApi {
       excludeThreads: excludeThreads,
       clientId: clientId,
     );
-    if (offset == heldOffset) await completion.future;
+    final completion = completions[offset];
+    if (completion != null) await completion.future;
     return page;
   }
 }
