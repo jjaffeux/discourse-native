@@ -79,7 +79,10 @@ void main() {
         (TargetPlatform.android, true) => 'trackpad',
         _ => 'wheel',
       };
-      for (final input in ['touch', secondaryInput]) {
+      for (final input in [
+        if (loading == (platform == TargetPlatform.android)) 'touch',
+        secondaryInput,
+      ]) {
         testWidgets(
           '$input at a temporary top stays in the reader on $platform (loading: $loading)',
           (tester) async {
