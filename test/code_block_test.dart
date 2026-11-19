@@ -809,7 +809,7 @@ void main() {
       );
     });
 
-    testWidgets('opens a full-screen viewer with copy and close controls', (
+    testWidgets('full-screen controls close by Escape and button', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -859,6 +859,14 @@ void main() {
         lessThanOrEqualTo(8),
       );
 
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(CodeBlockFullscreen), findsNothing);
+
+      await tester.tap(find.byKey(fullscreenButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(CodeBlockFullscreen), findsOneWidget);
+
       await tester.tap(close);
       await tester.pumpAndSettle();
 
@@ -867,24 +875,6 @@ void main() {
         tester.widget<DButton>(find.byKey(fullscreenButton)).tooltip,
         'View code full screen',
       );
-    });
-
-    testWidgets('closes the full-screen viewer on Escape', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(body: CodeBlock(data: parseBlock(codeFence))),
-        ),
-      );
-
-      await tester.tap(find.byKey(const ValueKey('code-block-fullscreen')));
-      await tester.pumpAndSettle();
-      expect(find.byType(CodeBlockFullscreen), findsOneWidget);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(CodeBlockFullscreen), findsNothing);
     });
 
     testWidgets('a onebox containing code gets the native block', (
