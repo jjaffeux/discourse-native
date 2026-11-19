@@ -137,15 +137,11 @@ void main() {
     });
 
     for (final channel in ['/polls/42', '/topic/42/reactions']) {
-      test('$channel ignores overflowing JSON post identifiers', () {
+      test('$channel admits only supported positive integer post IDs', () {
         expect(
           pluginRegistry.stalePosts(channel, jsonDecode('{"post_id":1e999}')),
           isEmpty,
         );
-        expect(pluginRegistry.stalePosts(channel, const {'post_id': 9}), {9});
-      });
-
-      test('$channel admits only supported positive integer post IDs', () {
         for (final id in <Object?>[
           double.infinity,
           double.negativeInfinity,
