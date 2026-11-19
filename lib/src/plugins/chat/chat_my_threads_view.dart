@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
 import 'chat_browse_skeleton.dart';
-import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_conversation_avatar.dart';
 import 'chat_inbox_row.dart';
@@ -68,16 +67,10 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     }
     _unregisterRefresher?.call();
     if (_ready) _directory.dispose();
-    _heldElsewhere.clear();
     _chat = chat;
     _shell = shell;
-    _channelId = _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId;
     _ready = true;
-    _directory = ChatThreadDirectory(
-      _chat,
-      widget.siteUrl,
-      channelId: _channelId,
-    );
+    _directory = ChatThreadDirectory(_chat, widget.siteUrl);
     _unregisterRefresher = shell.registerRouteRefresher(
       widget.siteUrl,
       ChatRoute.myThreadsRouteId,
@@ -94,45 +87,13 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     super.dispose();
   }
 
-  int? _channelId;
-
-  /// Channels the reader has left that the page has listed a thread in. A
-  /// thread's membership outlives leaving its channel, so these stay among
-  /// what the page can be narrowed to. Narrowing replaces the directory, which
-  /// then lists one channel, so what an earlier one found is kept here.
-  final Map<int, ChatChannel> _heldElsewhere = {};
-
-  void _rememberHeld() {
-    for (final channel in _directory.channelsWithThreads) {
-      _heldElsewhere[channel.id] = channel;
-    }
-  }
-
-  /// What the page can be narrowed to: the channels the reader is in that
-  /// have threads turned on, then any other they still hold threads in.
-  List<ChatChannel> _pickable() {
-    _rememberHeld();
-    ChatChannel current(ChatChannel channel) =>
-        _chat.channel(widget.siteUrl, channel.id) ?? channel;
-    final listed = <int>{};
-    return [
-      for (final channel in _chat.publicChannels(widget.siteUrl))
-        if (channel.threadingEnabled && listed.add(channel.id)) channel,
-      for (final channel in [
-        ?_chat.channel(widget.siteUrl, _channelId ?? 0),
-        ..._heldElsewhere.values,
-      ])
-        if (listed.add(channel.id)) current(channel),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _directory,
     builder: (context, _) {
       final threads = _directory.threads;
-      final error = _directory.error(_channelId);
-      final hasMore = _directory.hasMore(_channelId);
+      final error = _directory.error;
+      final hasMore = _directory.hasMore;
       final hasFooter = _directory.loading || error != null || hasMore;
       Widget item(BuildContext context, int index) {
         if (index < threads.length) {
@@ -169,7 +130,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
         if (error == null) {
           return ScrollPageTrigger(
             enabled: hasMore,
-            onLoad: () => unawaited(_directory.load(channelId: _channelId)),
+            onLoad: () => unawaited(_directory.load()),
             child: const SizedBox.shrink(),
           );
         }
@@ -181,8 +142,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
               Text(error),
               DButton(
                 label: Text(context.l10n.tryAgain),
-                onPressed: () =>
-                    unawaited(_directory.load(channelId: _channelId)),
+                onPressed: () => unawaited(_directory.load()),
               ),
             ],
           ),
@@ -200,27 +160,11 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             children: [
               const ChatBrowseBack(),
               ChatThreadChannelFilter(
-                siteUrl: widget.siteUrl,
-                selected: _chat.channel(widget.siteUrl, _channelId ?? 0),
-                channels: _pickable,
+                directory: _directory,
                 onSelected: (channel) {
-                  setState(() {
-                    _rememberHeld();
-                    _channelId = channel?.id;
-                    _chat.inboxFilters
-                            .browseFor(widget.siteUrl)
-                            .threadChannelId =
-                        _channelId;
-                    _directory.dispose();
-                    _directory = ChatThreadDirectory(
-                      _chat,
-                      widget.siteUrl,
-                      channelId: _channelId,
-                      channel: channel,
-                    );
-                    unawaited(_directory.load());
-                    if (_scroll.hasClients) _scroll.jumpTo(0);
-                  });
+                  if (_directory.select(channel?.id) && _scroll.hasClients) {
+                    _scroll.jumpTo(0);
+                  }
                 },
               ),
             ],
@@ -247,7 +191,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
               return ChatThreadListMessage(
                 scrollable: lazy,
                 icon: DIcons.comments,
-                message: _channelId == null
+                message: _directory.selectedChannel == null
                     ? context.l10n.noChatThreadsYet
                     : context.l10n.noThreadsInThisChannel,
               );

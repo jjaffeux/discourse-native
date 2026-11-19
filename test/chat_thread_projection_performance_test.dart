@@ -47,6 +47,7 @@ void main() {
             title: 'Channel $id',
             kind: ChatChannelKind.category,
             threadingEnabled: true,
+            membership: const ChatMembership(following: true),
           ),
       ];
       final api = FakeDiscourseApi(
@@ -55,11 +56,6 @@ void main() {
         feeds: const {'/latest.json': []},
         chatChannelsBySite: {
           _site: ChatChannels(public: [...channels, _otherChannel]),
-        },
-        chatBrowsePagesByKey: {
-          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
-            channels: channels,
-          ),
         },
         chatChannelThreadPagesByKey: {
           for (final channel in channels)
@@ -109,7 +105,7 @@ void main() {
       addTearDown(directory.dispose);
       do {
         await directory.load();
-      } while (directory.hasMore(null));
+      } while (directory.hasMore);
       expect(directory.threads, hasLength(threadsPerChannel * channels.length));
       expect(
         api.chatChannelThreadPagesRequested,

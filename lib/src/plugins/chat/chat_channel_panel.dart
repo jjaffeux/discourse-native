@@ -11,6 +11,7 @@ import 'chat_controller.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+import 'chat_thread_directory.dart';
 
 /// What the channel panel is open for.
 sealed class ChatChannelPanelMode {
@@ -29,12 +30,9 @@ final class ChatChannelBrowsing extends ChatChannelPanelMode {
 /// The channels something is narrowed to, by name alone. The one pressed is
 /// the choice.
 final class ChatChannelPicking extends ChatChannelPanelMode {
-  const ChatChannelPicking({required this.channels, required this.pickedId});
+  const ChatChannelPicking(this.directory);
 
-  final List<ChatChannel> channels;
-
-  /// Null while every channel is shown.
-  final int? pickedId;
+  final ChatThreadDirectory directory;
 }
 
 /// What a reader picked in the panel: one channel, or every one of them.
@@ -57,18 +55,16 @@ Future<void> showChatChannelBrowser(
   mode: ChatChannelBrowsing(words: words),
 );
 
-/// Opens the panel over [context] to pick one of [channels]. Answers null
+/// Opens the panel over [context] to pick one of the joined channels. Answers null
 /// when it is put away with nothing picked.
 Future<ChatChannelChoice?> showChatChannelPicker(
   BuildContext context, {
-  required String siteUrl,
-  required List<ChatChannel> channels,
-  required int? pickedId,
+  required ChatThreadDirectory directory,
 }) => _showPanel<ChatChannelChoice>(
   context,
-  siteUrl: siteUrl,
+  siteUrl: directory.siteUrl,
   title: context.l10n.channel,
-  mode: ChatChannelPicking(channels: channels, pickedId: pickedId),
+  mode: ChatChannelPicking(directory),
 );
 
 /// What a row's highlight reaches past its words on each side.
@@ -281,7 +277,10 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
     final mode = widget.mode;
     final list = switch (mode) {
       ChatChannelBrowsing() => _browsing(context, _browse!),
-      ChatChannelPicking() => _picking(context, mode),
+      ChatChannelPicking() => ListenableBuilder(
+        listenable: mode.directory,
+        builder: (context, _) => _picking(context, mode),
+      ),
     };
     return Column(
       // A phone's sheet keeps its height as rows come and go. A desktop's
@@ -421,8 +420,9 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
     final tokens = DTokens.of(context);
     final words = _words.text.trim();
     final query = words.toLowerCase();
+    final pickedId = mode.directory.selectedChannel?.id;
     final channels = [
-      for (final channel in mode.channels)
+      for (final channel in mode.directory.joinedChannels)
         if (query.isEmpty || channel.title.toLowerCase().contains(query))
           channel,
     ];
@@ -433,7 +433,7 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
           key: const ValueKey('chat-channel-panel-all'),
           name: context.l10n.allChannels,
           color: tokens.mutedForeground,
-          picked: mode.pickedId == null,
+          picked: pickedId == null,
           nameSize: nameSize,
           onPressed: () => DDialogClose.close<ChatChannelChoice>(
             context,
@@ -445,7 +445,7 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
           key: ValueKey(('chat-channel-panel-pick', channel.id)),
           name: channel.title,
           color: channel.categoryColor ?? tokens.mutedForeground,
-          picked: mode.pickedId == channel.id,
+          picked: pickedId == channel.id,
           nameSize: nameSize,
           onPressed: () => DDialogClose.close<ChatChannelChoice>(
             context,

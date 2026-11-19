@@ -33,6 +33,7 @@ ChatChannel _channel(int id) => ChatChannel(
   title: 'Channel $id',
   kind: ChatChannelKind.category,
   threadingEnabled: true,
+  membership: const ChatMembership(following: true),
 );
 
 void main() {
@@ -98,13 +99,18 @@ void main() {
           await _pump(tester);
           final state = tester.state(find.byType(ChatMyThreadsView));
           final session = shell.chat.captureSession(_site);
-          expect(api.browseReads, 1);
+          expect(api.threadReads, 1);
           if (held) {
             expect(find.byType(DSkeletonRegion), findsOneWidget);
           } else {
             expect(find.text('Old thread'), findsOneWidget);
           }
           store.failSignedOut = rollback;
+          if (rollback) {
+            api.chatChannelsBySite[_site] = ChatChannels(
+              public: [_channel(12)],
+            );
+          }
           if (!rollback) {
             FakeSiteTracker.built.last.deliverNotification(const {
               'all_unread_notifications_count': 4,
@@ -131,7 +137,7 @@ void main() {
           expect(tester.state(find.byType(ChatMyThreadsView)), same(state));
           if (!api.release.isCompleted) api.release.complete();
           await _pump(tester);
-          expect(api.browseReads, rollback ? 2 : 1);
+          expect(api.threadReads, rollback ? 2 : 1);
           expect(
             find.text('Old thread'),
             rollback ? findsNothing : findsOneWidget,
@@ -184,21 +190,7 @@ class _DirectoryApi extends FakeDiscourseApi {
       );
   final bool held;
   final release = Completer<void>();
-  int browseReads = 0;
-  @override
-  Future<ChatChannelBrowsePage> browseChatChannels({
-    required String siteUrl,
-    required String apiKey,
-    String filter = '',
-    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
-    int offset = 0,
-    int limit = ChatChannelBrowsePage.pageSize,
-    String? clientId,
-  }) async {
-    final read = ++browseReads;
-    if (read == 1 && held) await release.future;
-    return ChatChannelBrowsePage(channels: [_channel(read == 1 ? 9 : 12)]);
-  }
+  int threadReads = 0;
 
   @override
   Future<ChatThreadPage> chatChannelThreads({
@@ -208,22 +200,26 @@ class _DirectoryApi extends FakeDiscourseApi {
     int offset = 0,
     int limit = ChatThreadPage.pageSize,
     String? clientId,
-  }) async => ChatThreadPage(
-    threads: [
-      ChatThread(
-        id: channelId,
-        channelId: channelId,
-        status: 'open',
-        replyCount: 1,
-        lastMessageId: channelId * 10 + 1,
-        originalMessage: ChatThreadOriginalMessage(
-          id: channelId * 10,
+  }) async {
+    final read = ++threadReads;
+    if (read == 1 && held) await release.future;
+    return ChatThreadPage(
+      threads: [
+        ChatThread(
+          id: channelId,
           channelId: channelId,
-          author: const ChatMessageAuthor(id: 2, username: 'sam'),
-          excerpt: 'A useful answer',
+          status: 'open',
+          replyCount: 1,
+          lastMessageId: channelId * 10 + 1,
+          originalMessage: ChatThreadOriginalMessage(
+            id: channelId * 10,
+            channelId: channelId,
+            author: const ChatMessageAuthor(id: 2, username: 'sam'),
+            excerpt: 'A useful answer',
+          ),
+          title: channelId == 9 ? 'Old thread' : 'Replacement thread',
         ),
-        title: channelId == 9 ? 'Old thread' : 'Replacement thread',
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }

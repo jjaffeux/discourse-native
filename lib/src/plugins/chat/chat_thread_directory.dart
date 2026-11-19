@@ -1,46 +1,89 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_plugin_contracts.dart';
-import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, setEquals;
 
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_thread.dart';
 
-/// Browses public channel threads, including threads the reader does not follow.
-/// Discourse exposes this directory per channel; reuse the controller's cached
-/// pages, revalidating their first, and load further pages only as the reader
-/// scrolls or requests them.
+/// Browses threads in the reader's joined channels. Reuse the controller's
+/// cached per-channel pages and load more as the reader scrolls.
 final class ChatThreadDirectory extends FrameSafeNotifier {
-  ChatThreadDirectory(
-    this.chat,
-    this.siteUrl, {
-    this.channelId,
-    ChatChannel? channel,
-  }) : _session = chat.captureSession(siteUrl) {
-    final selected = channel ?? chat.channel(siteUrl, channelId ?? 0);
-    if (selected != null) _channels[selected.id] = selected;
-    chat.addListener(notifySafely);
+  ChatThreadDirectory(this.chat, this.siteUrl)
+    : _session = chat.captureSession(siteUrl),
+      _selectedId = chat.inboxFilters.browseFor(siteUrl).threadChannelId {
+    chat.addListener(_chatChanged);
   }
+
+  static const _channelsPerLoad = 25;
+  static const _concurrentChannelLoads = 4;
 
   final ChatController chat;
   final String siteUrl;
-  final int? channelId;
   final PluginSiteLease _session;
   bool get isCurrent => !isDisposed && !chat.isDisposed && _session.isCurrent;
-  final Map<int, ChatChannel> _channels = {};
+  int? _selectedId;
+  Set<int> _joinedIds = {};
+  final Set<int> _started = {};
+  final Map<int, ChatChannel> _discovered = {};
+  int _discoveryOffset = 0;
+  bool _canDiscoverMore = true;
+  String? _discoveryError;
   List<List<ChatThread>> _channelThreads = const [];
   List<ChatThread> _threads = const [];
-  int _offset = 0;
   int _nextChannel = 0;
-  bool _moreChannels = true;
-  String? _directoryError;
   bool loading = false;
   bool loaded = false;
 
+  List<ChatChannel> get joinedChannels {
+    if (!isCurrent) return const [];
+    final channels = {
+      for (final channel in chat.publicChannels(siteUrl)) channel.id: channel,
+    };
+    for (final channel in _discovered.values) {
+      channels.putIfAbsent(
+        channel.id,
+        () => chat.channel(siteUrl, channel.id) ?? channel,
+      );
+    }
+    return [
+      for (final channel in channels.values)
+        if (channel.membership.following && channel.threadingEnabled) channel,
+    ];
+  }
+
+  ChatChannel? get selectedChannel {
+    final id = _selectedId;
+    return isCurrent && id != null && _joinedIds.contains(id)
+        ? chat.channel(siteUrl, id) ?? _discovered[id]
+        : null;
+  }
+
+  bool select(int? id) {
+    if (id == _selectedId || (id != null && !_joinedIds.contains(id))) {
+      return false;
+    }
+    _selectedId = id;
+    chat.inboxFilters.browseFor(siteUrl).threadChannelId = id;
+    _started.clear();
+    _nextChannel = 0;
+    notifySafely();
+    unawaited(load());
+    return true;
+  }
+
+  Iterable<int> get _visibleIds => _selectedId == null
+      ? _joinedIds
+      : _joinedIds.where((id) => id == _selectedId);
+
+  Iterable<int> get _unstarted =>
+      _visibleIds.where((id) => !_started.contains(id));
+
   List<ChatThread> get threads {
+    if (!isCurrent) return const [];
     final channelThreads = [
-      for (final channel in _channels.values)
-        chat.channelThreads(siteUrl, channel.id),
+      for (final id in _visibleIds) chat.channelThreads(siteUrl, id),
     ];
     if (!listEquals(channelThreads, _channelThreads)) {
       final rows = [for (final threads in channelThreads) ...threads]
@@ -67,155 +110,185 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
     return byMessageId != 0 ? byMessageId : b.id.compareTo(a.id);
   }
 
-  /// The channels this directory has listed a thread in so far, whether or
-  /// not the reader is still in them.
-  List<ChatChannel> get channelsWithThreads => [
-    for (final channel in _channels.values)
-      if (chat.channelThreads(siteUrl, channel.id).isNotEmpty) channel,
-  ];
+  String? get error =>
+      chat.channelsError(siteUrl) ??
+      (_needsDiscovery ? _discoveryError : null) ??
+      _visibleIds
+          .map((id) => chat.channelThreadsError(siteUrl, id))
+          .whereType<String>()
+          .firstOrNull;
 
-  /// A selected channel owns its requests independently of directory paging.
-  ChatChannel? _selected(int? channelId) => _channels[channelId];
+  bool get hasMore =>
+      _unstarted.isNotEmpty ||
+      _shouldDiscover ||
+      _visibleIds.any((id) => chat.channelThreadsHaveMore(siteUrl, id));
 
-  String? error(int? channelId) {
-    if (_selected(channelId) case final channel?) {
-      return chat.channelThreadsError(siteUrl, channel.id);
+  bool get _shouldDiscover =>
+      _canDiscoverMore && (_selectedId == null || selectedChannel == null);
+
+  bool get _needsDiscovery =>
+      _joinedIds.isEmpty || (_selectedId != null && selectedChannel == null);
+
+  Future<void> _discoverNextPage() async {
+    // The sidebar snapshot caps open channels. The browser also lists joined
+    // closed channels and memberships beyond the cap.
+    final result = await chat.fetchBrowseChannels(
+      siteUrl,
+      offset: _discoveryOffset,
+    );
+    if (!isCurrent) return;
+    final page = result.page;
+    _discoveryError = _needsDiscovery ? result.error : null;
+    _canDiscoverMore =
+        _discoveryError != null ||
+        (page != null && page.hasMore && page.rowCount > 0);
+    if (page != null) {
+      _discoveryOffset += page.rowCount;
+      final sidebarIds = {
+        for (final channel in chat.publicChannels(siteUrl)) channel.id,
+      };
+      for (final channel in page.channels) {
+        if (channel.membership.following && !sidebarIds.contains(channel.id)) {
+          _discovered[channel.id] = channel;
+        }
+      }
     }
-    return _directoryError ??
-        _channels.keys
-            .map((id) => chat.channelThreadsError(siteUrl, id))
-            .whereType<String>()
-            .firstOrNull;
+    _syncMembership();
   }
 
-  bool hasMore(int? channelId) {
-    if (_selected(channelId) case final channel?) {
-      return chat.channelThreadsHaveMore(siteUrl, channel.id);
+  bool _syncMembership() {
+    final next = {for (final channel in joinedChannels) channel.id};
+    final changed = !setEquals(next, _joinedIds);
+    if (changed) {
+      _joinedIds = next;
+      _started.retainAll(next);
     }
-    return _moreChannels ||
-        _channels.keys.any(
-          (id) =>
-              (channelId == null || id == channelId) &&
-              chat.channelThreadsHaveMore(siteUrl, id),
-        );
+    if (_selectedId case final selected? when !next.contains(selected)) {
+      final known = chat.channel(siteUrl, selected);
+      final ineligible =
+          known != null &&
+          (!known.membership.following || !known.threadingEnabled);
+      if (!ineligible && (_canDiscoverMore || !chat.channelsLoaded(siteUrl))) {
+        return changed;
+      }
+      final filters = chat.inboxFilters.browseFor(siteUrl);
+      if (filters.threadChannelId == selected) filters.threadChannelId = null;
+      _selectedId = null;
+    }
+    return changed;
   }
 
-  Future<void> load({bool reset = false, int? channelId}) async {
-    channelId ??= this.channelId;
-    if (loading || !isCurrent) return;
-    if (!reset && loaded && error(channelId) == null && !hasMore(channelId)) {
-      return;
+  void _chatChanged() {
+    final changed = isCurrent && _syncMembership();
+    if (changed && loaded && !loading && _unstarted.isNotEmpty) {
+      unawaited(load());
+    } else {
+      notifySafely();
     }
+  }
+
+  Future<void> load({bool reset = false}) async {
+    if (!isCurrent || loading) return;
+    if (!reset && loaded && error == null && !hasMore) return;
+
     loading = true;
     notifySafely();
+    Set<int>? membershipAtStart;
+    int? selectedAtStart;
     try {
+      final refreshMembership =
+          reset ||
+          !chat.channelsLoaded(siteUrl) ||
+          chat.channelsError(siteUrl) != null;
+      if (refreshMembership) {
+        await chat.loadChannels(siteUrl, force: true);
+        if (!isCurrent || chat.channelsError(siteUrl) != null) return;
+      }
       if (reset) {
-        loaded = false;
-        if (channelId == null) _channels.clear();
-        _offset = 0;
-        _moreChannels = true;
+        final selectedInSidebar = chat
+            .publicChannels(siteUrl)
+            .any((channel) => channel.id == _selectedId);
+        if (!selectedInSidebar) {
+          _discovered.clear();
+          _discoveryOffset = 0;
+          _canDiscoverMore = true;
+          _discoveryError = null;
+        }
+        _started.clear();
         _nextChannel = 0;
-        _directoryError = null;
       }
-      if (channelId != null && !_channels.containsKey(channelId)) {
-        final channel = await chat.ensureChannel(siteUrl, channelId);
+      _syncMembership();
+      if (_shouldDiscover &&
+          (_discoveryOffset == 0 ||
+              _discoveryError != null ||
+              (_unstarted.isEmpty && error == null))) {
+        await _discoverNextPage();
         if (!isCurrent) return;
-        if (channel == null) {
-          _directoryError = appL10n.couldnTLoadChatChannels;
-          return;
-        }
-        _channels[channel.id] = channel;
       }
-      final selected = _selected(channelId);
-      final failed = [
-        for (final channel in _channels.values)
-          if (chat.channelThreadsError(siteUrl, channel.id) != null) channel,
-      ];
-      if (selected != null) {
-        if (reset || chat.channelThreadsError(siteUrl, selected.id) == null) {
-          await chat.loadChannelThreads(
-            siteUrl,
-            selected.id,
-            more: loaded && !reset,
-            force: reset,
-            revalidate: !loaded && !reset,
-            directoryChannel: selected,
-          );
-        } else {
-          await chat.retryChannelThreads(
-            siteUrl,
-            selected.id,
-            directoryChannel: selected,
-          );
-        }
-      } else if (failed.isNotEmpty) {
-        for (final channel in failed) {
-          if (!isCurrent) return;
-          await chat.retryChannelThreads(
-            siteUrl,
-            channel.id,
-            directoryChannel: channel,
-          );
-        }
-      } else if (_moreChannels) {
-        final result = await chat.fetchBrowseChannels(siteUrl, offset: _offset);
-        if (!isCurrent) return;
-        _directoryError = result.error;
-        final page = result.page;
-        if (page == null) return;
-        _offset += page.rowCount;
-        _moreChannels = page.hasMore && page.rowCount > 0;
-        final channels = [
-          for (final channel in page.channels)
-            if (channel.threadingEnabled) channel,
-        ];
-        for (final channel in channels) {
-          _channels[channel.id] = channel;
-        }
-        const concurrentChannelLoads = 4;
+      membershipAtStart = _joinedIds;
+      selectedAtStart = _selectedId;
+
+      final initial = _unstarted.take(_channelsPerLoad).toList();
+      if (initial.isNotEmpty) {
         for (
           var start = 0;
-          start < channels.length && isCurrent;
-          start += concurrentChannelLoads
+          start < initial.length && isCurrent;
+          start += _concurrentChannelLoads
         ) {
           await Future.wait([
-            // Revalidate first pages so retained lists include new threads.
-            for (final channel
-                in channels.skip(start).take(concurrentChannelLoads))
-              if (isCurrent)
+            for (final id in initial.skip(start).take(_concurrentChannelLoads))
+              if (_visibleIds.contains(id) && _started.add(id))
                 chat.loadChannelThreads(
                   siteUrl,
-                  channel.id,
+                  id,
                   force: reset,
-                  revalidate: true,
-                  directoryChannel: channel,
+                  revalidate: !reset,
+                  directoryChannel: _discovered[id],
                 ),
           ]);
         }
-      } else {
-        final pending = [
-          for (final channel in _channels.values)
-            if ((channelId == null || channel.id == channelId) &&
-                chat.channelThreadsHaveMore(siteUrl, channel.id))
-              channel,
-        ];
-        if (pending.isNotEmpty) {
-          final channel = pending[_nextChannel++ % pending.length];
-          await chat.loadChannelThreads(siteUrl, channel.id, more: true);
+        return;
+      }
+
+      final failed = _visibleIds
+          .where((id) => chat.channelThreadsError(siteUrl, id) != null)
+          .toList();
+      if (failed.isNotEmpty) {
+        for (final id in failed) {
+          if (!isCurrent) return;
+          if (_visibleIds.contains(id)) {
+            await chat.retryChannelThreads(siteUrl, id);
+          }
         }
+        return;
+      }
+
+      final pending = _visibleIds
+          .where((id) => chat.channelThreadsHaveMore(siteUrl, id))
+          .toList();
+      if (pending.isNotEmpty) {
+        final id = pending[_nextChannel++ % pending.length];
+        await chat.loadChannelThreads(siteUrl, id, more: true);
       }
     } finally {
       if (isCurrent) {
         loading = false;
         loaded = true;
-        notifySafely();
+        if (membershipAtStart != null &&
+            (!identical(membershipAtStart, _joinedIds) ||
+                selectedAtStart != _selectedId) &&
+            _unstarted.isNotEmpty) {
+          unawaited(load());
+        } else {
+          notifySafely();
+        }
       }
     }
   }
 
   @override
   void dispose() {
-    chat.removeListener(notifySafely);
+    chat.removeListener(_chatChanged);
     super.dispose();
   }
 }

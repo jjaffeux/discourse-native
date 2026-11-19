@@ -1,11 +1,10 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
 import 'chat_channel_panel.dart';
-import 'chat_services.dart';
+import 'chat_thread_directory.dart';
 
 /// The Threads page's channel pill: the dimension until it is narrowed, then
 /// the channel it was narrowed to. Pressing it opens the channel panel to
@@ -13,31 +12,18 @@ import 'chat_services.dart';
 class ChatThreadChannelFilter extends StatelessWidget {
   const ChatThreadChannelFilter({
     super.key,
-    required this.siteUrl,
-    required this.selected,
-    required this.channels,
+    required this.directory,
     required this.onSelected,
   });
 
-  final String siteUrl;
-  final ChatChannel? selected;
+  final ChatThreadDirectory directory;
+  ChatChannel? get selected => directory.selectedChannel;
 
-  /// What can be picked, read as the panel opens.
-  final List<ChatChannel> Function() channels;
   final ValueChanged<ChatChannel?> onSelected;
 
   Future<void> _pick(BuildContext context) async {
-    final lease = PluginUiScope.require(
-      context,
-      chatControllerService,
-    ).captureSession(siteUrl);
-    final choice = await showChatChannelPicker(
-      context,
-      siteUrl: siteUrl,
-      channels: channels(),
-      pickedId: selected?.id,
-    );
-    if (choice == null || !lease.isCurrent || !context.mounted) return;
+    final choice = await showChatChannelPicker(context, directory: directory);
+    if (choice == null || !directory.isCurrent || !context.mounted) return;
     onSelected(choice.channel);
   }
 

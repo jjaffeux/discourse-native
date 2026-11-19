@@ -58,7 +58,7 @@ void main() {
       final api = FakeDiscourseApi(
         user: _user,
         chatChannelsBySite: {
-          _site: const ChatChannels(public: [design, quiet]),
+          _site: const ChatChannels(public: [design, quiet, _general]),
         },
         chatBrowsePagesByKey: {
           FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
@@ -109,7 +109,7 @@ void main() {
       expect(
         _option('general'),
         findsOneWidget,
-        reason: 'Left, but its thread is still the reader\'s to reach',
+        reason: 'A joined channel with threads enabled',
       );
       expect(_option('quiet'), findsNothing, reason: 'Threads are off');
       expect(_option('empty channel'), findsNothing, reason: 'Not theirs');
@@ -191,7 +191,7 @@ void main() {
     final api = FakeDiscourseApi(
       user: _user,
       chatChannelsBySite: {
-        _site: const ChatChannels(public: [design]),
+        _site: const ChatChannels(public: [design, _general]),
       },
       chatBrowsePagesByKey: {
         FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
@@ -218,7 +218,7 @@ void main() {
     );
     final controller = await _pump(tester, api, loadChannels: true);
     await _selectChannel(tester, 'design');
-    expect(_threadPages(api), [(9, 0), (10, 0), (10, 0)]);
+    expect(_threadPages(api), [(10, 0), (9, 0), (10, 0)]);
 
     final reads = api.chatBrowseRequested.length;
     await _mount(tester, controller, shown: false);
@@ -248,7 +248,7 @@ void main() {
   ) async {
     final api = FakeDiscourseApi(
       user: _user,
-      chatBrowsePagesByKey: _browsePages,
+      chatChannelsBySite: _joinedChannels,
       chatChannelThreadPagesByKey: {
         FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
           threads: [
@@ -287,6 +287,7 @@ void main() {
       title: 'design',
       kind: ChatChannelKind.category,
       threadingEnabled: true,
+      membership: ChatMembership(following: true),
     );
     ChatThread thread(int id, int channel, int day, {int unread = 0}) =>
         ChatThread(
@@ -306,10 +307,8 @@ void main() {
         );
     final api = FakeDiscourseApi(
       user: _user,
-      chatBrowsePagesByKey: {
-        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
-          channels: [_general, design],
-        ),
+      chatChannelsBySite: {
+        _site: const ChatChannels(public: [_general, design]),
       },
       chatChannelThreadPagesByKey: {
         FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
@@ -336,18 +335,7 @@ void main() {
   ) async {
     final api = FakeDiscourseApi(
       user: _user,
-      chatBrowsePagesByKey: {
-        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
-          channels: [
-            ChatChannel(
-              id: 9,
-              title: 'general',
-              kind: ChatChannelKind.category,
-              threadingEnabled: true,
-            ),
-          ],
-        ),
-      },
+      chatChannelsBySite: _joinedChannels,
       chatChannelThreadPagesByKey: {
         FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
           threads: [for (var id = 1; id <= 20; id++) _thread(id)],
@@ -386,7 +374,7 @@ void main() {
     };
     final api = FakeDiscourseApi(
       user: _user,
-      chatBrowsePagesByKey: _browsePages,
+      chatChannelsBySite: _joinedChannels,
       chatChannelThreadPagesByKey: pages,
     );
     final controller = await _pump(tester, api);
@@ -425,7 +413,7 @@ void main() {
     };
     final api = FakeDiscourseApi(
       user: _user,
-      chatBrowsePagesByKey: _browsePages,
+      chatChannelsBySite: _joinedChannels,
       chatChannelThreadPagesByKey: pages,
     );
     final controller = await _pump(tester, api);
@@ -449,17 +437,12 @@ void main() {
     expect(find.text('Thread 3'), findsOneWidget);
   });
 
-  testWidgets('a selected channel pages its own threads, not the directory', (
+  testWidgets('selecting a channel retains its already-paged threads', (
     tester,
   ) async {
     final api = FakeDiscourseApi(
       user: _user,
-      chatBrowsePagesByKey: {
-        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
-          channels: [_general],
-          hasMore: true,
-        ),
-      },
+      chatChannelsBySite: _joinedChannels,
       chatChannelThreadPagesByKey: _generalPages(),
     );
     await _pump(tester, api);
@@ -468,12 +451,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(_threadPages(api), [(9, 0), (9, 0), (9, 1)]);
-    expect(
-      api.chatBrowseRequested.map((request) => request.offset),
-      [0, 1],
-      reason: 'Picking lists what the page already holds and asks for nothing',
-    );
+    expect(_threadPages(api), [(9, 0), (9, 1), (9, 0)]);
+    expect(api.chatBrowseRequested.map((request) => request.offset), [0]);
+    expect(api.chatChannelsRequested, [_site]);
+
     expect(find.text('Thread 2'), findsOneWidget);
     expect(find.text('Load more'), findsNothing);
 
@@ -486,15 +467,16 @@ void main() {
   ) async {
     final api = FakeDiscourseApi(
       user: _user,
-      chatBrowsePagesByKey: {
-        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
-          channels: [
+      chatChannelsBySite: {
+        _site: const ChatChannels(
+          public: [
             _general,
             ChatChannel(
               id: 10,
               title: 'design',
               kind: ChatChannelKind.category,
               threadingEnabled: true,
+              membership: ChatMembership(following: true),
             ),
           ],
         ),
@@ -524,12 +506,11 @@ const _general = ChatChannel(
   title: 'general',
   kind: ChatChannelKind.category,
   threadingEnabled: true,
+  membership: ChatMembership(following: true),
 );
 
-final _browsePages = {
-  FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
-    channels: [_general],
-  ),
+const _joinedChannels = {
+  _site: ChatChannels(public: [_general]),
 };
 
 /// Two pages of channel 9's threads, the first reporting more.

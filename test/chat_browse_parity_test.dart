@@ -147,7 +147,7 @@ void main() {
                 threads: [],
               );
             }
-            if (view == 'chats' || view == 'joined') {
+            if (view != 'channel threads') {
               await fixture.chat.loadChannels(_site, force: true);
             }
           }
@@ -206,6 +206,9 @@ void main() {
             greaterThan(requests),
           );
           expect(find.text(title), findsWidgets);
+          if (view == 'threads') {
+            expect(find.text('Second thread'), findsNothing);
+          }
           expect(tester.takeException(), isNull);
         });
       }
@@ -223,18 +226,12 @@ void main() {
       );
       await _tab(tester, page);
       final api = fixture.api;
-      final before = page == ChatBrowsePage.chats
-          ? api.chatChannelsRequested.length
-          : api.chatBrowseRequested.length;
+      final before = api.chatChannelsRequested.length;
       final gate = Completer<void>();
       addTearDown(() {
         if (!gate.isCompleted) gate.complete();
       });
-      if (page == ChatBrowsePage.chats) {
-        api.channelsGate = gate;
-      } else {
-        api.browseGate = gate;
-      }
+      api.channelsGate = gate;
       await tester.drag(find.byType(DPullToRefresh), const Offset(0, 420));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(DSpinner), findsOneWidget);
@@ -263,12 +260,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       gate.complete();
       await tester.pumpAndSettle();
-      expect(
-        page == ChatBrowsePage.chats
-            ? api.chatChannelsRequested.length
-            : api.chatBrowseRequested.length,
-        before + 1,
-      );
+      expect(api.chatChannelsRequested, hasLength(before + 1));
       expect(find.byType(DSpinner), findsNothing);
       if (page == ChatBrowsePage.chats) {
         for (final card in ['channels', 'threads']) {
@@ -519,7 +511,7 @@ void main() {
           fixture.chat.forget(_site);
           request = fixture.chat.loadChannels(_site, force: true);
         } else {
-          fixture.api.browseGate = gate;
+          fixture.api.threadsGate = gate;
           await _tab(tester, page, settle: false);
         }
         await tester.pump();
@@ -578,22 +570,40 @@ void main() {
   }
 
   testWidgets(
-    'thread browsing paginates channels and includes unjoined threads',
+    'Threads excludes unjoined channels and loads them after joining',
     (tester) async {
-      final fixture = await _pump(tester);
+      final platform = defaultTargetPlatform;
+      final fixture = await _pump(
+        tester,
+        platform: platform,
+        size: platform == TargetPlatform.iOS
+            ? const Size(430, 932)
+            : const Size(900, 650),
+      );
       final key = FakeDiscourseApi.chatBrowseKey();
       fixture.api.chatBrowsePagesByKey[key] = ChatChannelBrowsePage(
         channels: fixture.api.chatBrowsePagesByKey[key]!.channels,
         hasMore: true,
       );
-      final extra = _channel(
-        3,
-        'design',
-      ).withMembership(const ChatMembership(following: false));
+      const extra = ChatChannel(
+        id: 3,
+        title: 'design',
+        kind: ChatChannelKind.category,
+        threadingEnabled: true,
+        canJoin: true,
+      );
+      const closed = ChatChannel(
+        id: 4,
+        title: 'closed workshop',
+        kind: ChatChannelKind.category,
+        threadingEnabled: true,
+        status: ChatChannelStatus.closed,
+        membership: ChatMembership(following: true),
+      );
       fixture.api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
         offset: 2,
-      )] = ChatChannelBrowsePage(
-        channels: [extra],
+      )] = const ChatChannelBrowsePage(
+        channels: [extra, closed],
       );
       fixture
           .api
@@ -607,21 +617,99 @@ void main() {
             channelId: 3,
             lastMessageId: 103,
             status: 'open',
-            title: 'An unfollowed thread',
+            title: 'A design thread',
+            replyCount: 2,
+          ),
+        ],
+      );
+      fixture
+          .api
+          .chatChannelThreadPagesByKey[FakeDiscourseApi.chatChannelThreadPageKey(
+        4,
+        0,
+      )] = const ChatThreadPage(
+        threads: [
+          ChatThread(
+            id: 4,
+            channelId: 4,
+            lastMessageId: 104,
+            status: 'open',
+            title: 'A closed channel thread',
             replyCount: 2,
           ),
         ],
       );
       await _tab(tester, ChatBrowsePage.threads);
       await tester.pumpAndSettle();
-      expect(find.text('An unfollowed thread'), findsOneWidget);
-      expect(fixture.chat.channel(_site, 3)!.membership.following, isFalse);
+      expect(find.text('A design thread'), findsNothing);
+      expect(find.text('A closed channel thread'), findsOneWidget);
+      expect(fixture.api.chatBrowseRequested.map((r) => r.offset), [0, 2]);
+      expect(
+        fixture.api.chatChannelThreadPagesRequested.map((r) => r.channelId),
+        isNot(contains(extra.id)),
+      );
       expect(fixture.api.chatThreadPagesRequested, isEmpty);
-      await _pick(tester, 'chat-threads-channel-filter', 'design');
+      final filter = find.byKey(const ValueKey('chat-threads-channel-filter'));
+      final design = find.byKey(const ValueKey(('chat-channel-panel-pick', 3)));
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(design, findsNothing);
+      expect(
+        find
+            .byKey(const ValueKey(('chat-channel-panel-pick', 4)))
+            .hitTestable(),
+        findsOneWidget,
+      );
+
+      expect(
+        await fixture.chat.updateChannelFollowing(_site, extra, true),
+        isNull,
+      );
+      await tester.pumpAndSettle();
+      expect(design.hitTestable(), findsOneWidget);
+      await _capture(tester, 'threads-picker-after-join');
+      await tester.tap(design);
+      await tester.pumpAndSettle();
       expect(find.text('First thread'), findsNothing);
-      expect(find.text('An unfollowed thread'), findsOneWidget);
+      expect(find.text('A design thread'), findsOneWidget);
+
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(design.hitTestable(), findsOneWidget);
+      expect(
+        await fixture.chat.updateChannelFollowing(_site, extra, false),
+        isNull,
+      );
+      await tester.pumpAndSettle();
+      expect(design, findsNothing);
+      await _capture(tester, 'threads-picker-after-leave');
+      expect(
+        fixture.chat.inboxFilters.browseFor(_site).threadChannelId,
+        isNull,
+      );
+
+      await tester.tap(find.text('All channels'));
+      await tester.pumpAndSettle();
+      expect(find.text('First thread'), findsOneWidget);
+      expect(find.text('A design thread'), findsNothing);
+
+      expect(
+        await fixture.chat.updateChannelFollowing(_site, extra, true),
+        isNull,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('First thread'), findsOneWidget);
+      expect(find.text('A design thread'), findsOneWidget);
+      expect(
+        fixture.chat.inboxFilters.browseFor(_site).threadChannelId,
+        isNull,
+      );
       expect(tester.takeException(), isNull);
     },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
   );
 
   testWidgets(
@@ -1568,7 +1656,7 @@ class _GatedApi extends FakeDiscourseApi {
   });
 
   Completer<void>? channelsGate;
-  Completer<void>? browseGate;
+  Completer<void>? threadsGate;
 
   @override
   Future<ChatChannels> chatChannels({
@@ -1585,21 +1673,19 @@ class _GatedApi extends FakeDiscourseApi {
   }
 
   @override
-  Future<ChatChannelBrowsePage> browseChatChannels({
+  Future<ChatThreadPage> chatChannelThreads({
     required String siteUrl,
     required String apiKey,
-    String filter = '',
-    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    required int channelId,
     int offset = 0,
-    int limit = ChatChannelBrowsePage.pageSize,
+    int limit = ChatThreadPage.pageSize,
     String? clientId,
   }) async {
-    await browseGate?.future;
-    return super.browseChatChannels(
+    await threadsGate?.future;
+    return super.chatChannelThreads(
       siteUrl: siteUrl,
       apiKey: apiKey,
-      filter: filter,
-      status: status,
+      channelId: channelId,
       offset: offset,
       limit: limit,
       clientId: clientId,
