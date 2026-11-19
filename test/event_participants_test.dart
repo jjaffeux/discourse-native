@@ -180,7 +180,7 @@ void main() {
   );
 
   testWidgets(
-    'organizer invitation errors stay visible and successful retry sends exact usernames',
+    'organizer invitation retry preserves drafts and normalizes exact usernames',
     (tester) async {
       final handle = ports.controller.acquire(
         eventSite,
@@ -201,32 +201,16 @@ void main() {
       expect(ports.transport.writes.single.body, {
         'invites': ['sam', 'lee'],
       });
-      ports.transport.responders[invite] = (_) => <String, dynamic>{};
-      await tester.tap(find.text('Send invitations'));
-      await tester.pumpAndSettle();
-      expect(find.text('Invite people'), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'organizer invitations send usernames without their mention prefix',
-    (tester) async {
-      final handle = ports.controller.acquire(
-        eventSite,
-        PostEvent.decode(current)!,
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'sam, lee, sam',
       );
-      addTearDown(handle.dispose);
-      await handle.refresh();
-      ports
-          .transport
-          .responders['POST /discourse-post-event/events/42/invite'] = (_) =>
-          <String, dynamic>{};
-      await pump(tester, (context) => showEventInvitations(context, handle));
-      // The server matches usernames exactly and answers success for none.
+      ports.transport.responders[invite] = (_) => <String, dynamic>{};
       await tester.enterText(find.byType(TextField), '@sam, lee, @sam sam, @');
       await tester.tap(find.text('Send invitations'));
       await tester.pumpAndSettle();
-      expect(ports.transport.writes.single.body, {
+      expect(ports.transport.writes, hasLength(2));
+      expect(ports.transport.writes.last.body, {
         'invites': ['sam', 'lee'],
       });
       expect(find.text('Invite people'), findsNothing);
