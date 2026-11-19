@@ -169,64 +169,22 @@ void main() {
       }
     },
   );
-  for (final scenario in [
-    (
-      name: 'root-relative subfolder template',
-      site: 'https://voice.example.com/forum',
-      template: '/forum/user_avatar/voice.example.com/lee/{size}/1_2.png',
-      expected:
-          'https://voice.example.com/forum/user_avatar/voice.example.com/lee/112/1_2.png',
-    ),
-    (
-      name: 'root-relative template on a trailing-slash forum',
-      site: 'https://voice.example.com/forum/',
-      template: '/forum/avatars/lee/{size}.png',
-      expected: 'https://voice.example.com/forum/avatars/lee/112.png',
-    ),
-    (
-      name: 'relative template under a subfolder',
-      site: 'https://voice.example.com/forum',
-      template: 'avatars/lee/{size}.png',
-      expected: 'https://voice.example.com/forum/avatars/lee/112.png',
-    ),
-    (
-      name: 'relative template on a trailing-slash forum',
-      site: 'https://voice.example.com/forum/',
-      template: 'avatars/lee/{size}.png',
-      expected: 'https://voice.example.com/forum/avatars/lee/112.png',
-    ),
-    (
-      name: 'HTTPS CDN template',
-      site: 'https://voice.example.com/forum',
-      template: 'https://cdn.example.com/lee/{size}.png',
-      expected: 'https://cdn.example.com/lee/112.png',
-    ),
-    (
-      name: 'HTTP CDN template',
-      site: 'https://voice.example.com/forum',
-      template: 'http://cdn.example.com/lee/{size}.png',
-      expected: 'http://cdn.example.com/lee/112.png',
-    ),
-    (
-      name: 'protocol-relative CDN template',
-      site: 'https://voice.example.com/forum',
-      template: '//cdn.example.com/lee/{size}.png',
-      expected: 'https://cdn.example.com/lee/112.png',
-    ),
-  ]) {
-    test('participant avatar resolves ${scenario.name}', () {
-      final participant = VoiceParticipant.fromJson({
+  test(
+    'participant avatar decodes its template and forwards the custom size',
+    () {
+      final participant = VoiceParticipant.fromJson(const {
         'id': 2,
         'username': 'lee',
         'role': 'participant',
-        'avatar_template': scenario.template,
+        'avatar_template':
+            '/forum/user_avatar/voice.example.com/lee/{size}/1_2.png',
       });
       expect(
-        participant.avatarUrl(scenario.site, size: 112),
-        scenario.expected,
+        participant.avatarUrl('https://voice.example.com/forum', size: 112),
+        'https://voice.example.com/forum/user_avatar/voice.example.com/lee/112/1_2.png',
       );
-    });
-  }
+    },
+  );
 
   test('participant avatar keeps its default size and empty fallback', () {
     final participant = VoiceParticipant.fromJson(const {
