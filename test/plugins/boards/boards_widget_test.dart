@@ -103,17 +103,17 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     );
   }
 
-  testWidgets('board columns keep their first loaded frame bounds', (
+  testWidgets('initial load and cached reopening keep board column bounds', (
     tester,
   ) async {
     final fixture = BoardsFixture();
     addTearDown(fixture.dispose);
-    final pending = Completer<Map<String, dynamic>>();
+    final initialRead = Completer<Map<String, dynamic>>();
     fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
-        pending.future;
+        initialRead.future;
     await tester.pumpWidget(retainedPage(fixture));
     await tester.pump();
-    pending.complete(boardFixtureJson());
+    initialRead.complete(boardFixtureJson());
     await tester.pump();
     final column = find.byKey(const ValueKey('board-column-10'));
     final first = tester.getRect(column);
@@ -122,17 +122,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       final bounds = tester.getRect(column);
       expect(bounds, first, reason: 'Loaded frame ${frame + 1}');
     }
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('reopening a cached board keeps column bounds through refresh', (
-    tester,
-  ) async {
-    final fixture = BoardsFixture();
-    addTearDown(fixture.dispose);
-    await tester.pumpWidget(retainedPage(fixture));
     await tester.pumpAndSettle();
-    final column = find.byKey(const ValueKey('board-column-10'));
     final loaded = tester.getRect(column);
     await tester.pumpWidget(const SizedBox.shrink());
     final pending = Completer<Map<String, dynamic>>();
