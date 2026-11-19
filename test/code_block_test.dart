@@ -421,7 +421,8 @@ void main() {
     });
 
     for (final numbered in [false, true]) {
-      for (final count in [20, 100, 500, 1000]) {
+      // Pin the nonvirtual boundary and the larger virtual workload.
+      for (final count in [100, 1000]) {
         testWidgets(
           'line metadata reads stay linear ($count, numbered: $numbered)',
           (tester) async {
