@@ -16,7 +16,7 @@ import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 void main() {
-  test('bundled manifest installs the deterministic feature graph', () async {
+  test('bundled graph resolves its production sessions', () async {
     final installed = PluginInstaller.install(bundledPluginManifest);
     addTearDown(installed.close);
 
@@ -92,6 +92,25 @@ void main() {
     expect(discourseAi.liveChannelScopes.map((scope) => scope.path), {
       '/discourse-ai',
     });
+
+    final api = FakeDiscourseApi();
+    final shell = _shell(installed, api);
+    addTearDown(() async {
+      await shell.pluginSession.close();
+      shell.dispose();
+    });
+
+    final session = shell.pluginSession;
+    expect(
+      session.require(chatGifsService),
+      same(session.require(gifsPickerSessionService)),
+    );
+    final ChatConversationCapability _ = session.require(
+      chatConversationService,
+    );
+    final CookedTimeParser _ = session.require(
+      localDatesCookedTimeParserService,
+    );
   });
 
   test('core manifest installs without optional features', () async {
@@ -121,29 +140,6 @@ void main() {
       );
     },
   );
-
-  test('bundled production sessions resolve the dependency chain', () {
-    final installed = PluginInstaller.install(bundledPluginManifest);
-    final api = FakeDiscourseApi();
-    final shell = _shell(installed, api);
-    addTearDown(() async {
-      await shell.pluginSession.close();
-      shell.dispose();
-      await installed.close();
-    });
-
-    final session = shell.pluginSession;
-    expect(
-      session.require(chatGifsService),
-      same(session.require(gifsPickerSessionService)),
-    );
-    final ChatConversationCapability _ = session.require(
-      chatConversationService,
-    );
-    final CookedTimeParser _ = session.require(
-      localDatesCookedTimeParserService,
-    );
-  });
 
   test(
     'a Chat-only manifest registers conversations without the GIF service',
