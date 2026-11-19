@@ -300,7 +300,10 @@ void main() {
       expect(composer.raw, 'Before\n\n\n\nAfter');
       expect(tester.takeException(), isNull);
     },
-    variant: TargetPlatformVariant.mobile(),
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
   );
 
   for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
