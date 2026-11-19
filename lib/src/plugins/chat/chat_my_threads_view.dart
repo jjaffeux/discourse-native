@@ -130,11 +130,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _directory,
     builder: (context, _) {
-      final all = _directory.threads;
-      final threads = [
-        for (final thread in all)
-          if (_channelId == null || thread.channelId == _channelId) thread,
-      ];
+      final threads = _directory.threads;
       final error = _directory.error(_channelId);
       final hasMore = _directory.hasMore(_channelId);
       final hasFooter = _directory.loading || error != null || hasMore;
@@ -148,8 +144,8 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
           // on either side, and there is no row before the first.
           final ruled =
               index > 0 &&
-              !chatThreadIsNew(threads[index]) &&
-              !chatThreadIsNew(threads[index - 1]);
+              !threads[index].hasNewReplies &&
+              !threads[index - 1].hasNewReplies;
           return !ruled
               ? row
               : Column(
@@ -302,12 +298,6 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   );
 }
 
-/// Whether a thread holds replies its reader has not seen.
-bool chatThreadIsNew(ChatThread thread) =>
-    thread.tracking.unreadCount > 0 ||
-    thread.tracking.mentionCount > 0 ||
-    thread.tracking.watchedThreadsUnreadCount > 0;
-
 /// A thread on the Threads page, laid out as a channel is in chat's list: its
 /// channel's mark, where it is with how much is new at the top right, its
 /// title, then the last reply by its writer's face with when at the bottom
@@ -341,7 +331,7 @@ class ChatBrowseThreadRow extends StatelessWidget {
             ? _text(original?.excerpt) ?? _text(original?.message)
             : null) ??
         context.l10n.noRepliesYetChatmythreadsview;
-    final unread = chatThreadIsNew(thread);
+    final unread = thread.hasNewReplies;
     final tracking = thread.tracking;
     final urgent = tracking.mentionCount + tracking.watchedThreadsUnreadCount;
     // ChatThreadUnreadIndicator prefers urgent counts to ordinary unreads.

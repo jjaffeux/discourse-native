@@ -136,7 +136,8 @@ void main() {
         tracker.pluginChannelCallbacks['/chat/user-tracking-state/${_user.id}'],
         hasLength(1),
       );
-      final firstId = 9000 + threadsPerChannel;
+      final newestChannelId = _channelIds.last;
+      final firstId = newestChannelId * 1000 + threadsPerChannel;
       expect(store.containsRecord<ChatThread>(_site, firstId), isTrue);
       expect(
         chat.threadRef(_site, firstId).value,
@@ -144,7 +145,7 @@ void main() {
       );
       expect(find.text('Thread $firstId'), findsOneWidget);
       expect(find.byType(ChatBrowseThreadRow), findsWidgets);
-      final expectedIds = directory.threads.map((thread) => thread.id).toList();
+      final initialThreads = directory.threads;
       var directoryNotifications = 0;
       var chatNotifications = 0;
       var rowRebuilds = 0;
@@ -191,7 +192,7 @@ void main() {
         );
         expect(chatNotifications, _updates);
         expect(counts['canonical_thread_reads'], 0);
-        expect(directory.threads.map((thread) => thread.id), expectedIds);
+        expect(directory.threads, same(initialThreads));
         expect(find.text('Thread $firstId'), findsOneWidget);
         expect(tester.takeException(), isNull);
         debugPrint('CHAT_THREAD_PROJECTION ${jsonEncode(counts)}');
@@ -220,7 +221,7 @@ void main() {
         find.byKey(ValueKey('chat-my-thread-unread-$firstId')),
         findsOneWidget,
       );
-      expect(chat.channelThreads(_site, 9).first.id, firstId);
+      expect(chat.channelThreads(_site, newestChannelId).first.id, firstId);
       store.put(
         _site,
         first.copyWith(

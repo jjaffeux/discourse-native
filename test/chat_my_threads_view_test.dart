@@ -279,6 +279,58 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('threads with new replies lead, newest first across channels', (
+    tester,
+  ) async {
+    const design = ChatChannel(
+      id: 10,
+      title: 'design',
+      kind: ChatChannelKind.category,
+      threadingEnabled: true,
+    );
+    ChatThread thread(int id, int channel, int day, {int unread = 0}) =>
+        ChatThread(
+          id: id,
+          channelId: channel,
+          status: 'open',
+          title: 'Thread $id',
+          replyCount: 1,
+          lastMessageId: 100 + day,
+          tracking: ChatTracking(unreadCount: unread),
+          preview: ChatThreadPreview(
+            threadId: id,
+            replyCount: 1,
+            lastReplyId: 100 + day,
+            lastReplyAt: DateTime.utc(2026, 11, day),
+          ),
+        );
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatBrowsePagesByKey: {
+        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+          channels: [_general, design],
+        ),
+      },
+      chatChannelThreadPagesByKey: {
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+          threads: [thread(1, 9, 14, unread: 3), thread(2, 9, 18)],
+        ),
+        FakeDiscourseApi.chatChannelThreadPageKey(10, 0): ChatThreadPage(
+          threads: [thread(3, 10, 15, unread: 1), thread(4, 10, 19)],
+        ),
+      },
+    );
+    await prepareNativeUiEvidence(tester);
+    await _pump(tester, api);
+
+    final positions = [
+      for (final id in [1, 2, 3, 4])
+        (id: id, top: tester.getTopLeft(find.text('Thread $id')).dy),
+    ]..sort((a, b) => a.top.compareTo(b.top));
+    expect(positions.map((row) => row.id), [3, 1, 4, 2]);
+    await captureNativeUi(tester, 'threads-by-unread-and-latest-reply');
+  });
+
   testWidgets('a failed page waits for Try again instead of scrolling', (
     tester,
   ) async {

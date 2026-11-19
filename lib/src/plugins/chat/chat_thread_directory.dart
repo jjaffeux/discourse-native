@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 import 'chat_channel.dart';
 import 'chat_controller.dart';
@@ -27,6 +28,8 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
   final PluginSiteLease _session;
   bool get isCurrent => !isDisposed && !chat.isDisposed && _session.isCurrent;
   final Map<int, ChatChannel> _channels = {};
+  List<List<ChatThread>> _channelThreads = const [];
+  List<ChatThread> _threads = const [];
   int _offset = 0;
   int _nextChannel = 0;
   bool _moreChannels = true;
@@ -34,10 +37,35 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
   bool loading = false;
   bool loaded = false;
 
-  List<ChatThread> get threads => [
-    for (final channel in _channels.values)
-      ...chat.channelThreads(siteUrl, channel.id),
-  ];
+  List<ChatThread> get threads {
+    final channelThreads = [
+      for (final channel in _channels.values)
+        chat.channelThreads(siteUrl, channel.id),
+    ];
+    if (!listEquals(channelThreads, _channelThreads)) {
+      final rows = [for (final threads in channelThreads) ...threads]
+        ..sort(_compareThreads);
+      _threads = List.unmodifiable(rows);
+      _channelThreads = channelThreads;
+    }
+    return _threads;
+  }
+
+  static int _compareThreads(ChatThread a, ChatThread b) {
+    if (a.hasNewReplies != b.hasNewReplies) return a.hasNewReplies ? -1 : 1;
+
+    final aAt = a.preview?.lastReplyAt ?? a.originalMessage?.createdAt;
+    final bAt = b.preview?.lastReplyAt ?? b.originalMessage?.createdAt;
+    if (aAt != null && bAt != null) {
+      final byReplyTime = bAt.compareTo(aAt);
+      if (byReplyTime != 0) return byReplyTime;
+    } else if (aAt != bAt) {
+      return aAt == null ? 1 : -1;
+    }
+
+    final byMessageId = (b.lastMessageId ?? 0).compareTo(a.lastMessageId ?? 0);
+    return byMessageId != 0 ? byMessageId : b.id.compareTo(a.id);
+  }
 
   /// The channels this directory has listed a thread in so far, whether or
   /// not the reader is still in them.

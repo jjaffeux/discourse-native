@@ -284,6 +284,11 @@ final class ChatThread with Storable<ChatThread> {
 
   ChatTracking get tracking => _reportedTracking ?? ChatTracking.none;
 
+  bool get hasNewReplies =>
+      tracking.unreadCount > 0 ||
+      tracking.mentionCount > 0 ||
+      tracking.watchedThreadsUnreadCount > 0;
+
   final ChatThreadPreview? preview;
   final int? lastMessageId;
   final bool force;
