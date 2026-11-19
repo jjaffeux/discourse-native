@@ -38,10 +38,15 @@ Widget _app(Widget child) => MaterialApp(
 );
 
 void main() {
-  testWidgets('inline selected values leave search empty and results visible', (
+  testWidgets('inline search and selection preserve visible results', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(_selector()));
+    final selected = <(String?, DComboboxChangeReason)>[];
+    await tester.pumpWidget(
+      _app(
+        _selector(onChanged: (value, reason) => selected.add((value, reason))),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
@@ -60,18 +65,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'not a timezone');
     await tester.pumpAndSettle();
     expect(find.text('No matching timezones'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('inline pointer and keyboard report one selection each', (
-    tester,
-  ) async {
-    final selected = <(String?, DComboboxChangeReason)>[];
-    await tester.pumpWidget(
-      _app(
-        _selector(onChanged: (value, reason) => selected.add((value, reason))),
-      ),
-    );
+    await tester.enterText(find.byType(TextField), '');
     await tester.pumpAndSettle();
     await tester.tap(find.text('America/Los Angeles'));
     await tester.pumpAndSettle();
