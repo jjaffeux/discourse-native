@@ -442,21 +442,6 @@ void main() {
     }
   });
 
-  testWidgets('mobile sheet exposes one sidebar semantic container', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      await tester.pumpWidget(fixture(width: 360));
-      await tester.tap(find.byType(DSidebarTrigger));
-      await tester.pumpAndSettle();
-
-      expect(find.bySemanticsLabel('Sidebar'), findsOneWidget);
-    } finally {
-      semantics.dispose();
-    }
-  });
-
   testWidgets(
     'sidebar input keeps sibling actions outside its editing bounds',
     (tester) async {
@@ -752,32 +737,39 @@ void main() {
   testWidgets(
     'open mobile panel receives live themes and survives parent rebuild',
     (tester) async {
-      await tester.pumpWidget(fixture(width: 360));
-      await tester.tap(find.byType(DSidebarTrigger));
-      await tester.pumpAndSettle();
-      final original = tester.element(find.text('Header'));
-      final theme = ThemeData.dark().copyWith(
-        extensions: [
-          DTokens.fromTheme(
-            ThemeData.dark(),
-          ).copyWith(surface: Colors.green, radius: 12),
-        ],
-      );
-      await tester.pumpWidget(fixture(width: 360, theme: theme));
-      await tester.pumpAndSettle();
-      expect(tester.element(find.text('Header')), same(original));
-      expect(
-        Theme.of(tester.element(find.text('Header'))).brightness,
-        Brightness.dark,
-      );
-      expect(
-        DTokens.of(tester.element(find.text('Header'))).surface,
-        Colors.green,
-      );
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump();
-      await tester.pump();
-      expect(tester.takeException(), isNull);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(fixture(width: 360));
+        await tester.tap(find.byType(DSidebarTrigger));
+        await tester.pumpAndSettle();
+        expect(find.bySemanticsLabel('Sidebar'), findsOneWidget);
+        final original = tester.element(find.text('Header'));
+        final theme = ThemeData.dark().copyWith(
+          extensions: [
+            DTokens.fromTheme(
+              ThemeData.dark(),
+            ).copyWith(surface: Colors.green, radius: 12),
+          ],
+        );
+        await tester.pumpWidget(fixture(width: 360, theme: theme));
+        await tester.pumpAndSettle();
+        expect(find.bySemanticsLabel('Sidebar'), findsOneWidget);
+        expect(tester.element(find.text('Header')), same(original));
+        expect(
+          Theme.of(tester.element(find.text('Header'))).brightness,
+          Brightness.dark,
+        );
+        expect(
+          DTokens.of(tester.element(find.text('Header'))).surface,
+          Colors.green,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
     },
   );
   testWidgets('desktop offcanvas hides focus and static ignores toggle', (
