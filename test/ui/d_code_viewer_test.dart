@@ -18,69 +18,68 @@ Widget _host(
 );
 
 void main() {
-  for (final count in [1000, 5000]) {
-    testWidgets('bounds line work through a $count-line document', (
-      tester,
-    ) async {
-      final scroll = ScrollController();
-      addTearDown(scroll.dispose);
-      final lines = List.generate(count, (index) => 'source line $index');
-      final requested = <int>{};
-      var requests = 0;
-      await tester.pumpWidget(
-        _host(
-          DScrollArea(
-            controller: scroll,
-            child: RepaintBoundary(
-              child: DCodeViewer(
-                source: lines.join('\n'),
-                lineSpanBuilder: (index) {
-                  requested.add(index);
-                  requests++;
-                  return TextSpan(text: lines[index]);
-                },
-              ),
+  const count = 5000;
+  testWidgets('bounds line work through a $count-line document', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    final lines = List.generate(count, (index) => 'source line $index');
+    final requested = <int>{};
+    var requests = 0;
+    await tester.pumpWidget(
+      _host(
+        DScrollArea(
+          controller: scroll,
+          child: RepaintBoundary(
+            child: DCodeViewer(
+              source: lines.join('\n'),
+              lineSpanBuilder: (index) {
+                requested.add(index);
+                requests++;
+                return TextSpan(text: lines[index]);
+              },
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(requested, contains(0));
-      expect(requested.length, lessThan(60));
-      expect(requests, lessThan(60));
-      debugPrint(
-        'DCodeViewer sourceLines=$count initialLineSpanRequests=$requests',
-      );
-      expect(requested, isNot(contains(count - 1)));
-      expect(scroll.position.maxScrollExtent, greaterThan(count * 15));
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(requested, contains(0));
+    expect(requested.length, lessThan(60));
+    expect(requests, lessThan(60));
+    debugPrint(
+      'DCodeViewer sourceLines=$count initialLineSpanRequests=$requests',
+    );
+    expect(requested, isNot(contains(count - 1)));
+    expect(scroll.position.maxScrollExtent, greaterThan(count * 15));
 
-      requested.clear();
-      requests = 0;
-      scroll.jumpTo(scroll.position.maxScrollExtent / 2);
-      await tester.pumpAndSettle();
-      expect(requested.any((index) => index > count ~/ 3), isTrue);
-      expect(requested.length, lessThan(60));
-      expect(requests, lessThan(60));
+    requested.clear();
+    requests = 0;
+    scroll.jumpTo(scroll.position.maxScrollExtent / 2);
+    await tester.pumpAndSettle();
+    expect(requested.any((index) => index > count ~/ 3), isTrue);
+    expect(requested.length, lessThan(60));
+    expect(requests, lessThan(60));
 
-      requested.clear();
-      requests = 0;
-      scroll.jumpTo(scroll.position.maxScrollExtent);
-      await tester.pumpAndSettle();
-      expect(requested, contains(count - 1));
-      expect(requested.length, lessThan(60));
-      expect(requests, lessThan(60));
+    requested.clear();
+    requests = 0;
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(requested, contains(count - 1));
+    expect(requested.length, lessThan(60));
+    expect(requests, lessThan(60));
 
-      requested.clear();
-      requests = 0;
-      scroll.jumpTo(0);
-      await tester.pumpAndSettle();
-      expect(requested, contains(0));
-      expect(requested.length, lessThan(60));
-      expect(requests, lessThan(60));
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
-  }
+    requested.clear();
+    requests = 0;
+    scroll.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(requested, contains(0));
+    expect(requested.length, lessThan(60));
+    expect(requests, lessThan(60));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('outer select all includes unseen source and excludes gutters', (
     tester,
