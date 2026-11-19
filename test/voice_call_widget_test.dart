@@ -98,19 +98,6 @@ void main() {
       expect(find.text('Planning'), findsNothing);
       expect(find.byTooltip('Leave room'), findsNothing);
     });
-
-    testWidgets('shows the active call on supported platforms', (tester) async {
-      final port = FakeVoiceCallPort(state: _state());
-      addTearDown(port.close);
-
-      await _pump(tester, port);
-
-      expect(find.text('Planning'), findsOneWidget);
-      expect(find.text('Connected'), findsOneWidget);
-      expect(find.byTooltip('Mute'), findsOneWidget);
-      expect(find.byTooltip('Leave room'), findsOneWidget);
-      expect(find.byType(DToggle), findsOneWidget);
-    });
   });
 
   testWidgets(
@@ -172,7 +159,7 @@ void main() {
     expect(find.byKey(const ValueKey('local-video-preview')), findsOneWidget);
   });
 
-  testWidgets('dispatches open, mute, and leave actions through the port', (
+  testWidgets('dispatches open, mute, unmute, and leave actions through the port', (
     tester,
   ) async {
     final port = FakeVoiceCallPort(state: _state());
@@ -180,27 +167,23 @@ void main() {
     await _pump(tester, port);
 
     expect(find.text('Planning'), findsOneWidget);
+    expect(find.text('Connected'), findsOneWidget);
+    expect(find.byTooltip('Mute'), findsOneWidget);
+    expect(find.byTooltip('Leave room'), findsOneWidget);
+    expect(find.byType(DToggle), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Return to room'));
     await tester.tap(find.byTooltip('Mute'));
+    port.replaceState(_state(muted: true));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Unmute'));
     await tester.tap(find.byTooltip('Leave room'));
 
     expect(port.actions, const [
       VoiceCallAction.openRoom,
       VoiceCallAction.toggleMuted,
+      VoiceCallAction.toggleMuted,
       VoiceCallAction.leave,
     ]);
-  });
-
-  testWidgets('updates the microphone action from port state', (tester) async {
-    final port = FakeVoiceCallPort(state: _state());
-    addTearDown(port.close);
-    await _pump(tester, port);
-
-    port.replaceState(_state(muted: true));
-    await tester.pump();
-    await tester.tap(find.byTooltip('Unmute'));
-
-    expect(port.actions, const [VoiceCallAction.toggleMuted]);
   });
 
   testWidgets('fails closed when the runtime dependency is unavailable', (
