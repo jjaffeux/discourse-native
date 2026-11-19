@@ -311,29 +311,6 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('takes all available bounded space', (tester) async {
-    await tester.pumpWidget(
-      _app(
-        const Align(
-          child: DSkeletonRegion(
-            expand: true,
-            key: ValueKey('full-size-skeleton'),
-            semanticsLabel: 'Loading content',
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [DSkeleton(width: 120, height: 9)],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    expect(
-      tester.getSize(find.byKey(const ValueKey('full-size-skeleton'))),
-      const Size(800, 600),
-    );
-  });
-
   testWidgets('keeps its natural size on an unbounded axis', (tester) async {
     await tester.pumpWidget(
       _app(
@@ -426,26 +403,33 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
-  testWidgets('exposes one live loading label and excludes its shapes', (
+  testWidgets('expanded region exposes one loading label and excludes shapes', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
     try {
       await tester.pumpWidget(
         _app(
-          const DSkeletonRegion(
-            expand: true,
-            semanticsLabel: 'Loading content',
-            child: Column(
-              children: [
-                Text('Decorative stand-in'),
-                DSkeleton(width: 120, height: 9),
-              ],
+          const Align(
+            child: DSkeletonRegion(
+              expand: true,
+              semanticsLabel: 'Loading content',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Decorative stand-in'),
+                  DSkeleton(width: 120, height: 9),
+                ],
+              ),
             ),
           ),
         ),
       );
 
+      expect(
+        tester.getSize(find.byType(DSkeletonRegion)),
+        const Size(800, 600),
+      );
       final loadingSemantics = find.byWidgetPredicate(
         (widget) =>
             widget is Semantics && widget.properties.label == 'Loading content',
