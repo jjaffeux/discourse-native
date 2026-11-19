@@ -20,10 +20,18 @@ void main() {
     return result;
   }
 
-  testWidgets('a repeated notice gets seven seconds of its own', (
+  testWidgets('notice timeouts restart, expire, and cancel on disposal', (
     tester,
   ) async {
-    final controller = composer();
+    final controller = ComposerController(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'a-topic',
+        topicTitle: 'A topic',
+      ),
+    );
     controller.showNotice('Checking whether that posted…');
     controller.showTagRemovalNotice(categoryName: 'Bugs');
     await tester.pump(const Duration(seconds: 6));
@@ -34,6 +42,9 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     expect(controller.tagRemovalNotice, isNull);
     expect(controller.notice, 'Checking whether that posted…');
+
+    controller.showTagRemovalNotice(categoryName: 'Bugs');
+    controller.dispose();
   });
 
   testWidgets('changing category or submitting clears an outdated notice', (
@@ -54,22 +65,6 @@ void main() {
     expect(controller.tagRemovalNotice, isNull);
     await tester.pump(const Duration(seconds: 7));
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('disposing a composer cancels its notice timeout', (
-    tester,
-  ) async {
-    final controller = ComposerController(
-      const ReplyComposerTarget(
-        privateMessageTopic: false,
-        siteUrl: 'https://meta.discourse.org',
-        topicId: 7,
-        slug: 'a-topic',
-        topicTitle: 'A topic',
-      ),
-    );
-    controller.showTagRemovalNotice(categoryName: 'Bugs');
-    controller.dispose();
   });
 
   for (final brightness in Brightness.values) {
