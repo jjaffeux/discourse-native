@@ -1000,44 +1000,30 @@ void main() {
       }
     });
 
-    test('progress is reported as it arrives', () async {
-      final seen = <double>[];
-      final controller = controllerWith(
-        updater: FakeUpdater(
-          isSupported: true,
-          releases: {UpdateChannel.stable: release('1.4.0')},
-          progressSteps: const [0.25, 0.5, 0.75],
-        ),
-      );
-      controller.addListener(() {
-        if (controller.status == UpdateStatus.downloading) {
-          seen.add(controller.progress);
-        }
-      });
-
-      await controller.check();
-      await controller.download();
-
-      expect(seen, [0, 0.25, 0.5, 0.75]);
-    });
-
     test(
-      'progress that has not moved a whole percent does not notify',
+      'progress reports arriving values but suppresses sub-percent changes',
       () async {
         var notifications = 0;
+        final seen = <double>[];
         final controller = controllerWith(
           updater: FakeUpdater(
             isSupported: true,
             releases: {UpdateChannel.stable: release('1.4.0')},
-            progressSteps: const [0.5001, 0.5002, 0.5003, 0.75],
+            progressSteps: const [0.25, 0.5, 0.5001, 0.5002, 0.5003, 0.75],
           ),
         );
 
         await controller.check();
-        controller.addListener(() => notifications++);
+        controller.addListener(() {
+          notifications++;
+          if (controller.status == UpdateStatus.downloading) {
+            seen.add(controller.progress);
+          }
+        });
         await controller.download();
 
-        expect(notifications, 4);
+        expect(notifications, 5);
+        expect(seen, [0, 0.25, 0.5, 0.75]);
       },
     );
   });
