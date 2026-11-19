@@ -3439,15 +3439,17 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('the sheet says which channel is being followed', (
-      tester,
-    ) async {
-      await openSheet(tester, updater: FakeUpdater(isSupported: true));
+    testWidgets(
+      'the sheet follows the build channel and offers channel choices',
+      (tester) async {
+        await openSheet(tester, updater: FakeUpdater(isSupported: true));
 
-      expect(find.textContaining('stable channel'), findsOneWidget);
-      expect(find.text('Stable'), findsOneWidget);
-      expect(find.text('Canary'), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+        expect(find.textContaining('stable channel'), findsOneWidget);
+        expect(find.text('Stable'), findsOneWidget);
+        expect(find.text('Canary'), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
 
     testWidgets('a check that finds nothing says so', (tester) async {
       await openSheet(tester, updater: FakeUpdater(isSupported: true));
@@ -3589,23 +3591,14 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('a finished download offers to restart', (tester) async {
-      final updater = offering();
-      await openOffer(tester, updater);
-
-      await tester.tap(find.text('Download 1.4.0'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Restart and install'), findsOneWidget);
-      expect(updater.downloadCount, 1);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     testWidgets('restarting hands the app over to the updater', (tester) async {
       final updater = offering();
       await openOffer(tester, updater);
 
       await tester.tap(find.text('Download 1.4.0'));
       await tester.pumpAndSettle();
+      expect(find.text('Restart and install'), findsOneWidget);
+      expect(updater.downloadCount, 1);
       await tester.tap(find.text('Restart and install'));
       // pump, not pumpAndSettle: a successful install never comes back, so the
       // panel is left on an indeterminate spinner on purpose and there is no
@@ -3668,22 +3661,6 @@ void _registerShellUpdateTests() {
   });
 
   group('the release channel', () {
-    testWidgets('defaults to the channel the build was made on', (
-      tester,
-    ) async {
-      await pumpShell(
-        tester,
-        desktop,
-        updater: FakeUpdater(isSupported: true),
-        updateStore: FakeUpdateStore(lastChecked: DateTime.now()),
-      );
-
-      await tester.tap(_railUpdateButton);
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('stable channel'), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     testWidgets('a stored channel wins over the built-in one', (tester) async {
       await pumpShell(
         tester,
