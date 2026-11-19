@@ -359,7 +359,7 @@ void main() {
       expect(api.bookmarksRequested, ['reader']);
     });
 
-    test('update replaces cached metadata and clears the reminder', () async {
+    test('update and delete reconcile every cached representation', () async {
       final initial = Bookmark(
         id: 73,
         bookmarkableId: 12,
@@ -403,33 +403,20 @@ void main() {
         ),
       ]);
       expect(api.bookmarksRequested, ['reader']);
-    });
 
-    test('delete clears every cached representation', () async {
-      const initial = Bookmark(
-        id: 73,
-        bookmarkableId: 12,
-        bookmarkableType: 'Post',
-        postNumber: 2,
-        name: 'Read this',
-      );
-      final api = _BookmarkFakeApi(bookmark: initial);
-      final shell = await _loadShell(api);
-      addTearDown(shell.dispose);
-
-      final result = await shell.deleteBookmark(
+      final deleted = await shell.deleteBookmark(
         siteUrl: _site,
         topicId: 7,
-        bookmark: initial,
+        bookmark: result.bookmark!,
       );
       await pumpEventQueue();
 
-      expect(result.saved, isTrue);
+      expect(deleted.saved, isTrue);
       expect(shell.store.read<Post>(_site, 12)?.bookmark, isNull);
       expect(shell.store.read<TopicDetail>(_site, 7)?.bookmarks, isEmpty);
       expect(shell.store.read<Topic>(_site, 7)?.bookmarked, isFalse);
       expect(api.deletedBookmarks, [73]);
-      expect(api.bookmarksRequested, ['reader']);
+      expect(api.bookmarksRequested, ['reader', 'reader']);
     });
   });
 
@@ -573,7 +560,7 @@ void main() {
       expect(api.bookmarksRequested, ['reader']);
     });
 
-    test('update replaces live metadata and clears the reminder', () async {
+    test('update and delete reconcile the live message', () async {
       final initial = Bookmark(
         id: 73,
         bookmarkableId: 42,
@@ -614,32 +601,17 @@ void main() {
         ),
       ]);
       expect(api.bookmarksRequested, ['reader']);
-    });
 
-    test('delete clears the live message', () async {
-      final initial = Bookmark(
-        id: 73,
-        bookmarkableId: 42,
-        bookmarkableType: chatMessageBookmarkTarget.wireName,
-        name: 'Follow up',
-      );
-      final api = _ChatBookmarkFakeApi(bookmark: initial);
-      final shell = await _loadShell(api);
-      addTearDown(shell.dispose);
-      _putChatFixture(shell, bookmark: initial);
-      final chat = shell.pluginSession.require(chatControllerService);
-      final host = shell.pluginSession.require(chatBookmarkHostService);
-
-      final result = await host.deleteBookmark(
+      final deleted = await host.deleteBookmark(
         siteUrl: _site,
-        bookmark: initial,
+        bookmark: result.bookmark!,
       );
       await pumpEventQueue();
 
-      expect(result.saved, isTrue);
+      expect(deleted.saved, isTrue);
       expect(chat.message(_site, 42)?.bookmark, isNull);
       expect(api.deletedBookmarks, [73]);
-      expect(api.bookmarksRequested, ['reader']);
+      expect(api.bookmarksRequested, ['reader', 'reader']);
     });
 
     test('keeps actions site-bound after the selected forum changes', () async {
