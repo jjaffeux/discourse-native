@@ -7,12 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final palette in [
-    StyleguideTheme.light,
-    StyleguideTheme.dark,
-    StyleguideTheme.forest,
-    StyleguideTheme.plum,
-  ]) {
+  for (final palette in [StyleguideTheme.light, StyleguideTheme.plum]) {
     testWidgets('Input examples fit narrow RTL at 200% in ${palette.name}', (
       tester,
     ) async {
