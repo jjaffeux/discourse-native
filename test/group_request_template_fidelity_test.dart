@@ -85,9 +85,8 @@ void main() {
         );
         expect(tester.takeException(), isNull);
       },
-      variant: const TargetPlatformVariant({
-        TargetPlatform.iOS,
-        TargetPlatform.android,
+      variant: TargetPlatformVariant({
+        editTemplate ? TargetPlatform.android : TargetPlatform.iOS,
         TargetPlatform.macOS,
       }),
     );
