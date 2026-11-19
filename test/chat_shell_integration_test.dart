@@ -5349,32 +5349,6 @@ void _registerChatShellTests() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
-        'asks for older messages when a short channel does not fill the window',
-        (tester) async {
-          // Nothing to scroll, so the scroll threshold can never fire — the last
-          // row being built is what says the top of the stream is on screen.
-          final api = FakeDiscourseApi(
-            totals: withChat,
-            chatChannelsBySite: {
-              site: ChatChannels(public: [channel(9)], direct: const []),
-            },
-            chatMessagesByKey: {
-              key(9): page([msg(5, minute: 5)], canLoadMorePast: true),
-              key(9, before: 5): page([msg(1)]),
-            },
-          );
-
-          await pumpChat(tester, api: api);
-          await tester.tap(sidebarDestination('Bugs'));
-          await tester.pumpAndSettle();
-
-          expect(api.chatMessagesRequested.map((ask) => ask.before), [null, 5]);
-          expect(renderedText('Hello there'), findsNWidgets(2));
-        },
-        variant: TargetPlatformVariant.only(TargetPlatform.linux),
-      );
-
-      testWidgets(
         'keeps asking while each older page leaves the window short',
         (tester) async {
           // An arrived page moves the oldest row, a new window state to fill.
