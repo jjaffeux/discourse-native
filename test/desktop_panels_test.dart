@@ -1589,7 +1589,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final pressDuration in [1, 50, 250]) {
+  // Exercise activation before and after the tap recognizer's 100ms timeout.
+  for (final pressDuration in [1, 250]) {
     testWidgets(
       'topic click survives panel activation after $pressDuration ms',
       (tester) async {
