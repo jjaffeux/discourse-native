@@ -26,7 +26,11 @@ void main() {
     },
   );
 
-  for (final example in spinnerExamples.examples) {
+  // The interaction tests below already mount these exact narrow hosts.
+  for (final example in spinnerExamples.examples.where(
+    (example) =>
+        !const {'Badge', 'Input Group', 'Empty'}.contains(example.title),
+  )) {
     testWidgets(
       '${example.title} fits narrow RTL with large text and a site palette',
       (tester) async {
@@ -176,6 +180,10 @@ void main() {
     'input validation preserves edits through theme changes, rejection and retry',
     (tester) async {
       await _pump(tester, 'Input Group', narrow: true);
+      expect(
+        Theme.of(tester.element(find.byType(DInputGroup).first)).brightness,
+        Brightness.dark,
+      );
       await tester.ensureVisible(find.text('Accept sample'));
       await tester.tap(find.text('Accept sample'));
       await tester.pump();
@@ -202,7 +210,11 @@ void main() {
             .enabled,
         isFalse,
       );
-      await _pump(tester, 'Input Group', narrow: true, dark: true);
+      await _pump(tester, 'Input Group');
+      expect(
+        Theme.of(tester.element(find.byType(DInputGroup).first)).brightness,
+        Brightness.light,
+      );
       expect(find.text('A sample subject'), findsOneWidget);
       expect(find.text('A message to validate'), findsOneWidget);
       await tester.ensureVisible(find.text('Reject sample'));
