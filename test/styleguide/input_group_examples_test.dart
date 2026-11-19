@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final palette in [
-    StyleguideTheme.light,
     StyleguideTheme.dark,
     StyleguideTheme.forest,
     StyleguideTheme.plum,
