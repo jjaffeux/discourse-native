@@ -2574,8 +2574,12 @@ void _registerChatShellTests() {
             ),
             findsOneWidget,
           );
-          // Its mark, its name and its line are all the row says: no time
-          // stands in for a message that was never sent.
+          final desktopRow = defaultTargetPlatform == TargetPlatform.linux;
+          expect(
+            find.descendant(of: emptyRow, matching: find.dIcon(DIcons.hashtag)),
+            desktopRow ? findsOneWidget : findsNothing,
+          );
+          // No time stands in for a message that was never sent.
           expect(
             tester
                 .widgetList<Text>(
@@ -2583,7 +2587,7 @@ void _registerChatShellTests() {
                 )
                 .map((text) => text.data)
                 .nonNulls,
-            ['#', 'Empty channel', 'No messages yet'],
+            [if (!desktopRow) '#', 'Empty channel', 'No messages yet'],
           );
           final rows = [
             for (final id in [12, 9, 10])
