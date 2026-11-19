@@ -53,7 +53,7 @@ void main() {
   ]) {
     for (final outcome in ['loaded', 'empty', 'error']) {
       testWidgets(
-        'cached group $section shows its pending section then $outcome',
+        'cached group $section reaches $outcome${outcome == 'loaded' ? ' and refreshes' : ''}',
         (tester) async {
           final api = _Api(section);
           addTearDown(api.finish);
@@ -69,6 +69,18 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(DSkeletonRegion), findsNothing);
           if (outcome == 'loaded') {
+            expect(find.text('Loaded section row'), findsWidgets);
+            api.pending = Completer<Object>();
+            final refreshing = tester
+                .widget<GroupPage>(find.byType(GroupPage))
+                .onRefresh!();
+            await _frames(tester);
+            expect(api.sectionRequests, 2);
+            expect(find.byType(DSkeletonRegion), findsNothing);
+            expect(find.text('Loaded section row'), findsWidgets);
+            api.finish();
+            await refreshing;
+            await tester.pumpAndSettle();
             expect(find.text('Loaded section row'), findsWidgets);
           } else if (outcome == 'error') {
             final page = tester.widget<GroupPage>(find.byType(GroupPage));
@@ -96,36 +108,6 @@ void main() {
         }),
       );
     }
-    testWidgets(
-      'cached $section rows remain visible during refresh',
-      (tester) async {
-        final api = _Api(section);
-        addTearDown(api.finish);
-        await _open(tester, api);
-        await _select(tester, section);
-        await _frames(tester);
-        api.finish();
-        await tester.pumpAndSettle();
-        expect(find.text('Loaded section row'), findsWidgets);
-        api.pending = Completer<Object>();
-        final refreshing = tester
-            .widget<GroupPage>(find.byType(GroupPage))
-            .onRefresh!();
-        await _frames(tester);
-        expect(api.sectionRequests, 2);
-        expect(find.byType(DSkeletonRegion), findsNothing);
-        expect(find.text('Loaded section row'), findsWidgets);
-        api.finish();
-        await refreshing;
-        await tester.pumpAndSettle();
-        expect(find.text('Loaded section row'), findsWidgets);
-        expect(tester.takeException(), isNull);
-      },
-      variant: const TargetPlatformVariant({
-        TargetPlatform.macOS,
-        TargetPlatform.iOS,
-      }),
-    );
   }
 }
 
