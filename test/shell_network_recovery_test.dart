@@ -278,7 +278,10 @@ void main() {
     // here although no reachability change caused it.
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('another site going away shows nothing here', (tester) async {
+  testWidgets('the notice ignores other sites and names its own outage', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
     final api = FakeDiscourseApi(feeds: {'/latest.json': _listed});
     await pumpShell(tester, desktop, api: api);
 
@@ -290,12 +293,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(_banner), findsNothing);
-  });
-
-  testWidgets('the notice names the site and announces itself', (tester) async {
-    final handle = tester.ensureSemantics();
-    final api = FakeDiscourseApi(feeds: {'/latest.json': _listed});
-    await pumpShell(tester, desktop, api: api);
 
     lose(api);
     await tester.pumpAndSettle();
