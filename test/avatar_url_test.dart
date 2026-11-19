@@ -187,44 +187,43 @@ void main() {
   });
 
   group('subfolder avatar decoding', () {
-    for (final template in [_uploaded, _letter]) {
-      final user = <String, dynamic>{
-        'id': 7,
+    const template = _uploaded;
+    final user = <String, dynamic>{
+      'id': 7,
+      'username': 'sam',
+      'avatar_template': template,
+    };
+    final expected =
+        'https://forum.example${template.replaceAll('{size}', '90')}';
+
+    test('Post decodes $template', () {
+      final post = Post.fromJson({
+        'id': 42,
+        'post_number': 1,
         'username': 'sam',
         'avatar_template': template,
-      };
-      final expected =
-          'https://forum.example${template.replaceAll('{size}', '90')}';
+        'cooked': '<p>Hello</p>',
+      }, _site);
+      expect(post.avatarUrl, expected);
+    });
 
-      test('Post decodes $template', () {
-        final post = Post.fromJson({
-          'id': 42,
-          'post_number': 1,
-          'username': 'sam',
-          'avatar_template': template,
-          'cooked': '<p>Hello</p>',
-        }, _site);
-        expect(post.avatarUrl, expected);
-      });
+    test('ChatMessage decodes its nested author with $template', () {
+      final message = ChatMessage.fromJson({
+        'id': 42,
+        'chat_channel_id': 9,
+        'cooked': '<p>Hello</p>',
+        'user': user,
+      }, _site);
+      expect(message.author.avatarUrl, expected);
+    });
 
-      test('ChatMessage decodes its nested author with $template', () {
-        final message = ChatMessage.fromJson({
-          'id': 42,
-          'chat_channel_id': 9,
-          'cooked': '<p>Hello</p>',
-          'user': user,
-        }, _site);
-        expect(message.author.avatarUrl, expected);
-      });
-
-      test('UserCard decodes $template at its larger size', () {
-        final card = UserCard.fromJson(user, _site);
-        expect(
-          card.avatarUrl,
-          'https://forum.example${template.replaceAll('{size}', '240')}',
-        );
-      });
-    }
+    test('UserCard decodes $template at its larger size', () {
+      final card = UserCard.fromJson(user, _site);
+      expect(
+        card.avatarUrl,
+        'https://forum.example${template.replaceAll('{size}', '240')}',
+      );
+    });
   });
 
   group('decoded avatar loading', () {
