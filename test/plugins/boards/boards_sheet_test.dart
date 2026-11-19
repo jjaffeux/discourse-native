@@ -148,20 +148,6 @@ void main() {
     TargetPlatform.android,
   });
 
-  testWidgets('the board title appears in the mobile header', (tester) async {
-    await _openBoard(tester);
-    final header = find.byKey(const ValueKey('mobile-header'));
-    expect(
-      find.descendant(of: header, matching: find.text('Product roadmap')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))).hitTestable(),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  }, variant: platforms);
-
   for (final folded in [false, true]) {
     testWidgets('dismissing a board restores stationary topic controls '
         '(folded: $folded)', (tester) async {
@@ -446,6 +432,15 @@ void main() {
     tester,
   ) async {
     final shell = await _openBoard(tester);
+    final header = find.byKey(const ValueKey('mobile-header'));
+    expect(
+      find.descendant(of: header, matching: find.text('Product roadmap')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))).hitTestable(),
+      findsOneWidget,
+    );
     expect(shell.currentContent?.id, 'boards/1');
     expect(tester.widget<DSheetContent>(_sheet).variant, DSheetVariant.page);
     expect(_title.hitTestable(), findsOneWidget);
