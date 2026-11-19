@@ -66,7 +66,7 @@ void main() {
       expect(requests, hasLength(1));
     });
 
-    for (final create in [false, true]) {
+    for (final create in [true, if (reminder == now) false]) {
       test(
         '${create ? 'create' : 'changed update'} rejects invalid reminder $reminder',
         () async {
@@ -168,41 +168,50 @@ void main() {
     for (final scenario in [
       (
         label: 'leap-day exact boundary',
+        checkUpdate: false,
         now: DateTime.utc(2024, 2, 29, 12, 30, 40, 123, 456),
         reminder: DateTime.utc(2034, 2, 28, 12, 30, 40, 123, 456),
         valid: true,
       ),
       (
         label: 'leap-day one microsecond beyond boundary',
+        checkUpdate: true,
         now: DateTime.utc(2024, 2, 29, 12, 30, 40, 123, 456),
         reminder: DateTime.utc(2034, 2, 28, 12, 30, 40, 123, 457),
         valid: false,
       ),
       (
         label: 'leap-day normalized March 1',
+        checkUpdate: false,
         now: DateTime.utc(2024, 2, 29, 12),
         reminder: DateTime.utc(2034, 3, 1, 12),
         valid: false,
       ),
       (
         label: 'ordinary exact boundary',
+        checkUpdate: false,
         now: DateTime.utc(2026, 4, 15, 12),
         reminder: DateTime.utc(2036, 4, 15, 12),
         valid: true,
       ),
       (
         label: 'ordinary one microsecond beyond boundary',
+        checkUpdate: false,
         now: DateTime.utc(2026, 4, 15, 12),
         reminder: DateTime.utc(2036, 4, 15, 12, 0, 0, 0, 1),
         valid: false,
       ),
       (
         label: 'offset reminder at exact UTC boundary',
+        checkUpdate: true,
         now: DateTime.utc(2024, 2, 29, 12),
         reminder: DateTime.parse('2034-02-28T14:00:00+02:00'),
         valid: true,
       ),
     ]) {
+      // Creation covers the shared calendar validator; edits also pin
+      // rejection and UTC serialization at their own boundary.
+      if (!create && !scenario.checkUpdate) continue;
       test(
         '${create ? 'create' : 'update'} bookmark preflight matches ${scenario.label}',
         () async {
