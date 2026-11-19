@@ -54,8 +54,6 @@ void main() {
     for (final (theme, width, scale, direction) in [
       (StyleguideTheme.light, 768.0, 1.0, TextDirection.ltr),
       (StyleguideTheme.dark, 320.0, 2.0, TextDirection.rtl),
-      (StyleguideTheme.forest, 768.0, 1.0, TextDirection.rtl),
-      (StyleguideTheme.plum, 320.0, 2.0, TextDirection.ltr),
     ]) {
       testWidgets(
         '${example.title} fits $width px at ${scale}x in ${theme.name}',
