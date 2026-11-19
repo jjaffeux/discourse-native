@@ -60,13 +60,15 @@ void main() {
       }
     });
 
-    testWidgets('every bundled icon renders', (tester) async {
+    testWidgets('every bundled icon renders in its requested square box', (
+      tester,
+    ) async {
       // A malformed generated or app-specific SVG fails at parse time, inside
       // a future, where nothing else would notice.
       final icons = {...DIcons.byName.values, ...DNativeIcons.byName.values};
       for (final icon in icons) {
         await tester.pumpWidget(
-          MaterialApp(home: Center(child: DIcon(icon, size: 24))),
+          MaterialApp(home: Center(child: DIcon(icon, size: 32))),
         );
         await tester.pumpAndSettle();
 
@@ -76,24 +78,12 @@ void main() {
           reason: '${icon.name} did not render',
         );
         expect(find.dIcon(icon), findsOneWidget);
+        expect(
+          tester.getSize(find.dIcon(icon)),
+          const Size.square(32),
+          reason: icon.name,
+        );
       }
-    });
-
-    testWidgets('sizes to the box it is given, not the viewBox', (
-      tester,
-    ) async {
-      // `hand-point-right` is 448x512, so a widget that passed the viewBox
-      // through would not be square.
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Center(child: DIcon(DIcons.handPointRight, size: 32)),
-        ),
-      );
-
-      expect(
-        tester.getSize(find.dIcon(DIcons.handPointRight)),
-        const Size(32, 32),
-      );
     });
 
     for (final preserveColors in [false, true]) {
