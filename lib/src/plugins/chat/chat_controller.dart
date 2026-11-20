@@ -999,7 +999,8 @@ class ChatController extends FrameSafeNotifier {
       <ChatChannel>[];
 
   /// The listed chats [query] finds: by name first, then by anything said in
-  /// them or by whom, each of those with the latest line that has the words.
+  /// them or by whom. Either kind of result uses the latest matching line
+  /// when there is one.
   ///
   /// What was said is read from the directory excerpt and the messages this
   /// client retains, including loaded thread replies and local sends.
@@ -1013,8 +1014,8 @@ class ChatController extends FrameSafeNotifier {
       for (final channel in channels)
         if (chatInboxWordsMatch(query, [channel.title])) channel,
     ];
-    final unnamed = {for (final channel in channels) channel.id}
-      ..removeAll(byName.map((channel) => channel.id));
+    final namedIds = {for (final channel in byName) channel.id};
+    final listedIds = {for (final channel in channels) channel.id};
     final lines = <int, ChatInboxFoundLine>{};
     final lineMessages = <int, int>{};
     // An unsent local message carries a negative id and is the latest said.
@@ -1022,13 +1023,14 @@ class ChatController extends FrameSafeNotifier {
         than == null || (than >= 0 && (id < 0 || id >= than));
     for (final channel in channels) {
       final preview = channel.lastMessagePreview;
-      if (preview == null || !unnamed.contains(channel.id)) continue;
+      if (preview == null) continue;
       if (!chatInboxWordsMatch(query, [preview, channel.lastMessageUsername])) {
         continue;
       }
       lines[channel.id] = ChatInboxFoundLine(
         text: preview,
         query: query,
+        createdAt: channel.lastMessageAt,
         authorId: channel.lastMessageUserId,
         authorName: channel.lastMessageUsername,
       );
@@ -1036,7 +1038,7 @@ class ChatController extends FrameSafeNotifier {
     }
     for (final message in _store.retainedRecords<ChatMessage>(siteUrl)) {
       if (message == null || message.isDeleted) continue;
-      if (!unnamed.contains(message.channelId) ||
+      if (!listedIds.contains(message.channelId) ||
           !later(message.id, lineMessages[message.channelId])) {
         continue;
       }
@@ -1056,6 +1058,7 @@ class ChatController extends FrameSafeNotifier {
       lines[message.channelId] = ChatInboxFoundLine(
         text: text.isEmpty ? message.raw : text,
         query: query,
+        createdAt: message.createdAt,
         authorId: message.author.id,
         authorName: message.author.displayName,
         authorAvatarUrl: message.author.avatarUrl,
@@ -1065,7 +1068,11 @@ class ChatController extends FrameSafeNotifier {
     return (
       channels: [
         ...byName,
-        ...chatInboxNewFirst(channels.where((c) => lines.containsKey(c.id))),
+        ...chatInboxNewFirst(
+          channels.where(
+            (c) => !namedIds.contains(c.id) && lines.containsKey(c.id),
+          ),
+        ),
       ],
       lines: lines,
     );

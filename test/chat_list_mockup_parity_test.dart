@@ -12,10 +12,12 @@ import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_filters.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_rooms.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_reader_time.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
@@ -101,6 +103,7 @@ List<ChatChannel> _public() => [
     unread: 3,
     saidBy: 9,
     saidByName: 'sam',
+    preview: 'Ready for the next review',
   ),
   _channel(3, 'secret-ops', minutesAgo: 10, private: true, saidBy: 7),
   _channel(4, 'noisy', minutesAgo: 1, muted: true, mentions: 1),
@@ -186,7 +189,7 @@ void main() {
       find.byKey(const ValueKey('chat-inbox-unread-2')),
     );
     final name = tester.getRect(_in(2, find.text('design')));
-    final line = tester.getRect(_in(2, find.text('Last said in design')));
+    final line = tester.getRect(_in(2, find.text('Ready for the next review')));
     final time = tester.getRect(_in(2, _timeOf(tester, 2)));
     expect(_in(2, find.text('3')), findsOneWidget);
     expect(row.right - count.right, 12);
@@ -261,7 +264,7 @@ void main() {
     expect(
       tester.getRect(face(2)).right,
       lessThanOrEqualTo(
-        tester.getRect(_in(2, find.text('Last said in design'))).left,
+        tester.getRect(_in(2, find.text('Ready for the next review'))).left,
       ),
     );
     expect(face(11), findsOneWidget, reason: 'One of several in a group');
@@ -340,8 +343,33 @@ void main() {
   testWidgets('chats are found by name first, then by what was said, each '
       'showing the line that has the words', (tester) async {
     await prepareNativeUiEvidence(tester);
-    final fixture = await _pump(tester);
+    final matchedAt = DateTime.utc(2025, 10, 15, 12);
+    final fixture = await _pump(
+      tester,
+      size: const Size(390, 844),
+      brightness: Brightness.dark,
+      platform: TargetPlatform.iOS,
+      chatMessages: {
+        FakeDiscourseApi.chatMessagesKey(2): (
+          messages: [
+            ChatMessage(
+              id: 199,
+              channelId: 2,
+              cooked: '<p>Sam shared the design sketches</p>',
+              author: const ChatMessageAuthor(id: 9, username: 'sam'),
+              createdAt: matchedAt,
+            ),
+          ],
+          canLoadMorePast: false,
+          canLoadMoreFuture: true,
+          targetMessageId: null,
+        ),
+      },
+    );
+    await fixture.chat.openChannel(_site, 2);
+    expect(fixture.chat.message(_site, 199), isNotNull);
     await fixture.show(const ChatMobileSidebar(siteUrl: _site));
+    expect(_in(2, find.text('Ready for the next review')), findsOneWidget);
     await tester.enterText(
       find.byKey(const ValueKey('chat-search-entry')),
       'design',
@@ -356,6 +384,20 @@ void main() {
       tester.getTopLeft(_row(2)).dy,
       lessThan(tester.getTopLeft(_row(1)).dy),
       reason: 'Found by name before found by what was said',
+    );
+    expect(
+      _in(2, find.text('Sam shared the design sketches', findRichText: true)),
+      findsOneWidget,
+      reason: 'A name match also shows an earlier message that matches',
+    );
+    final rowContext = tester.element(_row(2));
+    final matchedDate = MaterialLocalizations.of(
+      rowContext,
+    ).formatShortDate(chatTimeFor(rowContext, _site).local(matchedAt));
+    expect(
+      _in(2, find.text(matchedDate)),
+      findsOneWidget,
+      reason: 'The timestamp belongs to the matching message',
     );
     expect(
       _in(
@@ -632,6 +674,8 @@ Future<_Fixture> _pump(
   WidgetTester tester, {
   Size size = const Size(390, 1800),
   Brightness brightness = Brightness.light,
+  TargetPlatform platform = TargetPlatform.macOS,
+  Map<String, ChatMessagePage> chatMessages = const {},
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -639,6 +683,7 @@ Future<_Fixture> _pump(
     user: _user,
     totals: chatNotificationTotals(),
     siteConfigs: {_site: _config},
+    chatMessagesByKey: chatMessages,
     chatChannelsBySite: {
       _site: ChatChannels(
         public: _public(),
@@ -670,7 +715,7 @@ Future<_Fixture> _pump(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.forBrightness(
               brightness,
-            ).copyWith(platform: TargetPlatform.macOS),
+            ).copyWith(platform: platform),
             builder: nativeUiEvidenceBuilder,
             home: Scaffold(
               body: Builder(

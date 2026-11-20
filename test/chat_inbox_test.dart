@@ -49,6 +49,12 @@ void main() {
       final chat = subject.chat;
       subject.store.putAll(_site, [
         const ChatMessage(
+          id: 8,
+          channelId: 1,
+          cooked: '<p>Review the design sketches</p>',
+          author: ChatMessageAuthor(id: 6, username: 'mira'),
+        ),
+        const ChatMessage(
           id: 10,
           channelId: 1,
           cooked: '<p>Keyboard &amp; focus</p>',
@@ -109,7 +115,8 @@ void main() {
       expect(found('design'), [1, 2]);
       expect(found('sam'), [2, 1]);
       final results = chat.findConversations(_site, 'design');
-      expect(results.lines.keys, [2], reason: 'A name needs no line');
+      expect(results.lines[1]!.text, 'Review the design sketches');
+      expect(chat.findConversations(_site, 'design studio').lines, isEmpty);
       expect(results.lines[2]!.text, 'Older design note');
       expect(results.lines[2]!.authorName, 'david');
       expect(results.lines[2]!.query, 'design');

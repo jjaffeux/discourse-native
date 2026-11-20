@@ -38,6 +38,7 @@ final class ChatInboxFoundLine {
   const ChatInboxFoundLine({
     required this.text,
     required this.query,
+    required this.createdAt,
     this.authorId,
     this.authorName,
     this.authorAvatarUrl,
@@ -45,6 +46,7 @@ final class ChatInboxFoundLine {
 
   final String text;
   final String query;
+  final DateTime? createdAt;
   final int? authorId;
   final String? authorName;
   final String? authorAvatarUrl;
@@ -54,17 +56,24 @@ final class ChatInboxFoundLine {
       other is ChatInboxFoundLine &&
       other.text == text &&
       other.query == query &&
+      other.createdAt == createdAt &&
       other.authorId == authorId &&
       other.authorName == authorName &&
       other.authorAvatarUrl == authorAvatarUrl;
 
   @override
-  int get hashCode =>
-      Object.hash(text, query, authorId, authorName, authorAvatarUrl);
+  int get hashCode => Object.hash(
+    text,
+    query,
+    createdAt,
+    authorId,
+    authorName,
+    authorAvatarUrl,
+  );
 }
 
 /// The chats some words found: those found by name first, then those found by
-/// what was said in them, each of the latter with the line that has the words.
+/// what was said in them. Either kind can have a matching line.
 typedef ChatInboxResults = ({
   List<ChatChannel> channels,
   Map<int, ChatInboxFoundLine> lines,

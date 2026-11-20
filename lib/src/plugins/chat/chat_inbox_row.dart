@@ -324,7 +324,10 @@ class ChatInboxRow extends StatelessWidget {
       chatShellService,
     ).currentUser?.id;
     final time = chatTimeFor(context, siteUrl);
-    final activity = chatInboxActivityAt(channel);
+    final match = found;
+    final activity = match == null
+        ? chatInboxActivityAt(channel)
+        : match.createdAt;
     final at = activity == null ? null : time.local(activity);
     final directUser = channel.directUser;
     final status = directUser?.status;
