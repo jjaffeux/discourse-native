@@ -153,6 +153,45 @@ void main() {
     await captureNativeUi(tester, 'page-by-type');
   });
 
+  testWidgets('Chats orders and timestamps the displayed channel messages', (
+    tester,
+  ) async {
+    await prepareNativeUiEvidence(tester);
+    final messageAt = DateTime.utc(2025, 10, 15, 12);
+    final older = ChatChannel(
+      id: 1,
+      title: 'general',
+      kind: ChatChannelKind.category,
+      threadingEnabled: true,
+      membership: const ChatMembership(following: true),
+      lastMessageId: 100,
+      lastMessageAt: messageAt,
+      lastMessagePreview: 'The channel message',
+      unreadThreadOverview: {70: _ago(5)},
+    );
+    final fixture = await _pump(
+      tester,
+      size: const Size(390, 844),
+      platform: TargetPlatform.iOS,
+      publicChannels: [older, _channel(2, 'design', minutesAgo: 60)],
+    );
+    await fixture.show(const ChatMobileSidebar(siteUrl: _site));
+    await captureNativeUi(tester, 'chat-channel-message-recency');
+
+    final context = tester.element(_row(1));
+    final time = chatTimeFor(context, _site);
+    final label = MaterialLocalizations.of(
+      context,
+    ).formatShortDate(time.local(messageAt));
+    expect(_in(1, find.text('The channel message')), findsOneWidget);
+    expect(_in(1, find.text(label)), findsOneWidget);
+    expect(
+      tester.getTopLeft(_row(2)).dy,
+      lessThan(tester.getTopLeft(_row(1)).dy),
+    );
+    expect(find.text('New replies in 1 thread'), findsOneWidget);
+  });
+
   testWidgets('an unread row is boxed in the unread fill and a read one is '
       'not', (tester) async {
     final fixture = await _pump(tester);
@@ -676,6 +715,7 @@ Future<_Fixture> _pump(
   Brightness brightness = Brightness.light,
   TargetPlatform platform = TargetPlatform.macOS,
   Map<String, ChatMessagePage> chatMessages = const {},
+  List<ChatChannel>? publicChannels,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -686,7 +726,7 @@ Future<_Fixture> _pump(
     chatMessagesByKey: chatMessages,
     chatChannelsBySite: {
       _site: ChatChannels(
-        public: _public(),
+        public: publicChannels ?? _public(),
         direct: _direct(),
         hasThreads: true,
       ),

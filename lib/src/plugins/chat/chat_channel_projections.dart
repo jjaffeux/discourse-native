@@ -8,16 +8,9 @@ final class _ChatChannelProjection {
   final List<int> ids;
 }
 
-/// Effective activity shared by inbox ordering and its displayed timestamp.
-DateTime? chatInboxActivityAt(ChatChannel channel) {
-  final messageAt = (channel.lastMessageId ?? 0) > 0
-      ? channel.lastMessageAt
-      : null;
-  final threadAt = channel.latestUnreadThreadAt;
-  return messageAt == null || (threadAt != null && threadAt.isAfter(messageAt))
-      ? threadAt
-      : messageAt;
-}
+/// The channel message shown in the inbox and used to order its rows.
+DateTime? chatInboxActivityAt(ChatChannel channel) =>
+    (channel.lastMessageId ?? 0) > 0 ? channel.lastMessageAt : null;
 
 extension on _ChatChannelDirectory {
   List<ChatChannel> _projectChannels(

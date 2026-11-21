@@ -167,10 +167,22 @@ void main() {
   });
 
   test(
-    'inbox keeps parsed activity and canonical replacements current',
+    'inbox tracks channel messages and preserves canonical replacements',
     () async {
-      final first = _parsed({1: oldest}, id: 1, viewedAt: middle);
-      final second = _parsed({2: middle}, id: 2, viewedAt: oldest);
+      final first = _parsed(
+        {1: oldest},
+        id: 1,
+        viewedAt: middle,
+        messageId: 10,
+        messageAt: oldest,
+      );
+      final second = _parsed(
+        {2: middle},
+        id: 2,
+        viewedAt: oldest,
+        messageId: 11,
+        messageAt: middle,
+      );
       final store = Store();
       final chat = ChatController(
         api: FakeDiscourseApi(
@@ -195,10 +207,10 @@ void main() {
         unreadThreadOverview: {1: newest},
       );
       store.put(_site, tracked);
-      expect(project().map((c) => c.id), [1, 2]);
+      expect(project().map((c) => c.id), [2, 1]);
       final preview = tracked.withLastMessagePreview('New preview');
       store.put(_site, preview);
-      expect(project().first, same(preview));
+      expect(project().last, same(preview));
       store.put(
         _site,
         preview.withLastViewedAt(newest.add(const Duration(seconds: 1))),
@@ -208,7 +220,7 @@ void main() {
     },
   );
 
-  test('inbox ignores placeholder message dates and preserves latest ties', () {
+  test('inbox uses only real channel message dates', () {
     expect(
       chatInboxActivityAt(_parsed({}, messageId: 0, messageAt: newest)),
       isNull,
@@ -217,7 +229,7 @@ void main() {
       chatInboxActivityAt(
         _parsed({1: middle}, messageId: 0, messageAt: newest),
       ),
-      middle,
+      isNull,
     );
     expect(
       chatInboxActivityAt(
@@ -229,7 +241,7 @@ void main() {
       chatInboxActivityAt(
         _parsed({1: newest}, messageId: 10, messageAt: middle),
       ),
-      newest,
+      middle,
     );
     expect(
       chatInboxActivityAt(

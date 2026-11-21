@@ -282,6 +282,9 @@ final class ChatLiveSyncCoordinator {
                 channel.messageBus.newMessages,
           ),
     };
+    site.lastThreadReplyIds.removeWhere(
+      (id, _) => !site.newMessageCursors.containsKey(id),
+    );
     site.newMentionCursors = {
       for (final channel in all)
         channel.id: _newerCursor(
@@ -398,6 +401,7 @@ final class ChatLiveSyncCoordinator {
     final site = _sites[siteUrl];
     if (site == null) return;
     site.newMessageCursors.remove(channelId);
+    site.lastThreadReplyIds.remove(channelId);
     site.awaitingFirstMessage.remove(channelId);
     site.newMessageSubscriptions.remove(channelId)?.cancel();
   }
@@ -424,6 +428,7 @@ final class ChatLiveSyncCoordinator {
     final site = _sites[siteUrl];
     if (site == null) return;
     site.newMessageCursors.remove(channelId);
+    site.lastThreadReplyIds.remove(channelId);
     site.newMentionCursors.remove(channelId);
     site.kickCursors.remove(channelId);
     site.rootMessageCursors.remove(channelId);
@@ -436,6 +441,7 @@ final class ChatLiveSyncCoordinator {
     final site = _sites[siteUrl];
     if (site == null) return;
     site.newMessageCursors.remove(channelId);
+    site.lastThreadReplyIds.remove(channelId);
     site.newMentionCursors.remove(channelId);
     site.kickCursors.remove(channelId);
     site.rootMessageCursors.remove(channelId);
@@ -1144,7 +1150,7 @@ final class ChatLiveSyncCoordinator {
         lastId: entry.value,
 
         onMessage: (data, messageId) {
-          _applyNewMessage(site.siteUrl, channelId, data);
+          _applyNewMessage(site, channelId, data);
         },
         onDelivered: (messageId) {
           if (site.newMessageCursors.containsKey(channelId)) {
@@ -1501,9 +1507,11 @@ final class ChatLiveSyncCoordinator {
         level != ChatThreadNotificationLevel.muted;
   }
 
-  void _applyNewMessage(String siteUrl, int channelId, Object? data) {
+  void _applyNewMessage(_ChatLiveSite site, int channelId, Object? data) {
     if (data is! Map<String, dynamic>) return;
-    if (data['type'] != 'channel' && data['type'] != 'thread') return;
+    final isThreadReply = data['type'] == 'thread';
+    if (!isThreadReply && data['type'] != 'channel') return;
+    final siteUrl = site.siteUrl;
     if (jsonIntOrNull(data['channel_id']) != channelId) return;
     final payload = data['message'];
     if (payload is! Map<String, dynamic>) return;
@@ -1520,21 +1528,25 @@ final class ChatLiveSyncCoordinator {
 
     final held = _host.channelFor(siteUrl, channelId);
     if (held == null) return;
-    if (data['type'] == 'thread' &&
+    if (isThreadReply &&
         !held.threadingEnabled &&
         data['force_thread'] != true) {
       return;
     }
-    final repeatsSnapshot = consumeFirstMessageReplay(
-      siteUrl,
-      channelId,
-      messageId,
-      held.lastMessageId,
-    );
-    if (!repeatsSnapshot &&
-        held.lastMessageId != null &&
-        messageId <= held.lastMessageId!) {
-      return;
+    final threadId = jsonIntOrNull(data['thread_id']);
+    if (isThreadReply) {
+      if (threadId == null) return;
+      final replies = site.lastThreadReplyIds.putIfAbsent(channelId, () => {});
+      if (messageId <= (replies[threadId] ?? 0)) return;
+      replies[threadId] = messageId;
+    } else {
+      final repeatsSnapshot = consumeFirstMessageReplay(
+        siteUrl,
+        channelId,
+        messageId,
+        held.lastMessageId,
+      );
+      if (!repeatsSnapshot && messageId <= (held.lastMessageId ?? 0)) return;
     }
 
     final currentUser = _host.currentUserFor(siteUrl);
@@ -1547,7 +1559,7 @@ final class ChatLiveSyncCoordinator {
         currentUser?.ignoredUsernames.contains(authorUsername) == true;
     var markRead = false;
     var incrementUnread = false;
-    if (data['type'] == 'channel') {
+    if (!isThreadReply) {
       if (fromSelf || fromIgnored) {
         markRead = true;
       } else if (currentUser?.id != null &&
@@ -1556,7 +1568,6 @@ final class ChatLiveSyncCoordinator {
       }
     }
 
-    final threadId = jsonIntOrNull(data['thread_id']);
     final foundThread = threadId == null
         ? null
         : _host.threadFor(siteUrl, threadId);
@@ -1629,6 +1640,7 @@ final class ChatLiveSyncCoordinator {
       threadMembershipKnown: threadMembership != null,
       forceThread: data['force_thread'] == true,
       incrementWatchedThreadUnread: watchedThreadUnread,
+      updateLastMessage: !isThreadReply,
     );
     if (markThreadUnread && isViewingChannel(siteUrl, channelId)) {
       updated = _viewedNow(updated);
@@ -1636,7 +1648,7 @@ final class ChatLiveSyncCoordinator {
 
     _host.putChannel(siteUrl, updated);
     _host.publishNotificationChange(siteUrl, held, updated);
-    if (data['type'] == 'channel') {
+    if (!isThreadReply) {
       _host.admitActivityMessage(
         siteUrl,
         channelId,
@@ -1645,9 +1657,7 @@ final class ChatLiveSyncCoordinator {
     }
     _host.notifyCanonicalChange();
 
-    final site = _sites[siteUrl];
-    if (site != null &&
-        threadId != null &&
+    if (threadId != null &&
         heldThread == null &&
         !canProjectWithoutHeldDetail &&
         (held.threadingEnabled || data['force_thread'] == true) &&
@@ -1840,6 +1850,8 @@ final class _ChatLiveSite {
   bool presenceResyncing = false;
 
   Map<int, int?> newMessageCursors = {};
+  // Each thread has its own replay position within the channel.
+  final Map<int, Map<int, int>> lastThreadReplyIds = {};
   Map<int, int?> newMentionCursors = {};
   Map<int, int?> kickCursors = {};
   Map<int, int?> rootMessageCursors = {};
@@ -1895,6 +1907,9 @@ final class _ChatLiveSite {
       ..userHasThreadsCursorSet = userHasThreadsCursorSet
       ..hasChannelSnapshot = hasChannelSnapshot;
     replacement.awaitingFirstMessage.addAll(awaitingFirstMessage);
+    for (final entry in lastThreadReplyIds.entries) {
+      replacement.lastThreadReplyIds[entry.key] = Map.of(entry.value);
+    }
     for (final entry in activeChannelViews.entries) {
       replacement.activeChannelViews[entry.key] = {...entry.value};
     }

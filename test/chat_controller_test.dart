@@ -2609,10 +2609,53 @@ void main() {
         expect(inactive.unreadThreadsCountSinceLastViewed, 1);
         expect(inactive.badge.dot, isTrue);
         expect(inactive.badge.urgent, isFalse);
+        final replacement = attachTracker(subject.chat);
+        replacement.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 60,
+            authorId: 2,
+            createdAt: '2026-08-08T13:00:00.000Z',
+            type: 'thread',
+            threadId: 31,
+          ),
+        );
+        expect(
+          subject.chat.channel(site, 12)?.unreadThreadOverview[31],
+          DateTime.utc(2026, 8, 8, 15),
+        );
         expect(subject.chat.unstarredDirectChannels(site).map((c) => c.id), [
           12,
           13,
         ]);
+
+        replacement.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 100,
+            authorId: 2,
+            createdAt: '2026-08-08T15:00:30.000Z',
+          ),
+        );
+        replacement.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 65,
+            authorId: 2,
+            createdAt: '2026-08-08T14:00:00.000Z',
+            type: 'thread',
+            threadId: 30,
+          ),
+        );
+        final afterDelayedReply = subject.chat.channel(site, 12)!;
+        expect(afterDelayedReply.lastMessageId, 100);
+        expect(
+          afterDelayedReply.unreadThreadOverview[30],
+          DateTime.utc(2026, 8, 8, 14),
+        );
       },
     );
 
@@ -13379,6 +13422,8 @@ void main() {
       final replied = subject.chat.channel(site, 9)!;
       expect(replied.unreadThreadOverview, {31: DateTime.utc(2026, 8, 8, 13)});
       expect(replied.unreadThreadsCountSinceLastViewed, 1);
+      expect(replied.lastMessageId, 3);
+      expect(replied.lastMessageAt, DateTime.utc(2026, 5, 5, 10, 2));
       expect(replied.badge.dot, isTrue);
     });
 

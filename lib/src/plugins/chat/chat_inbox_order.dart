@@ -106,8 +106,8 @@ List<ChatChannel> chatInboxNewFirst(
   return [...led(fresh), ...led(read), ...muted];
 }
 
-/// [channels] already follows actual message and unread-thread activity, so
-/// each part taken from it in order stays the most recent first.
+/// [channels] already follows the latest channel messages, so each part
+/// stays in newest-first order.
 ///
 /// Every group leads with what is new and closes with what is muted. The one
 /// list also leads each of its new and read parts with what is starred, as no

@@ -381,9 +381,9 @@ void main() {
         );
 
         for (final entry in {
-          ChatInboxKind.all: [1, 2, 7, 3, 6, 8, 4],
+          ChatInboxKind.all: [2, 7, 3, 6, 8, 4, 1],
           ChatInboxKind.channels: [7, 3, 6, 4],
-          ChatInboxKind.directMessages: [1, 2, 8],
+          ChatInboxKind.directMessages: [2, 8, 1],
           ChatInboxKind.voiceRooms: <int>[],
         }.entries) {
           expect(
@@ -403,7 +403,7 @@ void main() {
             _site,
             const ChatInboxFilter(),
           ).map((channel) => channel.id),
-          [1, 2, 8],
+          [2, 8, 1],
         );
         expect(
           chatInboxConversations(
@@ -446,7 +446,7 @@ void main() {
       expect(overview.visits, 0);
     });
 
-    test('bounds thread scans to one activity read', () async {
+    test('orders channel messages without scanning thread activity', () async {
       final overviews = [
         for (var i = 0; i < 8; i++)
           CountingThreadOverview({
@@ -487,15 +487,15 @@ void main() {
           _site,
           const ChatInboxFilter(),
         ).map((channel) => channel.id),
-        [7, 5, 3, 1, 8, 6, 4, 2],
+        [8, 7, 6, 5, 4, 3, 2, 1],
       );
       for (var i = 0; i < overviews.length; i++) {
-        expect(overviews[i].visits, 3, reason: 'Channel ${i + 1}');
+        expect(overviews[i].visits, 0, reason: 'Channel ${i + 1}');
       }
     });
 
     test(
-      'fresh projections reflect mutable threads and replaced rows',
+      'thread changes keep order and message updates replace rows',
       () async {
         final overview = {10: DateTime.utc(2026, 10, 1)};
         final older = ChatChannel(
@@ -526,14 +526,13 @@ void main() {
 
         overview[10] = DateTime.utc(2026, 10, 5);
         final afterThread = chatInboxConversations(subject.chat, _site, all);
-        expect(afterThread.map((channel) => channel.id), [1, 2]);
-        expect(afterThread.first, same(older));
+        expect(afterThread, [newer, older]);
 
         final edited = older.withLastMessagePreview('Edited preview');
         subject.store.put(_site, edited);
         final afterPreview = chatInboxConversations(subject.chat, _site, all);
-        expect(afterPreview.first, same(edited));
-        expect(afterPreview.first.lastMessagePreview, 'Edited preview');
+        expect(afterPreview.last, same(edited));
+        expect(afterPreview.last.lastMessagePreview, 'Edited preview');
 
         subject.store.put(
           _site,
@@ -599,7 +598,7 @@ void main() {
       expect(chatInboxActivityAt(channel), isNull);
     });
 
-    test('uses real thread activity instead of a placeholder timestamp', () {
+    test('does not give a conversation without a message a time', () {
       final threadAt = DateTime.utc(2026, 9, 26);
       final channel = ChatChannel(
         id: 9,
@@ -609,27 +608,20 @@ void main() {
         unreadThreadOverview: {10: threadAt},
       );
 
-      expect(chatInboxActivityAt(channel), threadAt);
+      expect(chatInboxActivityAt(channel), isNull);
     });
 
-    test('uses the newest message or unread thread timestamp', () {
-      final latest = DateTime.utc(2026, 9, 27);
-      final older = DateTime.utc(2026, 9, 26);
-      for (final messageIsNewest in [false, true]) {
-        final channel = ChatChannel(
-          id: 9,
-          title: 'General',
-          kind: ChatChannelKind.category,
-          lastMessageId: 50,
-          lastMessageAt: messageIsNewest ? latest : older,
-          unreadThreadOverview: {
-            10: messageIsNewest ? older : latest,
-            11: DateTime.utc(2026, 9, 25),
-          },
-        );
-
-        expect(chatInboxActivityAt(channel), latest);
-      }
+    test('a newer thread reply leaves the channel message time intact', () {
+      final messageAt = DateTime.utc(2026, 9, 26);
+      final channel = ChatChannel(
+        id: 9,
+        title: 'General',
+        kind: ChatChannelKind.category,
+        lastMessageId: 50,
+        lastMessageAt: messageAt,
+        unreadThreadOverview: {10: DateTime.utc(2026, 9, 27)},
+      );
+      expect(chatInboxActivityAt(channel), messageAt);
     });
   });
 }
