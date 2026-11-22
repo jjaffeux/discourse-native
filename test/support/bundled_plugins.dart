@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugins/data_explorer/data_explorer_module.
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
+import 'package:discourse_native/src/plugins/discourse_graphviz/discourse_graphviz_module.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_module.dart';
 import 'package:discourse_native/src/plugins/discourse_math/discourse_math_module.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/discourse_mermaid_module.dart';
@@ -49,6 +50,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   discourseGithubModule,
   discourseLazyVideosModule,
   discourseMermaidModule,
+  discourseGraphvizModule,
   discourseMathModule,
   discoursePlaceholderModule,
   const ReactionsModule(apiFactory: _reactionsApis),

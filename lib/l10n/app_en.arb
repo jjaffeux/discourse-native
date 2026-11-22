@@ -931,6 +931,10 @@
   "@mermaidDiagram": {
     "description": "English UI message used by ui/components/d_mermaid.dart. Keep placeholders intact."
   },
+  "graphvizDiagram": "Graphviz diagram",
+  "@graphvizDiagram": {
+    "description": "Accessible name and dialog title for a Graphviz diagram."
+  },
   "copySource": "Copy source",
   "@copySource": {
     "description": "English UI message used by ui/components/d_mermaid.dart. Keep placeholders intact."

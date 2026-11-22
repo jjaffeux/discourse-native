@@ -8,6 +8,7 @@ import 'data_explorer/data_explorer_module.dart';
 import 'discourse_ai/discourse_ai_module.dart';
 import 'discourse_events/discourse_events_module.dart';
 import 'discourse_github/discourse_github_module.dart';
+import 'discourse_graphviz/discourse_graphviz_module.dart';
 import 'discourse_lazy_videos/discourse_lazy_videos_module.dart';
 import 'discourse_math/discourse_math_module.dart';
 import 'discourse_mermaid/discourse_mermaid_module.dart';
@@ -34,6 +35,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   discourseGithubModule,
   discourseLazyVideosModule,
   discourseMermaidModule,
+  discourseGraphvizModule,
   discourseMathModule,
   discoursePlaceholderModule,
   reactionsModule,

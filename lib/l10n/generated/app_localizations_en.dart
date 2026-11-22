@@ -938,6 +938,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mermaidDiagram => 'Mermaid diagram';
 
   @override
+  String get graphvizDiagram => 'Graphviz diagram';
+
+  @override
   String get copySource => 'Copy source';
 
   @override

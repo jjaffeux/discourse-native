@@ -142,7 +142,8 @@
       ],
       "pre": [
         "data-code-wrap",
-        "data-code-height"
+        "data-code-height",
+        "data-code-engine"
       ]
     }
   },

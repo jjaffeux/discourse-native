@@ -1,7 +1,7 @@
 {
   "discourseRevision": "f18a1985b22e5d4c0a0fffd6f91812105467afdb",
   "buildScriptSha256": "0c559e1ce36362831b7a6ed1429320a38750f8767a97ce613098fdc351c1c860",
-  "bundleSha256": "f160f16bd99d391033dfc5fa08d4cfc0108be427a6562d17a4519d3e874268e5",
+  "bundleSha256": "6aabb9c3bfa83764915e59d22447e0e642650233226778d8c84bacc89221a570",
   "vendorManifestSha256": "bf69e4fc98008ea8c5e52f9e399245e4958fd651ec6200a08ea26d04e05fd7ec",
   "npmLockSha256": "f588aa0d8c0eae4190f9cecaf3cde3bb127349d5fbc1cd5bc12c264c1add8db2",
   "moduleAssemblySha256": "06755409c319dc990567bd644f032908d0df6ed1930ffa24cb1ee4d45edd9348",
@@ -9,7 +9,7 @@
   "pluginSourceManifests": {
     "lib/src/plugins/policy/tool/cooking/module.json": "c6c6dc90e1d955b96a9b853e8160fd49149e7f1f760e2538cb2c63f321ec58b4"
   },
-  "moduleCatalogSha256": "4a0d1cd2c4ac00afe5ead6e5cb9c7d403026c3d17c5cccdde021a20d3fa315fd",
+  "moduleCatalogSha256": "909923c905d2b7c9940cdf827318329fb058171285757534cace80830e0403f5",
   "inputs": {
     "../../../lib/src/plugins/policy/tool/cooking/policy.js": "9e1b416ceb18b7407d9f7bedff703a5fb2de6be535747586d326965c487b5712",
     "../../../lib/src/plugins/policy/tool/cooking/upstream-policy.js": "70c64078143ca9ee4e6898bdf31c7b58d695c44b41f2a6eeb1a282dc794493e8",

@@ -1732,6 +1732,12 @@ abstract class AppLocalizations {
   /// **'Mermaid diagram'**
   String get mermaidDiagram;
 
+  /// Accessible name and dialog title for a Graphviz diagram.
+  ///
+  /// In en, this message translates to:
+  /// **'Graphviz diagram'**
+  String get graphvizDiagram;
+
   /// English UI message used by ui/components/d_mermaid.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
