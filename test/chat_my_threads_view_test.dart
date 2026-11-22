@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_thread_channel_filter.dar
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -243,41 +244,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('thread badges show ordinary or urgent counts and cap at 99+', (
-    tester,
-  ) async {
-    final api = FakeDiscourseApi(
-      user: _user,
-      chatChannelsBySite: _joinedChannels,
-      chatChannelThreadPagesByKey: {
-        FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
-          threads: [
-            _thread(1).copyWith(tracking: const ChatTracking(unreadCount: 7)),
-            _thread(2).copyWith(
-              tracking: const ChatTracking(
-                unreadCount: 20,
-                mentionCount: 2,
-                watchedThreadsUnreadCount: 3,
+  testWidgets(
+    'thread badges count unread replies without counting mentions twice',
+    (tester) async {
+      final phone = defaultTargetPlatform == TargetPlatform.iOS;
+      tester.view.physicalSize = phone
+          ? const Size(390, 844)
+          : const Size(1200, 850);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await prepareNativeUiEvidence(tester);
+      final api = FakeDiscourseApi(
+        user: _user,
+        chatChannelsBySite: _joinedChannels,
+        chatChannelThreadPagesByKey: {
+          FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+            threads: [
+              _thread(1).copyWith(
+                tracking: const ChatTracking(unreadCount: 7, mentionCount: 1),
               ),
-            ),
-            _thread(3).copyWith(tracking: const ChatTracking(unreadCount: 123)),
-            _thread(4),
-          ],
-        ),
-      },
-    );
-    await _pump(tester, api);
-    for (final (id, label) in [(1, '7'), (2, '5'), (3, '99+')]) {
-      final badge = find.byKey(ValueKey('chat-my-thread-unread-$id'));
-      expect(
-        find.descendant(of: badge, matching: find.text(label)),
-        findsOneWidget,
+              _thread(2).copyWith(
+                tracking: const ChatTracking(
+                  watchedThreadsUnreadCount: 3,
+                  mentionCount: 2,
+                ),
+              ),
+              _thread(
+                3,
+              ).copyWith(tracking: const ChatTracking(unreadCount: 123)),
+              _thread(
+                4,
+              ).copyWith(tracking: const ChatTracking(mentionCount: 2)),
+              _thread(5),
+            ],
+          ),
+        },
       );
-      expect(tester.widget(badge), isA<DBadge>());
-    }
-    expect(find.byKey(const ValueKey('chat-my-thread-unread-4')), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      await _pump(tester, api);
+      await captureNativeUi(
+        tester,
+        'thread-reply-badges-${phone ? 'phone' : 'desktop'}',
+      );
+
+      for (final (id, label) in [(1, '7'), (2, '3'), (3, '99+'), (4, '2')]) {
+        final badge = find.byKey(ValueKey('chat-my-thread-unread-$id'));
+        expect(
+          find.descendant(of: badge, matching: find.text(label)),
+          findsOneWidget,
+          reason: 'thread $id should show $label',
+        );
+        expect(tester.widget(badge), isA<DBadge>());
+      }
+      expect(
+        find.byKey(const ValueKey('chat-my-thread-unread-5')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
+  );
 
   testWidgets('threads with new replies lead, newest first across channels', (
     tester,

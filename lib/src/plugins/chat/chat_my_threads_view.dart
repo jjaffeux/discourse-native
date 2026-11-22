@@ -275,11 +275,13 @@ class ChatBrowseThreadRow extends StatelessWidget {
             ? _text(original?.excerpt) ?? _text(original?.message)
             : null) ??
         context.l10n.noRepliesYetChatmythreadsview;
-    final unread = thread.hasNewReplies;
     final tracking = thread.tracking;
-    final urgent = tracking.mentionCount + tracking.watchedThreadsUnreadCount;
-    // ChatThreadUnreadIndicator prefers urgent counts to ordinary unreads.
-    final count = urgent > 0 ? urgent : tracking.unreadCount;
+    // The server splits unread replies by notification level. Mentions can
+    // be among those replies, or the only count for a mentions-only thread.
+    final unreadReplies =
+        tracking.unreadCount + tracking.watchedThreadsUnreadCount;
+    final count = unreadReplies > 0 ? unreadReplies : tracking.mentionCount;
+    final unread = count > 0;
     final time = chatTimeFor(context, siteUrl);
     final repliedAt =
         preview?.lastReplyAt ?? (preview == null ? original?.createdAt : null);
