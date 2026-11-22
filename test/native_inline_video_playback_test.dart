@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:discourse_native/discourse_ui.dart'
     show DButton, DSlider, DSpinner;
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/oneboxes/audio.dart';
@@ -29,6 +30,34 @@ void main() {
       VideoPlayerPlatform.instance = previous;
     });
   });
+
+  testWidgets('Android plays an uploaded video inline from a cooked post', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: CookedHtml(
+            siteUrl: 'https://forum.example',
+            html: '''
+                <div class="video-placeholder-container"
+                  data-video-src="/uploads/demo.mp4"
+                  data-video-title="Demo"></div>
+              ''',
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Play video: Demo'));
+    await tester.pumpAndSettle();
+
+    expect(platform.sources, ['https://forum.example/uploads/demo.mp4']);
+    expect(platform.plays, [0]);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await platform.disposed(0);
+  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
 
   testWidgets(
     'a local video gallery reuses playback controls and disables image zoom',

@@ -143,15 +143,12 @@ InlineVideoPlaybackSession createInlineVideoPlaybackSession(
 }) {
   final selectedPlatform = platform ?? defaultTargetPlatform;
   switch (selectedPlatform) {
+    case TargetPlatform.android:
     case TargetPlatform.iOS:
     case TargetPlatform.macOS:
       return _NativeInlineVideoPlaybackSession(request);
     case TargetPlatform.linux:
       return _WebViewInlineVideoPlaybackSession(request);
-    case TargetPlatform.android:
-      return request.source.scheme == 'file'
-          ? _NativeInlineVideoPlaybackSession(request)
-          : _UnsupportedInlineVideoPlaybackSession(request, selectedPlatform);
     case TargetPlatform.fuchsia:
     case TargetPlatform.windows:
       return _UnsupportedInlineVideoPlaybackSession(request, selectedPlatform);
