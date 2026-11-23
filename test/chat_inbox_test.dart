@@ -68,8 +68,9 @@ void main() {
           id: 11,
           channelId: 1,
           threadId: 77,
-          cooked: '<p>Thread reply</p>',
+          cooked: '<p>Thread starter</p>',
           author: ChatMessageAuthor(id: 5, username: 'sam'),
+          thread: ChatThreadPreview(threadId: 77, replyCount: 1),
         ),
         const ChatMessage(
           id: 12,

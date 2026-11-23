@@ -21,6 +21,8 @@ import 'package:discourse_native/src/plugins/chat/chat_reader_time.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -388,6 +390,14 @@ void main() {
       size: const Size(390, 844),
       brightness: Brightness.dark,
       platform: TargetPlatform.iOS,
+      chatThreads: {
+        FakeDiscourseApi.chatThreadKey(2, 77): const ChatThread(
+          id: 77,
+          channelId: 2,
+          status: 'open',
+          replyCount: 1,
+        ),
+      },
       chatMessages: {
         FakeDiscourseApi.chatMessagesKey(2): (
           messages: [
@@ -397,16 +407,38 @@ void main() {
               cooked: '<p>Sam shared the design sketches</p>',
               author: const ChatMessageAuthor(id: 9, username: 'sam'),
               createdAt: matchedAt,
+              threadId: 77,
+              thread: const ChatThreadPreview(threadId: 77, replyCount: 1),
             ),
           ],
           canLoadMorePast: false,
           canLoadMoreFuture: true,
           targetMessageId: null,
         ),
+        'thread-2-77': (
+          messages: [
+            ChatMessage(
+              id: 201,
+              channelId: 2,
+              cooked: '<p>A zebra in the design thread</p>',
+              author: const ChatMessageAuthor(id: 22, username: 'bo'),
+              createdAt: matchedAt.add(const Duration(minutes: 1)),
+              threadId: 77,
+            ),
+          ],
+          canLoadMorePast: false,
+          canLoadMoreFuture: false,
+          targetMessageId: null,
+        ),
       },
     );
     await fixture.chat.openChannel(_site, 2);
-    expect(fixture.chat.message(_site, 199), isNotNull);
+    await fixture.chat.openThread(
+      _site,
+      const ChatThreadTarget(channelId: 2, threadId: 77),
+    );
+    expect(fixture.chat.message(_site, 199)?.thread?.threadId, 77);
+    expect(fixture.chat.message(_site, 201)?.threadId, 77);
     await fixture.show(const ChatMobileSidebar(siteUrl: _site));
     expect(_in(2, find.text('Ready for the next review')), findsOneWidget);
     await tester.enterText(
@@ -427,7 +459,7 @@ void main() {
     expect(
       _in(2, find.text('Sam shared the design sketches', findRichText: true)),
       findsOneWidget,
-      reason: 'A name match also shows an earlier message that matches',
+      reason: 'The channel transcript includes the thread starter',
     );
     final rowContext = tester.element(_row(2));
     final matchedDate = MaterialLocalizations.of(
@@ -466,6 +498,7 @@ void main() {
       'zebra',
     );
     await tester.pumpAndSettle();
+    await captureNativeUi(tester, 'page-thread-reply-query');
     expect(find.text('None of your chats match “zebra”'), findsOneWidget);
     expect(find.text('Results'), findsNothing);
     await tester.tap(browse);
@@ -715,6 +748,7 @@ Future<_Fixture> _pump(
   Brightness brightness = Brightness.light,
   TargetPlatform platform = TargetPlatform.macOS,
   Map<String, ChatMessagePage> chatMessages = const {},
+  Map<String, ChatThread> chatThreads = const {},
   List<ChatChannel>? publicChannels,
 }) async {
   await tester.binding.setSurfaceSize(size);
@@ -724,6 +758,7 @@ Future<_Fixture> _pump(
     totals: chatNotificationTotals(),
     siteConfigs: {_site: _config},
     chatMessagesByKey: chatMessages,
+    chatThreadsByKey: chatThreads,
     chatChannelsBySite: {
       _site: ChatChannels(
         public: publicChannels ?? _public(),

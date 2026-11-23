@@ -191,14 +191,20 @@ void main() {
     );
   });
   test(
-    'chat extraction stays lazy for blank, deleted and excluded messages',
+    'chat extraction skips messages outside the searchable transcript',
     () async {
       final fixture = await roundThreeChatFixture(messages: 0);
       addTearDown(fixture.chat.dispose);
       final empty = CountedChatMessage(1, cooked: '');
       final excluded = CountedChatMessage(2, channelId: 999);
       final deleted = CountedChatMessage(3, deletedAt: DateTime.utc(2026));
-      fixture.store.putAll(roundThreeSite, [empty, excluded, deleted]);
+      final threadReply = CountedChatMessage(4, threadId: 77);
+      fixture.store.putAll(roundThreeSite, [
+        empty,
+        excluded,
+        deleted,
+        threadReply,
+      ]);
       fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, ' \t ');
       expect(
         fixture.chat
@@ -209,7 +215,10 @@ void main() {
             .channels,
         hasLength(10),
       );
-      expect(empty.cookedReads + excluded.cookedReads + deleted.cookedReads, 0);
+      expect(
+        [empty, excluded, deleted, threadReply].map((m) => m.cookedReads),
+        everyElement(0),
+      );
       for (var i = 0; i < 10; i++) {
         fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, 'channel');
         expect(
@@ -224,8 +233,9 @@ void main() {
       }
       expect(excluded.cookedReads, 0);
       expect(deleted.cookedReads, 0);
-      // Every chat is found by its name, so nothing said in them is read.
-      if (!baseline) expect(empty.cookedReads, 0);
+      expect(threadReply.cookedReads, 0);
+      // Name matches look for a matching excerpt; cache the empty result too.
+      if (!baseline) expect(empty.cookedReads, 1);
     },
   );
 }
@@ -236,6 +246,7 @@ class CountedChatMessage extends ChatMessage {
     super.cooked = '<p>Keyboard &amp; focus</p>',
     super.channelId = 1,
     super.deletedAt,
+    super.threadId,
   }) : super(
          id: id,
          author: const ChatMessageAuthor(id: 1, username: 'reader'),

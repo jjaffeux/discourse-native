@@ -1002,8 +1002,9 @@ class ChatController extends FrameSafeNotifier {
   /// them or by whom. Either kind of result uses the latest matching line
   /// when there is one.
   ///
-  /// What was said is read from the directory excerpt and the messages this
-  /// client retains, including loaded thread replies and local sends.
+  /// What was said is read from the directory excerpt and the channel
+  /// transcript this client retains, including thread starters and local
+  /// channel sends.
   ChatInboxResults findConversations(String siteUrl, String query) {
     final channels = inboxConversations(
       siteUrl,
@@ -1037,7 +1038,11 @@ class ChatController extends FrameSafeNotifier {
       lineMessages[channel.id] = channel.lastMessageId ?? 0;
     }
     for (final message in _store.retainedRecords<ChatMessage>(siteUrl)) {
-      if (message == null || message.isDeleted) continue;
+      if (message == null ||
+          message.isDeleted ||
+          (message.threadId != null && message.thread == null)) {
+        continue;
+      }
       if (!listedIds.contains(message.channelId) ||
           !later(message.id, lineMessages[message.channelId])) {
         continue;
