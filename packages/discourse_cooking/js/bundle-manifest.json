@@ -1,8 +1,8 @@
 {
   "discourseRevision": "f18a1985b22e5d4c0a0fffd6f91812105467afdb",
   "buildScriptSha256": "0c559e1ce36362831b7a6ed1429320a38750f8767a97ce613098fdc351c1c860",
-  "bundleSha256": "6aabb9c3bfa83764915e59d22447e0e642650233226778d8c84bacc89221a570",
-  "vendorManifestSha256": "bf69e4fc98008ea8c5e52f9e399245e4958fd651ec6200a08ea26d04e05fd7ec",
+  "bundleSha256": "88f7f4b2d8076e69d2492532f70d63783223466a65bde0d8cc11336c61d87c25",
+  "vendorManifestSha256": "869a07fd669b4442b14be22b37bc22fc7212600b7200dec871d829042d7ced07",
   "npmLockSha256": "f588aa0d8c0eae4190f9cecaf3cde3bb127349d5fbc1cd5bc12c264c1add8db2",
   "moduleAssemblySha256": "06755409c319dc990567bd644f032908d0df6ed1930ffa24cb1ee4d45edd9348",
   "moduleSourceResolverSha256": "46b235e3aa1a2ab3486098aa0c0033ad4b25bb1175ead3045e1b4ae5376fd7c8",
@@ -145,7 +145,7 @@
     "vendor/plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-post-event-block.js": "5197af23c126ea1d1229bb0fb1ad894f6092218f41547d55913d721ce13e534d",
     "vendor/plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/livestream-preview.js": "9d60a168e8e501fbdbf7d223d33f6d59d09a8bf8ab907281e90b70e6ab4082e4",
     "vendor/plugins/discourse-local-dates/assets/javascripts/lib/discourse-markdown/discourse-local-dates.js": "13c4f16ca2de36b2900de5fae13e04fb28ca2a4c48aa3a73df058712ad7d3653",
-    "vendor/plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js": "00cf4270260aba35fb7037c96722637b05007a79efd9aa532fbcf00a878c2df2",
+    "vendor/plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js": "6af1bef284740f28fdc66373388c1c6abd703bd5c4043e78f2d6a12ab64104bd",
     "vendor/plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js": "35e119043e8cf87da16c199bc00325f58784ef453a6bcf8a9f53d4cb1619bca2",
     "vendor/plugins/spoiler-alert/assets/javascripts/lib/discourse-markdown/spoiler-alert.js": "ff60240fed180297ab7e1cef10efbc0619bf38ca975e9f3f55c168dbd265f378"
   }

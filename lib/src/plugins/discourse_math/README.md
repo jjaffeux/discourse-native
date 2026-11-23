@@ -6,7 +6,7 @@ only the public SDK and Native component library. No Math fields are added to
 core site configuration or reader/composer controllers.
 
 The cooking parser is the unchanged upstream source at
-`96ce8d44401a8a568ecc71561c26dca8ec6bfeb8`. Its hash and revision live in the
+`03b6e7612762078710dd885a43589dbc6c603bb7`. Its hash and revision live in the
 cooking provenance manifest. The adapter enables its own feature flags in
 restricted Chat profiles. Cooking, including quotes/lists, HTML escaping,
 Unicode punctuation, currency, and incomplete multiline blocks, follows that

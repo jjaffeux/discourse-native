@@ -61,9 +61,9 @@
     "plugins/poll/spec/lib/pretty_text_spec.rb": "1aedfefe4115191cdd3fbcf5130dcb33a1419ab239b411fa474b8ef6cde9ac94",
     "plugins/spoiler-alert/assets/javascripts/lib/discourse-markdown/spoiler-alert.js": "ff60240fed180297ab7e1cef10efbc0619bf38ca975e9f3f55c168dbd265f378",
     "pnpm-lock.yaml": "969114736212a4ce30f368b927fe714534274ee82f2e42b37e8e9be25743e18a",
-    "plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js": "00cf4270260aba35fb7037c96722637b05007a79efd9aa532fbcf00a878c2df2"
+    "plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js": "6af1bef284740f28fdc66373388c1c6abd703bd5c4043e78f2d6a12ab64104bd"
   },
   "featureRevisions": {
-    "discourse-math": "96ce8d44401a8a568ecc71561c26dca8ec6bfeb8"
+    "discourse-math": "03b6e7612762078710dd885a43589dbc6c603bb7"
   }
 }

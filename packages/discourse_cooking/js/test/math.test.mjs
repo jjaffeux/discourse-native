@@ -25,6 +25,10 @@ test('display delimiters and incomplete multiline follow upstream',()=>{
   assert.match(cook('Before\n$$\nx+1\nAfter'),/x\+1\nAfter/);
   assert.doesNotMatch(cook('\\(x\\)',{discourse_math_enable_latex_delimiters:false}),/class="math"/);
 });
+test('multiline display math strips quote markers and list indentation',()=>{
+  assert.match(cook('> $$\n> a\n> b\n> $$'),/<blockquote>\s*<div class="math">\na\nb\n<\/div>\s*<\/blockquote>/);
+  assert.match(cook('- $$\n  a\n  b\n  $$'),/<div class="math">\na\nb\n<\/div>/);
+});
 test('provider, enablement and profile remain isolated per request',()=>{
   assert.match(cook('%sqrt(x)%',{discourse_math_enable_asciimath:true}),/asciimath/);
   assert.doesNotMatch(cook('%sqrt(x)%',{discourse_math_enable_asciimath:true,discourse_math_provider:'katex'}),/asciimath/);
