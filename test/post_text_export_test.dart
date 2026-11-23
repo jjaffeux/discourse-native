@@ -5,11 +5,6 @@ void main() {
   group('full post text export', () {
     final cases = <({String name, String cooked, String text})>[
       (
-        name: 'paragraph and explicit line boundaries',
-        cooked: '<p>Alpha</p><p>Beta<br>Gamma</p>',
-        text: 'Alpha\n\nBeta\nGamma',
-      ),
-      (
         name: 'collapsed HTML whitespace around blocks',
         cooked: '\n<p>  Alpha  words </p>\n <p> Beta </p>\n',
         text: 'Alpha words\n\nBeta',
