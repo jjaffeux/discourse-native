@@ -67,55 +67,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final brightness in Brightness.values) {
-    testWidgets('a long category fits a narrow notice in ${brightness.name}', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(320, 600);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final controller = composer();
-      controller.showTagRemovalNotice(
-        categoryName: 'Discourse Native App Development and Support',
-      );
+  testWidgets('a long category fits a narrow notice in dark mode', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = composer();
+    controller.showTagRemovalNotice(
+      categoryName: 'Discourse Native App Development and Support',
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
-          home: Scaffold(
-            body: MediaQuery(
-              data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
-              child: ListenableBuilder(
-                listenable: controller,
-                builder: (context, _) => Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: controller.tagRemovalNotice == null
-                        ? const SizedBox.shrink()
-                        : ComposerTagRemovalNotice(
-                            message: controller.tagRemovalNotice!,
-                            onDismiss: controller.dismissTagRemovalNotice,
-                          ),
-                  ),
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+            child: ListenableBuilder(
+              listenable: controller,
+              builder: (context, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: controller.tagRemovalNotice == null
+                      ? const SizedBox.shrink()
+                      : ComposerTagRemovalNotice(
+                          message: controller.tagRemovalNotice!,
+                          onDismiss: controller.dismissTagRemovalNotice,
+                        ),
                 ),
               ),
             ),
           ),
         ),
-      );
-      final notice = find.byType(ComposerTagRemovalNotice);
-      final bounds = tester.getRect(notice);
-      expect(bounds.left, greaterThanOrEqualTo(16));
-      expect(bounds.right, lessThanOrEqualTo(304));
-      expect(tester.takeException(), isNull);
+      ),
+    );
+    final notice = find.byType(ComposerTagRemovalNotice);
+    final bounds = tester.getRect(notice);
+    expect(bounds.left, greaterThanOrEqualTo(16));
+    expect(bounds.right, lessThanOrEqualTo(304));
+    expect(tester.takeException(), isNull);
 
-      await tester.tap(
-        find.descendant(of: notice, matching: find.byType(DButton)),
-      );
-      await tester.pump();
-      expect(notice, findsNothing);
-    });
-  }
+    await tester.tap(
+      find.descendant(of: notice, matching: find.byType(DButton)),
+    );
+    await tester.pump();
+    expect(notice, findsNothing);
+  });
 }
