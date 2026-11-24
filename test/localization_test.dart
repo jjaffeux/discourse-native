@@ -34,6 +34,8 @@ void main() {
     expect(countLabel(0, CountNoun.reply), '0 replies');
     expect(countLabel(1, CountNoun.reply), '1 reply');
     expect(countLabel(2, CountNoun.reply), '2 replies');
+    expect(countLabel(1, CountNoun.person), '1 person');
+    expect(countLabel(3, CountNoun.person), '3 people');
     expect(countLabel(1204, CountNoun.click, number: '1,204'), '1,204 clicks');
     expect(appL10n.namedReactions(1, 'heart'), '1 heart reaction');
     expect(appL10n.namedReactions(3, 'heart'), '3 heart reactions');
