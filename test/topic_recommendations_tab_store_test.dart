@@ -37,6 +37,10 @@ void main() {
       await store.read(siteUrl: 'https://team.discourse.org'),
       coreSuggestedTopicRecommendationSourceId,
     );
+    expect(
+      await store.read(siteUrl: 'https://meta.discourse.org'),
+      const TopicRecommendationSourceId('test/popular'),
+    );
   });
 
   test('core migrates only its legacy suggested tab name', () async {

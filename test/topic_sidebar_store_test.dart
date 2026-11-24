@@ -22,6 +22,7 @@ void main() {
 
     expect(await store.read(siteUrl: 'https://meta.discourse.org'), isTrue);
     expect(await store.read(siteUrl: 'https://team.discourse.org'), isFalse);
+    expect(await store.read(siteUrl: 'https://meta.discourse.org'), isTrue);
   });
 
   test('a replacement store reads after an accepted write', () async {
