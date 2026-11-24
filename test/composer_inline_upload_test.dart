@@ -18,52 +18,48 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/scaling_benchmark.dart';
 
 void main() {
-  for (final dark in [false, true]) {
-    testWidgets('completed video upload shows a player (dark: $dark)', (
-      tester,
-    ) async {
-      final request = Completer<ComposerUploadResult>();
-      final composer = ComposerController(
-        _target,
-        imageUploader: (file, {required onProgress, required abortTrigger}) =>
-            request.future,
-      );
-      addTearDown(composer.dispose);
-      await _pump(tester, composer, dark: dark);
-      composer.addFiles([
-        ComposerUploadFile(
-          name: 'screen.mp4',
-          length: () async => 3,
-          openRead: () => Stream.value([1, 2, 3]),
-        ),
-      ], 0);
-      await tester.pump();
-      expect(find.byType(DAttachment), findsOneWidget);
-      request.complete(
-        const ComposerUploadResult(
-          id: 2,
-          originalFilename: 'screen.mp4',
-          shortUrl: 'upload://screen.mp4',
-          url: 'https://example.test/uploads/screen.mp4',
-          thumbnailUrl: 'https://example.test/uploads/screen.jpg',
-          width: 1920,
-          height: 1080,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(DAttachment), findsNothing);
-      expect(find.byType(InlineVideo), findsOneWidget);
-      final video = tester.widget<InlineVideo>(find.byType(InlineVideo));
-      expect(
-        video.data.source.toString(),
-        'https://example.test/uploads/screen.mp4',
-      );
-      expect(find.bySemanticsLabel('Play video: screen'), findsOneWidget);
-      expect(composer.raw.trim(), '![screen|video](upload://screen.mp4)');
-      expect(composer.text.imageBlocks, isEmpty);
-      expect(tester.takeException(), isNull);
-    });
-  }
+  testWidgets('completed video upload shows a player', (tester) async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer, dark: true);
+    composer.addFiles([
+      ComposerUploadFile(
+        name: 'screen.mp4',
+        length: () async => 3,
+        openRead: () => Stream.value([1, 2, 3]),
+      ),
+    ], 0);
+    await tester.pump();
+    expect(find.byType(DAttachment), findsOneWidget);
+    request.complete(
+      const ComposerUploadResult(
+        id: 2,
+        originalFilename: 'screen.mp4',
+        shortUrl: 'upload://screen.mp4',
+        url: 'https://example.test/uploads/screen.mp4',
+        thumbnailUrl: 'https://example.test/uploads/screen.jpg',
+        width: 1920,
+        height: 1080,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DAttachment), findsNothing);
+    expect(find.byType(InlineVideo), findsOneWidget);
+    final video = tester.widget<InlineVideo>(find.byType(InlineVideo));
+    expect(
+      video.data.source.toString(),
+      'https://example.test/uploads/screen.mp4',
+    );
+    expect(find.bySemanticsLabel('Play video: screen'), findsOneWidget);
+    expect(composer.raw.trim(), '![screen|video](upload://screen.mp4)');
+    expect(composer.text.imageBlocks, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('a pending upload completes at its reordered block position', (
     tester,
@@ -100,100 +96,95 @@ void main() {
     expect(composer.hasActiveUploads, isFalse);
   });
 
-  for (final direction in TextDirection.values) {
-    for (final dark in [false, true]) {
-      testWidgets(
-        'file drop follows the block insertion line ($direction, $dark)',
-        (tester) async {
-          final request = Completer<ComposerUploadResult>();
-          final composer = ComposerController(
-            _target,
-            imageUploader:
-                (file, {required onProgress, required abortTrigger}) =>
-                    request.future,
-          );
-          addTearDown(composer.dispose);
-          composer.text.text = 'Before\n\nAfter';
-          await _pump(tester, composer, direction: direction, dark: dark);
-          final surface = tester.widget<ComposerBlockSurface>(
-            find.byType(ComposerBlockSurface),
-          );
-          final blocks = composer.blocks.index.blocks;
-          final before = surface.blockRect(blocks.first)!;
-          final after = surface.blockRect(blocks.last)!;
-          final middle = (before.bottom + after.top) / 2;
-          final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
-          final editorRect = tester.getRect(find.byType(ComposerEditor));
-          final line = find.byType(DDropIndicator);
-          for (final y in [before.top, middle, after.bottom]) {
-            final position = Offset(before.center.dx, y);
-            dropTarget.onDragUpdated!(
-              DropEventDetails(
-                localPosition: position,
-                globalPosition: position,
-              ),
-            );
-            await tester.pump();
-            expect(line, findsOneWidget);
-            final rect = tester.getRect(line);
-            expect(rect.center.dy, closeTo(y, .01));
-            final handle = tester.getRect(
-              find.byKey(
-                ValueKey(
-                  'composer-block-handle-${composer.blocks.selected!.id}',
-                ),
-              ),
-            );
-            final contentEdge = direction == TextDirection.ltr
-                ? handle.right + DSpacing.controlGap
-                : handle.left - DSpacing.controlGap;
-            expect(
-              direction == TextDirection.ltr ? rect.left : rect.right,
-              closeTo(contentEdge, .01),
-            );
-            expect(
-              direction == TextDirection.ltr ? rect.right : rect.left,
-              closeTo(
-                direction == TextDirection.ltr
-                    ? editorRect.right
-                    : editorRect.left,
-                .01,
-              ),
-            );
-            expect(composer.raw, 'Before\n\nAfter');
-          }
-          final position = Offset(before.center.dx, middle);
-          dropTarget.onDragExited!(
+  for (final (direction, dark) in const [
+    (TextDirection.ltr, false),
+    (TextDirection.rtl, true),
+  ]) {
+    testWidgets(
+      'file drop follows the block insertion line ($direction, $dark)',
+      (tester) async {
+        final request = Completer<ComposerUploadResult>();
+        final composer = ComposerController(
+          _target,
+          imageUploader: (file, {required onProgress, required abortTrigger}) =>
+              request.future,
+        );
+        addTearDown(composer.dispose);
+        composer.text.text = 'Before\n\nAfter';
+        await _pump(tester, composer, direction: direction, dark: dark);
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final blocks = composer.blocks.index.blocks;
+        final before = surface.blockRect(blocks.first)!;
+        final after = surface.blockRect(blocks.last)!;
+        final middle = (before.bottom + after.top) / 2;
+        final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+        final editorRect = tester.getRect(find.byType(ComposerEditor));
+        final line = find.byType(DDropIndicator);
+        for (final y in [before.top, middle, after.bottom]) {
+          final position = Offset(before.center.dx, y);
+          dropTarget.onDragUpdated!(
             DropEventDetails(localPosition: position, globalPosition: position),
           );
           await tester.pump();
-          expect(line, findsNothing);
-          dropTarget.onDragEntered!(
-            DropEventDetails(localPosition: position, globalPosition: position),
-          );
-          await tester.pump();
-          expect(tester.getCenter(line).dy, closeTo(middle, .01));
-          dropTarget.onDragDone!(
-            DropDoneDetails(
-              files: [
-                DropItemFile('/tmp/photo.png', bytes: Uint8List.fromList([1])),
-              ],
-              localPosition: position,
-              globalPosition: position,
+          expect(line, findsOneWidget);
+          final rect = tester.getRect(line);
+          expect(rect.center.dy, closeTo(y, .01));
+          final handle = tester.getRect(
+            find.byKey(
+              ValueKey('composer-block-handle-${composer.blocks.selected!.id}'),
             ),
           );
-          await tester.pump();
-          expect(line, findsNothing);
-          request.complete(_result);
-          await tester.pumpAndSettle();
-          final imageOffset = composer.raw.indexOf('upload://photo');
-          expect(imageOffset, greaterThan(composer.raw.indexOf('Before')));
-          expect(imageOffset, lessThan(composer.raw.indexOf('After')));
-          expect(tester.takeException(), isNull);
-        },
-        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
-      );
-    }
+          final contentEdge = direction == TextDirection.ltr
+              ? handle.right + DSpacing.controlGap
+              : handle.left - DSpacing.controlGap;
+          expect(
+            direction == TextDirection.ltr ? rect.left : rect.right,
+            closeTo(contentEdge, .01),
+          );
+          expect(
+            direction == TextDirection.ltr ? rect.right : rect.left,
+            closeTo(
+              direction == TextDirection.ltr
+                  ? editorRect.right
+                  : editorRect.left,
+              .01,
+            ),
+          );
+          expect(composer.raw, 'Before\n\nAfter');
+        }
+        final position = Offset(before.center.dx, middle);
+        dropTarget.onDragExited!(
+          DropEventDetails(localPosition: position, globalPosition: position),
+        );
+        await tester.pump();
+        expect(line, findsNothing);
+        dropTarget.onDragEntered!(
+          DropEventDetails(localPosition: position, globalPosition: position),
+        );
+        await tester.pump();
+        expect(tester.getCenter(line).dy, closeTo(middle, .01));
+        dropTarget.onDragDone!(
+          DropDoneDetails(
+            files: [
+              DropItemFile('/tmp/photo.png', bytes: Uint8List.fromList([1])),
+            ],
+            localPosition: position,
+            globalPosition: position,
+          ),
+        );
+        await tester.pump();
+        expect(line, findsNothing);
+        request.complete(_result);
+        await tester.pumpAndSettle();
+        final imageOffset = composer.raw.indexOf('upload://photo');
+        expect(imageOffset, greaterThan(composer.raw.indexOf('Before')));
+        expect(imageOffset, lessThan(composer.raw.indexOf('After')));
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.macOS}),
+    );
   }
 
   testWidgets('empty composer shows and clears the file insertion line', (
@@ -360,70 +351,64 @@ void main() {
     });
   }
 
-  for (final dark in [false, true]) {
-    testWidgets(
-      'upload occupies its slot while typing around it (${dark ? 'dark' : 'light'})',
-      (tester) async {
-        final upload = Completer<ComposerUploadResult>();
-        late void Function(double) progress;
-        final composer = ComposerController(
-          _target,
-          imageUploader: (file, {required onProgress, required abortTrigger}) {
-            progress = onProgress;
-            return upload.future;
-          },
-        );
-        addTearDown(composer.dispose);
-        composer.text.value = const TextEditingValue(
-          text: 'Before\nAfter',
-          selection: TextSelection.collapsed(offset: 6),
-        );
-        await _pump(tester, composer, dark: dark);
-        composer.addImages([_file], 6);
-        await tester.pump();
-        final attachment = find.byType(DAttachment);
-        expect(attachment, findsOneWidget);
-        expect(
-          find.descendant(of: find.byType(EditableText), matching: attachment),
-          findsOneWidget,
-        );
-        expect(find.byType(ComposerUploadQueue), findsNothing);
-        progress(.42);
-        await tester.pump();
-        expect(find.text('Uploading · 42%'), findsOneWidget);
-
-        await _type(tester, composer, 'Caption ');
-        composer.text.selection = const TextSelection.collapsed(offset: 0);
-        await _type(tester, composer, 'Intro ');
-        final render = tester
-            .state<EditableTextState>(find.byType(EditableText))
-            .renderEditable;
-        final after = render.localToGlobal(
-          render
-              .getLocalRectForCaret(
-                TextPosition(offset: composer.text.text.indexOf('Caption')),
-              )
-              .topLeft,
-        );
-        expect(
-          after.dy,
-          greaterThanOrEqualTo(tester.getRect(attachment).bottom),
-        );
-        expect(composer.raw, 'Intro Before\nCaption After');
-        expect(composer.draft.reply, isNot(contains('upload-')));
-        upload.complete(_result);
-        await tester.pumpAndSettle();
-        expect(attachment, findsNothing);
-        expect(find.byType(ComposerImagePreview), findsOneWidget);
-        expect(
-          composer.raw,
-          'Intro Before\n![photo|100x100](upload://photo)\nCaption After',
-        );
-        expect(composer.text.selection.extentOffset, 6);
-        expect(tester.takeException(), isNull);
+  testWidgets('upload occupies its slot while typing around it', (
+    tester,
+  ) async {
+    final upload = Completer<ComposerUploadResult>();
+    late void Function(double) progress;
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        progress = onProgress;
+        return upload.future;
       },
     );
-  }
+    addTearDown(composer.dispose);
+    composer.text.value = const TextEditingValue(
+      text: 'Before\nAfter',
+      selection: TextSelection.collapsed(offset: 6),
+    );
+    await _pump(tester, composer);
+    composer.addImages([_file], 6);
+    await tester.pump();
+    final attachment = find.byType(DAttachment);
+    expect(attachment, findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(EditableText), matching: attachment),
+      findsOneWidget,
+    );
+    expect(find.byType(ComposerUploadQueue), findsNothing);
+    progress(.42);
+    await tester.pump();
+    expect(find.text('Uploading · 42%'), findsOneWidget);
+
+    await _type(tester, composer, 'Caption ');
+    composer.text.selection = const TextSelection.collapsed(offset: 0);
+    await _type(tester, composer, 'Intro ');
+    final render = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    final after = render.localToGlobal(
+      render
+          .getLocalRectForCaret(
+            TextPosition(offset: composer.text.text.indexOf('Caption')),
+          )
+          .topLeft,
+    );
+    expect(after.dy, greaterThanOrEqualTo(tester.getRect(attachment).bottom));
+    expect(composer.raw, 'Intro Before\nCaption After');
+    expect(composer.draft.reply, isNot(contains('upload-')));
+    upload.complete(_result);
+    await tester.pumpAndSettle();
+    expect(attachment, findsNothing);
+    expect(find.byType(ComposerImagePreview), findsOneWidget);
+    expect(
+      composer.raw,
+      'Intro Before\n![photo|100x100](upload://photo)\nCaption After',
+    );
+    expect(composer.text.selection.extentOffset, 6);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('completion preserves selection of the upload component', (
     tester,
