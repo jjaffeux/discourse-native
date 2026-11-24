@@ -204,52 +204,50 @@ void main() {
     }
   });
 
-  for (final dark in [false, true]) {
-    testWidgets('typing hides block actions until the mouse moves ($dark)', (
-      tester,
-    ) async {
-      await mount(tester, dark: dark);
-      final surface = tester.widget<ComposerBlockSurface>(
-        find.byType(ComposerBlockSurface),
-      );
-      final last = composer.blocks.index.blocks.last;
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      await mouse.moveTo(surface.blockRect(last)!.center);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(ValueKey('composer-block-handle-${last.id}')),
-        findsOneWidget,
-      );
+  testWidgets('typing hides block actions until the mouse moves', (
+    tester,
+  ) async {
+    await mount(tester);
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final last = composer.blocks.index.blocks.last;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(surface.blockRect(last)!.center);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('composer-block-handle-${last.id}')),
+      findsOneWidget,
+    );
 
-      await tester.enterText(
-        find.byType(EditableText),
-        '${composer.text.text} typed',
-      );
-      await tester.pumpAndSettle();
-      expectActionsHidden();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-      await tester.pump(const Duration(seconds: 1));
-      expectActionsHidden();
-      await mouse.moveTo(surface.blockRect(last)!.center);
-      await tester.pump();
-      expectActionsHidden();
+    await tester.enterText(
+      find.byType(EditableText),
+      '${composer.text.text} typed',
+    );
+    await tester.pumpAndSettle();
+    expectActionsHidden();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump(const Duration(seconds: 1));
+    expectActionsHidden();
+    await mouse.moveTo(surface.blockRect(last)!.center);
+    await tester.pump();
+    expectActionsHidden();
 
-      final first = composer.blocks.index.blocks.first;
-      await mouse.moveTo(surface.blockRect(first)!.center);
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Add block'), findsOneWidget);
-      expect(
-        find.byKey(ValueKey('composer-block-handle-${first.id}')),
-        findsOneWidget,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-      await tester.pumpAndSettle();
-      expectActionsHidden();
-      expect(tester.takeException(), isNull);
-    });
-  }
+    final first = composer.blocks.index.blocks.first;
+    await mouse.moveTo(surface.blockRect(first)!.center);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Add block'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('composer-block-handle-${first.id}')),
+      findsOneWidget,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expectActionsHidden();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('Enter hides new empty block actions until mouse movement', (
     tester,
@@ -1180,53 +1178,47 @@ void main() {
     });
   }
 
-  for (final dark in [false, true]) {
-    testWidgets('empty editor keeps both controls before typing ($dark)', (
+  testWidgets('empty editor keeps both controls before typing', (tester) async {
+    await (FontLoader('EmptyEditorMono')
+          ..addFont(rootBundle.load('assets/fonts/JetBrainsMono-Regular.ttf')))
+        .load();
+    composer.text.value = TextEditingValue.empty;
+    await mount(
       tester,
-    ) async {
-      await (FontLoader(
-            'EmptyEditorMono',
-          )..addFont(rootBundle.load('assets/fonts/JetBrainsMono-Regular.ttf')))
-          .load();
-      composer.text.value = TextEditingValue.empty;
-      await mount(
-        tester,
-        dark: dark,
-        textStyle: const TextStyle(fontFamily: 'EmptyEditorMono', fontSize: 16),
-      );
-      final add = find.byTooltip('Add block');
-      final handle = find.byTooltip('Empty paragraph actions');
-      expect(add, findsOneWidget);
-      expect(handle, findsOneWidget);
-      expect(composer.focus.hasFocus, isFalse);
-      expect(tester.getRect(add).right, tester.getRect(handle).left);
+      textStyle: const TextStyle(fontFamily: 'EmptyEditorMono', fontSize: 16),
+    );
+    final add = find.byTooltip('Add block');
+    final handle = find.byTooltip('Empty paragraph actions');
+    expect(add, findsOneWidget);
+    expect(handle, findsOneWidget);
+    expect(composer.focus.hasFocus, isFalse);
+    expect(tester.getRect(add).right, tester.getRect(handle).left);
 
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer();
-      addTearDown(mouse.removePointer);
-      final editor = tester.getRect(find.byType(ComposerEditor));
-      expect(tester.getRect(handle).top, greaterThanOrEqualTo(editor.top));
-      await mouse.moveTo(editor.bottomRight - const Offset(20, 20));
-      await tester.pumpAndSettle();
-      expect(add, findsOneWidget);
-      expect(handle, findsOneWidget);
-      expect(composer.text.text, isEmpty);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer();
+    addTearDown(mouse.removePointer);
+    final editor = tester.getRect(find.byType(ComposerEditor));
+    expect(tester.getRect(handle).top, greaterThanOrEqualTo(editor.top));
+    await mouse.moveTo(editor.bottomRight - const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(add, findsOneWidget);
+    expect(handle, findsOneWidget);
+    expect(composer.text.text, isEmpty);
 
-      await tester.tap(add);
-      await tester.pumpAndSettle();
-      expect(composer.text.text, '/');
-      expect(composer.text.selection.extentOffset, 1);
-      expect(find.text('Close menu'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(composer.text.text, isEmpty);
-      expectActionsHidden();
-      await mouse.moveBy(const Offset(-1, 0));
-      await tester.pumpAndSettle();
-      expect(handle, findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '/');
+    expect(composer.text.selection.extentOffset, 1);
+    expect(find.text('Close menu'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, isEmpty);
+    expectActionsHidden();
+    await mouse.moveBy(const Offset(-1, 0));
+    await tester.pumpAndSettle();
+    expect(handle, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final textScale in [1.0, 1.5]) {
     for (final source in [

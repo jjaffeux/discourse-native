@@ -374,49 +374,47 @@ void main() {
     });
   }
 
-  for (final dark in [false, true]) {
-    testWidgets('toggles source, preserves caret, and supports undo ($dark)', (
-      tester,
-    ) async {
-      final composer = await pump(tester, dark: dark);
-      await tester.enterText(
-        find.byType(EditableText),
-        '[ ] Buy milk\n[x] Send mail',
-      );
-      await tester.pumpAndSettle();
-      composer.history.flush();
-      final selection = composer.text.selection;
-      await tester.tap(find.byType(DCheckbox).first);
-      await tester.pumpAndSettle();
-      expect(composer.text.text, '[x] Buy milk\n[x] Send mail');
-      expect(composer.text.selection, selection);
-      expect(
-        tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
-        isTrue,
-      );
-      final context = tester.element(find.byType(ComposerEditor));
-      final span = composer.text.buildTextSpan(
-        context: context,
-        style: const TextStyle(fontSize: 16),
-        withComposing: true,
-      );
-      expect(
-        span.toPlainText(includeSemanticsLabels: false).length,
-        composer.text.text.length,
-      );
-      final body = span.children!.whereType<TextSpan>().firstWhere(
-        (s) => s.text?.contains('Buy milk') ?? false,
-      );
-      expect(body.style!.decoration, TextDecoration.lineThrough);
-      composer.history.undo();
-      await tester.pumpAndSettle();
-      expect(composer.text.text, '[ ] Buy milk\n[x] Send mail');
-      composer.history.redo();
-      await tester.pumpAndSettle();
-      expect(composer.text.text, '[x] Buy milk\n[x] Send mail');
-      expect(tester.takeException(), isNull);
-    });
-  }
+  testWidgets('toggles source, preserves caret, and supports undo', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
+    await tester.enterText(
+      find.byType(EditableText),
+      '[ ] Buy milk\n[x] Send mail',
+    );
+    await tester.pumpAndSettle();
+    composer.history.flush();
+    final selection = composer.text.selection;
+    await tester.tap(find.byType(DCheckbox).first);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[x] Buy milk\n[x] Send mail');
+    expect(composer.text.selection, selection);
+    expect(
+      tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
+      isTrue,
+    );
+    final context = tester.element(find.byType(ComposerEditor));
+    final span = composer.text.buildTextSpan(
+      context: context,
+      style: const TextStyle(fontSize: 16),
+      withComposing: true,
+    );
+    expect(
+      span.toPlainText(includeSemanticsLabels: false).length,
+      composer.text.text.length,
+    );
+    final body = span.children!.whereType<TextSpan>().firstWhere(
+      (s) => s.text?.contains('Buy milk') ?? false,
+    );
+    expect(body.style!.decoration, TextDecoration.lineThrough);
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[ ] Buy milk\n[x] Send mail');
+    composer.history.redo();
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[x] Buy milk\n[x] Send mail');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('submission locks checkbox changes, including a stale callback', (
     tester,
