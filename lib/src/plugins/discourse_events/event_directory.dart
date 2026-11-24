@@ -180,9 +180,22 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
     super.dispose();
   }
 
+  Widget? _creatorAvatar(EventPerson creator) {
+    final url = creator.avatarUrl(widget.site);
+    return url == null
+        ? null
+        : SiteImage(
+            siteUrl: widget.site,
+            url: url,
+            width: 16,
+            height: 16,
+            fit: BoxFit.cover,
+          );
+  }
+
   @override
   Widget build(BuildContext context) => EventCalendar(
-    site: widget.site,
+    creatorAvatar: _creatorAvatar,
     page: _page,
     events: _events,
     loading: _session.loading,

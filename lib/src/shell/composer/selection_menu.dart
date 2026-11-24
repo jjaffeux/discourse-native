@@ -218,7 +218,7 @@ class _ComposerFormattingControlsState
         final clear = DButton.iconOnly(
           tooltip: context.l10n.clearFormatting,
           icon: const DIcon(DNativeIcons.eraser),
-          variant: DButtonVariant.ghost,
+          variant: inline ? DButtonVariant.quiet : DButtonVariant.ghost,
           size: _size,
           onPressed: _hasSelection
               ? () => _format(clearComposerInlineFormatting)
@@ -228,7 +228,7 @@ class _ComposerFormattingControlsState
           key: inline ? const ValueKey('composer-format-link') : null,
           tooltip: context.l10n.link,
           icon: const DIcon(DIcons.link),
-          variant: DButtonVariant.ghost,
+          variant: inline ? DButtonVariant.quiet : DButtonVariant.ghost,
           size: _size,
           onPressed: _enabled ? widget.onLink : null,
         );
@@ -283,7 +283,7 @@ class _ComposerFormattingControlsState
             builder: (context, state) => DButton.iconOnly(
               tooltip: context.l10n.moreFormatting,
               icon: const DIcon(DIcons.ellipsis),
-              variant: DButtonVariant.ghost,
+              variant: inline ? DButtonVariant.quiet : DButtonVariant.ghost,
               size: _size,
               focusNode: state.focusNode,
               expanded: state.open,

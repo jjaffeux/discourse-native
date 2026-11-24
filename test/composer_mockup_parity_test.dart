@@ -694,6 +694,15 @@ void main() {
             final undo = find.byKey(const ValueKey('composer-undo'));
             final redo = find.byKey(const ValueKey('composer-redo'));
             final submit = find.byKey(const ValueKey('composer-submit'));
+            final category = find.byKey(
+              const ValueKey('composer-category-action'),
+            );
+            final bold = find.byKey(const ValueKey('composer-format-bold'));
+            expect(
+              tester.getRect(bold).height,
+              tester.getRect(category).height,
+            );
+            expect(tester.getCenter(bold).dy, tester.getCenter(category).dy);
             final extent = tester.getSize(close).width;
             expect(extent, scale == 1 ? 50 : greaterThan(50));
             var previous = bar.left;
