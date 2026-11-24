@@ -605,7 +605,7 @@ void main() {
 
   group('a page of messages', () {
     test(
-      'marks only a channel page first result without changing the payload',
+      'preserves order and marks only channel first results without changing payload',
       () {
         final payload = page([message(id: 1), message(id: 2), message(id: 3)]);
         final channel = ChatMessage.parsePage(
@@ -614,6 +614,7 @@ void main() {
           markFirstOfResults: true,
         );
         final thread = ChatMessage.parsePage(payload, site);
+        expect(thread.messages.map((m) => m.id), [1, 2, 3]);
         expect(channel.messages.map((m) => m.firstOfResults), [
           true,
           false,
@@ -622,27 +623,17 @@ void main() {
         expect(thread.messages.every((m) => !m.firstOfResults), isTrue);
       },
     );
-    test('keeps the messages oldest first, as the site sent them', () {
-      final read = ChatMessage.parsePage(
-        page([message(id: 1), message(id: 2), message(id: 3)]),
-        site,
-      );
-
-      expect(read.messages.map((m) => m.id), [1, 2, 3]);
-    });
-
     test(
-      'reads an unanswered can_load_more_past as no more rather than as yes',
+      'empty pages read unanswered can_load_more_past as no more rather than yes',
       () {
         // Ruby leaves the local for the direction it did not paginate unassigned,
         // so it serialises as null. Defaulting a null to true would page forever.
-        expect(
-          ChatMessage.parsePage(
-            page([], canLoadMorePast: null),
-            site,
-          ).canLoadMorePast,
-          isFalse,
+        final unreported = ChatMessage.parsePage(
+          page([], canLoadMorePast: null),
+          site,
         );
+        expect(unreported.messages, isEmpty);
+        expect(unreported.canLoadMorePast, isFalse);
         expect(
           ChatMessage.parsePage(
             page([], canLoadMorePast: true),
@@ -659,10 +650,6 @@ void main() {
         );
       },
     );
-
-    test('reads a channel with nothing in it as an empty page', () {
-      expect(ChatMessage.parsePage(page([]), site).messages, isEmpty);
-    });
 
     test('bounds oversized pages at the edge the caller is paging toward', () {
       final oversized = page([
