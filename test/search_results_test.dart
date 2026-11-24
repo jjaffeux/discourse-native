@@ -137,7 +137,7 @@ void main() {
     });
 
     test(
-      'collapses cooked whitespace while retaining highlight boundaries',
+      'normalizes cooked whitespace into immutable highlighted segments',
       () {
         final excerpt = SearchExcerpt.fromHtml(
           '<p>First\n <span class="search-highlight">match</span></p>'
@@ -149,6 +149,15 @@ void main() {
           excerpt.segments.singleWhere((part) => part.highlighted).text,
           'match',
         );
+        expect(
+          () => excerpt.segments.add(const SearchExcerptSegment('changed')),
+          throwsUnsupportedError,
+        );
+        expect(
+          () => excerpt.segments[0] = const SearchExcerptSegment('changed'),
+          throwsUnsupportedError,
+        );
+        expect(excerpt.plainText, 'First match then more');
       },
     );
 
@@ -243,22 +252,6 @@ void main() {
         ]);
       },
     );
-
-    test('returns immutable segments', () {
-      final excerpt = SearchExcerpt.fromHtml(
-        'left <span class="search-highlight">right</span>',
-      );
-
-      expect(
-        () => excerpt.segments.add(const SearchExcerptSegment('changed')),
-        throwsUnsupportedError,
-      );
-      expect(
-        () => excerpt.segments[0] = const SearchExcerptSegment('changed'),
-        throwsUnsupportedError,
-      );
-      expect(excerpt.plainText, 'left right');
-    });
 
     test('bounds oversized excerpt HTML before parsing it', () {
       final retained = List.filled(
