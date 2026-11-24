@@ -198,11 +198,8 @@ void main() {
   });
 
   group('jsonTitle', () {
-    test('prefers the plain one', () {
+    test('plain text wins over normal and oversized fancy fallbacks', () {
       expect(jsonTitle('A topic', 'A&nbsp;topic'), 'A topic');
-    });
-
-    test('plain text bypasses an oversized fancy fallback', () {
       final oversized = List.filled(
         maximumFancyTitleSourceCodeUnits * 10,
         '<',
