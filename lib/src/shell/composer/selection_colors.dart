@@ -129,17 +129,23 @@ class ComposerSelectionColors extends StatelessWidget {
       ],
     ),
     child: DDropdownMenuTrigger(
-      builder: (context, state) => DButton.iconOnly(
-        tooltip: context.l10n.color,
-        semanticLabel: context.l10n.color,
-        icon: const DIcon(DNativeIcons.font),
-        variant: DButtonVariant.ghost,
-        size: size,
-        focusNode: state.focusNode,
-        expanded: state.open,
-        hasPopup: true,
-        onPressed: enabled && composer.isEditing ? state.toggle : null,
-      ),
+      builder: (context, state) {
+        final toolbar = size == DControlSize.large;
+        return DButton.iconOnly(
+          tooltip: context.l10n.color,
+          semanticLabel: context.l10n.color,
+          icon: const DIcon(DNativeIcons.font),
+          variant: toolbar ? DButtonVariant.quiet : DButtonVariant.ghost,
+          foregroundColor: toolbar
+              ? DTokens.of(context).mutedControlForeground
+              : null,
+          size: size,
+          focusNode: state.focusNode,
+          expanded: state.open,
+          hasPopup: true,
+          onPressed: enabled && composer.isEditing ? state.toggle : null,
+        );
+      },
     ),
   );
 }

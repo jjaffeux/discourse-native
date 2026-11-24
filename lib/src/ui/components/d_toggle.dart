@@ -30,8 +30,8 @@ enum DToggleDensity {
   disclosure,
 
   /// Header-menu pills with accent selection and recessed rest.
-  /// Use [DControlSize.filter] for the 36px phone pill or
-  /// [DControlSize.large] for a phone composer tool.
+  /// Use [DControlSize.filter] for the 36px phone pill. The 48px phone
+  /// composer tools use [DControlSize.large] and the quiet control surface.
   menuFilter,
   chatReaction,
 
@@ -294,6 +294,10 @@ class _DToggleState extends State<DToggle> {
         (widget.size == DToggleSize.filter ||
             widget.size == DToggleSize.large) &&
         DControlStyle.usesTouchGeometry(context);
+    final composerTool = touchFilter && widget.size == DToggleSize.large;
+    final composerSurface = composerTool
+        ? tokens.quietControlSurface(selected: _current)
+        : null;
     final chatReaction = widget.density == DToggleDensity.chatReaction;
     // ChatBubble derives these roles from the palette's raw secondary, not
     // the panel fill. Reaction chips stay flat in both appearance materials.
@@ -307,6 +311,8 @@ class _DToggleState extends State<DToggle> {
         ? tokens.foreground
         : postReaction
         ? DPostReactionStyle.foreground(tokens, selected: _current)
+        : composerTool
+        ? tokens.mutedControlForeground
         : menuFilter
         ? (_current
               ? tokens.buttonTheme.primary.foreground
@@ -546,6 +552,8 @@ class _DToggleState extends State<DToggle> {
             selected: _current,
             interacting: interacting,
           )
+        : composerSurface != null
+        ? (interacting ? composerSurface.hover : composerSurface.background)
         : menuFilter
         ? (_current
               ? (interacting

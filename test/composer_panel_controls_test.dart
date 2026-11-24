@@ -438,7 +438,7 @@ void main() {
             Color foreground() => IconTheme.of(tester.element(icon)).color!;
             final resting = foreground();
             final bounds = tester.getRect(button);
-            expect(resting, isNot(tokens.foreground));
+            expect(resting, tokens.mutedControlForeground);
             expect(
               buttonSurface(tester, of: button).color,
               isNot(Colors.transparent),
@@ -2153,7 +2153,7 @@ void main() {
       expect(tester.widget<DButton>(bold).variant, DButtonVariant.ghost);
       expect(
         tester.widget<DButton>(bold).foregroundColor,
-        Color.lerp(tokens.background, tokens.foreground, .5),
+        tokens.mutedControlForeground,
       );
       expect(
         tester.getRect(italic).left - tester.getRect(bold).right,
