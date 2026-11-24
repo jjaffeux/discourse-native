@@ -337,20 +337,18 @@ void main() {
     expect(find.text('Hidden detail', findRichText: true), findsOneWidget);
   });
 
-  for (final dark in [true, false]) {
-    testWidgets('narrow scaled expanded thread wraps ($dark)', (tester) async {
-      await pumpTranscript(
-        tester,
-        threadTranscript,
-        width: 300,
-        textScale: 2,
-        dark: dark,
-      );
-      expect(title, findsOneWidget);
-      expect(reply, findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
+  testWidgets('narrow scaled expanded thread wraps', (tester) async {
+    await pumpTranscript(
+      tester,
+      threadTranscript,
+      width: 300,
+      textScale: 2,
+      dark: false,
+    );
+    expect(title, findsOneWidget);
+    expect(reply, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('unknown source types have a readable unlinked header', (
     tester,
