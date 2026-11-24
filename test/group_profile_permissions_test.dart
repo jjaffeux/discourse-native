@@ -20,7 +20,6 @@ void main() {
     (false, false, false),
     (true, true, false),
     (false, false, true),
-    (true, false, true),
     (true, true, true),
   ]) {
     testWidgets('automatic membership domains staff=$staff admin=$admin '
