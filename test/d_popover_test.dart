@@ -292,9 +292,14 @@ void main() {
 
     await tester.tap(find.text('Open menu'));
     await pumpThreeFrames();
-    final opened = sheet.hitTestable().evaluate().isNotEmpty;
+    expect(sheet, findsOneWidget);
+    final openingTop = tester.getTopLeft(sheet).dy;
+    final viewportBottom =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final opened = openingTop < viewportBottom;
     await tester.pumpAndSettle();
     final restTop = tester.getTopLeft(sheet).dy;
+    expect(openingTop, greaterThan(restTop));
     expect(editorFocus.hasFocus, isFalse);
 
     await tester.tap(find.text('Close menu'));
