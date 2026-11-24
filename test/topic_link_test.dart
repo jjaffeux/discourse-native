@@ -6,14 +6,6 @@ TopicLink? parse(String url) => TopicLink.parse(url);
 
 void main() {
   group('TopicLink.parse', () {
-    test('reads the shape Discourse writes', () {
-      final link = parse('https://meta.discourse.org/t/a-real-topic/12345')!;
-
-      expect(link.topicId, 12345);
-      expect(link.slug, 'a-real-topic');
-      expect(link.uri.host, 'meta.discourse.org');
-    });
-
     test('reads final positions for root and subfolder permalink shapes', () {
       for (final prefix in ['', '/forum']) {
         for (final path in [
@@ -38,11 +30,14 @@ void main() {
       }
     });
 
-    test('ignores the query and fragment', () {
-      expect(
-        parse('https://meta.discourse.org/t/a/12?u=sam#reply')?.topicId,
-        12,
-      );
+    test('reads absolute topic links while ignoring query and fragment', () {
+      final link = parse(
+        'https://meta.discourse.org/t/a-real-topic/12345?u=sam#reply',
+      )!;
+
+      expect(link.topicId, 12345);
+      expect(link.slug, 'a-real-topic');
+      expect(link.uri.host, 'meta.discourse.org');
     });
 
     test('reads a slugless permalink', () {
