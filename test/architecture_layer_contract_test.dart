@@ -14,37 +14,13 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('foundation', 'shell'): {},
   ('foundation', 'styleguide'): {},
   ('foundation', 'plugins'): {},
-  ('models', 'data'): {},
   ('models', 'ui'): {},
-  ('models', 'plugin_api'): {},
-  ('models', 'shell'): {},
-  ('models', 'styleguide'): {},
-  ('models', 'plugins'): {},
-  ('theme', 'data'): {},
-  ('theme', 'plugin_api'): {},
-  ('theme', 'shell'): {},
-  ('theme', 'styleguide'): {},
-  ('theme', 'plugins'): {},
   ('ui', 'models'): {},
-  ('ui', 'data'): {},
-  ('ui', 'plugin_api'): {},
-  ('ui', 'shell'): {},
-  ('ui', 'styleguide'): {},
-  ('ui', 'plugins'): {},
   ('data', 'ui'): {},
-  ('data', 'plugin_api'): {},
-  ('data', 'shell'): {},
-  ('data', 'styleguide'): {},
-  ('data', 'plugins'): {},
-  ('plugin_api', 'shell'): {},
-  ('plugin_api', 'styleguide'): {},
-  ('plugin_api', 'plugins'): {},
-  ('shell', 'styleguide'): {},
-  ('shell', 'plugins'): {},
 };
 
-/// A layer's whole transitive reach, so a barrel or a shared helper cannot
-/// reintroduce what the direct-edge table forbids.
+/// A layer's whole transitive reach, including direct imports and paths
+/// through barrels or shared helpers.
 const Map<String, Set<String>> _unreachableFromLayer = {
   'data': {'plugin_api', 'shell', 'styleguide', 'plugins'},
   'models': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
