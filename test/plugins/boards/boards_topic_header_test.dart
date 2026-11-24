@@ -58,7 +58,11 @@ void main() {
                       'board_id': id,
                       'board_name': 'Board $id',
                       'cards': [
-                        {'card_id': 100 + id, 'column_title': 'Backlog'},
+                        {
+                          'card_id': 100 + id,
+                          'column_title': 'Backlog',
+                          'column_color': '12b5d8',
+                        },
                       ],
                     },
                 ]),
@@ -101,6 +105,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Board 1 · Backlog'), findsOneWidget);
       expect(find.text('Board 2 · Backlog'), findsOneWidget);
+      final membership = find.widgetWithText(DButton, 'Board 2 · Backlog');
+      expect(tester.widget<DButton>(membership).variant, DButtonVariant.tool);
+      expect(
+        find.descendant(
+          of: membership,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is DIcon && widget.color == const Color(0xff12b5d8),
+          ),
+        ),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
   }

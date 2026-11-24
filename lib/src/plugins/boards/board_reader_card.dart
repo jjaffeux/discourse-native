@@ -13,6 +13,7 @@ class BoardReaderCard extends StatelessWidget {
     required this.card,
     required this.onPressed,
     this.category,
+    this.columnColor,
     this.menu,
     this.selected = false,
   });
@@ -20,6 +21,7 @@ class BoardReaderCard extends StatelessWidget {
   final BoardSnapshot board;
   final BoardCard card;
   final ({String name, int color})? category;
+  final Color? columnColor;
   final Widget? menu;
   final VoidCallback onPressed;
   final bool selected;
@@ -37,9 +39,10 @@ class BoardReaderCard extends StatelessWidget {
           if (!columnTags.contains(tag.toLowerCase())) tag,
     ];
     final author = card.activityUser?.username;
-    return DItem(
+    final color = columnColor;
+    final item = DItem(
       shape: DItemShape.card,
-      variant: DItemVariant.outline,
+      variant: color == null ? DItemVariant.outline : DItemVariant.standard,
       selected: selected,
       selectionStyle: DItemSelectionStyle.outline,
       showSelectionIndicator: false,
@@ -132,6 +135,15 @@ class BoardReaderCard extends StatelessWidget {
         ),
       ],
     );
+    return color == null
+        ? item
+        : DCard(
+            backgroundColor: Color.lerp(tokens.raisedBackground, color, .10),
+            spacing: 0,
+            border: false,
+            clipBehavior: Clip.none,
+            child: item,
+          );
   }
 
   Widget _avatar(BoardCreator user) {

@@ -23255,7 +23255,7 @@ abstract class AppLocalizations {
   /// Native Boards directory interface.
   ///
   /// In en, this message translates to:
-  /// **'Filter boards'**
+  /// **'Find a board'**
   String get boardsFilter;
 
   /// Native Boards directory interface.

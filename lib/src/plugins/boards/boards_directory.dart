@@ -6,13 +6,13 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'boards_data.dart';
+import 'boards_navigation.dart' show boardsIcon;
 
 class BoardsDirectory extends StatefulWidget {
   const BoardsDirectory({
     super.key,
     required this.site,
     required this.boards,
-    required this.categories,
     required this.loaded,
     required this.error,
     required this.onRefresh,
@@ -21,7 +21,6 @@ class BoardsDirectory extends StatefulWidget {
 
   final String site;
   final List<BoardSnapshot> boards;
-  final Map<int, String> categories;
 
   /// Whether a read has finished for this account. Later reads keep the
   /// boards in place and report a failure above them.
@@ -59,28 +58,36 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
           _status == _BoardStatus.archived && !board.archived) {
         return false;
       }
-      final text = [
-        board.name,
-        ...board.tagNames,
-        ...board.columns.map((column) => column.title),
-        for (final id in board.categoryIds) widget.categories[id] ?? '',
-      ].join(' ').toLowerCase();
-      return words.every(text.contains);
+      return words.every(board.name.toLowerCase().contains);
     }).toList();
     return DPageSurface.headed(
       identity: widget.site,
       title: Text(l10n.boardsTitle),
-      controls: DFitRow(
+      controls: DControlWrap(
+        wrap: false,
         children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240),
-            child: DInput(
+          DControlExpanded(
+            child: DInputGroup(
+              variant: DInputGroupVariant.quiet,
               size: DControlSize.filter,
-              value: _query,
-              hintText: l10n.boardsFilter,
-              semanticLabel: l10n.boardsFilter,
-              prefix: const DIcon(DIcons.magnifyingGlass, size: 14),
-              onChanged: (value) => setState(() => _query = value),
+              children: [
+                DInput(
+                  value: _query,
+                  hintText: l10n.boardsFilter,
+                  semanticLabel: l10n.boardsFilter,
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
+                if (_query.isNotEmpty)
+                  DInputGroupAddon(
+                    alignment: DInputGroupAddonAlignment.inlineEnd,
+                    child: DInputGroupButton.icon(
+                      icon: const DIcon(DIcons.xmark),
+                      tooltip: l10n.clearSearch,
+                      onPressed: () => setState(() => _query = ''),
+                    ),
+                  ),
+              ],
             ),
           ),
           DDropdownMenu(
@@ -139,13 +146,25 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
                 sliver: SliverMainAxisGroup(
                   slivers: [
                     if (loading)
-                      DPlaceCardGrid(
+                      SliverList.builder(
                         itemCount: 6,
                         itemBuilder: (context, index) => DSkeletonRegion(
                           semanticsLabel: l10n.loading,
                           liveRegion: index == 0,
                           color: skeletonFill(context),
-                          child: const DPlaceCardSkeleton(),
+                          child: const DItem(
+                            children: [
+                              DItemMedia(
+                                child: DSkeleton(width: 40, height: 40),
+                              ),
+                              DItemContent(
+                                children: [
+                                  DSkeleton(width: 136, height: 14),
+                                  DSkeleton(width: 190, height: 12),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       )
                     else if (widget.error case final error? when !widget.loaded)
@@ -201,13 +220,15 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
                           ),
                         )
                       else
-                        DPlaceCardGrid(
+                        SliverList.builder(
                           itemCount: boards.length,
-                          itemBuilder: (context, index) => _BoardDirectoryCard(
+                          itemBuilder: (context, index) => _BoardDirectoryRow(
                             key: ValueKey(boards[index].id),
-                            site: widget.site,
                             board: boards[index],
-                            categories: widget.categories,
+                            hasPrevious: index > 0,
+                            nextArchived: index + 1 < boards.length
+                                ? boards[index + 1].archived
+                                : null,
                             onPressed: () => widget.onOpen(boards[index]),
                           ),
                         ),
@@ -223,111 +244,81 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
   }
 }
 
-class _BoardDirectoryCard extends StatelessWidget {
-  const _BoardDirectoryCard({
+class _BoardDirectoryRow extends StatelessWidget {
+  const _BoardDirectoryRow({
     super.key,
-    required this.site,
     required this.board,
-    required this.categories,
+    required this.hasPrevious,
+    required this.nextArchived,
     required this.onPressed,
   });
 
-  final String site;
   final BoardSnapshot board;
-  final Map<int, String> categories;
+  final bool hasPrevious;
+  final bool? nextArchived;
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final creator = board.createdBy;
-    final avatar = resolveAvatarUrl(creator?.avatarTemplate, site, size: 40);
-    return DPlaceCard(
-      onPressed: onPressed,
-      title: Text(board.name),
-      description:
-          board.columns.isEmpty &&
-              board.tagNames.isEmpty &&
-              board.categoryIds.isEmpty
-          ? null
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 8,
-              children: [
-                if (board.tagNames.isNotEmpty ||
-                    board.categoryIds.any(categories.containsKey))
-                  Text(
-                    [
-                      for (final id in board.categoryIds) ?categories[id],
-                      ...board.tagNames,
-                    ].join(', '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                if (board.columns.isNotEmpty)
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      DItem(
+        shape: DItemShape.fullWidth,
+        closed: board.archived,
+        closedRuleAbove: board.archived && hasPrevious,
+        closedRuleBelow: board.archived && nextArchived == false,
+        onPressed: onPressed,
+        children: [
+          const DItemMedia(
+            child: DAvatar(
+              dimension: 40,
+              decorative: true,
+              border: false,
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+              fallback: DAvatarFallback(child: DIcon(boardsIcon, size: 16)),
+            ),
+          ),
+          DItemContent(
+            children: [
+              DItemTitle(
+                child: Row(
+                  spacing: 5,
+                  children: [
+                    if (board.archived)
+                      DIcon(
+                        DIcons.lock,
+                        size: 11,
+                        semanticLabel: context.l10n.boardsArchived,
+                      ),
+                    Flexible(child: Text(board.name)),
+                  ],
+                ),
+              ),
+              if (board.columns.isNotEmpty)
+                DItemDescription(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 2,
                     children: [
                       for (final column in board.columns)
-                        DBadge(
-                          variant: DBadgeVariant.secondary,
-                          size: DBadgeSize.compact,
-                          leading: DIcons.byName.containsKey(column.icon)
-                              ? DIcon(DIcons.byName[column.icon]!, size: 12)
-                              : null,
-                          child: Text(
-                            column.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 5,
+                          children: [
+                            if (boardColumnColor(column.color)
+                                case final color?)
+                              DIcon(DNativeIcons.square, size: 8, color: color),
+                            Flexible(child: Text(column.title)),
+                          ],
                         ),
                     ],
                   ),
-              ],
-            ),
-      footer: Wrap(
-        spacing: 8,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (creator != null)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 4,
-              children: [
-                DAvatar(
-                  dimension: 16,
-                  decorative: true,
-                  fallback: const DAvatarFallback(
-                    child: DIcon(DIcons.user, size: 12),
-                  ),
-                  child: avatar == null
-                      ? null
-                      : SiteImage(
-                          siteUrl: site,
-                          url: avatar,
-                          width: 16,
-                          height: 16,
-                          fit: BoxFit.cover,
-                        ),
                 ),
-                Flexible(
-                  child: Text(
-                    l10n.boardsCreatedBy(creator.username),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          Text(l10n.boardsColumnCount(board.columns.length)),
-          if (!board.detailed) Text(l10n.boardsSimple),
-          if (board.archived) Text(l10n.boardsArchived),
-          if (board.anonymousCanRead == false)
-            DIcon(DIcons.lock, size: 13, semanticLabel: l10n.boardsPrivate),
+            ],
+          ),
         ],
       ),
-    );
-  }
+      if (!board.archived && nextArchived == false) const DSeparator(),
+    ],
+  );
 }

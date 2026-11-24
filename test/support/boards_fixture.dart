@@ -17,6 +17,7 @@ Map<String, dynamic> boardFixtureJson({
   bool archived = false,
   String sort = 'priority',
   int extraCards = 0,
+  String? columnColor,
 }) => {
   'board': {
     'id': 1,
@@ -36,6 +37,7 @@ Map<String, dynamic> boardFixtureJson({
       'id': 10,
       'title': 'Backlog',
       'default_sort': sort,
+      'color': ?columnColor,
       'cards': [
         {
           'id': 101,

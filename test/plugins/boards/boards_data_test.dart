@@ -209,24 +209,32 @@ void main() {
     expect(boardDropPlacement(middle, board.column(13)!, 0), isNull);
   });
 
-  test('memberships prefer the unicode board and column titles', () {
-    final membership = BoardMemberships.decode([
-      {
-        'board_id': 1,
-        'board_name': 'Roadmap',
-        'unicode_board_name': 'Roadmap 🚀',
-        'cards': [
-          {
-            'card_id': 10,
-            'column_title': 'Done',
-            'unicode_column_title': 'Done ✅',
-          },
-        ],
-      },
-    ]).values.single;
-    expect(membership.name, 'Roadmap 🚀');
-    expect(membership.columnTitle, 'Done ✅');
-  });
+  test(
+    'memberships keep unicode titles and column colour across persistence',
+    () {
+      final memberships = BoardMemberships.decode([
+        {
+          'board_id': 1,
+          'board_name': 'Roadmap',
+          'unicode_board_name': 'Roadmap 🚀',
+          'cards': [
+            {
+              'card_id': 10,
+              'column_title': 'Done',
+              'unicode_column_title': 'Done ✅',
+              'column_color': '12b5d8',
+            },
+          ],
+        },
+      ]);
+      final membership = memberships.values.single;
+      expect(membership.name, 'Roadmap 🚀');
+      expect(membership.columnTitle, 'Done ✅');
+      expect(membership.columnColor, '12b5d8');
+      const codec = BoardMembershipCodec();
+      expect(codec.decode(codec.encode(memberships)), memberships);
+    },
+  );
 
   test(
     'recency projection preserves server order and the seven-day boundary',

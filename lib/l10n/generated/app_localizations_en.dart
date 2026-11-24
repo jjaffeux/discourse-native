@@ -14710,7 +14710,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsDescription => 'Create and manage boards with columns.';
 
   @override
-  String get boardsFilter => 'Filter boards';
+  String get boardsFilter => 'Find a board';
 
   @override
   String get boardsAll => 'All boards';

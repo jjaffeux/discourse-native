@@ -19170,7 +19170,7 @@
   "@boardsDescription": {
     "description": "Native Boards directory interface."
   },
-  "boardsFilter": "Filter boards",
+  "boardsFilter": "Find a board",
   "@boardsFilter": {
     "description": "Native Boards directory interface."
   },
