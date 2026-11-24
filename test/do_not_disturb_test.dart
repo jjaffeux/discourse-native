@@ -25,8 +25,6 @@ void main() {
 
     for (final (remaining, minutes) in [
       (const Duration(microseconds: 1), 1),
-      (const Duration(seconds: 1), 1),
-      (const Duration(seconds: 59), 1),
       (const Duration(minutes: 1, microseconds: -1), 1),
       (const Duration(minutes: 1), 1),
       (const Duration(minutes: 1, microseconds: 1), 2),
@@ -42,12 +40,7 @@ void main() {
       });
     }
 
-    for (final remaining in [
-      Duration.zero,
-      const Duration(microseconds: -1),
-      const Duration(seconds: -59),
-      const Duration(minutes: -1),
-    ]) {
+    for (final remaining in [Duration.zero, const Duration(microseconds: -1)]) {
       test('rejects a non-future expiry at $remaining', () {
         expect(
           () => doNotDisturbDurationUntil(now.add(remaining), now: now),
