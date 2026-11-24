@@ -358,20 +358,6 @@ void main() {
     expect(find.text('Example dialog'), findsNothing);
   });
 
-  testWidgets('disabled Escape and barrier keep the route open', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(_dialog<void>(dismissOnBarrier: false, dismissOnEscape: false)),
-    );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(8, 8));
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.text('Example dialog'), findsOneWidget);
-  });
-
   testWidgets('open route uses updated content and dismissal policy', (
     tester,
   ) async {
@@ -412,6 +398,11 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
+    expect(find.text('Before update'), findsOneWidget);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Before update'), findsOneWidget);
     final formState = formKey.currentState;
     await tester.enterText(find.byKey(const Key('retained-field')), 'draft');
     update(() {
@@ -433,25 +424,38 @@ void main() {
 
   testWidgets('open route uses an updated Escape policy', (tester) async {
     bool dismissOnEscape = false;
+    final changes = <DDialogChangeDetails<void>>[];
     late StateSetter update;
     await tester.pumpWidget(
       _host(
         StatefulBuilder(
           builder: (context, setState) {
             update = setState;
-            return _dialog<void>(dismissOnEscape: dismissOnEscape);
+            return _dialog<void>(
+              dismissOnEscape: dismissOnEscape,
+              onOpenChanged: changes.add,
+            );
           },
         ),
       ),
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
+    expect(find.text('Example dialog'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Example dialog'), findsOneWidget);
+    expect(changes, hasLength(1));
+    expect(changes.single.open, isTrue);
     update(() => dismissOnEscape = true);
     await tester.pumpAndSettle();
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.text('Example dialog'), findsNothing);
+    expect(changes, hasLength(2));
+    expect(changes.last.open, isFalse);
+    expect(changes.last.reason, DDialogChangeReason.escape);
   });
 
   testWidgets('replacing a borrowed controller updates the open route scope', (
@@ -621,17 +625,6 @@ void main() {
     expect(editor, findsNothing);
     expect(changes.last.reason, DDialogChangeReason.escape);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-
-  testWidgets('Escape requests close and reports its reason', (tester) async {
-    final changes = <DDialogChangeDetails<void>>[];
-    await tester.pumpWidget(_host(_dialog<void>(onOpenChanged: changes.add)));
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.text('Example dialog'), findsNothing);
-    expect(changes.last.reason, DDialogChangeReason.escape);
-  });
 
   testWidgets('custom initial and final focus remain caller owned', (
     tester,
