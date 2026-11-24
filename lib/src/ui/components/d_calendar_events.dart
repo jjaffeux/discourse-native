@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -143,10 +144,12 @@ class DKalenderCompactMonthBody extends StatelessWidget {
     final events = kalender.KalenderScope.eventsControllerOf(context);
     final location = kalender.KalenderScope.locationOf(context);
     final calculator = view.viewConfiguration.pageIndexCalculator;
-    return ListenableBuilder(
+    final pages = ListenableBuilder(
       listenable: events,
       builder: (context, _) => PageView.builder(
         controller: view.pageController,
+        scrollDirection: phone ? Axis.vertical : Axis.horizontal,
+        physics: phone ? const NeverScrollableScrollPhysics() : null,
         itemCount: calculator.numberOfPages(location),
         onPageChanged: (index) {
           final range = calculator.rangeFromIndex(index, location);
@@ -181,9 +184,10 @@ class DKalenderCompactMonthBody extends StatelessWidget {
             key: ValueKey(month),
             builder: (context, constraints) => _CompactMonthScroll(
               onPage: onVerticalPage,
-              initialOffset: phone && weekIndex == null
-                  ? (weekOf(selectedDate) ?? 0) * phoneWeekExtentOf(context)
-                  : 0,
+              focusedWeek: phone ? weekOf(selectedDate) : null,
+              weekExtent: phoneWeekExtentOf(context),
+              viewportExtent: constraints.maxHeight,
+              weekOnly: weekIndex != null,
               child: Column(
                 children: [
                   for (var week = 0; week < weeks; week++)
@@ -233,6 +237,18 @@ class DKalenderCompactMonthBody extends StatelessWidget {
         },
       ),
     );
+    if (!phone) return pages;
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: Alignment.topCenter,
+        // The pager spans 3,600 months. Whole logical pixels keep Flutter's
+        // fixed-extent sliver within its precision tolerance as the panel moves.
+        child: SizedBox(
+          height: constraints.maxHeight.floorToDouble(),
+          child: pages,
+        ),
+      ),
+    );
   }
 }
 
@@ -240,11 +256,17 @@ class _CompactMonthScroll extends StatefulWidget {
   const _CompactMonthScroll({
     required this.child,
     required this.onPage,
-    required this.initialOffset,
+    required this.focusedWeek,
+    required this.weekExtent,
+    required this.viewportExtent,
+    required this.weekOnly,
   });
 
   final Widget child;
-  final double initialOffset;
+  final int? focusedWeek;
+  final double weekExtent;
+  final double viewportExtent;
+  final bool weekOnly;
   final ValueChanged<int>? onPage;
 
   @override
@@ -252,10 +274,47 @@ class _CompactMonthScroll extends StatefulWidget {
 }
 
 class _CompactMonthScrollState extends State<_CompactMonthScroll> {
-  double _overscroll = 0;
+  double _travel = 0;
+  double _monthOffset = 0;
+  bool _startedAtTop = false;
+  bool _startedAtBottom = false;
   late final _controller = ScrollController(
-    initialScrollOffset: widget.initialOffset,
+    initialScrollOffset: _focusedOffset(0),
   );
+
+  double _focusedOffset(double offset) {
+    final week = widget.focusedWeek;
+    if (week == null) return _monthOffset;
+    if (widget.weekOnly) return 0;
+    final bottom = (week + 1) * widget.weekExtent;
+    final min = math.max(0.0, bottom - widget.viewportExtent);
+    return offset.clamp(min, math.max(min, bottom - widget.weekExtent));
+  }
+
+  @override
+  void didUpdateWidget(_CompactMonthScroll oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusedWeek == widget.focusedWeek &&
+        oldWidget.weekOnly == widget.weekOnly &&
+        (widget.focusedWeek == null ||
+            oldWidget.viewportExtent == widget.viewportExtent) &&
+        oldWidget.weekExtent == widget.weekExtent) {
+      return;
+    }
+    if (oldWidget.focusedWeek == null &&
+        widget.focusedWeek != null &&
+        _controller.hasClients) {
+      _monthOffset = _controller.offset;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.hasClients) return;
+      final position = _controller.position;
+      final offset = _focusedOffset(
+        position.pixels,
+      ).clamp(position.minScrollExtent, position.maxScrollExtent);
+      if ((position.pixels - offset).abs() > .5) _controller.jumpTo(offset);
+    });
+  }
 
   @override
   void dispose() {
@@ -263,37 +322,58 @@ class _CompactMonthScrollState extends State<_CompactMonthScroll> {
     super.dispose();
   }
 
+  void _page() {
+    if (_travel.abs() < 60) return;
+    final direction = _travel.sign.toInt();
+    _travel = 0;
+    widget.onPage?.call(direction);
+  }
+
   @override
-  Widget build(BuildContext context) =>
-      NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          final onPage = widget.onPage;
-          if (onPage == null || notification.depth != 0) return false;
-          switch (notification) {
-            case ScrollStartNotification():
-              _overscroll = 0;
-            case OverscrollNotification(:final overscroll, :final dragDetails)
-                when dragDetails != null:
-              _overscroll += overscroll;
-            case ScrollEndNotification() when _overscroll.abs() >= 48:
-              final direction = _overscroll.sign.toInt();
-              _overscroll = 0;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) widget.onPage?.call(direction);
-              });
-          }
+  Widget build(BuildContext context) {
+    final focus = widget.focusedWeek != null && widget.onPage != null;
+    final scroll = NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (focus || widget.onPage == null || notification.depth != 0) {
           return false;
-        },
-        child: SingleChildScrollView(
-          controller: _controller,
-          physics: widget.onPage == null
-              ? null
-              : const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(),
-                ),
-          child: widget.child,
-        ),
-      );
+        }
+        switch (notification) {
+          case ScrollStartNotification(:final metrics):
+            _travel = 0;
+            _startedAtTop = metrics.pixels <= metrics.minScrollExtent;
+            _startedAtBottom = metrics.pixels >= metrics.maxScrollExtent;
+          case OverscrollNotification(:final overscroll, :final dragDetails)
+              when dragDetails != null &&
+                  (overscroll < 0 ? _startedAtTop : _startedAtBottom):
+            _travel += overscroll;
+          case ScrollEndNotification():
+            _page();
+        }
+        return false;
+      },
+      child: SingleChildScrollView(
+        controller: _controller,
+        physics: focus
+            ? const NeverScrollableScrollPhysics()
+            : widget.onPage == null
+            ? null
+            : const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              ),
+        child: widget.child,
+      ),
+    );
+    if (!focus) return scroll;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      dragStartBehavior: DragStartBehavior.down,
+      onVerticalDragStart: (_) => _travel = 0,
+      onVerticalDragUpdate: (details) => _travel -= details.delta.dy,
+      onVerticalDragEnd: (_) => _page(),
+      onVerticalDragCancel: () => _travel = 0,
+      child: scroll,
+    );
+  }
 }
 
 class _CompactWeek extends StatelessWidget {
@@ -451,10 +531,12 @@ class _CompactWeek extends StatelessWidget {
                                             style: TextStyle(
                                               color: isToday
                                                   ? tokens.primary
+                                                  : isSelected
+                                                  ? tokens.foreground
                                                   : tokens.mutedForeground,
                                               fontSize:
                                                   DiscourseTypography.control,
-                                              fontWeight: isToday
+                                              fontWeight: isToday || isSelected
                                                   ? FontWeight.w700
                                                   : FontWeight.w500,
                                             ),
@@ -485,15 +567,18 @@ class _CompactWeek extends StatelessWidget {
                                   selected: isSelected,
                                   child: DecoratedBox(
                                     decoration: BoxDecoration(
-                                      color: tokens.primary.withValues(
-                                        alpha: .15,
-                                      ),
-                                      border: isSelected
-                                          ? Border.all(color: tokens.foreground)
+                                      color: isToday
+                                          ? tokens.primary.withValues(
+                                              alpha: .16,
+                                            )
                                           : null,
-                                      borderRadius: BorderRadius.circular(
-                                        tokens.radius,
-                                      ),
+                                      border: isSelected
+                                          ? Border.all(
+                                              color: tokens.foreground,
+                                              width: 1.5,
+                                            )
+                                          : null,
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: button,
                                   ),
@@ -526,7 +611,7 @@ class _CompactWeek extends StatelessWidget {
                     left: columns.first * columnWidth + 4,
                     width: columns.length * columnWidth - 8,
                     top: headerHeight + visible.$2[i].row * laneHeight,
-                    height: labelFor == null ? 5 : laneHeight - 3,
+                    height: labelFor == null ? 6 : laneHeight - 3,
                     child: IgnorePointer(
                       child: ExcludeSemantics(
                         child: Builder(
@@ -550,9 +635,9 @@ class _CompactWeek extends StatelessWidget {
                               last.add(const Duration(days: 1)),
                             );
                             final color = eventColor(event) ?? tokens.primary;
-                            final past = eventRange.end.isBefore(
-                              kalender.FloatingDateTime.fromDateTime(today),
-                            );
+                            final dayStart =
+                                kalender.FloatingDateTime.fromDateTime(today);
+                            final past = !eventRange.end.isAfter(dayStart);
                             return DecoratedBox(
                               key: ValueKey(
                                 'calendar-bar-${event.id}-${frame.range.start}',
@@ -569,10 +654,10 @@ class _CompactWeek extends StatelessWidget {
                                         end: AlignmentDirectional.centerEnd,
                                         colors: [
                                           color.withValues(
-                                            alpha: past ? .14 : .40,
+                                            alpha: past ? .064 : .16,
                                           ),
                                           color.withValues(
-                                            alpha: past ? .36 : .9,
+                                            alpha: past ? .288 : .72,
                                           ),
                                         ],
                                       )
@@ -580,9 +665,9 @@ class _CompactWeek extends StatelessWidget {
                                 borderRadius:
                                     BorderRadiusDirectional.horizontal(
                                       start: Radius.circular(
-                                        startsHere ? 4 : 0,
+                                        startsHere ? 6 : 0,
                                       ),
-                                      end: Radius.circular(endsHere ? 4 : 0),
+                                      end: Radius.circular(endsHere ? 6 : 0),
                                     ),
                               ),
                               child: labelFor == null
@@ -650,64 +735,39 @@ class DCalendarScheduleDay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final scaler = MediaQuery.textScalerOf(context);
-    return Stack(
-      children: [
-        PositionedDirectional(
-          start: 3.5,
-          top: 0,
-          bottom: 0,
-          child: DSeparator(orientation: Axis.vertical, color: tokens.border),
-        ),
-        Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(20, 16, 0, 8),
-          child: Semantics(
-            header: true,
-            child: DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                fontSize: DiscourseTypography.sm,
-                height: DiscourseTypography.lineHeightSmall,
-                color: tokens.foreground,
-                fontWeight: FontWeight.w700,
-              ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(label),
-                  if (today)
-                    Visibility(
-                      visible: !pinned,
-                      maintainSize: true,
-                      maintainState: true,
-                      maintainAnimation: true,
-                      child: DBadge(
-                        backgroundColor: tokens.primary.withValues(alpha: .2),
-                        foregroundColor: tokens.primary,
-                        child: Text(context.l10n.todayDcalendarevents),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+    final heading = Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 30, 8),
+      child: Semantics(
+        header: true,
+        child: DefaultTextStyle(
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: DiscourseTypography.sm,
+            height: DiscourseTypography.lineHeightSmall,
+            color: tokens.foreground,
+            fontWeight: FontWeight.w700,
+          ),
+          child: Row(
+            spacing: DSpacing.sm,
+            children: [
+              Expanded(child: Text(label)),
+              if (today)
+                DBadge(
+                  backgroundColor: tokens.primary,
+                  foregroundColor: tokens.primaryForeground,
+                  child: Text(context.l10n.todayDcalendarevents),
+                ),
+            ],
           ),
         ),
-        PositionedDirectional(
-          start: 0,
-          top:
-              16 +
-              scaler.scale(14) * DiscourseTypography.lineHeightSmall / 2 -
-              4,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: today ? tokens.primary : tokens.mutedForeground,
-              shape: BoxShape.circle,
-            ),
-            child: const SizedBox.square(dimension: 8),
-          ),
-        ),
-      ],
+      ),
+    );
+    if (pinned) return heading;
+    return _ScheduleSourceHeading(
+      frame: _ScheduleScope.of(context),
+      date: context
+          .dependOnInheritedWidgetOfExactType<_ScheduleRowScope>()
+          ?.date,
+      child: heading,
     );
   }
 }
@@ -768,13 +828,7 @@ class DCalendarScheduleEntry extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (dayLabel != null)
-                _ScheduleSourceHeading(
-                  frame: _ScheduleScope.of(context),
-                  date: context
-                      .dependOnInheritedWidgetOfExactType<_ScheduleRowScope>()
-                      ?.date,
-                  child: DCalendarScheduleDay(label: dayLabel!, today: today),
-                ),
+                DCalendarScheduleDay(label: dayLabel!, today: today),
               Padding(
                 padding: const EdgeInsetsDirectional.only(start: 20),
                 child: DItem(

@@ -173,40 +173,38 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets(
-      '${platform.name} opens Month at today and retains a selected view',
-      (tester) async {
-        tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = const Size(390, 844);
-        addTearDown(tester.view.reset);
-        transport.respond = (_) => {
-          'events': [current],
-        };
-        await pump(tester, platform: platform);
-        EventCalendarPage currentPage() =>
-            tester.widget<EventCalendar>(find.byType(EventCalendar)).page;
-        expect(currentPage().view, EventCalendarView.month);
-        expect(currentPage().date, DateTime.utc(2026, 9, 8));
-        expect(find.byType(DCalendarDayPanels), findsOneWidget);
-        expect(transport.queries, hasLength(1));
-        expect(
-          transport.queries.single.queryParameters['after'],
-          '2026-08-30T22:00:00.000Z',
-        );
-        expect(
-          transport.queries.single.queryParameters['before'],
-          '2026-10-04T22:00:00.000Z',
-        );
+    testWidgets('${platform.name} opens Month with today’s agenda', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      transport.respond = (_) => {
+        'events': [current],
+      };
+      await pump(tester, platform: platform);
+      EventCalendarPage currentPage() =>
+          tester.widget<EventCalendar>(find.byType(EventCalendar)).page;
+      expect(currentPage().view, EventCalendarView.month);
+      expect(currentPage().date, DateTime.utc(2026, 9, 8));
+      expect(find.byType(DCalendarDayPanels), findsOneWidget);
+      expect(transport.queries, hasLength(1));
+      expect(
+        transport.queries.single.queryParameters['after'],
+        '2026-08-30T22:00:00.000Z',
+      );
+      expect(
+        transport.queries.single.queryParameters['before'],
+        '2026-10-04T22:00:00.000Z',
+      );
 
-        await tester.tap(find.text('Schedule'));
-        await tester.pumpAndSettle();
-        expect(currentPage().view, EventCalendarView.schedule);
-        await pump(tester, platform: platform, brightness: Brightness.dark);
-        expect(currentPage().view, EventCalendarView.schedule);
-        expect(transport.queries, hasLength(2));
-        expect(tester.takeException(), isNull);
-      },
-    );
+      expect(find.byTooltip('Schedule'), findsNothing);
+      await pump(tester, platform: platform, brightness: Brightness.dark);
+      expect(currentPage().view, EventCalendarView.month);
+      expect(find.byType(DCalendarDayPanels), findsOneWidget);
+      expect(transport.queries, hasLength(1));
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('mobile preserves an explicit calendar route', (tester) async {
@@ -250,16 +248,24 @@ void main() {
         'events': [current],
       };
       await pump(tester);
-      expect(
-        find.textContaining('9:00 PM', findRichText: true),
-        findsOneWidget,
-      );
+      Future<void> checkTime(String tooltipPart) async {
+        await tester.tap(find.bySemanticsLabel('Tuesday, September 8, 2026'));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byType(DPopoverContent),
+            matching: find.textContaining(tooltipPart, findRichText: true),
+          ),
+          findsOneWidget,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+
+      await checkTime('9:00 PM');
       ports.environment.setDeviceTimezone('Europe/Paris');
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('11:00 PM', findRichText: true),
-        findsOneWidget,
-      );
+      await checkTime('11:00 PM');
       ports.controller.setForeground(false);
       current = eventJson(overrides: {'name': 'Updated while away'});
       ports.controller.setForeground(true);
@@ -324,7 +330,7 @@ void main() {
       expect(find.text('October 2026'), findsOneWidget);
       await tester.tap(find.text('Today'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Schedule'));
+      await tester.tap(find.byTooltip('Schedule'));
       await tester.pumpAndSettle();
       expect(transport.queries.map((uri) => uri.queryParameters), [
         for (final (after, before) in [
@@ -412,11 +418,10 @@ void main() {
       routes: routes,
       page: EventCalendarPage.readRoute(routes.currentContent!.id)!.page,
     );
-    // October 1 is drawn in September's grid; a Day page for it used to
-    // round-trip through the route back into October's Month.
+    expect(find.bySemanticsLabel('Thursday, October 1, 2026'), findsNothing);
     for (final day in [
       'Tuesday, September 8, 2026',
-      'Thursday, October 1, 2026',
+      'Wednesday, September 9, 2026',
     ]) {
       await tester.ensureVisible(find.bySemanticsLabel(day));
       await tester.tap(find.bySemanticsLabel(day));
@@ -495,7 +500,7 @@ void main() {
     tester.view.physicalSize = const Size(1000, 844);
     await tester.pumpAndSettle();
     expect(currentPage().view, EventCalendarView.month);
-    await tester.tap(find.text('Schedule'));
+    await tester.tap(find.byTooltip('Schedule'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();
