@@ -317,7 +317,10 @@ Color? _hexColor(Object? value) {
 /// Core orders month entries by start, longest duration, all-day, then title.
 /// Keep Kalender's lane packing and cache while supplying that ordering.
 final class EventCalendarLayout extends kalender.MultiDayLayoutStrategy {
-  const EventCalendarLayout();
+  const EventCalendarLayout({this.month});
+
+  final DateTime? month;
+
   @override
   kalender.MultiDayLayoutFrame generateFrame({
     required kalender.FloatingDateTimeRange visibleRange,
@@ -325,21 +328,66 @@ final class EventCalendarLayout extends kalender.MultiDayLayoutStrategy {
     required TextDirection textDirection,
     required tz.Location? location,
     required kalender.MultiDayLayoutFrameCache? cache,
-  }) => kalender.defaultMultiDayFrameGenerator(
-    visibleRange: visibleRange,
-    events: events,
-    textDirection: textDirection,
-    location: location,
-    cache: cache,
-    eventComparator: (a, b) {
-      final start = a.start.compareTo(b.start);
-      if (start != 0) return start;
-      final duration = b.duration.compareTo(a.duration);
-      if (duration != 0) return duration;
-      if (a.isAllDay != b.isAllDay) return a.isAllDay ? -1 : 1;
-      return (a as EventCalendarEntry).title.compareTo(
-        (b as EventCalendarEntry).title,
-      );
-    },
-  );
+  }) {
+    var range = visibleRange;
+    if (month case final date?) {
+      final monthStart = kalender.FloatingDateTime(date.year, date.month);
+      final monthEnd = kalender.FloatingDateTime(date.year, date.month + 1);
+      final start = visibleRange.start.isBefore(monthStart)
+          ? monthStart
+          : visibleRange.start;
+      final end = visibleRange.end.isAfter(monthEnd)
+          ? monthEnd
+          : visibleRange.end;
+      if (!start.isBefore(end)) {
+        return kalender.MultiDayLayoutFrame(
+          range: visibleRange,
+          layoutInfo: const [],
+          events: const [],
+          totalNumberOfRows: 0,
+          textDirection: textDirection,
+        );
+      }
+      range = kalender.FloatingDateTimeRange(start: start, end: end);
+    }
+    final frame = kalender.defaultMultiDayFrameGenerator(
+      visibleRange: range,
+      events: range == visibleRange
+          ? events
+          : events.where((raw) {
+              final event = raw as EventCalendarEntry;
+              return event.firstDay.isBefore(range.end) &&
+                  !event.lastDay.isBefore(range.start);
+            }).toList(),
+      textDirection: textDirection,
+      location: location,
+      cache: cache,
+      eventComparator: (a, b) {
+        final start = a.start.compareTo(b.start);
+        if (start != 0) return start;
+        final duration = b.duration.compareTo(a.duration);
+        if (duration != 0) return duration;
+        if (a.isAllDay != b.isAllDay) return a.isAllDay ? -1 : 1;
+        return (a as EventCalendarEntry).title.compareTo(
+          (b as EventCalendarEntry).title,
+        );
+      },
+    );
+    if (range == visibleRange) return frame;
+    final offset = textDirection == TextDirection.ltr
+        ? range.start.difference(visibleRange.start).inDays
+        : visibleRange.end.difference(range.end).inDays;
+    return kalender.MultiDayLayoutFrame(
+      range: visibleRange,
+      layoutInfo: [
+        for (final entry in frame.layoutInfo)
+          entry.copyWith(
+            columns: [for (final column in entry.columns) column + offset],
+          ),
+      ],
+      events: frame.events,
+      totalNumberOfRows: frame.totalNumberOfRows,
+      textDirection: textDirection,
+    );
+  }
 }

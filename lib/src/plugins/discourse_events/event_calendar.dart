@@ -56,8 +56,6 @@ final class EventCalendar extends StatefulWidget {
 
 final class _EventCalendarState extends State<EventCalendar> {
   static final _localeData = initializeDateFormatting();
-  static const _dayPanelWidth = 340.0;
-  static const _dayPanelGap = 16.0;
   late final kalender.KalenderController _calendar;
   final _events = kalender.DefaultEventsController();
   final _monthScroll = ScrollController();
@@ -70,6 +68,9 @@ final class _EventCalendarState extends State<EventCalendar> {
   DateTime? _phonePanelAnchor;
   String _query = '';
   late List<EventCalendarEntry> _shownEvents;
+  DScrollChromeController? _chrome;
+  bool _hideDock = false;
+  bool _turningPhoneMonth = false;
   static final _interaction = kalender.KalenderInteraction(
     allowEventCreation: false,
     allowRescheduling: false,
@@ -98,13 +99,29 @@ final class _EventCalendarState extends State<EventCalendar> {
   bool _inPageMonth(DateTime day) =>
       day.year == widget.page.date.year && day.month == widget.page.date.month;
 
-  /// The wide month's day panel follows the reader's pick while it stays in
-  /// the shown month, otherwise today when shown, otherwise the first.
   DateTime get _selectedDay => switch (_pickedDay) {
     final day? when _inPageMonth(day) => day,
+    _ when widget.page.date.day != 1 => widget.page.date,
     _ when _inPageMonth(_todayDate) => _todayDate,
-    _ => DateTime.utc(widget.page.date.year, widget.page.date.month),
+    _ => _firstAgendaDay(
+      widget.page.date,
+      DateTime.utc(widget.page.date.year, widget.page.date.month + 1),
+    ),
   };
+
+  DateTime _firstAgendaDay(DateTime first, DateTime end) {
+    final today = _todayDate;
+    for (
+      var day = first;
+      day.isBefore(end);
+      day = day.add(const Duration(days: 1))
+    ) {
+      if (day == today || _shownEvents.any((event) => event.includes(day))) {
+        return day;
+      }
+    }
+    return first;
+  }
 
   @override
   void initState() {
@@ -142,6 +159,13 @@ final class _EventCalendarState extends State<EventCalendar> {
     final scheduleLoaded =
         _awaitingScheduleEvents && dataChanged && widget.events.isNotEmpty;
     if (scheduleLoaded) _awaitingScheduleEvents = false;
+    if (oldWidget.page.date != widget.page.date &&
+        !_inPageMonth(oldWidget.page.date)) {
+      if (_pickedDay case final picked? when !_inPageMonth(picked)) {
+        _pickedDay = null;
+        _phonePanelAnchor = null;
+      }
+    }
     if (pageChanged) {
       _configure();
       _calendar
@@ -280,7 +304,7 @@ final class _EventCalendarState extends State<EventCalendar> {
   }
 
   void _pageChanged(kalender.KalenderDateTimeRange range) {
-    if (_view == EventCalendarView.year) return;
+    if (_view == EventCalendarView.year || _turningPhoneMonth) return;
     final start = DateTime.utc(
       range.start.year,
       range.start.month,
@@ -307,6 +331,7 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   @override
   void dispose() {
+    _chrome?.setFooterHidden(this, hidden: false);
     _calendar.dispose();
     _events.dispose();
     _monthScroll.dispose();
@@ -368,226 +393,196 @@ final class _EventCalendarState extends State<EventCalendar> {
     }
   }
 
-  Widget _select<T extends Object>(
-    String label,
-    List<T> values,
-    String Function(T value) describe,
-    T selected,
-    ValueChanged<T>? onChanged,
-  ) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (!values.contains(selected)) Text(describe(selected)),
-      DToggleGroup<T>(
-        size: DControlSize.segment,
-        inset: true,
-        semanticLabel: label,
-        allowEmptySelection: false,
-        values: values.contains(selected) ? [selected] : const [],
-        onChanged: onChanged == null
-            ? null
-            : (choices) => onChanged(choices.single),
-        items: [
-          for (final value in values)
-            DToggleGroupItem(value: value, child: Text(describe(value))),
-        ],
-      ),
-    ],
-  );
+  Widget _filters(BuildContext context, {required bool phoneMonth}) {
+    final l10n = context.l10n;
+    return Row(
+      spacing: DSpacing.sm,
+      children: [
+        Expanded(
+          child: DInputGroup(
+            variant: DInputGroupVariant.quiet,
+            size: DControlSize.filter,
+            children: [
+              DInput(
+                value: _query,
+                hintText: l10n.findAnEvent,
+                semanticLabel: l10n.findAnEvent,
+                onChanged: _search,
+              ),
+              const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
+              if (_query.isNotEmpty)
+                DInputGroupAddon(
+                  alignment: DInputGroupAddonAlignment.inlineEnd,
+                  child: DInputGroupButton.icon(
+                    icon: const DIcon(DIcons.xmark),
+                    tooltip: l10n.clearSearch,
+                    onPressed: () => _search(''),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        DReferenceTextScale(
+          child: DToggleGroup<bool>(
+            size: DControlSize.segment,
+            inset: true,
+            allowEmptySelection: false,
+            semanticLabel: l10n.eventFilter,
+            values: [widget.mine],
+            items: [
+              DToggleGroupItem.iconOnly(
+                value: false,
+                icon: const DIcon(DIcons.users, size: 13),
+                semanticLabel: l10n.allEvents,
+                tooltip: l10n.allEvents,
+              ),
+              DToggleGroupItem.iconOnly(
+                value: true,
+                icon: const DIcon(DIcons.user, size: 13),
+                semanticLabel: l10n.myEvents,
+                tooltip: l10n.myEvents,
+              ),
+            ],
+            onChanged: widget.onMineChanged == null
+                ? null
+                : (values) => widget.onMineChanged?.call(values.single),
+          ),
+        ),
+        if (!_schedule && _view != EventCalendarView.month) Text(_view.label),
+        if (!phoneMonth)
+          DReferenceTextScale(
+            child: DToggleGroup<EventCalendarView>(
+              size: DControlSize.segment,
+              inset: true,
+              allowEmptySelection: false,
+              semanticLabel: l10n.calendarView,
+              values: [
+                if (_schedule || _view == EventCalendarView.month) _view,
+              ],
+              items: [
+                DToggleGroupItem.iconOnly(
+                  value: EventCalendarView.month,
+                  icon: const DIcon(DIcons.calendarDays, size: 13),
+                  semanticLabel: l10n.month,
+                  tooltip: l10n.month,
+                ),
+                DToggleGroupItem.iconOnly(
+                  value: EventCalendarView.schedule,
+                  icon: const DIcon(DIcons.list, size: 13),
+                  semanticLabel: l10n.schedule,
+                  tooltip: l10n.schedule,
+                ),
+              ],
+              onChanged: (values) => _selectView(values.single),
+            ),
+          ),
+      ],
+    );
+  }
 
-  Widget _toolbar(
-    BuildContext context, {
-    required bool oneRow,
-    required bool weekFocused,
-  }) {
+  Widget _periodControls(BuildContext context, {required bool showToday}) {
     final tokens = DTokens.of(context);
-    Widget navigation(int direction) => DButton.iconOnly(
-      variant: DButtonVariant.quiet,
-      size: DControlSize.filter,
-      icon: DIcon(
-        direction < 0 ? DIcons.chevronLeft : DIcons.chevronRight,
-        size: 11,
-      ),
-      tooltip: context.l10n.messageEventcalendar(
-        (direction < 0).toString(),
-        (_schedule).toString(),
-        ((direction < 0) ? (context.l10n.previous) : '').toString(),
-        ((!(_schedule)) ? (_view.name) : '').toString(),
-        ((!(direction < 0)) ? (context.l10n.next) : '').toString(),
-      ),
-      onPressed:
-          widget.page.move(direction).date.year >= 1900 &&
-              widget.page.move(direction).date.year < 2200
-          ? () => widget.onPageChanged(widget.page.move(direction))
-          : null,
-    );
-    final scope = _select(
-      context.l10n.eventFilter,
-      const [false, true],
-      (mine) => mine ? context.l10n.myEvents : context.l10n.allEvents,
-      widget.mine,
-      widget.onMineChanged,
-    );
-    // Route-supplied views stay active until a choice is made.
-    final views = _select(
-      context.l10n.calendarView,
-      const [EventCalendarView.month, EventCalendarView.schedule],
-      (view) => view.label,
-      _view,
-      _selectView,
-    );
-    final today = _schedule
-        ? null
-        : DButton(
+    Widget navigation(int direction) {
+      final next = widget.page.move(direction);
+      return DButton.iconOnly(
+        variant: DButtonVariant.quiet,
+        size: DControlSize.filter,
+        icon: DIcon(
+          direction < 0 ? DIcons.chevronLeft : DIcons.chevronRight,
+          size: 11,
+        ),
+        tooltip: context.l10n.messageEventcalendar(
+          (direction < 0).toString(),
+          _schedule.toString(),
+          direction < 0 ? context.l10n.previous : '',
+          _schedule ? '' : _view.name,
+          direction > 0 ? context.l10n.next : '',
+        ),
+        onPressed: next.date.year >= 1900 && next.date.year < 2200
+            ? () => widget.onPageChanged(next)
+            : null,
+      );
+    }
+
+    return Row(
+      spacing: DSpacing.sm,
+      children: [
+        navigation(-1),
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(
+              toBeginningOfSentenceCase(_period, _locale),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: tokens.foreground,
+                fontSize: DiscourseTypography.compact,
+                height: DiscourseTypography.lineHeightSmall,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        navigation(1),
+        if (showToday)
+          DButton(
             variant: DButtonVariant.outline,
             size: DControlSize.chip,
             label: Text(context.l10n.todayDcalendarevents),
             onPressed: _today,
-          );
-    if (oneRow) {
-      return Row(
-        key: const ValueKey('event-calendar-header'),
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                Flexible(
-                  child: Semantics(
-                    header: true,
-                    child: Text(
-                      toBeginningOfSentenceCase(_period, _locale),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: tokens.foreground,
-                        fontSize: DiscourseTypography.lg,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                navigation(-1),
-                navigation(1),
-                if (today != null) ...[const SizedBox(width: 8), today],
-              ],
-            ),
           ),
-          const SizedBox(width: 8),
-          scope,
-          const SizedBox(width: 8),
-          views,
-        ],
-      );
-    }
-    return Padding(
-      key: const ValueKey('event-calendar-header'),
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DControlWrap(
-            direction: Axis.vertical,
-            wrap: false,
-            spacing: 10,
-            children: [
-              DControlWrap(
-                wrap: false,
-                spacing: 8,
-                children: [
-                  DControlExpanded(
-                    child: DControlWrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [scope, views],
-                    ),
-                  ),
-                  ?today,
-                ],
-              ),
-              if (!weekFocused)
-                DControlWrap(
-                  wrap: false,
-                  spacing: 8,
-                  children: [
-                    navigation(-1),
-                    DControlExpanded(
-                      child: Semantics(
-                        header: true,
-                        child: Text(
-                          toBeginningOfSentenceCase(_period, _locale),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: tokens.foreground,
-                                fontSize: DiscourseTypography.compact,
-                                height: DiscourseTypography.lineHeightSmall,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ),
-                    ),
-                    navigation(1),
-                  ],
-                ),
-            ],
-          ),
-        ],
-      ),
+      ],
     );
+  }
+
+  void _syncDock(BuildContext context, bool hidden) {
+    final chrome = DScrollChrome.maybeOf(context);
+    final hide = hidden && TickerMode.valuesOf(context).enabled;
+    if (identical(_chrome, chrome) && _hideDock == hide) return;
+    final previous = _chrome;
+    _chrome = chrome;
+    _hideDock = hide;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!identical(previous, _chrome)) {
+        previous?.setFooterHidden(this, hidden: false);
+      }
+      if (mounted && identical(chrome, _chrome)) {
+        chrome?.setFooterHidden(this, hidden: _hideDock);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final compact = constraints.maxWidth < 600;
-      final split = !compact && constraints.maxWidth >= 1000;
       final phoneMonth = compact && _touch && _view == EventCalendarView.month;
       final phoneDay = phoneMonth && _phoneDayVisible;
       final weekFocused = phoneDay && _phoneDayExpanded;
+      _syncDock(context, phoneDay);
       return DPageSurface.headed(
         title: Text(context.l10n.events),
-        controls: Column(
+        controls: _filters(context, phoneMonth: phoneMonth),
+        secondaryControls: Column(
+          key: const ValueKey('event-calendar-header'),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!_touch || phoneMonth) ...[
-              DInputGroup(
-                variant: DInputGroupVariant.quiet,
-                size: DControlSize.filter,
-                children: [
-                  DInput(
-                    value: _query,
-                    hintText: context.l10n.findAnEvent,
-                    semanticLabel: context.l10n.findAnEvent,
-                    onChanged: _search,
-                  ),
-                  const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
-                  if (_query.isNotEmpty)
-                    DInputGroupAddon(
-                      alignment: DInputGroupAddonAlignment.inlineEnd,
-                      child: DInputGroupButton.icon(
-                        icon: const DIcon(DIcons.xmark),
-                        tooltip: context.l10n.clearSearch,
-                        onPressed: () => _search(''),
+            AnimatedSwitcher(
+              duration: DMotion.duration(context, DMotion.change),
+              transitionBuilder: (child, animation) => SizeTransition(
+                sizeFactor: animation,
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: weekFocused
+                  ? const SizedBox.shrink()
+                  : DReferenceTextScale(
+                      child: _periodControls(
+                        context,
+                        showToday: !_schedule && !phoneMonth,
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: DSpacing.sm),
-            ],
-            DReferenceTextScale(
-              child: LayoutBuilder(
-                builder: (context, constraints) => _toolbar(
-                  context,
-                  weekFocused: weekFocused,
-                  // One row fits the period, navigation and both switches
-                  // only on wide windows at ordinary text sizes.
-                  oneRow:
-                      constraints.maxWidth >= (_touch ? 900 : 760) &&
-                      MediaQuery.textScalerOf(context).scale(14) <= 18,
-                ),
-              ),
             ),
             if (widget.events.isNotEmpty && _shownEvents.isEmpty)
               Padding(
@@ -599,15 +594,20 @@ final class _EventCalendarState extends State<EventCalendar> {
         ),
         child: Padding(
           // Mobile scroll fades reach the page edge beneath the dock.
-          padding: EdgeInsets.fromLTRB(16, 0, 16, _touch ? 0 : 16),
+          padding: EdgeInsets.only(bottom: _touch ? 0 : 16),
           child: LayoutBuilder(
             builder: (context, bounds) {
+              final weekdayExtent = math.max(
+                32.0,
+                MediaQuery.textScalerOf(context).scale(12) * 1.3 + 8,
+              );
               final weekRoom =
-                  DKalenderCompactMonthBody.phoneWeekExtentOf(context) + 36;
-              final rest = bounds.maxHeight * .48;
-              final panelHeight = !phoneDay || widget.loading
-                  ? 0.0
-                  : weekFocused
+                  DKalenderCompactMonthBody.phoneWeekExtentOf(context) +
+                  weekdayExtent +
+                  DSpacing.sm;
+              final rest = bounds.maxHeight * .51;
+              final showPanels = phoneDay && !widget.loading;
+              final panelHeight = weekFocused
                   ? math.max(rest, bounds.maxHeight - weekRoom)
                   : rest;
               final motion = DMotion.duration(context, DMotion.change);
@@ -618,22 +618,26 @@ final class _EventCalendarState extends State<EventCalendar> {
                   AnimatedPadding(
                     duration: motion,
                     curve: Curves.easeOutCubic,
-                    padding: EdgeInsets.only(bottom: panelHeight),
+                    padding: EdgeInsets.only(
+                      bottom: showPanels ? panelHeight : 0,
+                    ),
                     child: ExcludeFocus(
                       excluding: widget.loading,
                       child: Visibility(
                         visible: !widget.loading,
                         maintainState: true,
-                        child: _buildCalendar(
-                          compact: compact,
-                          split: split,
-                          phoneMonth: phoneMonth,
-                          weekFocused: weekFocused,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _buildCalendar(
+                            compact: compact,
+                            phoneMonth: phoneMonth,
+                            weekFocused: weekFocused,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  if (panelHeight > 0)
+                  if (phoneMonth)
                     AnimatedPositioned(
                       duration: motion,
                       curve: Curves.easeOutCubic,
@@ -641,22 +645,46 @@ final class _EventCalendarState extends State<EventCalendar> {
                       right: 0,
                       bottom: 0,
                       height: panelHeight,
-                      child: _phoneDayPanels(),
+                      child: IgnorePointer(
+                        ignoring: !showPanels,
+                        child: AnimatedSwitcher(
+                          duration: widget.loading ? Duration.zero : motion,
+                          transitionBuilder: (child, animation) =>
+                              SlideTransition(
+                                position:
+                                    Tween(
+                                      begin: const Offset(0, 1),
+                                      end: Offset.zero,
+                                    ).animate(
+                                      CurvedAnimation(
+                                        parent: animation,
+                                        curve: Curves.easeOutCubic,
+                                      ),
+                                    ),
+                                child: child,
+                              ),
+                          child: showPanels
+                              ? KeyedSubtree(
+                                  key: const ValueKey('open-agenda'),
+                                  child: _phoneDayPanels(),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
                     ),
                   if (widget.loading)
-                    EventCalendarSkeleton(
-                      view: _view,
-                      dayCount: _days.duration.inDays,
-                      month: EventMonthMetrics(
-                        layout: compact
-                            ? EventMonthLayout.compact
-                            : split
-                            ? EventMonthLayout.split
-                            : EventMonthLayout.grid,
-                        dayHeaderHeight: _dayHeaderHeight,
-                        laneHeight: _monthTileHeight,
-                        panelWidth: _dayPanelWidth,
-                        panelGap: _dayPanelGap,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: EventCalendarSkeleton(
+                        view: _view,
+                        dayCount: _days.duration.inDays,
+                        month: EventMonthMetrics(
+                          layout: compact
+                              ? EventMonthLayout.compact
+                              : EventMonthLayout.grid,
+                          dayHeaderHeight: _dayHeaderHeight,
+                          laneHeight: _monthTileHeight,
+                        ),
                       ),
                     ),
                 ],
@@ -670,7 +698,6 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   Widget _buildCalendar({
     required bool compact,
-    required bool split,
     required bool phoneMonth,
     required bool weekFocused,
   }) {
@@ -685,6 +712,7 @@ final class _EventCalendarState extends State<EventCalendar> {
     // Month lanes are a dense summary; the day popover is the full list.
     final monthTileHeight = _monthTileHeight;
     final tiles = kalender.TileComponents(tileBuilder: _tile);
+    final monthTiles = kalender.TileComponents(tileBuilder: _monthTile);
     final overlays = kalender.OverlayBuilders(
       multiDayOverlayPortalBuilder:
           (
@@ -714,10 +742,10 @@ final class _EventCalendarState extends State<EventCalendar> {
           ),
     );
     final monthBody = kalender.MonthBody(
-      tileComponents: tiles,
+      tileComponents: monthTiles,
       configuration: kalender.MonthBodyConfiguration(
         tileHeight: monthTileHeight,
-        multiDayLayoutStrategy: const EventCalendarLayout(),
+        multiDayLayoutStrategy: EventCalendarLayout(month: widget.page.date),
       ),
     );
     final scheduleBody = kalender.ScheduleBody(
@@ -758,10 +786,15 @@ final class _EventCalendarState extends State<EventCalendar> {
                     return DCalendarScheduleRow(
                       date: day,
                       rowId: 'empty',
-                      child: DCalendarScheduleEntry.empty(
-                        dayLabel: DateFormat('EEE d', _locale).format(day),
-                        today: true,
-                        title: context.l10n.nothingPlanned,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          DCalendarScheduleDay(
+                            label: DateFormat('EEE d', _locale).format(day),
+                            today: true,
+                          ),
+                          const EventAgendaEmpty(),
+                        ],
                       ),
                     );
                   },
@@ -772,26 +805,20 @@ final class _EventCalendarState extends State<EventCalendar> {
           monthComponents: kalender.MonthComponents(
             headerComponents: kalender.MonthHeaderComponents(
               weekDayHeaderBuilder: (context, date) =>
-                  DCalendarWeekdayHeader(date: date, start: !compact && !split),
+                  DCalendarWeekdayHeader(date: date, start: true),
             ),
             bodyComponents: kalender.MonthBodyComponents(
-              monthGridBuilder: (context, rows) => kalender.MonthGrid(
-                numberOfRows: rows,
-                style: kalender.MonthGridStyle(
-                  color: tokens.border.withValues(alpha: .55),
-                  thickness: 1,
-                ),
-              ),
+              monthGridBuilder: (_, _) => const SizedBox.shrink(),
               monthDayHeaderBuilder: _dayHeader,
-              monthDayCellBuilder: (context, details) => ColoredBox(
-                color: details.isToday
-                    ? tokens.primary.withValues(alpha: .08)
-                    : !details.isInFocusedMonth
-                    ? tokens.muted.withValues(alpha: .45)
-                    : details.date.weekday >= DateTime.saturday
-                    ? tokens.muted.withValues(alpha: .2)
-                    : Colors.transparent,
-              ),
+              monthDayCellBuilder: (context, details) =>
+                  details.isToday && details.isInFocusedMonth
+                  ? DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: tokens.primary.withValues(alpha: .16),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
               overlayBuilders: overlays,
             ),
           ),
@@ -822,41 +849,7 @@ final class _EventCalendarState extends State<EventCalendar> {
             body: _schedule ? _buildSchedule(scheduleBody) : scheduleBody,
           ),
           kalender.MonthViewParts(
-            // Weekday names stay over the month's columns, not the day panel.
-            header: split
-                ? const Padding(
-                    padding: EdgeInsetsDirectional.only(
-                      end: _dayPanelWidth + _dayPanelGap,
-                    ),
-                    child: kalender.MonthHeader(),
-                  )
-                : null,
-            body: split
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: DKalenderCompactMonthBody(
-                          onDayPressed: (day) =>
-                              setState(() => _pickedDay = day),
-                          eventColor: (event) =>
-                              (event as EventCalendarEntry).color,
-                          eventTitle: _touch
-                              ? null
-                              : (event) => (event as EventCalendarEntry).title,
-                          layoutStrategy: const EventCalendarLayout(),
-                          selectedDate: _selectedDay,
-                          fillHeight: true,
-                        ),
-                      ),
-                      const SizedBox(width: _dayPanelGap),
-                      SizedBox(
-                        width: _dayPanelWidth,
-                        child: _dayPanel(_selectedDay),
-                      ),
-                    ],
-                  )
-                : compact
+            body: compact
                 ? DKalenderCompactMonthBody(
                     phone: phoneMonth,
                     selectedDate: phoneMonth && _phoneDayVisible
@@ -870,14 +863,11 @@ final class _EventCalendarState extends State<EventCalendar> {
                   )
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      // The month fits the window and crowded days collapse
-                      // into "+N more". Only windows too short for three lanes
-                      // and the overflow row scroll.
+                      // Leave three equal event lanes and an overflow count
+                      // in every week, including when a week is empty.
                       final weeks = _days.duration.inDays ~/ 7;
-                      final height = math.max(
-                        constraints.maxHeight,
-                        weeks * (_dayHeaderHeight + 4 * monthTileHeight),
-                      );
+                      final height =
+                          weeks * (_dayHeaderHeight + 4 * monthTileHeight);
                       return DScrollBar(
                         controller: _monthScroll,
                         child: SingleChildScrollView(
@@ -962,23 +952,29 @@ final class _EventCalendarState extends State<EventCalendar> {
           location: widget.location,
         )
         .toList();
-    final first = dayEvents.firstOrNull;
-    final now = _now();
-    final today = day == DateTime.utc(now.year, now.month, now.day);
-    final metadata = event.scheduleMetadata(day);
     return DCalendarScheduleRow(
       date: day,
       rowId: event.id,
-      child: DCalendarScheduleEntry(
-        dayLabel: first?.id == event.id
-            ? DateFormat('EEE d', _locale).format(day)
-            : null,
-        today: today,
-        time: _scheduleTime(event),
-        title: event.title,
-        subtitle: metadata.isEmpty ? null : metadata,
-        color: event.color,
-        onPressed: () => widget.onOpen(event),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (dayEvents.firstOrNull?.id == event.id)
+            DCalendarScheduleDay(
+              label: DateFormat('EEE d', _locale).format(day),
+              today: day == _todayDate,
+            ),
+          EventAgendaRow(
+            event: event,
+            day: day,
+            creatorAvatar: widget.creatorAvatar,
+            time: _scheduleTime(event),
+            gapAbove: eventAgendaGaps(
+              dayEvents.cast<EventCalendarEntry>(),
+              day,
+            ).contains(event.id),
+            onOpen: () => widget.onOpen(event),
+          ),
+        ],
       ),
     );
   }
@@ -986,46 +982,24 @@ final class _EventCalendarState extends State<EventCalendar> {
   double get _dayHeaderHeight => _touch ? 36 : 28;
 
   double get _monthTileHeight => math.max(
-    _touch ? kMinInteractiveDimension : 20.0,
-    MediaQuery.textScalerOf(context).scale(DiscourseTypography.xs) * 1.3 + 4,
+    _touch ? kMinInteractiveDimension : 23.0,
+    MediaQuery.textScalerOf(context).scale(DiscourseTypography.xs) * 1.3 + 7,
   );
 
   Widget _dayHeader(BuildContext context, DateTime date) {
     final tokens = DTokens.of(context);
     final day = DateTime.utc(date.year, date.month, date.day);
     final today = day == _todayDate;
-    final outside = date.month != widget.page.date.month;
-    final scaler = MediaQuery.textScalerOf(context);
-    final number = Container(
-      constraints: BoxConstraints(
-        minWidth: scaler.scale(22),
-        minHeight: scaler.scale(22),
-      ),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      decoration: today
-          ? BoxDecoration(color: tokens.primary, shape: BoxShape.circle)
-          : null,
-      child: Text(
-        '${date.day}',
-        style: TextStyle(
-          fontSize: DiscourseTypography.xs,
-          fontWeight: FontWeight.w600,
-          color: today
-              ? tokens.primaryForeground
-              : outside
-              ? tokens.mutedForeground
-              : tokens.foreground,
-        ),
-      ),
-    );
+    if (!_inPageMonth(day)) {
+      return SizedBox(width: double.infinity, height: _dayHeaderHeight);
+    }
     return SizedBox(
       height: _dayHeaderHeight,
       child: Builder(
         builder: (context) => DCalendarDayButton(
           details: DCalendarDayDetails(
             date: DCalendarDate.fromDateTime(date),
-            outside: outside,
+            outside: false,
             today: today,
             disabled: false,
             hidden: false,
@@ -1040,24 +1014,14 @@ final class _EventCalendarState extends State<EventCalendar> {
           child: Align(
             alignment: AlignmentDirectional.centerStart,
             child: Padding(
-              padding: const EdgeInsetsDirectional.only(start: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  number,
-                  if (date.day == 1)
-                    Flexible(
-                      child: Text(
-                        DateFormat.MMM(_locale).format(date),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: DiscourseTypography.xs,
-                          color: tokens.mutedForeground,
-                        ),
-                      ),
-                    ),
-                ],
+              padding: const EdgeInsetsDirectional.only(start: 9),
+              child: Text(
+                '${date.day}',
+                style: TextStyle(
+                  fontSize: DiscourseTypography.control,
+                  fontWeight: today ? FontWeight.w700 : FontWeight.w500,
+                  color: today ? tokens.primary : tokens.mutedForeground,
+                ),
               ),
             ),
           ),
@@ -1092,18 +1056,52 @@ final class _EventCalendarState extends State<EventCalendar> {
   });
 
   void _movePhoneCalendar(int direction) {
+    if (_turningPhoneMonth) return;
     if (!_phoneDayExpanded) {
-      final next = widget.page.move(direction);
-      if (next.date.year >= 1900 && next.date.year < 2200) {
-        widget.onPageChanged(next);
-      }
+      unawaited(_turnPhoneMonth(widget.page.move(direction)));
       return;
     }
-    final next = _selectedDay.add(Duration(days: direction * 7));
+    final selected = _selectedDay;
+    final startOfMonth = DateTime.utc(selected.year, selected.month);
+    final endOfMonth = DateTime.utc(selected.year, selected.month + 1);
+    final startOfWeek = selected.subtract(
+      Duration(days: (selected.weekday % 7 - widget.firstDay + 7) % 7),
+    );
+    final targetWeek = startOfWeek.add(Duration(days: direction * 7));
+    final targetEnd = targetWeek.add(const Duration(days: 7));
+    final next = !targetWeek.isBefore(endOfMonth)
+        ? endOfMonth
+        : !targetEnd.isAfter(startOfMonth)
+        ? startOfMonth.subtract(const Duration(days: 1))
+        : _firstAgendaDay(
+            targetWeek.isBefore(startOfMonth) ? startOfMonth : targetWeek,
+            targetEnd.isAfter(endOfMonth) ? endOfMonth : targetEnd,
+          );
     if (next.year < 1900 || next.year >= 2200) return;
     _showPhoneDay(next);
     if (!_inPageMonth(next)) {
-      widget.onPageChanged(EventCalendarPage(EventCalendarView.month, next));
+      unawaited(
+        _turnPhoneMonth(EventCalendarPage(EventCalendarView.month, next)),
+      );
+    }
+  }
+
+  Future<void> _turnPhoneMonth(EventCalendarPage next) async {
+    if (next.date.year < 1900 || next.date.year >= 2200) return;
+    final previous = widget.page;
+    final motion = DMotion.duration(context, DMotion.change);
+    _turningPhoneMonth = true;
+    try {
+      if (motion > Duration.zero) {
+        await _calendar.animateToDate(
+          _inCalendar(next.date),
+          duration: motion,
+          curve: Curves.easeOutCubic,
+        );
+      }
+      if (mounted && widget.page == previous) widget.onPageChanged(next);
+    } finally {
+      _turningPhoneMonth = false;
     }
   }
 
@@ -1134,6 +1132,7 @@ final class _EventCalendarState extends State<EventCalendar> {
         if (day != _pickedDay) setState(() => _pickedDay = day);
       },
       onExpand: () => setState(() => _phoneDayExpanded = true),
+      onCollapse: () => setState(() => _phoneDayExpanded = false),
       onDismiss: _dismissPhoneDay,
       days: [
         for (final day in dates)
@@ -1164,62 +1163,6 @@ final class _EventCalendarState extends State<EventCalendar> {
         );
         return time != 0 ? time : a.id.compareTo(b.id);
       });
-
-  Widget _dayPanel(DateTime day) {
-    final tokens = DTokens.of(context);
-    final events = _eventsOn(day);
-    return DecoratedBox(
-      key: const ValueKey('event-calendar-day-panel'),
-      decoration: BoxDecoration(
-        border: Border.all(color: tokens.border),
-        borderRadius: BorderRadius.circular(tokens.radius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-            child: Semantics(
-              header: true,
-              child: Text(
-                DateFormat.MMMMEEEEd(_locale).format(day),
-                style: TextStyle(
-                  fontSize: DiscourseTypography.lg,
-                  fontWeight: FontWeight.w700,
-                  color: tokens.foreground,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: DKalenderScheduleBody(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                children: [
-                  if (events.isEmpty)
-                    DCalendarScheduleEntry.empty(
-                      dayLabel: null,
-                      title: context.l10n.nothingPlanned,
-                    ),
-                  for (final event in events)
-                    DCalendarScheduleEntry(
-                      time: _scheduleTime(event),
-                      title: event.title,
-                      subtitle: switch (event.scheduleMetadata(day)) {
-                        '' => null,
-                        final metadata => metadata,
-                      },
-                      color: event.color,
-                      onPressed: () => widget.onOpen(event),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   String _scheduleTime(EventCalendarEntry event) => event.isAllDay
       ? context.l10n.allDay
@@ -1341,6 +1284,72 @@ final class _EventCalendarState extends State<EventCalendar> {
   String _timeLabel(EventCalendarEntry event) => event.isAllDay
       ? appL10n.allDay
       : '${_time(event.localStart)} – ${_time(event.localEnd)}';
+
+  Widget _monthTile(
+    BuildContext context,
+    kalender.KalenderEvent raw,
+    kalender.KalenderDateTimeRange range,
+  ) {
+    final event = raw as EventCalendarEntry;
+    final tokens = DTokens.of(context);
+    final color = event.color ?? tokens.primary;
+    final month = widget.page.date;
+    final clippedStart =
+        event.start.isBefore(range.start) ||
+        event.localStart.isBefore(
+          tz.TZDateTime(widget.location, month.year, month.month),
+        );
+    final clippedEnd =
+        event.end.isAfter(range.end) ||
+        event.localEnd.isAfter(
+          tz.TZDateTime(widget.location, month.year, month.month + 1),
+        );
+    final label =
+        '${event.title}, ${DateFormat.yMMMd(_locale).format(event.localStart)}, ${_timeLabel(event)}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 3),
+      child: Opacity(
+        opacity: event.lastDay.isBefore(_todayDate) ? .4 : 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: AlignmentDirectional.centerStart,
+              end: AlignmentDirectional.centerEnd,
+              colors: [
+                color.withValues(alpha: .16),
+                color.withValues(alpha: .72),
+              ],
+            ),
+            borderRadius: BorderRadiusDirectional.horizontal(
+              start: Radius.circular(clippedStart ? 0 : 6),
+              end: Radius.circular(clippedEnd ? 0 : 6),
+            ),
+          ),
+          child: DTooltip(
+            message: label,
+            child: DCalendarEventAction(
+              semanticLabel: label,
+              onPressed: () => widget.onOpen(event),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  clippedStart ? '…${event.title}' : event.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: event.event.watching?.status == 'going'
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: tokens.foreground,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _tile(
     BuildContext context,

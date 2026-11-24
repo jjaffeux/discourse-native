@@ -59,6 +59,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     TextDirection direction = TextDirection.ltr,
     bool use24HourClock = false,
+    bool dock = false,
   }) async {
     tester.view.reset();
     tester.view.devicePixelRatio = 1;
@@ -70,25 +71,38 @@ void main() {
         builder: nativeUiEvidenceBuilder,
         home: Scaffold(
           body: StatefulBuilder(
-            builder: (context, setState) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(scale),
-                alwaysUse24HourFormat: use24HourClock,
-              ),
-              child: Directionality(
-                textDirection: direction,
-                child: EventCalendar(
-                  page: page,
-                  events: events,
-                  location: ports.zones.location('Europe/Paris')!,
-                  onPageChanged: (value) => setState(() => page = value),
-                  onOpen: (event) => opened.add(event.event.id),
-                  mine: mine,
-                  onMineChanged: (value) => setState(() => mine = value),
-                  clock: eventTestNow,
+            builder: (context, setState) {
+              final calendar = MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(scale),
+                  alwaysUse24HourFormat: use24HourClock,
                 ),
-              ),
-            ),
+                child: Directionality(
+                  textDirection: direction,
+                  child: EventCalendar(
+                    page: page,
+                    events: events,
+                    location: ports.zones.location('Europe/Paris')!,
+                    onPageChanged: (value) => setState(() => page = value),
+                    onOpen: (event) => opened.add(event.event.id),
+                    mine: mine,
+                    onMineChanged: (value) => setState(() => mine = value),
+                    clock: eventTestNow,
+                  ),
+                ),
+              );
+              return dock
+                  ? DScrollChrome(
+                      identity: 'events-test',
+                      floatingFooter: true,
+                      footerBuilder: (_) => DButton(
+                        label: const Text('Test dock'),
+                        onPressed: () {},
+                      ),
+                      child: calendar,
+                    )
+                  : calendar;
+            },
           ),
         ),
       ),
@@ -118,10 +132,15 @@ void main() {
       final launch = find.textContaining('Launch', findRichText: true);
       expect(call, findsOneWidget);
       expect(launch, findsOneWidget);
-      expect(
-        tester.getSize(launch).width,
-        greaterThan(tester.getSize(call).width * 3),
-      );
+      double laneWidth(Finder label) => tester
+          .getSize(
+            find.ancestor(
+              of: label,
+              matching: find.byType(DCalendarEventAction),
+            ),
+          )
+          .width;
+      expect(laneWidth(launch), greaterThan(laneWidth(call) * 3));
       expect(
         tester.getTopLeft(launch).dy,
         greaterThan(tester.getTopLeft(call).dy),
@@ -157,9 +176,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('desktop search filters month, day panel and schedule', (
-    tester,
-  ) async {
+  testWidgets('desktop search filters both month and schedule', (tester) async {
     await prepareNativeUiEvidence(tester);
     await pump(tester, [
       event(
@@ -184,18 +201,11 @@ void main() {
     expect(matching('Planning session'), findsNothing);
     tester.view.physicalSize = const Size(1100, 900);
     await tester.pumpAndSettle();
-    final panel = find.byKey(const ValueKey('event-calendar-day-panel'));
-    expect(
-      find.descendant(of: panel, matching: matching('Launch review')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: panel, matching: matching('Planning session')),
-      findsNothing,
-    );
+    expect(matching('Launch review'), findsOneWidget);
+    expect(matching('Planning session'), findsNothing);
     await captureNativeUi(tester, 'native-events-desktop-search');
 
-    await tester.tap(find.text('Schedule'));
+    await tester.tap(find.byTooltip('Schedule'));
     await tester.pumpAndSettle();
     expect(matching('Launch review'), findsWidgets);
     expect(matching('Planning session'), findsNothing);
@@ -207,6 +217,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(matching('Launch review'), findsWidgets);
     expect(matching('Planning session'), findsWidgets);
+    await captureNativeUi(tester, 'native-events-desktop-schedule');
     expect(tester.takeException(), isNull);
   });
 
@@ -230,56 +241,39 @@ void main() {
           find.descendant(of: control, matching: find.byType(DControlArtwork)),
         );
         final scope = tester.getRect(find.byType(DToggleGroup<bool>));
-        final view = tester.getRect(
-          find.byType(DToggleGroup<EventCalendarView>),
-        );
-        final today = surface(button('Today'));
+        final view = find.byType(DToggleGroup<EventCalendarView>);
         final previous = surface(find.byTooltip('Previous month'));
         final next = surface(find.byTooltip('Next month'));
         final title = tester.getRect(find.text('Events'));
         final period = tester.getRect(find.text('September 2026'));
-        final search = find.byType(DInputGroup);
-        final hasSearch = platform == TargetPlatform.macOS || width == 390;
-        final controlsTop = hasSearch
-            ? tester.getRect(search).bottom + DSpacing.sm
-            : title.bottom + 16;
-        if (hasSearch) {
-          expect(tester.getRect(search).left, closeTo(16, .01));
-          expect(tester.getRect(search).top, closeTo(title.bottom + 16, .01));
-        } else {
-          expect(search, findsNothing);
-        }
+        final search = tester.getRect(find.byType(DInputGroup));
+        final phone = platform == TargetPlatform.iOS && width == 390;
+        expect(search.left, closeTo(16, .01));
+        expect(search.right, lessThan(scope.left));
+        expect(search.center.dy, closeTo(scope.center.dy, 1));
+        expect(search.top, closeTo(title.bottom + 16, .01));
         expect(
           find.descendant(of: header, matching: find.byType(DSeparator)),
           findsNothing,
         );
         expect(title.left, 16);
         expect(title.top, platform == TargetPlatform.iOS ? 12 : 20);
-        final oneRow = width >= (platform == TargetPlatform.iOS ? 900 : 760);
-        if (oneRow) {
-          expect(period.left, 16);
-          expect(period.top - title.bottom, greaterThanOrEqualTo(16));
-          expect(previous.left, greaterThan(period.right));
-          expect(next.left, greaterThanOrEqualTo(previous.right));
-          expect(today.left, greaterThan(next.right));
-          expect(scope.left, greaterThan(today.right));
-          expect(view.left, greaterThan(scope.right));
-          expect(view.right, closeTo(width - 16, .01));
-          for (final control in [previous, next, today, scope, view]) {
-            expect(control.center.dy, closeTo(period.center.dy, 1));
-          }
-        } else {
-          expect(scope.left, 16);
-          expect(scope.top, closeTo(controlsTop, .01));
-          expect(view.top, greaterThanOrEqualTo(scope.top));
-          expect(view.right, lessThanOrEqualTo(width - 16));
-          expect(today.left, greaterThanOrEqualTo(scope.right));
-          expect(today.right, closeTo(width - 16, .01));
-          expect(previous.left, closeTo(16, .01));
+        expect(previous.left, closeTo(16, .01));
+        expect(previous.top, greaterThan(search.bottom));
+        expect(period.center.dy, closeTo(previous.center.dy, .01));
+        if (phone) {
+          expect(view, findsNothing);
+          expect(find.text('Today'), findsNothing);
+          expect(scope.right, closeTo(width - 16, .01));
           expect(next.right, closeTo(width - 16, .01));
-          expect(previous.top, greaterThan(view.bottom));
           expect(period.center.dx, closeTo(width / 2, .01));
-          expect(period.center.dy, previous.center.dy);
+        } else {
+          final viewBounds = tester.getRect(view);
+          final today = surface(button('Today'));
+          expect(viewBounds.center.dy, closeTo(scope.center.dy, 1));
+          expect(viewBounds.right, closeTo(width - 16, .01));
+          expect(today.right, closeTo(width - 16, .01));
+          expect(today.left, greaterThan(next.right));
         }
         final calendar = tester.getRect(find.byType(kalender.KalenderView));
         if (platform == TargetPlatform.iOS && width == 390) {
@@ -297,41 +291,29 @@ void main() {
         final periodStyle = tester
             .widget<Text>(find.text('September 2026'))
             .style!;
-        expect(periodStyle.fontSize, oneRow ? 17 : 13.5);
-        expect(
-          periodStyle.fontWeight,
-          oneRow ? FontWeight.w700 : FontWeight.w600,
-        );
-        expect(
-          DefaultTextStyle.of(
-            tester.element(find.text('All events')),
-          ).style.fontWeight,
-          FontWeight.w600,
-        );
-        expect(
-          DefaultTextStyle.of(
-            tester.element(find.text('Month')),
-          ).style.fontWeight,
-          FontWeight.w600,
-        );
-        expect(find.byType(DToggleGroup<bool>), findsOneWidget);
-        expect(find.byType(DSelect<bool>), findsNothing);
-        for (final label in ['Week', 'Day', 'Year']) {
-          expect(find.text(label), findsNothing);
+        expect(periodStyle.fontSize, 13.5);
+        expect(periodStyle.fontWeight, FontWeight.w600);
+        expect(find.byTooltip('All events'), findsOneWidget);
+        expect(find.byTooltip('My events'), findsOneWidget);
+        if (!phone) {
+          await tester.tap(find.byTooltip('Schedule'));
+          await tester.pumpAndSettle();
+          expect(page.view, EventCalendarView.schedule);
+          expect(
+            tester.getRect(find.byType(kalender.ScheduleBody)).bottom,
+            platform == TargetPlatform.iOS ? 844 : 844 - 16,
+          );
         }
-        await tester.tap(find.text('Schedule'));
-        await tester.pumpAndSettle();
-        expect(page.view, EventCalendarView.schedule);
-        expect(
-          tester.getRect(find.byType(kalender.ScheduleBody)).bottom,
-          platform == TargetPlatform.iOS ? 844 : 844 - 16,
-        );
         await tester.tap(find.byTooltip('Next month'));
         await tester.pumpAndSettle();
         expect(find.text('October 2026'), findsOneWidget);
-        await tester.tap(find.text('Today').hitTestable());
+        if (phone) {
+          await tester.tap(find.byTooltip('Previous month'));
+        } else {
+          await tester.tap(find.text('Today').hitTestable());
+        }
         await tester.pumpAndSettle();
-        expect(page.date, DateTime.utc(2026, 9, 8));
+        expect(page.date, DateTime.utc(2026, 9, phone ? 1 : 8));
         expect(tester.takeException(), isNull);
       });
     }
@@ -343,7 +325,7 @@ void main() {
       await pump(tester, [for (var id = 1; id <= 30; id++) event(id)]);
       final calendar = tester.getRect(find.byType(kalender.KalenderView));
       final lastWeek = tester.getRect(
-        find.bySemanticsLabel('Sunday, October 4, 2026'),
+        find.bySemanticsLabel('Wednesday, September 30, 2026'),
       );
       expect(lastWeek.bottom, lessThanOrEqualTo(calendar.bottom));
       final more = find.textContaining(RegExp(r'^\+\d+ more$'));
@@ -355,7 +337,7 @@ void main() {
         find.textContaining('Event ', findRichText: true),
         findsNWidgets(30 - hidden),
       );
-      expect(30 - hidden, greaterThanOrEqualTo(4));
+      expect(30 - hidden, 3);
       await tester.tap(more);
       await tester.pumpAndSettle();
       expect(find.byType(DPopoverContent), findsOneWidget);
@@ -378,97 +360,62 @@ void main() {
     },
   );
 
-  testWidgets('month lanes keep the title and leave recurrence to the list', (
+  testWidgets('desktop month has labeled bars in one grid at wide widths', (
     tester,
   ) async {
-    await pump(tester, [event(1, name: 'Weekly sync')]);
+    await pump(tester, [
+      event(1, name: 'Weekly sync'),
+      event(
+        2,
+        name: 'Already ongoing',
+        start: '2026-08-31',
+        end: '2026-09-02',
+        allDay: true,
+      ),
+      event(
+        3,
+        name: 'Next month only',
+        start: '2026-10-01',
+        end: '2026-10-01',
+        allDay: true,
+      ),
+    ], size: const Size(1300, 900));
+    final title = find.text('Weekly sync');
     final lane = find.ancestor(
-      of: find.textContaining('Weekly sync', findRichText: true),
+      of: title,
       matching: find.byType(DCalendarEventAction),
+    );
+    expect(title, findsOneWidget);
+    expect(lane, findsOneWidget);
+    expect(find.byType(DKalenderCompactMonthBody), findsNothing);
+    expect(find.byType(kalender.MonthGrid), findsNothing);
+    expect(find.bySemanticsLabel('Sunday, October 4, 2026'), findsNothing);
+    expect(find.text('Next month only'), findsNothing);
+    final firstOfMonth = find.bySemanticsLabel('Tuesday, September 1, 2026');
+    final continuation = find.ancestor(
+      of: find.text('…Already ongoing'),
+      matching: find.byType(DCalendarEventAction),
+    );
+    expect(
+      tester.getTopLeft(continuation).dx,
+      greaterThan(tester.getTopLeft(firstOfMonth).dx),
+    );
+    expect(
+      tester.getSize(continuation).width,
+      closeTo(2 * tester.getSize(firstOfMonth).width - 10, 4),
+    );
+    expect(
+      tester.getTopLeft(find.text('1')).dx,
+      closeTo(tester.getTopLeft(find.text('TUE')).dx, .1),
     );
     expect(
       find.descendant(of: lane, matching: find.dIcon(DNativeIcons.repeat)),
       findsNothing,
     );
-    final text = tester.widget<RichText>(
-      find.descendant(
-        of: lane,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is RichText &&
-              widget.text.toPlainText().contains('Weekly sync'),
-        ),
-      ),
-    );
-    final spans = <TextSpan>[];
-    text.text.visitChildren((span) {
-      if (span is TextSpan && span.text != null) spans.add(span);
-      return true;
-    });
-    final time = spans.firstWhere(
-      (span) => (span.text ?? '').startsWith('9:00'),
-    );
-    final title = spans.firstWhere((span) => span.text == 'Weekly sync');
-    expect(time.style!.color, isNot(text.text.style!.color));
-    expect(title.style, isNull);
+    await tester.tap(title);
+    expect(opened, [1]);
     expect(tester.takeException(), isNull);
   });
-
-  testWidgets(
-    'wide months show the picked day beside the grid and reset per month',
-    (tester) async {
-      await pump(tester, [
-        event(1, name: 'Today call'),
-        event(
-          2,
-          name: 'Friday review',
-          start: '2026-09-11T14:00:00+02:00',
-          end: '2026-09-11T15:00:00+02:00',
-        ),
-      ], size: const Size(1300, 900));
-      final panel = find.byKey(const ValueKey('event-calendar-day-panel'));
-      expect(find.byType(DKalenderCompactMonthBody), findsOneWidget);
-      expect(
-        find.descendant(of: panel, matching: find.text('Tuesday, September 8')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: panel, matching: find.text('Today call')),
-        findsOneWidget,
-      );
-      expect(find.text('Friday review'), findsOneWidget);
-      expect(
-        find.descendant(of: panel, matching: find.text('Friday review')),
-        findsNothing,
-      );
-
-      await tester.tap(
-        find.bySemanticsLabel(RegExp(r'^Friday, September 11, 2026')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(DDialogContent), findsNothing);
-      expect(
-        find.descendant(of: panel, matching: find.text('Friday, September 11')),
-        findsOneWidget,
-      );
-      await tester.tap(
-        find.descendant(of: panel, matching: find.text('Friday review')),
-      );
-      expect(opened, [2]);
-
-      await tester.tap(find.byTooltip('Next month'));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: panel, matching: find.text('Thursday, October 1')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: panel, matching: find.text('Nothing planned')),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
 
   testWidgets(
     'a route supplied Week view stays active until a switch is chosen',
@@ -488,7 +435,7 @@ void main() {
             .values,
         isEmpty,
       );
-      await tester.tap(find.text('Month'));
+      await tester.tap(find.byTooltip('Month'));
       await tester.pumpAndSettle();
       expect(page.view, EventCalendarView.month);
       expect(find.textContaining('EventCalendarView'), findsNothing);
@@ -501,7 +448,7 @@ void main() {
     (tester) async {
       await pump(tester, [event(1)], size: const Size(320, 780), scale: 2);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Schedule'));
+      await tester.tap(find.byTooltip('Schedule'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Next month'));
       await tester.pumpAndSettle();
@@ -532,7 +479,9 @@ void main() {
         of: panel,
         matching: find.byType(ListView),
       );
-      await tester.drag(scroll, const Offset(0, -300));
+      await tester.drag(scroll, const Offset(0, -115));
+      await tester.pumpAndSettle();
+      await tester.drag(scroll, const Offset(0, -350));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Event 7').hitTestable());
       await tester.pumpAndSettle();
@@ -560,16 +509,21 @@ void main() {
           ],
           size: const Size(390, 844),
           platform: platform,
+          dock: true,
         );
         final panels = find.byType(DCalendarDayPanels);
         final rest = tester.getSize(panels).height;
         expect(find.text('Today review').hitTestable(), findsOneWidget);
+        expect(find.text('Test dock').hitTestable(), findsNothing);
+        await captureNativeUi(tester, 'native-events-month-${platform.name}');
         await tester.drag(panels, const Offset(-290, 0));
         await tester.pumpAndSettle();
         expect(find.text('Next day review').hitTestable(), findsOneWidget);
 
-        final grabber = find.byKey(const ValueKey(('calendar-day-handle', 1)));
-        await tester.drag(grabber, const Offset(0, -115));
+        await tester.drag(
+          find.text('Next day review').hitTestable(),
+          const Offset(0, -115),
+        );
         await tester.pumpAndSettle();
         expect(tester.getSize(panels).height, greaterThan(rest));
         expect(
@@ -584,15 +538,23 @@ void main() {
         await tester.drag(grid, const Offset(0, -120));
         await tester.pumpAndSettle();
         expect(
-          find.text('Wednesday, September 16, 2026').hitTestable(),
+          find.text('Monday, September 14, 2026').hitTestable(),
           findsOneWidget,
         );
-        final nextGrabber = find.byKey(
-          const ValueKey(('calendar-day-handle', 2)),
+        await tester.drag(
+          find.text('Nothing planned').hitTestable(),
+          const Offset(0, 110),
         );
-        await tester.drag(nextGrabber, const Offset(0, 115));
+        await tester.pumpAndSettle();
+        expect(tester.getSize(panels).height, rest);
+        expect(find.text('September 2026'), findsOneWidget);
+        await tester.drag(
+          find.text('Nothing planned').hitTestable(),
+          const Offset(0, 125),
+        );
         await tester.pumpAndSettle();
         expect(panels, findsNothing);
+        expect(find.text('Test dock').hitTestable(), findsOneWidget);
         expect(find.text('September 2026'), findsOneWidget);
         final today = find.bySemanticsLabel(
           'Tuesday, September 8, 2026, Today, 1 event',
@@ -609,7 +571,7 @@ void main() {
 
   testWidgets('event times follow the reader clock', (tester) async {
     await pump(tester, [event(1, name: 'Morning call')]);
-    expect(find.textContaining('9:00 AM ', findRichText: true), findsOneWidget);
+    expect(find.text('Morning call'), findsOneWidget);
 
     page = EventCalendarPage(
       EventCalendarView.schedule,
@@ -629,6 +591,10 @@ void main() {
   testWidgets(
     'mobile schedule groups dates, retains metadata and opens an occurrence',
     (tester) async {
+      page = EventCalendarPage(
+        EventCalendarView.schedule,
+        DateTime.utc(2026, 9, 8),
+      );
       await pump(
         tester,
         [
@@ -662,10 +628,8 @@ void main() {
         size: const Size(390, 844),
         platform: TargetPlatform.iOS,
       );
-      await tester.tap(find.text('Schedule'));
-      await tester.pumpAndSettle();
       expect(page.view, EventCalendarView.schedule);
-      await tester.tap(find.text('My events'));
+      await tester.tap(find.byTooltip('My events'));
       await tester.pumpAndSettle();
       expect(mine, isTrue);
       expect(page.view, EventCalendarView.schedule);
@@ -679,7 +643,8 @@ void main() {
         }),
         findsOneWidget,
       );
-      expect(find.text('books · sam'), findsOneWidget);
+      expect(find.text('books'), findsOneWidget);
+      expect(find.text('sam'), findsOneWidget);
       expect(find.text('9 am'), findsOneWidget);
       expect(find.text('day 1 of 3'), findsOneWidget);
       expect(find.text('day 2 of 3'), findsOneWidget);
@@ -729,6 +694,10 @@ void main() {
     // overlapping page builds and can hide stale schedule item-map reads.
     Future<void> settle() =>
         tester.pumpAndSettle(const Duration(milliseconds: 16));
+    page = EventCalendarPage(
+      EventCalendarView.schedule,
+      DateTime.utc(2026, 9, 8),
+    );
     await pump(
       tester,
       [
@@ -751,8 +720,6 @@ void main() {
       size: const Size(320, 844),
       platform: TargetPlatform.iOS,
     );
-    await tester.tap(find.text('Schedule'));
-    await settle();
     await tester.tap(find.byTooltip('Next month'));
     await settle();
     expect(page.date, DateTime.utc(2026, 10));
@@ -813,11 +780,8 @@ void main() {
         tester.getTopLeft(bars.last).dx,
         closeTo(tester.getTopLeft(monday).dx + 4, .01),
       );
-      await tester.drag(
-        find.byType(DKalenderCompactMonthBody),
-        Offset(direction == TextDirection.ltr ? -350 : 350, 0),
-      );
-      await tester.pumpAndSettle();
+      await tester.dragFrom(tester.getCenter(monday), const Offset(0, -160));
+      await tester.pumpAndSettle(const Duration(milliseconds: 16));
       expect(page.date, DateTime.utc(2026, 10));
       expect(tester.takeException(), isNull);
     });

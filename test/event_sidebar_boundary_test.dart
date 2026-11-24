@@ -89,7 +89,7 @@ void main() {
           expect(header, findsOneWidget);
           expect(
             find.descendant(
-              of: header,
+              of: find.byType(EventCalendar),
               matching: find.byType(DToggleGroup<bool>),
             ),
             findsOneWidget,
@@ -239,7 +239,7 @@ void main() {
         expect(requests.single.url.queryParameters, _query());
 
         if (user != null) {
-          await tester.tap(find.text('My events').last);
+          await tester.tap(find.byTooltip('My events'));
           await tester.pumpAndSettle();
 
           expect(
@@ -262,11 +262,15 @@ void main() {
           expect(requests.last.url.queryParameters, _query(mine: true));
         } else {
           expect(find.byType(InstanceSidebar), findsNothing);
-          while (controller.canPopContent) {
-            controller.handleBack(canReturnToSidebar: false);
-          }
-          controller.handleBack(canReturnToSidebar: true);
+          final dayPanels = find.byType(DCalendarDayPanels);
+          expect(dayPanels, findsOneWidget);
+          final agenda = find.descendant(
+            of: dayPanels,
+            matching: find.byType(ListView),
+          );
+          await tester.drag(agenda.hitTestable().first, const Offset(0, 130));
           await tester.pumpAndSettle();
+          expect(dayPanels, findsNothing);
           if (dockEvents.evaluate().isEmpty) {
             await openDockPanel(tester);
             expect(dockPanelTile('Events'), findsOneWidget);

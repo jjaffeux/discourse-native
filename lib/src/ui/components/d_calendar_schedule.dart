@@ -64,9 +64,7 @@ class _CalendarScheduleViewportState extends State<DCalendarScheduleViewport> {
     _frame
       ..days = widget.days
       ..missingToday = widget.missingTodayPosition
-      ..bottomInset = widget.bottomInset
-      ..stacked = MediaQuery.textScalerOf(context).scale(14) > 21
-      ..direction = Directionality.of(context);
+      ..bottomInset = widget.bottomInset;
     _frame.invalidate();
     Widget call(DCalendarScheduleTodayPosition position) => _ScheduleLayer(
       frame: _frame,
@@ -214,8 +212,6 @@ class _ScheduleFrame {
   DCalendarScheduleTodayPosition missingToday =
       DCalendarScheduleTodayPosition.visible;
   double bottomInset = 0;
-  bool stacked = false;
-  TextDirection direction = TextDirection.ltr;
   RenderBox? viewport;
   final rows = <_RenderScheduleRow>{};
   final positions = <ScrollPosition, int>{};
@@ -329,46 +325,12 @@ class _ScheduleFrame {
             push = math.min(0, incoming.bounds.top - heading.size.height);
           }
           alpha = (1 + push / heading.size.height).clamp(0, 1);
-          RenderParagraph? label;
-          void findLabel(RenderObject object) {
-            if (label != null) return;
-            if (object is RenderParagraph) {
-              label = object;
-              return;
-            }
-            object.visitChildren(findLabel);
-          }
-
-          findLabel(heading);
-          if (label != null && label!.hasSize) {
-            final ink =
-                label!.localToGlobal(Offset.zero, ancestor: heading) &
-                label!.size;
-            final bottom = math.max(0.0, ink.bottom + push);
-            final column =
-                20.0 + math.min(70.0, (viewport.size.width - 20) * .3);
-            clip = stacked || viewport.size.width - 20 < 220
-                ? Rect.fromLTRB(0, 0, viewport.size.width, bottom)
-                : direction == TextDirection.ltr
-                ? Rect.fromLTRB(
-                    0,
-                    0,
-                    math.min(
-                      viewport.size.width,
-                      math.max(column, ink.right + 10),
-                    ),
-                    bottom,
-                  )
-                : Rect.fromLTRB(
-                    math.max(
-                      0,
-                      math.min(viewport.size.width - column, ink.left - 10),
-                    ),
-                    0,
-                    viewport.size.width,
-                    bottom,
-                  );
-          }
+          clip = Rect.fromLTRB(
+            0,
+            0,
+            viewport.size.width,
+            math.max(0.0, heading.size.height + push),
+          );
         }
       }
       final todayDay = days.where((day) => day.today).firstOrNull;

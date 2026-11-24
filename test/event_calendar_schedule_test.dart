@@ -142,7 +142,9 @@ void main() {
       final node = element.renderObject?.debugSemantics;
       return node != null &&
           node.attached &&
-          RegExp(r'^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+$').hasMatch(node.label);
+          RegExp(
+            r'^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+(?:\nToday)?$',
+          ).hasMatch(node.label);
     }),
     matching: find.byWidgetPredicate(
       (widget) => widget is DCalendarScheduleDay && widget.pinned,
@@ -264,7 +266,7 @@ void main() {
         tester.getCenter(find.byType(kalender.ScheduleBody)),
       );
       await gesture.moveBy(const Offset(0, -20));
-      await gesture.moveBy(const Offset(0, -240));
+      await gesture.moveBy(const Offset(0, -400));
       await tester.pump(const Duration(milliseconds: 16));
       await export(tester, 'large-delta-first-frame');
       expect(pinned(), findsOneWidget);
@@ -282,10 +284,10 @@ void main() {
       tester.getCenter(find.byType(kalender.ScheduleBody)),
     );
     await gesture.moveBy(const Offset(0, -20));
-    await gesture.moveBy(const Offset(0, -240));
+    await gesture.moveBy(const Offset(0, -400));
     await tester.pump(const Duration(milliseconds: 16));
     expect(tester.widget<DCalendarScheduleDay>(pinned()).label, 'Wed 2');
-    await gesture.moveBy(const Offset(0, 500));
+    await gesture.moveBy(const Offset(0, 600));
     await tester.pump(const Duration(milliseconds: 16));
     expect(pinned(), findsNothing);
     expect(find.bySemanticsLabel('Tue 1'), findsOneWidget);
@@ -373,7 +375,7 @@ void main() {
       await tester.pump();
       await frames(tester);
       expect(find.text('Nothing planned').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('My events'));
+      await tester.tap(find.byTooltip('My events'));
       await tester.pumpAndSettle();
       expect(mine, isTrue);
       expect(find.text('Nothing planned'), findsOneWidget);
@@ -498,12 +500,9 @@ void main() {
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(kalender.ScheduleBody)),
       );
-      final toolbarHeight = tester
-          .getSize(find.byKey(const ValueKey('event-calendar-header')))
-          .height;
       await gesture.moveBy(const Offset(0, -20));
       await tester.pump(const Duration(milliseconds: 16));
-      await gesture.moveBy(Offset(0, -toolbarHeight - 40));
+      await gesture.moveBy(const Offset(0, -140));
       await tester.pump(const Duration(milliseconds: 16));
       expect(pinned(), findsOneWidget);
       expect(tester.widget<DCalendarScheduleDay>(pinned()).label, 'Tue 8');
