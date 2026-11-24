@@ -317,6 +317,7 @@ void boardsDirectoryWidgetTests({
     expect(find.byType(DSpinner), findsNothing);
     expect(find.byType(DSkeletonRegion), findsWidgets);
     expect(find.byType(DSkeleton), findsWidgets);
+    final placeholder = tester.getRect(find.byType(DSkeleton).first);
     expect(find.widgetWithText(DButton, 'Refresh'), findsNothing);
     expect(fixture.transport.reads, hasLength(1));
     pending.complete({
@@ -325,6 +326,9 @@ void boardsDirectoryWidgetTests({
     await tester.pumpAndSettle();
     expect(find.byType(DSkeletonRegion), findsNothing);
     expect(find.text('Team roadmap'), findsOneWidget);
+    final title = tester.getRect(find.text('Team roadmap'));
+    expect(placeholder.left, closeTo(title.left, 0.01));
+    expect(placeholder.top, closeTo(title.top, 0.01));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -374,10 +378,17 @@ void boardsDirectoryWidgetTests({
         final rows = find.byType(DItem);
         final first = tester.getRect(rows.first);
         final second = tester.getRect(rows.at(1));
+        final boardTitle = tester.getRect(find.text('Board 1'));
+        final columns = tester.getRect(find.byType(DItemDescription).first);
         expect(title.left, closeTo(search.left, 0.01));
         expect(first.left, closeTo(controls.left, 0.01));
         expect(first.right, closeTo(controls.right, 0.01));
-        expect(second.top, greaterThanOrEqualTo(first.bottom));
+        expect(boardTitle.left, closeTo(first.left + 3, 0.01));
+        expect(boardTitle.top, closeTo(first.top + 12, 0.01));
+        expect(columns.left, closeTo(boardTitle.left, 0.01));
+        expect(columns.top, closeTo(boardTitle.bottom + 3, 0.01));
+        expect(first.bottom, closeTo(columns.bottom + 12, 0.01));
+        expect(second.top, closeTo(first.bottom + 1, 0.01));
         expect(
           find.text('Create and manage boards with columns.'),
           findsNothing,
@@ -474,6 +485,15 @@ void boardsDirectoryWidgetTests({
       expect(archived.closedRuleAbove, isTrue);
       expect(archived.closedRuleBelow, isTrue);
       expect(tester.widget<DItem>(rows.at(1)).closed, isFalse);
+      final activeBounds = tester.getRect(rows.at(1));
+      final archivedBounds = tester.getRect(rows.at(2));
+      expect(archivedBounds.left, closeTo(activeBounds.left - 12, 0.01));
+      expect(archivedBounds.right, closeTo(activeBounds.right + 12, 0.01));
+      expect(archivedBounds.top, closeTo(activeBounds.bottom, 0.01));
+      expect(
+        tester.getTopLeft(find.byType(DItemTitle).at(2)).dx,
+        closeTo(tester.getTopLeft(find.byType(DItemTitle).at(1)).dx, 0.01),
+      );
       expect(
         find.descendant(
           of: rows.at(2),
