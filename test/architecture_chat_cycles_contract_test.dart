@@ -42,6 +42,7 @@ void main() {
   };
 
   test('chat models and wire contracts reach no controller or service key', () {
+    expect(graph.edges.keys.toSet().intersection(chatDataLayer), chatDataLayer);
     const forbidden = {
       'lib/src/plugins/chat/chat_controller.dart',
       'lib/src/plugins/chat/chat_services.dart',
@@ -53,20 +54,6 @@ void main() {
             when reached.isNotEmpty)
           library: reached,
     }, isEmpty);
-  });
-
-  test('chat data layer libraries participate in no import cycle', () {
-    expect(graph.edges.keys.toSet().intersection(chatDataLayer), chatDataLayer);
-    expect(librariesInCycles().intersection(chatDataLayer), isEmpty);
-  });
-
-  test('no chat library participates in an import cycle', () {
-    expect(
-      librariesInCycles().where(
-        (library) => library.startsWith('lib/src/plugins/chat/'),
-      ),
-      isEmpty,
-    );
   });
 
   test('only the module composition reaches the chat plugin entry', () {

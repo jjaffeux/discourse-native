@@ -43,8 +43,6 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _importCycles = <int>[];
-
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
 const Map<String, Set<String>> _unreachableFromLayer = {
@@ -105,8 +103,8 @@ void main() {
       );
     });
 
-    test('the import cycles stay within their budget', () {
-      expect(graph.cycles().map((cycle) => cycle.length), _importCycles);
+    test('all application libraries remain free of import cycles', () {
+      expect(graph.cycles(), isEmpty);
     });
 
     test('no two layers depend on each other', () {

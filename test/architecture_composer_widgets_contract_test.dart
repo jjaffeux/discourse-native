@@ -6,14 +6,11 @@ const _composerController = 'lib/src/shell/composer/controller.dart';
 const _markdownController =
     'lib/src/shell/composer/markdown_editing_controller.dart';
 const _kitBarrel = 'lib/discourse_ui.dart';
-const _panel = 'lib/src/shell/composer/panel.dart';
-const _shellController = 'lib/src/shell/shell_controller.dart';
 
-/// The widget libraries the composer controllers still compile. Each is a
-/// leaf: it imports nothing that reaches the controllers or the shell back,
-/// which the second test proves. Adding one here is a reviewed decision; the
-/// component editors, pills, previews, the panel and the UI kit must stay out,
-/// because they are what the artwork seam exists to remove.
+/// The widget libraries the composer controllers still compile. The global
+/// cycle check prevents a dependency from reaching back to the controllers.
+/// Adding one here is a reviewed decision; the component editors, pills,
+/// previews, panel and UI kit stay out of the artwork seam.
 const _leafWidgetLibraries = {
   'lib/src/plugin_api/plugin_ui_scope.dart',
   'lib/src/shell/composer/components/blockquote.dart',
@@ -45,40 +42,6 @@ void main() {
         graph.widgetLibrariesReachedBy(_composerController),
         _leafWidgetLibraries,
       );
-    });
-
-    test(
-      'no widget library the composer controller reaches imports it back',
-      () {
-        final reached = graph.widgetLibrariesReachedBy(_composerController);
-        expect({
-          for (final library in reached)
-            if (graph.closureOf(library).contains(_composerController)) library,
-        }, isEmpty);
-      },
-    );
-
-    test('the controllers share no import cycle with the panel', () {
-      final cycles = graph.cycles();
-      for (final cycle in cycles.where((cycle) => cycle.contains(_panel))) {
-        expect(cycle, isNot(contains(_composerController)));
-        expect(cycle, isNot(contains(_markdownController)));
-        expect(cycle, isNot(contains(_shellController)));
-      }
-    });
-
-    test('ShellController shares no import cycle with the composer', () {
-      final cycles = graph.cycles();
-      for (final cycle in cycles.where(
-        (cycle) => cycle.contains(_shellController),
-      )) {
-        expect(
-          cycle.where(
-            (library) => library.startsWith('lib/src/shell/composer/'),
-          ),
-          isEmpty,
-        );
-      }
     });
 
     test('the pure link parser is what inline formatting compiles', () {

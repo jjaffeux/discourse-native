@@ -23,15 +23,6 @@ void main() {
   final graph = LibraryGraph.load();
 
   group('shell widget cycles', () {
-    test('shell libraries participate in no import cycle', () {
-      expect(
-        graph.cycles().where(
-          (cycle) => cycle.any((path) => path.startsWith('lib/src/shell/')),
-        ),
-        isEmpty,
-      );
-    });
-
     test('drawing an emoji or a bookmark item does not compile the shell', () {
       for (final library in const [
         'lib/src/shell/site_emoji_image.dart',
@@ -159,12 +150,5 @@ void main() {
         }
       },
     );
-
-    test('the composer controller participates in no import cycle', () {
-      expect(
-        graph.cycles().where((cycle) => cycle.contains(_composerController)),
-        isEmpty,
-      );
-    });
   });
 }
