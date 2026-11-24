@@ -196,17 +196,6 @@ void main() {
     final expected =
         'https://forum.example${template.replaceAll('{size}', '90')}';
 
-    test('Post decodes $template', () {
-      final post = Post.fromJson({
-        'id': 42,
-        'post_number': 1,
-        'username': 'sam',
-        'avatar_template': template,
-        'cooked': '<p>Hello</p>',
-      }, _site);
-      expect(post.avatarUrl, expected);
-    });
-
     test('ChatMessage decodes its nested author with $template', () {
       final message = ChatMessage.fromJson({
         'id': 42,
@@ -244,6 +233,7 @@ void main() {
         addTearDown(loader.close);
         final post = Post.fromJson(const {'avatar_template': _uploaded}, _site);
 
+        expect(post.avatarUrl, '$_site/user_avatar/forum.example/sam/90/1.png');
         expect(await loader.load(post.avatarUrl!), isNotNull);
         expect(requested, [
           Uri.parse('$_site/user_avatar/forum.example/sam/90/1.png'),
