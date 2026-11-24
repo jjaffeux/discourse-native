@@ -43,18 +43,13 @@ void main() {
 
     test('the places named come first, in their saved sequence, and the '
         'rest keep their default order after them', () {
-      expect(apply(['a', 'b', 'c', 'd'], ['c', 'a']), ['c', 'a', 'b', 'd']);
+      expect(apply(['a', 'new', 'b', 'c'], ['c', 'a']), ['c', 'a', 'new', 'b']);
       expect(apply(['a', 'b', 'c'], ['c', 'b', 'a']), ['c', 'b', 'a']);
     });
 
     test('a name the forum no longer offers is dropped', () {
       expect(apply(['a', 'b', 'c'], ['c', 'gone', 'a']), ['c', 'a', 'b']);
       expect(apply(['a', 'b'], ['gone']), ['a', 'b']);
-    });
-
-    test('a place offered anew takes its default position among the '
-        'unplaced', () {
-      expect(apply(['a', 'new', 'b', 'c'], ['c', 'a']), ['c', 'a', 'new', 'b']);
     });
   });
 
