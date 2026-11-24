@@ -98,16 +98,6 @@ void main() {
       expect(upcomingDayName(DateTime(2026, 3, 8, 9), now: now), isNull);
     });
 
-    test('compares calendar days, not elapsed hours', () {
-      final now = DateTime(2026, 3, 9, 14);
-
-      // Across a DST change, today's midnight plus 24 hours is not tomorrow's
-      // midnight. A day start one hour past midnight reproduces that offset in
-      // any test timezone.
-      expect(upcomingDayName(DateTime(2026, 3, 10, 1), now: now), 'Tomorrow');
-      expect(upcomingDayName(DateTime(2026, 3, 11, 1), now: now), isNull);
-    });
-
     test('names tomorrow on the days daylight saving starts and ends', () {
       final paris = TimezoneEnvironment.instance.location('Europe/Paris')!;
 
