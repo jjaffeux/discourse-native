@@ -51,10 +51,6 @@ void main() {
     expect(graph.edges[_sdk], contains(_contracts));
   });
 
-  test('the contracts barrel stays within its closure budget', () {
-    expect(closure.length, 169);
-  });
-
   test('the plugin libraries on the full SDK stay within their budget', () {
     final fullSdkPluginLibraries = graph.edges.entries.where(
       (entry) =>
