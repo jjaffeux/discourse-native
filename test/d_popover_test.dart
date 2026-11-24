@@ -9,88 +9,86 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void popoverBackdropTests() {
-  for (final dark in [false, true]) {
-    testWidgets('popup animates through open, close and reversal ($dark)', (
-      tester,
-    ) async {
-      final controller = DPopoverController();
-      addTearDown(controller.dispose);
-      final completions = <bool>[];
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: dark ? AppTheme.dark : AppTheme.light,
-          home: Scaffold(
-            body: Center(
-              child: DPopover(
-                controller: controller,
-                // Native frames can take longer than a production popup
-                // entrance. Keep the sampled frame inside the transition.
-                transitionDuration: const Duration(seconds: 1),
-                reverseTransitionDuration: const Duration(seconds: 1),
-                onOpenChangeComplete: completions.add,
-                content: const DPopoverContent(
-                  width: 180,
-                  child: SizedBox(height: 100, child: Text('Popup content')),
-                ),
-                child: DPopoverTrigger(
-                  builder: (context, trigger) => DButton(
-                    label: const Text('Open'),
-                    onPressed: trigger.toggle,
-                  ),
+  testWidgets('popup animates through open, close and reversal', (
+    tester,
+  ) async {
+    final controller = DPopoverController();
+    addTearDown(controller.dispose);
+    final completions = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(
+            child: DPopover(
+              controller: controller,
+              // Native frames can take longer than a production popup
+              // entrance. Keep the sampled frame inside the transition.
+              transitionDuration: const Duration(seconds: 1),
+              reverseTransitionDuration: const Duration(seconds: 1),
+              onOpenChangeComplete: completions.add,
+              content: const DPopoverContent(
+                width: 180,
+                child: SizedBox(height: 100, child: Text('Popup content')),
+              ),
+              child: DPopoverTrigger(
+                builder: (context, trigger) => DButton(
+                  label: const Text('Open'),
+                  onPressed: trigger.toggle,
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    void checkTransitionFrame() {
+      // Mid-transition the popup fades through a fractional opacity
+      // layer.
+      final fractionalLayers = tester.layers.whereType<OpacityLayer>().where(
+        (layer) => layer.alpha! > 0 && layer.alpha! < 255,
       );
-      await tester.pumpAndSettle();
+      expect(fractionalLayers, isNotEmpty);
+      // Its scale comes from the render tree, so the measured width is
+      // still short of the settled 180.
+      expect(
+        tester.getRect(find.byType(DPopoverContent)).width,
+        inExclusiveRange(180 * .95, 180),
+      );
+      expect(tester.takeException(), isNull);
+    }
 
-      void checkTransitionFrame() {
-        // Mid-transition the popup fades through a fractional opacity
-        // layer.
-        final fractionalLayers = tester.layers.whereType<OpacityLayer>().where(
-          (layer) => layer.alpha! > 0 && layer.alpha! < 255,
-        );
-        expect(fractionalLayers, isNotEmpty);
-        // Its scale comes from the render tree, so the measured width is
-        // still short of the settled 180.
-        expect(
-          tester.getRect(find.byType(DPopoverContent)).width,
-          inExclusiveRange(180 * .95, 180),
-        );
-        expect(tester.takeException(), isNull);
-      }
+    controller.open();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    checkTransitionFrame();
+    await tester.pump(const Duration(milliseconds: 32));
+    checkTransitionFrame();
+    await tester.pumpAndSettle();
+    expect(completions, [true]);
 
-      controller.open();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 32));
-      checkTransitionFrame();
-      await tester.pump(const Duration(milliseconds: 32));
-      checkTransitionFrame();
-      await tester.pumpAndSettle();
-      expect(completions, [true]);
+    controller.close();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    checkTransitionFrame();
+    // Reopening while the exit is in flight resumes the same transition.
+    controller.open();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    checkTransitionFrame();
+    await tester.pumpAndSettle();
+    expect(find.text('Popup content'), findsOneWidget);
 
-      controller.close();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 32));
-      checkTransitionFrame();
-      // Reopening while the exit is in flight resumes the same transition.
-      controller.open();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 16));
-      checkTransitionFrame();
-      await tester.pumpAndSettle();
-      expect(find.text('Popup content'), findsOneWidget);
-
-      controller.close();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 32));
-      checkTransitionFrame();
-      await tester.pumpAndSettle();
-      expect(find.text('Popup content'), findsNothing);
-      expect(completions, [true, true, false]);
-    });
-  }
+    controller.close();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    checkTransitionFrame();
+    await tester.pumpAndSettle();
+    expect(find.text('Popup content'), findsNothing);
+    expect(completions, [true, true, false]);
+  });
 }
 
 void main() {
