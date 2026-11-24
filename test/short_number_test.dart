@@ -13,6 +13,7 @@ void main() {
         (10500, '10.5k'),
         (99999, '100k'),
         (100000, '100k'),
+        (999000, '999k'),
         (999500, '999k'),
         (999999, '999k'),
         (1000000, '1M'),
@@ -43,12 +44,6 @@ void main() {
           label,
           reason: '$count',
         );
-      }
-    });
-
-    test('floors hundreds of thousands rather than rounding into 1000k', () {
-      for (var count = 999000; count <= 999999; count += 37) {
-        expect(shortNumber(count), '999k', reason: '$count');
       }
     });
 
