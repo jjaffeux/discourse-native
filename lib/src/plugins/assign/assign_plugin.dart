@@ -213,48 +213,56 @@ final class AssignPlugin
           .add(assignment);
     }
     return [
-      Text(context.l10n.assignedToAssignmenttopiclist, style: style),
-      for (final group in grouped.values)
-        Semantics(
-          container: true,
-          label: group
-              .map(
-                (assignment) => assignmentSummary(
-                  assignment,
-                  assignment.isPostAssignment
-                      ? _postLabel(assignment.postNumber)
-                      : context.l10n.topic,
+      AssignmentTopicListPill(
+        child: Wrap(
+          spacing: DSpacing.sm,
+          runSpacing: DSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final group in grouped.values)
+              Semantics(
+                container: true,
+                label: group
+                    .map(
+                      (assignment) => assignmentSummary(
+                        assignment,
+                        assignment.isPostAssignment
+                            ? _postLabel(assignment.postNumber)
+                            : context.l10n.topic,
+                      ),
+                    )
+                    .join('; '),
+                child: ExcludeSemantics(
+                  child: Wrap(
+                    spacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      AssignmentAssigneeAvatar(
+                        assignee: group.first.assignee,
+                        size: 20,
+                      ),
+                      Text(group.first.assignee.displayName, style: style),
+                      if (group.first.assignee.isGroup)
+                        Text(context.l10n.groupAssignplugin, style: style),
+                      Text(
+                        group
+                            .map(
+                              (assignment) => assignment.isPostAssignment
+                                  ? (_validPostNumber(assignment) == null
+                                        ? 'post'
+                                        : '#${assignment.postNumber}')
+                                  : 'topic',
+                            )
+                            .join(', '),
+                        style: style,
+                      ),
+                    ],
+                  ),
                 ),
-              )
-              .join('; '),
-          child: ExcludeSemantics(
-            child: Wrap(
-              spacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                AssignmentAssigneeAvatar(
-                  assignee: group.first.assignee,
-                  size: 20,
-                ),
-                Text(group.first.assignee.displayName, style: style),
-                if (group.first.assignee.isGroup)
-                  Text(context.l10n.groupAssignplugin, style: style),
-                Text(
-                  group
-                      .map(
-                        (assignment) => assignment.isPostAssignment
-                            ? (_validPostNumber(assignment) == null
-                                  ? 'post'
-                                  : '#${assignment.postNumber}')
-                            : 'topic',
-                      )
-                      .join(', '),
-                  style: style,
-                ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
+      ),
     ];
   }
 
