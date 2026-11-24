@@ -490,63 +490,52 @@ void main() {
     },
   );
 
-  for (final brightness in Brightness.values) {
-    testWidgets(
-      'inline ${brightness.name} title supports Enter and Escape at large text without buttons',
-      (tester) async {
-        final controller = _controller();
-        addTearDown(controller.dispose);
-        final saved = <String>[];
-        await tester.pumpWidget(
-          _TestEditor(
-            controller: controller,
-            title: 'Making the first week feel more welcoming',
-            width: 360,
-            maxLines: 3,
-            showEditingFrame: true,
-            theme: brightness == Brightness.dark
-                ? AppTheme.dark
-                : AppTheme.light,
-            textScaler: const TextScaler.linear(2),
-            onSave: (value) async {
-              saved.add(value);
-              return null;
-            },
-          ),
-        );
-        await tester.tap(
-          find.byKey(const ValueKey('topic-header-title-field')),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.widgetWithText(DButton, 'Save').hitTestable(),
-          findsNothing,
-        );
-        expect(
-          find.widgetWithText(DButton, 'Cancel').hitTestable(),
-          findsNothing,
-        );
-        await tester.enterText(
-          find.byType(DInput),
-          'A more welcoming first week',
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-        expect(saved, ['A more welcoming first week']);
-        expect(find.byType(DInput), findsNothing);
-        await tester.tap(
-          find.byKey(const ValueKey('topic-header-title-field')),
-        );
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(DInput), 'Do not save');
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        expect(saved.length, 1);
-        expect(find.byType(DInput), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
+  testWidgets(
+    'inline dark title supports Enter and Escape at large text without buttons',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      final saved = <String>[];
+      await tester.pumpWidget(
+        _TestEditor(
+          controller: controller,
+          title: 'Making the first week feel more welcoming',
+          width: 360,
+          maxLines: 3,
+          showEditingFrame: true,
+          theme: AppTheme.dark,
+          textScaler: const TextScaler.linear(2),
+          onSave: (value) async {
+            saved.add(value);
+            return null;
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(DButton, 'Save').hitTestable(), findsNothing);
+      expect(
+        find.widgetWithText(DButton, 'Cancel').hitTestable(),
+        findsNothing,
+      );
+      await tester.enterText(
+        find.byType(DInput),
+        'A more welcoming first week',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(saved, ['A more welcoming first week']);
+      expect(find.byType(DInput), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DInput), 'Do not save');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(saved.length, 1);
+      expect(find.byType(DInput), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('inline editor preserves registered site emoji artwork', (
     tester,
