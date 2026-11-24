@@ -111,16 +111,29 @@ class DKalenderCompactMonthBody extends StatelessWidget {
     super.key,
     required this.onDayPressed,
     required this.eventColor,
+    this.eventTitle,
     this.layoutStrategy = const kalender.MultiDayLayoutStrategy.byDuration(),
     this.selectedDate,
     this.fillHeight = false,
+    this.phone = false,
+    this.visibleWeek,
+    this.onVerticalPage,
   });
 
   final ValueChanged<DateTime> onDayPressed;
   final Color? Function(kalender.KalenderEvent) eventColor;
+  final String Function(kalender.KalenderEvent)? eventTitle;
   final kalender.MultiDayLayoutStrategy layoutStrategy;
   final DateTime? selectedDate;
   final bool fillHeight;
+  final bool phone;
+  final DateTime? visibleWeek;
+  final ValueChanged<int>? onVerticalPage;
+
+  static double phoneWeekExtentOf(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return math.max(28.0, scaler.scale(13) + 12) + scaler.scale(12) + 46;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,45 +162,70 @@ class DKalenderCompactMonthBody extends StatelessWidget {
               view.viewConfiguration.nowCallback?.call() ??
               (location == null ? DateTime.now() : tz.TZDateTime.now(location));
           final weeks = range.dates().length ~/ 7;
+          int? weekOf(DateTime? date) {
+            if (date == null ||
+                month.year != date.year ||
+                month.month != date.month) {
+              return null;
+            }
+            final first = DateTime.utc(
+              range.start.year,
+              range.start.month,
+              range.start.day,
+            );
+            return date.difference(first).inDays ~/ 7;
+          }
+
+          final weekIndex = weekOf(visibleWeek);
           return LayoutBuilder(
             key: ValueKey(month),
-            builder: (context, constraints) => SingleChildScrollView(
+            builder: (context, constraints) => _CompactMonthScroll(
+              onPage: onVerticalPage,
+              initialOffset: phone && weekIndex == null
+                  ? (weekOf(selectedDate) ?? 0) * phoneWeekExtentOf(context)
+                  : 0,
               child: Column(
                 children: [
                   for (var week = 0; week < weeks; week++)
-                    _CompactWeek(
-                      month: month,
-                      today: DateTime.utc(now.year, now.month, now.day),
-                      selected: selectedDate,
-                      minHeight: fillHeight && constraints.hasBoundedHeight
-                          ? constraints.maxHeight / weeks
-                          : 0,
-                      onDayPressed: onDayPressed,
-                      eventColor: eventColor,
-                      frame: layoutStrategy.generateFrame(
-                        visibleRange: kalender.FloatingDateTimeRange(
-                          start: range.start.add(Duration(days: week * 7)),
-                          end: range.start.add(Duration(days: (week + 1) * 7)),
+                    if (weekIndex == null || weekIndex == week)
+                      _CompactWeek(
+                        phone: phone,
+                        month: month,
+                        today: DateTime.utc(now.year, now.month, now.day),
+                        selected: selectedDate,
+                        minHeight: fillHeight && constraints.hasBoundedHeight
+                            ? constraints.maxHeight / weeks
+                            : 0,
+                        onDayPressed: onDayPressed,
+                        eventColor: eventColor,
+                        eventTitle: eventTitle,
+                        frame: layoutStrategy.generateFrame(
+                          visibleRange: kalender.FloatingDateTimeRange(
+                            start: range.start.add(Duration(days: week * 7)),
+                            end: range.start.add(
+                              Duration(days: (week + 1) * 7),
+                            ),
+                          ),
+                          events: events
+                              .eventsInRange(
+                                kalender.FloatingDateTimeRange(
+                                  start: range.start.add(
+                                    Duration(days: week * 7),
+                                  ),
+                                  end: range.start.add(
+                                    Duration(days: (week + 1) * 7),
+                                  ),
+                                ),
+                                multiDayRule:
+                                    view.viewConfiguration.multiDayRule,
+                                location: location,
+                              )
+                              .toList(),
+                          textDirection: Directionality.of(context),
+                          location: location,
+                          cache: null,
                         ),
-                        events: events
-                            .eventsInRange(
-                              kalender.FloatingDateTimeRange(
-                                start: range.start.add(
-                                  Duration(days: week * 7),
-                                ),
-                                end: range.start.add(
-                                  Duration(days: (week + 1) * 7),
-                                ),
-                              ),
-                              multiDayRule: view.viewConfiguration.multiDayRule,
-                              location: location,
-                            )
-                            .toList(),
-                        textDirection: Directionality.of(context),
-                        location: location,
-                        cache: null,
                       ),
-                    ),
                 ],
               ),
             ),
@@ -198,24 +236,88 @@ class DKalenderCompactMonthBody extends StatelessWidget {
   }
 }
 
+class _CompactMonthScroll extends StatefulWidget {
+  const _CompactMonthScroll({
+    required this.child,
+    required this.onPage,
+    required this.initialOffset,
+  });
+
+  final Widget child;
+  final double initialOffset;
+  final ValueChanged<int>? onPage;
+
+  @override
+  State<_CompactMonthScroll> createState() => _CompactMonthScrollState();
+}
+
+class _CompactMonthScrollState extends State<_CompactMonthScroll> {
+  double _overscroll = 0;
+  late final _controller = ScrollController(
+    initialScrollOffset: widget.initialOffset,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          final onPage = widget.onPage;
+          if (onPage == null || notification.depth != 0) return false;
+          switch (notification) {
+            case ScrollStartNotification():
+              _overscroll = 0;
+            case OverscrollNotification(:final overscroll, :final dragDetails)
+                when dragDetails != null:
+              _overscroll += overscroll;
+            case ScrollEndNotification() when _overscroll.abs() >= 48:
+              final direction = _overscroll.sign.toInt();
+              _overscroll = 0;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) widget.onPage?.call(direction);
+              });
+          }
+          return false;
+        },
+        child: SingleChildScrollView(
+          controller: _controller,
+          physics: widget.onPage == null
+              ? null
+              : const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+          child: widget.child,
+        ),
+      );
+}
+
 class _CompactWeek extends StatelessWidget {
   const _CompactWeek({
     required this.month,
+    required this.phone,
     required this.today,
     required this.frame,
     required this.onDayPressed,
     required this.eventColor,
+    this.eventTitle,
     this.selected,
     this.minHeight = 0,
   });
 
   final kalender.FloatingDateTime month;
+  final bool phone;
   final DateTime today;
   final DateTime? selected;
   final double minHeight;
   final kalender.MultiDayLayoutFrame frame;
   final ValueChanged<DateTime> onDayPressed;
   final Color? Function(kalender.KalenderEvent) eventColor;
+  final String Function(kalender.KalenderEvent)? eventTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -225,12 +327,17 @@ class _CompactWeek extends StatelessWidget {
     final scaler = MediaQuery.textScalerOf(context);
     final headerHeight = math.max(28.0, scaler.scale(13) + 12);
     final countHeight = scaler.scale(12) + 4;
-    const laneHeight = 9.0;
-    final lanes = frame.totalNumberOfRows.clamp(1, 4);
+    final labelFor = eventTitle;
+    final laneHeight = labelFor == null ? 9.0 : scaler.scale(12) + 8;
+
+    final lanes = phone ? 4 : frame.totalNumberOfRows.clamp(1, 4);
     final overflow = frame.totalNumberOfRows > 4;
     final height = math.max(
       math.max(48.0, minHeight),
-      headerHeight + lanes * laneHeight + (overflow ? countHeight : 0) + 6,
+      headerHeight +
+          lanes * laneHeight +
+          (phone || overflow ? countHeight : 0) +
+          6,
     );
     final visible = frame.visibleEvents(4);
     bool inMonth(int column) =>
@@ -250,12 +357,14 @@ class _CompactWeek extends StatelessWidget {
                   bottom: 0,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: tokens.border),
-                        left: column == 0
-                            ? BorderSide.none
-                            : BorderSide(color: tokens.border),
-                      ),
+                      border: phone
+                          ? null
+                          : Border(
+                              top: BorderSide(color: tokens.border),
+                              left: column == 0
+                                  ? BorderSide.none
+                                  : BorderSide(color: tokens.border),
+                            ),
                     ),
                     child: !inMonth(column)
                         ? null
@@ -323,7 +432,7 @@ class _CompactWeek extends StatelessWidget {
                                       top: 6,
                                       child: DecoratedBox(
                                         decoration: BoxDecoration(
-                                          color: isToday
+                                          color: isToday && !phone
                                               ? tokens.primary.withValues(
                                                   alpha: .2,
                                                 )
@@ -368,7 +477,28 @@ class _CompactWeek extends StatelessWidget {
                                   ],
                                 ),
                               );
-                              if (!isSelected) return button;
+                              if (!isSelected && !(phone && isToday)) {
+                                return button;
+                              }
+                              if (phone) {
+                                return Semantics(
+                                  selected: isSelected,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: tokens.primary.withValues(
+                                        alpha: .15,
+                                      ),
+                                      border: isSelected
+                                          ? Border.all(color: tokens.foreground)
+                                          : null,
+                                      borderRadius: BorderRadius.circular(
+                                        tokens.radius,
+                                      ),
+                                    ),
+                                    child: button,
+                                  ),
+                                );
+                              }
                               return Semantics(
                                 selected: true,
                                 child: DecoratedBox(
@@ -396,7 +526,7 @@ class _CompactWeek extends StatelessWidget {
                     left: columns.first * columnWidth + 4,
                     width: columns.length * columnWidth - 8,
                     top: headerHeight + visible.$2[i].row * laneHeight,
-                    height: 5,
+                    height: labelFor == null ? 5 : laneHeight - 3,
                     child: IgnorePointer(
                       child: ExcludeSemantics(
                         child: Builder(
@@ -419,12 +549,34 @@ class _CompactWeek extends StatelessWidget {
                             final endsHere = !eventRange.end.isAfter(
                               last.add(const Duration(days: 1)),
                             );
+                            final color = eventColor(event) ?? tokens.primary;
+                            final past = eventRange.end.isBefore(
+                              kalender.FloatingDateTime.fromDateTime(today),
+                            );
                             return DecoratedBox(
                               key: ValueKey(
                                 'calendar-bar-${event.id}-${frame.range.start}',
                               ),
                               decoration: BoxDecoration(
-                                color: eventColor(event) ?? tokens.primary,
+                                color: phone
+                                    ? null
+                                    : color.withValues(
+                                        alpha: labelFor == null ? 1 : .24,
+                                      ),
+                                gradient: phone
+                                    ? LinearGradient(
+                                        begin: AlignmentDirectional.centerStart,
+                                        end: AlignmentDirectional.centerEnd,
+                                        colors: [
+                                          color.withValues(
+                                            alpha: past ? .14 : .40,
+                                          ),
+                                          color.withValues(
+                                            alpha: past ? .36 : .9,
+                                          ),
+                                        ],
+                                      )
+                                    : null,
                                 borderRadius:
                                     BorderRadiusDirectional.horizontal(
                                       start: Radius.circular(
@@ -433,6 +585,21 @@ class _CompactWeek extends StatelessWidget {
                                       end: Radius.circular(endsHere ? 4 : 0),
                                     ),
                               ),
+                              child: labelFor == null
+                                  ? null
+                                  : Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      child: Text(
+                                        labelFor(event),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.labelSmall,
+                                      ),
+                                    ),
                             );
                           },
                         ),

@@ -35,9 +35,10 @@ class EventDirectory extends StatelessWidget {
       controller: controller,
       navigation: navigation,
       page: page,
-      // The mockup follows the shell width (53 + 240 + 420), so a narrow
-      // desktop pane still starts in Month. Picking a view pins that choice.
-      compact: MediaQuery.sizeOf(context).width < 713,
+      startsInSchedule: switch (Theme.of(context).platform) {
+        TargetPlatform.iOS || TargetPlatform.android => false,
+        _ => MediaQuery.sizeOf(context).width < 713,
+      },
     ),
   );
 }
@@ -49,7 +50,7 @@ class _EventDirectoryBody extends StatefulWidget {
     required this.controller,
     required this.navigation,
     required this.page,
-    required this.compact,
+    required this.startsInSchedule,
   });
 
   final String site;
@@ -57,7 +58,7 @@ class _EventDirectoryBody extends StatefulWidget {
   final EventController controller;
   final EventNavigation navigation;
   final EventCalendarPage? page;
-  final bool compact;
+  final bool startsInSchedule;
 
   @override
   State<_EventDirectoryBody> createState() => _EventDirectoryState();
@@ -99,7 +100,7 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
       controller.api.clock(),
       controller.zones.location(timezone)!,
     );
-    final view = widget.compact
+    final view = widget.startsInSchedule
         ? EventCalendarView.schedule
         : EventCalendarView.month;
     return EventCalendarPage(
@@ -127,7 +128,8 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
         final incoming = widget.page!.directoryPage;
         if (incoming != _page) _viewSelected = true;
         _page = incoming;
-      } else if (!_viewSelected && oldWidget.compact != widget.compact) {
+      } else if (!_viewSelected &&
+          oldWidget.startsInSchedule != widget.startsInSchedule) {
         _page = EventCalendarPage(_defaultPage().view, _page.date);
       }
       _session.show(_page);
@@ -180,6 +182,7 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
 
   @override
   Widget build(BuildContext context) => EventCalendar(
+    site: widget.site,
     page: _page,
     events: _events,
     loading: _session.loading,

@@ -4308,6 +4308,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nothingPlanned => 'Nothing planned';
 
   @override
+  String get findAnEvent => 'Find an event';
+
+  @override
+  String get noEventsMatchYourSearch => 'No events match your search.';
+
+  @override
   String get noEventsInThisPeriod => 'No events in this period.';
 
   @override

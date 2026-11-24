@@ -7443,6 +7443,18 @@ abstract class AppLocalizations {
   /// **'Nothing planned'**
   String get nothingPlanned;
 
+  /// Label and placeholder for the desktop calendar search field.
+  ///
+  /// In en, this message translates to:
+  /// **'Find an event'**
+  String get findAnEvent;
+
+  /// Shown on the calendar when none of the loaded events match the search.
+  ///
+  /// In en, this message translates to:
+  /// **'No events match your search.'**
+  String get noEventsMatchYourSearch;
+
   /// English UI message used by plugins/discourse_events/event_directory.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

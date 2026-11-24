@@ -5390,6 +5390,14 @@
   "@nothingPlanned": {
     "description": "Empty Today row in the event schedule."
   },
+  "findAnEvent": "Find an event",
+  "@findAnEvent": {
+    "description": "Label and placeholder for the desktop calendar search field."
+  },
+  "noEventsMatchYourSearch": "No events match your search.",
+  "@noEventsMatchYourSearch": {
+    "description": "Shown on the calendar when none of the loaded events match the search."
+  },
   "noEventsInThisPeriod": "No events in this period.",
   "@noEventsInThisPeriod": {
     "description": "English UI message used by plugins/discourse_events/event_directory.dart. Keep placeholders intact."

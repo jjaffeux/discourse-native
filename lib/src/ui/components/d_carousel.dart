@@ -204,13 +204,19 @@ class DCarouselContent extends StatefulWidget {
     this.spacing = DSpacing.lg,
 
     this.height,
-  }) : assert(spacing >= 0);
+    this.initialIndex = 0,
+    this.viewportPeek = 0,
+  }) : assert(spacing >= 0),
+       assert(initialIndex >= 0),
+       assert(viewportPeek >= 0);
 
   final List<DCarouselItem> children;
 
   final double spacing;
 
   final double? height;
+  final int initialIndex;
+  final double viewportPeek;
 
   @override
   State<DCarouselContent> createState() => _DCarouselContentState();
@@ -245,7 +251,9 @@ class _DCarouselContentState extends State<DCarouselContent> {
     }
     if (!_initialized) {
       _loopRequested = scope.loop;
-      _logicalIndex = 0;
+      _logicalIndex = _count == 0
+          ? 0
+          : widget.initialIndex.clamp(0, _count - 1);
       _pageIndex = _initialPage(_logicalIndex);
       _initialized = true;
     } else if (_loopRequested != scope.loop) {
@@ -342,7 +350,11 @@ class _DCarouselContentState extends State<DCarouselContent> {
     if (_count == 0) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        const fraction = 1.0;
+        final peek = widget.viewportPeek;
+        final width = constraints.maxWidth;
+        final fraction = width.isFinite && width > 0
+            ? ((width - 2 * peek) / width).clamp(.65, 1.0)
+            : 1.0;
         _ensurePageController(fraction);
         final hostScrollBehavior = ScrollConfiguration.of(context);
         final viewport = ScrollConfiguration(
@@ -357,7 +369,7 @@ class _DCarouselContentState extends State<DCarouselContent> {
             controller: _pageController,
             scrollDirection: Axis.horizontal,
             physics: null,
-            padEnds: false,
+            padEnds: peek > 0,
             itemCount: _loops ? null : _count,
             onPageChanged: _changed,
             itemBuilder: (context, page) {
@@ -369,7 +381,9 @@ class _DCarouselContentState extends State<DCarouselContent> {
                   (_count).toString(),
                 ),
                 child: Padding(
-                  padding: (EdgeInsetsDirectional.only(end: widget.spacing)),
+                  padding: peek == 0
+                      ? EdgeInsetsDirectional.only(end: widget.spacing)
+                      : EdgeInsets.symmetric(horizontal: widget.spacing / 2),
                   child: widget.children[index],
                 ),
               );
