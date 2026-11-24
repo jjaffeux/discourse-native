@@ -28,11 +28,9 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('missing choices decode as absent', () async {
-    expect(await store.read(_site, 'reader'), isNull);
-  });
-
   test('last custom reminders are isolated by site and account', () async {
+    expect(await store.read(_site, 'reader'), isNull);
+
     final reminder = DateTime.parse('2030-01-02T03:04:05+01:00');
 
     await store.write('https://one.example', 'Reader', reminder);

@@ -35,29 +35,46 @@ void main() {
     expect(persistence.reads, 2);
   });
 
-  test('sections are expanded until a collapsed choice is saved', () async {
-    expect(
-      await store.read(
+  test(
+    'section choices persist without changing other forums or sections',
+    () async {
+      expect(
+        await store.read(
+          siteUrl: 'https://meta.discourse.org',
+          sectionId: 'community',
+        ),
+        isFalse,
+      );
+
+      await store.write(
         siteUrl: 'https://meta.discourse.org',
         sectionId: 'community',
-      ),
-      isFalse,
-    );
+        collapsed: true,
+      );
 
-    await store.write(
-      siteUrl: 'https://meta.discourse.org',
-      sectionId: 'community',
-      collapsed: true,
-    );
-
-    expect(
-      await store.read(
-        siteUrl: 'https://meta.discourse.org',
-        sectionId: 'community',
-      ),
-      isTrue,
-    );
-  });
+      expect(
+        await store.read(
+          siteUrl: 'https://meta.discourse.org',
+          sectionId: 'community',
+        ),
+        isTrue,
+      );
+      expect(
+        await store.read(
+          siteUrl: 'https://team.discourse.org',
+          sectionId: 'community',
+        ),
+        isFalse,
+      );
+      expect(
+        await store.read(
+          siteUrl: 'https://meta.discourse.org',
+          sectionId: 'chat',
+        ),
+        isFalse,
+      );
+    },
+  );
 
   test('a section burst writes only its active and newest choice', () async {
     const site = 'https://meta.discourse.org';
@@ -89,29 +106,6 @@ void main() {
     expect(backend.values, [true, false]);
     expect(
       await SidebarSectionStore().read(siteUrl: site, sectionId: section),
-      isFalse,
-    );
-  });
-
-  test('choices are independent by forum and section', () async {
-    await store.write(
-      siteUrl: 'https://meta.discourse.org',
-      sectionId: 'community',
-      collapsed: true,
-    );
-
-    expect(
-      await store.read(
-        siteUrl: 'https://team.discourse.org',
-        sectionId: 'community',
-      ),
-      isFalse,
-    );
-    expect(
-      await store.read(
-        siteUrl: 'https://meta.discourse.org',
-        sectionId: 'chat',
-      ),
       isFalse,
     );
   });
