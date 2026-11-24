@@ -32,6 +32,7 @@ void main() {
       expect(row.bookmarked, isTrue);
       expect(row.muted, isTrue);
     }
+    expect(topic.copyWith(bookmarked: false).bookmarked, isFalse);
     expect(topic.copyWith(archived: false), isNot(topic));
     expect(topic.copyWith(visible: true), isNot(topic));
     expect(topic.copyWith(clearDeletedAt: true), isNot(topic));

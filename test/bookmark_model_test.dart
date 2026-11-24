@@ -2,7 +2,6 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/models/topic.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -221,21 +220,6 @@ void main() {
       ]);
       expect(payload.detail.hasBookmarks, isTrue);
       expect(payload.detail.withoutBookmarks().hasBookmarks, isFalse);
-    });
-
-    test('is preserved and replaceable in topic copies', () {
-      final topic = Topic.fromJson(
-        const {
-          'id': 7,
-          'title': 'A topic',
-          'slug': 'a-topic',
-          'bookmarked': true,
-        },
-        const {},
-        'https://forum.example',
-      );
-      expect(topic.bookmarked, isTrue);
-      expect(topic.copyWith(bookmarked: false).bookmarked, isFalse);
     });
   });
 
