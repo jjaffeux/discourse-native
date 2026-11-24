@@ -81,8 +81,10 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     BoardsFixture fixture, {
     String site = boardsSite,
     BoardsRoute route = const BoardsRoute(boardId: 1),
+    bool capture = false,
   }) => MaterialApp(
     theme: AppTheme.light,
+    builder: capture ? nativeUiEvidenceBuilder : null,
     home: Scaffold(
       body: BoardsPage(
         key: const ValueKey('retained-board-page'),
@@ -151,6 +153,39 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     expect(menuDisabled, isTrue);
     expect(tester.widget<DButton>(add).onPressed, isNotNull);
     expect(tester.widget<DButton>(menu).onPressed, isNotNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('column and card surfaces use the server column colour', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture(
+      json: boardFixtureJson(columnColor: '12b5d8'),
+    );
+    addTearDown(fixture.dispose);
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(retainedPage(fixture, capture: true));
+    await tester.pumpAndSettle();
+    final column = find.byKey(const ValueKey('board-column-10'));
+    final card = find.byKey(const ValueKey('board-card-101'));
+    final tokens = DTokens.of(tester.element(column));
+    const color = Color(0xff12b5d8);
+    expect(
+      tester.widget<DCard>(column).backgroundColor,
+      Color.lerp(tokens.panelBackground, color, .05),
+    );
+    expect(
+      tester
+          .widget<DCard>(
+            find.descendant(of: card, matching: find.byType(DCard)),
+          )
+          .backgroundColor,
+      Color.lerp(tokens.raisedBackground, color, .10),
+    );
+    await captureNativeUi(tester, 'native-boards-column-and-card-colour');
+    await tester.tap(find.text('Improve search'));
+    expect(fixture.host.openedTopic, 500);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

@@ -100,7 +100,7 @@ ComposerImagePicker _sitePhotoLibrary(
 }
 
 DButtonVariant _composerToolbarVariant(BuildContext context) =>
-    context.isTouch ? DButtonVariant.inline : DButtonVariant.ghost;
+    context.isTouch ? DButtonVariant.quiet : DButtonVariant.ghost;
 
 Color? _composerToolForeground(BuildContext context) {
   if (context.isTouch) return null;
@@ -251,17 +251,6 @@ class ComposerPanel extends StatelessWidget {
           placement: placement,
           onPlacementChanged: onPlacementChanged,
           canDockSide: canDockSide,
-          mobileSubmit: mobile && !minimized
-              ? DModalHeaderAction(
-                  buttonKey: const ValueKey('composer-submit'),
-                  primary: true,
-                  icon: const DIcon(DIcons.arrowUp),
-                  tooltip: submitLabel,
-                  semanticLabel: submitLabel,
-                  loading: busy,
-                  onPressed: busy ? null : onSubmit,
-                )
-              : null,
         );
 
         // Keyboard motion changes the available height without changing the
@@ -716,10 +705,28 @@ class ComposerPanel extends StatelessWidget {
                       _ComposerBottom(
                         composer: composer,
                         mobile: mobile,
-                        showTaxonomy:
-                            mobile &&
-                            !target.isTaxonomyEdit &&
-                            (target.isNewTopic || target.editsTopicMetadata),
+                        actionBar: mobile
+                            ? DComposerActionBar(
+                                key: const ValueKey('composer-action-bar'),
+                                closeKey: const ValueKey('composer-close'),
+                                submitKey: const ValueKey('composer-submit'),
+                                closeLabel: composerNeedsCloseSheet(composer)
+                                    ? context.l10n.composerActions
+                                    : context.l10n.closeComposer,
+                                closeHasChoices: composerNeedsCloseSheet(
+                                  composer,
+                                ),
+                                onClose: close,
+                                history: _ComposerHistoryControls(
+                                  composer: composer.activeEditor,
+                                  placement:
+                                      _ComposerHistoryPlacement.actionBar,
+                                ),
+                                submitLabel: submitLabel,
+                                submitting: busy,
+                                onSubmit: onSubmit,
+                              )
+                            : null,
                         child: _Footer(
                           composer: composer,
                           onCancel: discard,
@@ -765,6 +772,7 @@ class _MobileComposerViewport extends StatefulWidget {
 class _MobileComposerViewportState extends State<_MobileComposerViewport> {
   final _scroll = ScrollController();
   bool _hasContentBelow = false;
+  bool _scrolled = false;
 
   @override
   void initState() {
@@ -777,8 +785,12 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
     final position = _scroll.position;
     if (!position.hasContentDimensions) return;
     final hasContentBelow = position.extentAfter > 2;
-    if (_hasContentBelow != hasContentBelow) {
-      setState(() => _hasContentBelow = hasContentBelow);
+    final scrolled = position.pixels > 2;
+    if (_hasContentBelow != hasContentBelow || _scrolled != scrolled) {
+      setState(() {
+        _hasContentBelow = hasContentBelow;
+        _scrolled = scrolled;
+      });
     }
   }
 
@@ -812,7 +824,7 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
   @override
   Widget build(BuildContext context) {
     _scheduleOverflowUpdate();
-    final headerExtent = DSheetHeader.actionRowHeightOf(context);
+
     return NotificationListener<ScrollMetricsNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) _scheduleOverflowUpdate();
@@ -838,26 +850,38 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                   // to continue beneath a translucent system keyboard.
                   clipBehavior: Clip.none,
                   slivers: [
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _ComposerPinnedHeader(
-                        extent: headerExtent,
-                        child: DSheetDragRegion(child: widget.header),
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: DInputFocusRegion(
-                        focusNode: widget.composer.focus,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: math.max(
-                              0,
-                              constraints.maxHeight - headerExtent,
-                            ),
-                          ),
-                          child: widget.child,
+                    PinnedHeaderSliver(
+                      child: DSheetDragRegion(
+                        child: Stack(
+                          children: [
+                            if (_scrolled)
+                              const Positioned.fill(
+                                child: DGradientBlur(
+                                  key: ValueKey('composer-header-blur'),
+                                ),
+                              ),
+                            RepaintBoundary(child: widget.header),
+                          ],
                         ),
                       ),
+                    ),
+                    SliverLayoutBuilder(
+                      builder: (context, scrollConstraints) =>
+                          SliverToBoxAdapter(
+                            child: DInputFocusRegion(
+                              focusNode: widget.composer.focus,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: math.max(
+                                    0,
+                                    constraints.maxHeight -
+                                        scrollConstraints.precedingScrollExtent,
+                                  ),
+                                ),
+                                child: widget.child,
+                              ),
+                            ),
+                          ),
                     ),
                   ],
                 ),
@@ -904,53 +928,17 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
   }
 }
 
-class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
-  _ComposerPinnedHeader({required this.extent, required this.child});
-
-  final double extent;
-  final Widget child;
-
-  @override
-  double get minExtent => extent;
-  @override
-  double get maxExtent => extent;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // The blur also samples the darker backdrop above the sheet, which
-        // reads as a shadow when no content has reached the header.
-        if (shrinkOffset > 2)
-          const Positioned.fill(
-            child: DGradientBlur(key: ValueKey('composer-header-blur')),
-          ),
-        RepaintBoundary(child: child),
-      ],
-    );
-  }
-
-  @override
-  bool shouldRebuild(_ComposerPinnedHeader oldDelegate) =>
-      extent != oldDelegate.extent || child != oldDelegate.child;
-}
-
 class _ComposerBottom extends StatelessWidget {
   const _ComposerBottom({
     required this.composer,
     required this.mobile,
-    required this.showTaxonomy,
+    required this.actionBar,
     required this.child,
   });
 
   final ComposerController composer;
   final bool mobile;
-  final bool showTaxonomy;
+  final Widget? actionBar;
   final Widget child;
 
   @override
@@ -961,29 +949,22 @@ class _ComposerBottom extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (showRecipients) ComposerRecipients(composer: composer),
-          if (showTaxonomy)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: SingleChildScrollView(
-                key: const ValueKey('composer-taxonomy-scroll'),
-                scrollDirection: Axis.horizontal,
-                child: _TopicTaxonomy(composer: composer),
-              ),
-            ),
           if (composer.target.isPlugin && composer.uploads.isNotEmpty)
             ComposerUploadQueue(composer: composer),
           child,
+          if (actionBar case final bar?) ...[
+            const SizedBox(height: DSpacing.controlGap),
+            bar,
+          ],
         ],
       ),
     );
     if (!mobile) return content;
 
-    // Recipients and taxonomy use the same control row and top padding.
-    // Begin the blur at the controls' midpoint.
-    final blurInset = showTaxonomy || showRecipients
+    final blurInset = showRecipients
         ? DSpacing.md +
               DControlStyle.scaledHeight(
-                    showTaxonomy ? DControlSize.filter : DControlSize.toolbar,
+                    DControlSize.toolbar,
                     MediaQuery.textScalerOf(context),
                     context: context,
                   ) /
@@ -1118,9 +1099,10 @@ class _TopicTaxonomy extends StatelessWidget {
                       key: const ValueKey('composer-category-action'),
                       child: TopicCategorySelector(
                         size: context.isTouch
-                            ? DButtonSize.filter
+                            ? (inline ? DButtonSize.large : DButtonSize.filter)
                             : DButtonSize.toolbar,
                         expandedSheetOnMobile: true,
+                        browseSubcategories: context.isTouch && inline,
                         key: ObjectKey(composer),
                         valueKey: const ValueKey('composer-category'),
                         siteUrl: composer.target.siteUrl,
@@ -1136,12 +1118,16 @@ class _TopicTaxonomy extends StatelessWidget {
                                           .allowUncategorizedTopics),
                             )
                             .toList(),
-                        selected: rootCategory,
+                        selected: context.isTouch && inline
+                            ? category
+                            : rootCategory,
                         placeholder: context.l10n.category,
-                        labelFor: (category) => shell.topicCategoryPathLabel(
-                          category,
-                          siteUrl: composer.target.siteUrl,
-                        ),
+                        labelFor: (category) => context.isTouch && inline
+                            ? category.name
+                            : shell.topicCategoryPathLabel(
+                                category,
+                                siteUrl: composer.target.siteUrl,
+                              ),
                         search: (term) async =>
                             (await shell.searchTopicCategoriesForEditor(
                                   siteUrl: composer.target.siteUrl,
@@ -1152,7 +1138,8 @@ class _TopicTaxonomy extends StatelessWidget {
                         onSelected: composer.isEditing ? selectCategory : null,
                       ),
                     ),
-                  if (!composer.target.isTagsEdit &&
+                  if ((!context.isTouch || !inline) &&
+                      !composer.target.isTagsEdit &&
                       rootCategory != null &&
                       (subcategories.isNotEmpty || parent != null))
                     ConstrainedBox(
@@ -1164,7 +1151,7 @@ class _TopicTaxonomy extends StatelessWidget {
                       key: const ValueKey('composer-subcategory-action'),
                       child: TopicCategorySelector(
                         size: context.isTouch
-                            ? DButtonSize.filter
+                            ? (inline ? DButtonSize.large : DButtonSize.filter)
                             : DButtonSize.toolbar,
                         expandedSheetOnMobile: true,
                         key: ValueKey((composer, rootCategory.id)),
@@ -1198,7 +1185,7 @@ class _TopicTaxonomy extends StatelessWidget {
                       key: const ValueKey('composer-add-tag'),
                       child: TopicTagSelector(
                         size: context.isTouch
-                            ? DButtonSize.filter
+                            ? (inline ? DButtonSize.large : DButtonSize.filter)
                             : DButtonSize.toolbar,
                         key: ValueKey((composer, categoryId)),
                         valueKey: const ValueKey('composer-tags'),
@@ -3407,7 +3394,7 @@ class _ComposerEditorState extends State<ComposerEditor>
             onDone: sheet.close,
             historyControls: _ComposerHistoryControls(
               composer: composer,
-              inImageSheet: true,
+              placement: _ComposerHistoryPlacement.imageSheet,
             ),
           );
         },
@@ -4243,8 +4230,10 @@ class _Toolbar extends StatelessWidget {
     required this.composer,
     required this.pickFiles,
     required this.pickImages,
+    this.leading,
   });
 
+  final Widget? leading;
   final ComposerController composer;
   final ComposerFilePicker pickFiles;
   final ComposerImagePicker? pickImages;
@@ -4273,7 +4262,9 @@ class _Toolbar extends StatelessWidget {
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
-        _ComposerHistoryControls(composer: composer),
+        ?leading,
+        if (context.isTouch) _FormattingToolbar(composer: this.composer),
+        if (!context.isTouch) _ComposerHistoryControls(composer: composer),
         DButton.iconOnly(
           key: const ValueKey('composer-mention'),
           tooltip: context.l10n.mentionUsersOrGroups,
@@ -4288,7 +4279,7 @@ class _Toolbar extends StatelessWidget {
                 },
           icon: const DIcon(DIcons.at),
         ),
-        _FormattingToolbar(composer: this.composer),
+        if (!context.isTouch) _FormattingToolbar(composer: this.composer),
         if (!context.isTouch)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 6),
@@ -4417,14 +4408,16 @@ class _Toolbar extends StatelessWidget {
   }
 }
 
+enum _ComposerHistoryPlacement { toolbar, imageSheet, actionBar }
+
 class _ComposerHistoryControls extends StatefulWidget {
   const _ComposerHistoryControls({
     required this.composer,
-    this.inImageSheet = false,
+    this.placement = _ComposerHistoryPlacement.toolbar,
   });
 
   final ComposerController composer;
-  final bool inImageSheet;
+  final _ComposerHistoryPlacement placement;
 
   @override
   State<_ComposerHistoryControls> createState() =>
@@ -4495,17 +4488,18 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
     final inputs = _drawn = _read();
     final available =
         inputs.editing && !inputs.loadingBody && !inputs.composing;
-    if (!widget.inImageSheet &&
-        (!available || (!inputs.canUndo && !inputs.canRedo))) {
+    final toolbar = widget.placement == _ComposerHistoryPlacement.toolbar;
+    final actionBar = widget.placement == _ComposerHistoryPlacement.actionBar;
+    if (toolbar && (!available || (!inputs.canUndo && !inputs.canRedo))) {
       return const SizedBox.shrink();
     }
     return TextFieldTapRegion(
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        spacing: 2,
+        spacing: actionBar ? DSpacing.sm : 2,
         children: [
           for (final redo in [false, true])
-            if (widget.inImageSheet || (redo ? inputs.canRedo : inputs.canUndo))
+            if (!toolbar || (redo ? inputs.canRedo : inputs.canUndo))
               DButton.iconOnly(
                 key: ValueKey(redo ? 'composer-redo' : 'composer-undo'),
                 tooltip: redo ? context.l10n.redo : context.l10n.undo,
@@ -4517,7 +4511,13 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
                     shift: redo,
                   ),
                 ),
-                variant: _composerToolbarVariant(context),
+                density: actionBar
+                    ? DButtonDensity.mobileDockAction
+                    : DButtonDensity.standard,
+                shape: DButtonShape.pill,
+                variant: actionBar
+                    ? DButtonVariant.secondary
+                    : _composerToolbarVariant(context),
                 foregroundColor: _composerToolForeground(context),
                 size: _composerToolbarSize(context),
                 icon: DIcon(
@@ -4526,8 +4526,9 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
                 onPressed: available && (redo ? inputs.canRedo : inputs.canUndo)
                     ? () {
                         if (!composer.isEditing || composer.loadingBody) return;
+                        final keepFocus = toolbar || composer.focus.hasFocus;
                         final restored = redo ? history.redo() : history.undo();
-                        if (restored && !widget.inImageSheet) {
+                        if (restored && keepFocus) {
                           composer.focus.requestFocus();
                         }
                       }
@@ -4686,17 +4687,31 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
   Widget build(BuildContext context) {
     _scheduleOverflowUpdate();
     final textDirection = DDirection.of(context);
+    final phone = context.isTouch;
     final scroll = SingleChildScrollView(
       key: const ValueKey('composer-toolbar-scroll'),
       controller: _controller,
       scrollDirection: Axis.horizontal,
-      padding: context.isTouch ? EdgeInsets.zero : const EdgeInsets.all(8),
+      padding: phone
+          ? const EdgeInsets.symmetric(horizontal: DSpacing.sm)
+          : const EdgeInsets.all(8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        spacing: 2,
+        spacing: phone ? DSpacing.sm : 2,
         children: widget.children,
       ),
     );
+    if (phone) {
+      return DScrollFadeScope(
+        key: const ValueKey('composer-toolbar-bar'),
+        horizontalExtent: 28,
+        child: DScrollBar(
+          controller: _controller,
+          showScrollbar: false,
+          child: scroll,
+        ),
+      );
+    }
     final buttonHeight = DControlStyle.scaledHeight(
       _composerToolbarSize(context),
       MediaQuery.textScalerOf(context),
@@ -4704,24 +4719,19 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
     );
 
     return Stack(
-      alignment: context.isTouch
-          ? AlignmentDirectional.centerStart
-          : AlignmentDirectional.centerEnd,
+      alignment: AlignmentDirectional.centerEnd,
       children: [
-        if (context.isTouch)
-          scroll
-        else
-          // Paint the shadow in the footer's existing vertical padding while
-          // retaining the control height and horizontal viewport clipping.
-          SizedBox(
-            height: buttonHeight,
-            child: OverflowBox(
-              alignment: AlignmentDirectional.centerEnd,
-              minHeight: buttonHeight + 16,
-              maxHeight: buttonHeight + 16,
-              child: scroll,
-            ),
+        // Paint the shadow in the footer's existing vertical padding while
+        // retaining the control height and horizontal viewport clipping.
+        SizedBox(
+          height: buttonHeight,
+          child: OverflowBox(
+            alignment: AlignmentDirectional.centerEnd,
+            minHeight: buttonHeight + 16,
+            maxHeight: buttonHeight + 16,
+            child: scroll,
           ),
+        ),
         if (_canScrollBackward)
           PositionedDirectional(
             start: 0,
@@ -5052,6 +5062,12 @@ class _Footer extends StatelessWidget {
             composer: composer,
             pickFiles: pickFiles,
             pickImages: pickImages,
+            leading:
+                context.isTouch &&
+                    (composer.target.isNewTopic ||
+                        composer.target.editsTopicMetadata)
+                ? _TopicTaxonomy(composer: composer, inline: true)
+                : null,
           );
     final controls = LayoutBuilder(
       builder: (context, constraints) {
@@ -5178,18 +5194,7 @@ class _Footer extends StatelessWidget {
                 ),
               if (context.isTouch && pluginControls.isNotEmpty)
                 Wrap(spacing: DSpacing.controlGap, children: pluginControls),
-              if (toolbar != null)
-                Flexible(
-                  fit: FlexFit.tight,
-                  child: context.isTouch
-                      ? DCard(
-                          key: const ValueKey('composer-toolbar-bar'),
-                          variant: DCardVariant.floatingCapsule,
-                          spacing: 0,
-                          child: toolbar,
-                        )
-                      : toolbar,
-                ),
+              if (toolbar != null) Flexible(fit: FlexFit.tight, child: toolbar),
             ],
           ),
         );

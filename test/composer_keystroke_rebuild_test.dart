@@ -186,7 +186,8 @@ void main() {
       composer.focus.requestFocus();
       await tester.pumpAndSettle();
       expect(_undoButton, findsOneWidget);
-      expect(_redoButton, findsNothing);
+      expect(_redoButton, mobile ? findsOneWidget : findsNothing);
+      if (mobile) expect(tester.widget<DButton>(_redoButton).onPressed, isNull);
 
       var undoBuilds = 0;
       final costs = <int>[];
@@ -244,13 +245,18 @@ void main() {
       tester,
     ) async {
       final (:composer, api: _) = await _openNewTopic(tester, mobile: mobile);
-      expect(_undoButton, findsNothing);
-      expect(_redoButton, findsNothing);
+      void expectUnavailable(Finder button) {
+        expect(button, mobile ? findsOneWidget : findsNothing);
+        if (mobile) expect(tester.widget<DButton>(button).onPressed, isNull);
+      }
+
+      expectUnavailable(_undoButton);
+      expectUnavailable(_redoButton);
 
       _type(composer.text, 'a');
       await tester.pumpAndSettle();
       expect(_undoButton, findsOneWidget);
-      expect(_redoButton, findsNothing);
+      expectUnavailable(_redoButton);
 
       _type(composer.text, 'ab');
       await tester.pumpAndSettle();
@@ -258,8 +264,8 @@ void main() {
 
       composer.history.reset();
       await tester.pumpAndSettle();
-      expect(_undoButton, findsNothing);
-      expect(_redoButton, findsNothing);
+      expectUnavailable(_undoButton);
+      expectUnavailable(_redoButton);
 
       void commit(String value) =>
           composer.history.transact(() => _type(composer.text, value));
@@ -267,7 +273,7 @@ void main() {
       commit('second entry');
       await tester.pumpAndSettle();
       expect(_undoButton, findsOneWidget);
-      expect(_redoButton, findsNothing);
+      expectUnavailable(_redoButton);
 
       await tester.tap(_undoButton);
       await tester.pumpAndSettle();
@@ -278,7 +284,7 @@ void main() {
       _type(composer.text, 'first entry, typed on');
       await tester.pumpAndSettle();
       expect(_undoButton, findsOneWidget);
-      expect(_redoButton, findsNothing);
+      expectUnavailable(_redoButton);
       await _saveDraftAndSettle(tester);
     });
   }

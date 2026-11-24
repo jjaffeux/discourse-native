@@ -11,7 +11,6 @@ import '../platform.dart';
 import '../shell_metrics.dart';
 import '../shell_scope.dart';
 import 'controller.dart';
-import 'discard.dart';
 import 'draft_tabs.dart';
 import 'placement_icon.dart';
 import 'presentation_controller.dart';
@@ -28,12 +27,10 @@ class ComposerHeader extends StatelessWidget {
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
     this.canDockSide,
-    this.mobileSubmit,
   });
 
   static const double height = readerHeaderHeight;
 
-  final Widget? mobileSubmit;
   final ComposerController composer;
   final bool minimized;
   final VoidCallback onClose;
@@ -231,36 +228,27 @@ class ComposerHeader extends StatelessWidget {
       );
     }
 
-    if (mobileSubmit != null && !minimized) {
-      final hasCloseOptions = composerNeedsCloseSheet(composer);
-      final closeLabel = hasCloseOptions
-          ? context.l10n.composerActions
-          : context.l10n.closeComposer;
-      return DSheetHeader(
+    if (context.isTouch) {
+      final status = [
+        if (canToggleWhisper) heading,
+        ...pluginControls,
+        if (composer.canSaveDraft && !target.isEdit)
+          _DraftSaveFailure(composer: composer),
+      ];
+      return SizedBox(
         key: const ValueKey('composer-header'),
-        leading: DModalHeaderAction.close(
-          buttonKey: const ValueKey('composer-close'),
-          onPressed: onClose,
-          tooltip: closeLabel,
-          semanticLabel: closeLabel,
-          hasPopup: hasCloseOptions,
-        ),
-        trailing: mobileSubmit,
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            reverse: true,
-            child: Row(
-              spacing: DSpacing.controlGap,
-              children: [
-                if (canToggleWhisper) heading,
-                ...pluginControls,
-                if (composer.canSaveDraft && !target.isEdit)
-                  _DraftSaveFailure(composer: composer),
-              ],
-            ),
-          ),
-        ],
+        width: double.infinity,
+        child: status.isEmpty
+            ? const SizedBox(height: DSpacing.sm)
+            : DSheetHeader(
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    reverse: true,
+                    child: Row(spacing: DSpacing.controlGap, children: status),
+                  ),
+                ],
+              ),
       );
     }
 

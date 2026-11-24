@@ -2659,33 +2659,19 @@ class DSheetContent extends StatelessWidget {
         !card &&
         !fillAvailableHeight;
     const handlePadding = EdgeInsets.only(top: 8, bottom: 10);
-    const handleHeight = 5.0;
+    const handleHeight = DSheetGrabMark.height;
     final handle = Center(
       child: DTouchTarget(
         child: DSheetDragRegion(
           child: Padding(
             padding: handlePadding,
-            child: ExcludeSemantics(
-              child: RepaintBoundary(
-                key: const ValueKey('sheet-drag-handle'),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: overArtwork
-                        ? Colors.white.withValues(alpha: .9)
-                        : (variant == DSheetVariant.adaptiveMenu
-                                  ? tokens.menuGrabMark
-                                  : Color.lerp(
-                                      tokens.background,
-                                      tokens.foreground,
-                                      .35,
-                                    )!)
-                              .withValues(alpha: .5),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: const [],
-                  ),
-                  child: const SizedBox(width: 36, height: handleHeight),
-                ),
-              ),
+            child: DSheetGrabMark(
+              key: const ValueKey('sheet-drag-handle'),
+              color: overArtwork
+                  ? Colors.white.withValues(alpha: .9)
+                  : variant == DSheetVariant.adaptiveMenu
+                  ? tokens.menuGrabMark.withValues(alpha: .5)
+                  : null,
             ),
           ),
         ),
@@ -2993,6 +2979,37 @@ class DSheetContent extends StatelessWidget {
       child: _DSheetHeaderScope(
         showCloseButton: showCloseButton,
         child: surface,
+      ),
+    );
+  }
+}
+
+/// The sheet's visible grabber. The containing surface owns its gestures.
+class DSheetGrabMark extends StatelessWidget {
+  const DSheetGrabMark({super.key, this.color});
+
+  static const height = 5.0;
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return ExcludeSemantics(
+      child: RepaintBoundary(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color:
+                color ??
+                Color.lerp(
+                  tokens.background,
+                  tokens.foreground,
+                  .35,
+                )!.withValues(alpha: .5),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: const SizedBox(width: 36, height: height),
+        ),
       ),
     );
   }

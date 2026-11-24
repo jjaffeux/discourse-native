@@ -113,12 +113,15 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
       });
     }
     final icon = DIcons.byName[column.icon];
-    final hex = column.color.replaceFirst('#', '');
-    final rgb = hex.length == 6 ? int.tryParse(hex, radix: 16) : null;
-    final color = rgb == null ? null : Color(0xff000000 | rgb);
+    final color = boardColumnColor(column.color);
+    final tokens = DTokens.of(context);
     return DCard(
       key: ValueKey('board-column-${column.id}'),
       size: DCardSize.small,
+      backgroundColor: color == null
+          ? null
+          : Color.lerp(tokens.panelBackground, color, .05),
+      borderColor: color == null ? null : Color.lerp(tokens.border, color, .16),
       spacing: 8,
       children: [
         DCardContent(

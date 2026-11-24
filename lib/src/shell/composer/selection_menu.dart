@@ -110,8 +110,15 @@ class _ComposerFormattingControlsState
 
   void _textChanged() {
     // The editor also notifies when artwork arrives or mounts during layout.
-    if (_value == composer.value) return;
-    _value = composer.value;
+    final next = composer.value;
+    if (_value == next) return;
+    final previous = _value;
+    _value = next;
+    if (inline &&
+        previous.selection.isCollapsed &&
+        next.selection.isCollapsed) {
+      return;
+    }
     if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       if (_rebuildScheduled) return;
@@ -169,6 +176,7 @@ class _ComposerFormattingControlsState
       semanticLabel: label,
       icon: icon,
       size: _size,
+      density: inline ? DToggleDensity.menuFilter : DToggleDensity.standard,
       pressed: active,
       enabled: selectionOnly ? _hasSelection : _enabled,
       onPressedChanged: (_) {
@@ -184,10 +192,6 @@ class _ComposerFormattingControlsState
     child: ListenableBuilder(
       listenable: composer,
       builder: (context, _) {
-        final selection = composer.text.selection;
-        if (inline && (!selection.isValid || selection.isCollapsed)) {
-          return const SizedBox.shrink();
-        }
         final pressed = composerSelectionFormats(composer.value);
         final bold = _toggle(
           context.l10n.bold,
@@ -246,6 +250,7 @@ class _ComposerFormattingControlsState
           key: inline ? const ValueKey('composer-format-inlineCode') : null,
         );
         final more = DDropdownMenu(
+          key: ValueKey(('more-formatting', _hasSelection)),
           restoreFocus: false,
           content: DDropdownMenuContent(
             semanticLabel: context.l10n.moreFormatting,
@@ -293,6 +298,7 @@ class _ComposerFormattingControlsState
                 )?.supportsComposerColors(composer.siteUrl) ??
                 false
             ? ComposerSelectionColors(
+                key: ValueKey(('formatting-colors', _hasSelection)),
                 composer: composer,
                 size: _size,
                 enabled: _hasSelection,
@@ -305,21 +311,17 @@ class _ComposerFormattingControlsState
             label: context.l10n.formatting,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              spacing: DSpacing.controlGap,
+              spacing: DSpacing.sm,
               children: [
                 bold,
                 italic,
+                strike,
                 code,
                 link,
                 underline,
-                strike,
                 clear,
                 ?colors,
                 more,
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: DSeparator(orientation: Axis.vertical, length: 20),
-                ),
               ],
             ),
           );

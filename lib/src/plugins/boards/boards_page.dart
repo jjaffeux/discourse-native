@@ -200,13 +200,6 @@ class _BoardsPageState extends State<BoardsPage> {
         key: PageStorageKey(_identity),
         site: widget.site,
         boards: boards ?? const [],
-        categories: {
-          for (final board in boards ?? const <BoardSnapshot>[])
-            for (final id in board.categoryIds)
-              id: ?widget.controller.siteState.categoryFor
-                  ?.call(widget.site, id)
-                  ?.name,
-        },
         loaded: boards != null,
         error: _directoryError,
         onRefresh: () => _directory(force: true),
@@ -741,6 +734,7 @@ class _BoardsPageState extends State<BoardsPage> {
       site: widget.site,
       board: board,
       card: card,
+      columnColor: boardColumnColor(column.color),
       category: category == null
           ? null
           : (name: category.name, color: category.colorValue),

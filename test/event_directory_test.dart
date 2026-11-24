@@ -174,7 +174,7 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      '${platform.name} defaults to Schedule and retains a selected view',
+      '${platform.name} opens Month at today and retains a selected view',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(390, 844);
@@ -185,23 +185,24 @@ void main() {
         await pump(tester, platform: platform);
         EventCalendarPage currentPage() =>
             tester.widget<EventCalendar>(find.byType(EventCalendar)).page;
-        expect(currentPage().view, EventCalendarView.schedule);
-        expect(find.byType(DCalendarScheduleEntry), findsWidgets);
+        expect(currentPage().view, EventCalendarView.month);
+        expect(currentPage().date, DateTime.utc(2026, 9, 8));
+        expect(find.byType(DCalendarDayPanels), findsOneWidget);
         expect(transport.queries, hasLength(1));
         expect(
           transport.queries.single.queryParameters['after'],
-          '2026-08-31T22:00:00.000Z',
+          '2026-08-30T22:00:00.000Z',
         );
         expect(
           transport.queries.single.queryParameters['before'],
-          '2026-09-30T22:00:00.000Z',
+          '2026-10-04T22:00:00.000Z',
         );
 
-        await tester.tap(find.text('Month'));
+        await tester.tap(find.text('Schedule'));
         await tester.pumpAndSettle();
-        expect(currentPage().view, EventCalendarView.month);
+        expect(currentPage().view, EventCalendarView.schedule);
         await pump(tester, platform: platform, brightness: Brightness.dark);
-        expect(currentPage().view, EventCalendarView.month);
+        expect(currentPage().view, EventCalendarView.schedule);
         expect(transport.queries, hasLength(2));
         expect(tester.takeException(), isNull);
       },

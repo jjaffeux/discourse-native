@@ -314,7 +314,7 @@ void main() {
     (TargetPlatform.iOS, 34.0, 23.0),
     (TargetPlatform.android, 48.0, 54.0),
   ]) {
-    testWidgets('$platform composer toolbar descends without a jump', (
+    testWidgets('$platform composer action bar descends without a jump', (
       tester,
     ) async {
       final harness = await _Harness.create(
@@ -326,7 +326,7 @@ void main() {
       addTearDown(tester.view.reset);
       final ratio = tester.view.devicePixelRatio;
       tester.view.viewPadding = FakeViewPadding(bottom: foot * ratio);
-      final toolbar = find.byKey(const ValueKey('composer-toolbar-bar'));
+      final toolbar = find.byType(DComposerActionBar);
       Future<double> toolbarBottomAt(double keyboard) async {
         tester.view.viewInsets = FakeViewPadding(bottom: keyboard * ratio);
         tester.view.padding = FakeViewPadding(
@@ -932,10 +932,10 @@ void main() {
       final toolbar = tester.getRect(
         find.byKey(const ValueKey('composer-toolbar-scroll')),
       );
-      expect(submit.bottom, lessThanOrEqualTo(title.top));
+      expect(submit.top, greaterThanOrEqualTo(toolbar.bottom));
       expect(taxonomy.top, greaterThan(title.bottom));
-      expect(taxonomy.bottom, lessThanOrEqualTo(toolbar.top));
-      expect(find.text('Create topic'), findsNothing);
+      expect(toolbar.contains(taxonomy.center), isTrue);
+      expect(find.text('Create topic'), findsOneWidget);
       expect(find.text('Discard'), findsNothing);
       expect(
         tester.getRect(find.byKey(const ValueKey('composer-submit'))).bottom,
@@ -968,7 +968,7 @@ void main() {
     composer.text.text = 'Keep this draft when I close the sheet.';
     await tester.pumpAndSettle();
     final close = find.byKey(const ValueKey('composer-close'));
-    expect(tester.widget<DButton>(close).shape, DButtonShape.rounded);
+    expect(tester.widget<DButton>(close).shape, DButtonShape.pill);
     expect(tester.getSize(close).width, tester.getSize(close).height);
     await tester.tap(close);
     await tester.pumpAndSettle();
@@ -1104,20 +1104,25 @@ void main() {
     }
 
     expect(await painted(), isFalse);
-    final header = tester.getCenter(
-      find.byKey(const ValueKey('composer-header')),
+    final handle = tester.getCenter(
+      find.byKey(const ValueKey('sheet-drag-handle')),
     );
-    final gesture = await tester.startGesture(header);
+    final reader = find.byKey(readerKey);
+    final readerBounds = tester.getRect(reader);
+    final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
+    final restingTop = tester.getTopLeft(sheet).dy;
+    final gesture = await tester.startGesture(handle);
     await gesture.moveBy(const Offset(0, 30));
     await gesture.moveBy(const Offset(0, 60));
     await tester.pump();
     expect(await painted(), isTrue);
-    final reader = find.byKey(readerKey);
-    final pulledWidth = tester.getRect(reader).width;
-    expect(pulledWidth, inExclusiveRange(390 * .94, 390));
+    expect(tester.getRect(reader), readerBounds);
+    final pulledTop = tester.getTopLeft(sheet).dy;
+    expect(pulledTop, greaterThan(restingTop));
     await gesture.moveBy(const Offset(0, 40));
     await tester.pump();
-    expect(tester.getRect(reader).width, greaterThan(pulledWidth));
+    expect(tester.getRect(reader), readerBounds);
+    expect(tester.getTopLeft(sheet).dy, greaterThan(pulledTop));
     await gesture.cancel();
     await tester.pumpAndSettle();
     expect(await painted(), isFalse);
@@ -1127,7 +1132,7 @@ void main() {
     composer.text.text = 'A draft that minimizes.';
     await tester.runAsync(composer.flushDraft);
     await tester.pumpAndSettle();
-    await tester.dragFrom(header, const Offset(0, 300));
+    await tester.dragFrom(handle, const Offset(0, 300));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('composer-mobile-sheet')), findsNothing);
     expect(await painted(), isTrue);
@@ -1787,94 +1792,93 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'long mobile drafts scroll title and body beneath the pinned actions',
-    (tester) async {
-      final harness = await _Harness.create(
-        tester,
-        mobile: true,
-        size: const Size(390, 800),
-      );
-      tester.view.viewInsets = FakeViewPadding(
-        bottom: 330 * tester.view.devicePixelRatio,
-      );
-      addTearDown(tester.view.resetViewInsets);
-      final composer = harness.shell.visibleComposer!;
-      composer.title.text = 'A long topic';
-      final text = List.generate(
-        60,
-        (index) => 'Paragraph $index of this draft.',
-      ).join('\n');
-      composer.text.value = TextEditingValue(
-        text: text,
+  testWidgets('long mobile drafts keep caret above the pinned footer actions', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    tester.view.viewInsets = FakeViewPadding(
+      bottom: 330 * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.resetViewInsets);
+    final composer = harness.shell.visibleComposer!;
+    composer.title.text = 'A long topic';
+    final text = List.generate(
+      60,
+      (index) => 'Paragraph $index of this draft.',
+    ).join('\n');
+    composer.text.value = TextEditingValue(
+      text: text,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    await tester.pumpAndSettle();
+    final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+    final title = find.byKey(const ValueKey('composer-topic-title'));
+    final titleField = tester.widget<EditableText>(
+      find.descendant(of: title, matching: find.byType(EditableText)),
+    );
+    expect(titleField.style.fontSize, 22);
+    expect(titleField.style.height, 1.25);
+    final close = find.byKey(const ValueKey('composer-close'));
+    final submit = find.byKey(const ValueKey('composer-submit'));
+    final footer = find.byKey(const ValueKey('composer-footer'));
+    final titleBefore = tester.getTopLeft(title);
+    final fixed = [close, submit, footer];
+    final bounds = fixed.map(tester.getRect).toList();
+    await tester.drag(viewport, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(title).dy, lessThan(titleBefore.dy - 100));
+    for (var i = 0; i < fixed.length; i++) {
+      expect(tester.getRect(fixed[i]), bounds[i]);
+    }
+    expect(close.hitTestable(), findsOneWidget);
+    expect(submit.hitTestable(), findsOneWidget);
+    final scrollbar = tester.widget<DScrollBar>(
+      find.ancestor(of: viewport, matching: find.byType(DScrollBar)).first,
+    );
+    expect(scrollbar.showScrollbar, isFalse);
+    final editable = find.descendant(
+      of: find.byType(ComposerEditor),
+      matching: find.byType(EditableText),
+    );
+    expect(
+      tester
+          .widget<EditableText>(editable)
+          .scrollController!
+          .position
+          .maxScrollExtent,
+      0,
+    );
+    await tester.showKeyboard(editable);
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: '$text\nLast line',
+        selection: TextSelection.collapsed(offset: text.length + 10),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final render = tester.state<EditableTextState>(editable).renderEditable;
+    var caret = render.localToGlobal(
+      render.getLocalRectForCaret(composer.text.selection.extent).bottomLeft,
+    );
+    expect(caret.dy, lessThan(tester.getTopLeft(footer).dy));
+    expect(caret.dy, greaterThan(tester.getTopLeft(viewport).dy));
+    tester.testTextInput.updateEditingValue(
+      composer.text.value.copyWith(
         selection: const TextSelection.collapsed(offset: 0),
-      );
-      await tester.pumpAndSettle();
-      final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
-      final title = find.byKey(const ValueKey('composer-topic-title'));
-      final titleField = tester.widget<EditableText>(
-        find.descendant(of: title, matching: find.byType(EditableText)),
-      );
-      expect(titleField.style.fontSize, 22);
-      expect(titleField.style.height, 1.25);
-      final close = find.byKey(const ValueKey('composer-close'));
-      final submit = find.byKey(const ValueKey('composer-submit'));
-      final footer = find.byKey(const ValueKey('composer-footer'));
-      final titleBefore = tester.getTopLeft(title);
-      final fixed = [close, submit, footer];
-      final bounds = fixed.map(tester.getRect).toList();
-      await tester.drag(viewport, const Offset(0, -200));
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(title).dy, lessThan(titleBefore.dy - 100));
-      for (var i = 0; i < fixed.length; i++) {
-        expect(tester.getRect(fixed[i]), bounds[i]);
-      }
-      expect(close.hitTestable(), findsOneWidget);
-      expect(submit.hitTestable(), findsOneWidget);
-      final scrollbar = tester.widget<DScrollBar>(
-        find.ancestor(of: viewport, matching: find.byType(DScrollBar)).first,
-      );
-      expect(scrollbar.showScrollbar, isFalse);
-      final editable = find.descendant(
-        of: find.byType(ComposerEditor),
-        matching: find.byType(EditableText),
-      );
-      expect(
-        tester
-            .widget<EditableText>(editable)
-            .scrollController!
-            .position
-            .maxScrollExtent,
-        0,
-      );
-      await tester.showKeyboard(editable);
-      tester.testTextInput.updateEditingValue(
-        TextEditingValue(
-          text: '$text\nLast line',
-          selection: TextSelection.collapsed(offset: text.length + 10),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final render = tester.state<EditableTextState>(editable).renderEditable;
-      var caret = render.localToGlobal(
-        render.getLocalRectForCaret(composer.text.selection.extent).bottomLeft,
-      );
-      expect(caret.dy, lessThan(tester.getTopLeft(footer).dy));
-      expect(caret.dy, greaterThan(tester.getBottomLeft(close).dy));
-      tester.testTextInput.updateEditingValue(
-        composer.text.value.copyWith(
-          selection: const TextSelection.collapsed(offset: 0),
-        ),
-      );
-      await tester.pumpAndSettle();
-      caret = render.localToGlobal(
-        render.getLocalRectForCaret(composer.text.selection.extent).topLeft,
-      );
-      expect(caret.dy, greaterThanOrEqualTo(tester.getBottomLeft(close).dy));
-      expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(seconds: 3));
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    caret = render.localToGlobal(
+      render.getLocalRectForCaret(composer.text.selection.extent).topLeft,
+    );
+    expect(caret.dy, greaterThanOrEqualTo(tester.getTopLeft(viewport).dy));
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   testWidgets(
     'large text and a short keyboard viewport keep editing and submission reachable',
@@ -1892,11 +1896,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getRect(find.byKey(const ValueKey('composer-footer-blur'))).top,
-        closeTo(
+        lessThanOrEqualTo(
           tester
-              .getCenter(find.byKey(const ValueKey('composer-category-action')))
-              .dy,
-          .01,
+              .getRect(find.byKey(const ValueKey('composer-toolbar-scroll')))
+              .top,
         ),
       );
       expect(

@@ -100,9 +100,8 @@ final class BoardsPlugin
   List<Widget> _memberships(
     BuildContext context,
     String site,
-    BoardMemberships? memberships, {
-    Widget? leading,
-  }) {
+    BoardMemberships? memberships,
+  ) {
     // Every topic row asks, and most topics are on no board, so the scopes
     // are only looked up for a topic that is.
     final values = memberships?.values ?? const <BoardMembership>[];
@@ -113,10 +112,13 @@ final class BoardsPlugin
     return [
       for (final membership in values)
         DButton(
-          variant: DButtonVariant.primary,
+          variant: DButtonVariant.tool,
           size: DButtonSize.chip,
           onPressed: () => navigation.openMembership(site, membership),
-          icon: leading,
+          icon: DIcon(
+            boardsIcon,
+            color: boardColumnColor(membership.columnColor),
+          ),
           label: Text(
             membership.columnTitle.isEmpty
                 ? membership.name
@@ -131,14 +133,7 @@ final class BoardsPlugin
     BuildContext context,
     String siteUrl,
     Topic topic,
-  ) => _memberships(
-    context,
-    siteUrl,
-    topic.plugins.get(boardsMembershipKey),
-    // A topic row has no section label naming these pills, unlike the
-    // topic's properties, so each carries the Boards mark instead.
-    leading: const DIcon(boardsIcon),
-  );
+  ) => _memberships(context, siteUrl, topic.plugins.get(boardsMembershipKey));
   @override
   List<TopicPropertySection> topicProperties(
     BuildContext context,

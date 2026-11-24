@@ -1,9 +1,28 @@
+import 'package:discourse_native/discourse_plugin_contracts.dart' show DIcons;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'assignment.dart';
 import 'assignment_sheet.dart';
+
+class AssignmentTopicListPill extends StatelessWidget {
+  const AssignmentTopicListPill({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    explicitChildNodes: true,
+    label: context.l10n.assignedToAssignmenttopiclist,
+    child: DBadge(
+      variant: DBadgeVariant.secondary,
+      leading: const DIcon(DIcons.userPlus),
+      child: child,
+    ),
+  );
+}
 
 /// Read-only assignment visibility is independent of permission to reassign.
 class AssignmentTopicListSummary extends StatelessWidget {
@@ -26,11 +45,7 @@ class AssignmentTopicListSummary extends StatelessWidget {
       runSpacing: DSpacing.xs,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text(
-          context.l10n.assignedToAssignmenttopiclist,
-          style: TextStyle(color: DTokens.of(context).mutedForeground),
-        ),
-        _Assignee(assignment: first),
+        AssignmentTopicListPill(child: _Assignee(assignment: first)),
         if (all.length > 1)
           DButton(
             onPressed: onOpen,

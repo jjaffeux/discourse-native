@@ -4308,6 +4308,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nothingPlanned => 'Nothing planned';
 
   @override
+  String get findAnEvent => 'Find an event';
+
+  @override
+  String get noEventsMatchYourSearch => 'No events match your search.';
+
+  @override
   String get noEventsInThisPeriod => 'No events in this period.';
 
   @override
@@ -14710,7 +14716,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsDescription => 'Create and manage boards with columns.';
 
   @override
-  String get boardsFilter => 'Filter boards';
+  String get boardsFilter => 'Find a board';
 
   @override
   String get boardsAll => 'All boards';

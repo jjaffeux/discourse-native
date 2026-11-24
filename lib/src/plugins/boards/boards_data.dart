@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 
@@ -15,6 +17,12 @@ Map<String, dynamic> boardObject(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : const {};
 int? boardInt(Object? value) => value is int && value > 0 ? value : null;
 String boardText(Object? value) => value is String ? value : '';
+Color? boardColumnColor(String value) {
+  final hex = value.startsWith('#') ? value.substring(1) : value;
+  final rgb = hex.length == 6 ? int.tryParse(hex, radix: 16) : null;
+  return rgb == null ? null : Color(0xff000000 | rgb);
+}
+
 DateTime? boardDate(Object? value) =>
     value is String ? DateTime.tryParse(value) : null;
 List<int> boardIds(Object? value) => value is List
@@ -411,10 +419,11 @@ final class BoardMembership {
     this.name,
     this.slug,
     this.cardId,
-    this.columnTitle,
-  );
+    this.columnTitle, {
+    this.columnColor = '',
+  });
   final int boardId;
-  final String name, slug, columnTitle;
+  final String name, slug, columnTitle, columnColor;
   final int? cardId;
   static BoardMembership? decode(Object? value) {
     final json = boardObject(value);
@@ -430,6 +439,7 @@ final class BoardMembership {
       boardText(json['board_slug']),
       boardInt(first['card_id']),
       boardText(first['unicode_column_title'] ?? first['column_title']),
+      columnColor: boardText(first['column_color']),
     );
   }
 
@@ -440,10 +450,12 @@ final class BoardMembership {
       other.name == name &&
       other.slug == slug &&
       other.cardId == cardId &&
-      other.columnTitle == columnTitle;
+      other.columnTitle == columnTitle &&
+      other.columnColor == columnColor;
 
   @override
-  int get hashCode => Object.hash(boardId, name, slug, cardId, columnTitle);
+  int get hashCode =>
+      Object.hash(boardId, name, slug, cardId, columnTitle, columnColor);
 }
 
 final class BoardMembershipCodec
@@ -461,7 +473,11 @@ final class BoardMembershipCodec
         'board_name': item.name,
         'board_slug': item.slug,
         'cards': [
-          {'card_id': item.cardId, 'column_title': item.columnTitle},
+          {
+            'card_id': item.cardId,
+            'column_title': item.columnTitle,
+            if (item.columnColor.isNotEmpty) 'column_color': item.columnColor,
+          },
         ],
       },
   ];

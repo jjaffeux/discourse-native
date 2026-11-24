@@ -697,7 +697,13 @@ void main() {
             ),
           );
 
-          expect(find.text('Assigned to'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.bySemanticsLabel('Assigned to'),
+              matching: find.byType(DBadge),
+            ),
+            findsOneWidget,
+          );
           expect(find.text('#3, #2'), findsOneWidget);
           expect(find.byType(AssignmentAssigneeAvatar), findsNWidgets(2));
           expect(find.text('Sam'), findsOneWidget);

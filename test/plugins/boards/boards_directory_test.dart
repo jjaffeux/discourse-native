@@ -36,7 +36,12 @@ Map<String, dynamic> directoryBoard(
   'tag_names': tags,
   'columns': [
     for (var i = 0; i < columns.length; i++)
-      {'id': id * 100 + i, 'title': columns[i], 'icon': 'check'},
+      {
+        'id': id * 100 + i,
+        'title': columns[i],
+        'icon': 'check',
+        'color': '#12b5d8',
+      },
   ],
 };
 
@@ -296,7 +301,7 @@ void boardsDirectoryWidgetTests({
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('pending directory uses card skeletons until boards arrive', (
+  testWidgets('pending directory uses row skeletons until boards arrive', (
     tester,
   ) async {
     final fixture = BoardsFixture();
@@ -311,7 +316,7 @@ void boardsDirectoryWidgetTests({
     await onCapture?.call(tester, 'boards-directory-loading');
     expect(find.byType(DSpinner), findsNothing);
     expect(find.byType(DSkeletonRegion), findsWidgets);
-    expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+    expect(find.byType(DSkeleton), findsWidgets);
     expect(find.widgetWithText(DButton, 'Refresh'), findsNothing);
     expect(fixture.transport.reads, hasLength(1));
     pending.complete({
@@ -336,7 +341,7 @@ void boardsDirectoryWidgetTests({
     await prepareNativeUiEvidence(tester);
     await tester.pumpWidget(page(fixture, scale: 2, disableAnimations: true));
     await tester.pumpAndSettle();
-    expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+    expect(find.byType(DSkeleton), findsWidgets);
     expect(find.byType(DSpinner), findsNothing);
     expect(tester.takeException(), isNull);
     await captureNativeUi(tester, 'boards-directory-loading-narrow');
@@ -348,7 +353,7 @@ void boardsDirectoryWidgetTests({
 
   for (final limited in [false, true]) {
     testWidgets(
-      'directory cards align with the heading and filters at width preference $limited',
+      'directory rows align with the heading and filters at width preference $limited',
       (tester) async {
         resize(tester, const Size(1280, 800));
         SharedPreferences.setMockInitialValues({});
@@ -364,17 +369,15 @@ void boardsDirectoryWidgetTests({
         await tester.pumpWidget(page(fixture, settings: settings));
         await tester.pumpAndSettle();
         final title = tester.getRect(find.text('Boards'));
-        final search = tester.getRect(find.byType(DInput));
+        final search = tester.getRect(find.byType(DInputGroup));
         final controls = tester.getRect(find.byType(DControlWrap));
-        final cards = find.byType(DPlaceCard);
-        final first = tester.getRect(cards.first);
-        final row = [
-          for (var i = 0; i < cards.evaluate().length; i++)
-            tester.getRect(cards.at(i)),
-        ].where((rect) => (rect.top - first.top).abs() < 0.01);
+        final rows = find.byType(DItem);
+        final first = tester.getRect(rows.first);
+        final second = tester.getRect(rows.at(1));
         expect(title.left, closeTo(search.left, 0.01));
         expect(first.left, closeTo(controls.left, 0.01));
-        expect(row.last.right, closeTo(controls.right, 0.01));
+        expect(first.right, closeTo(controls.right, 0.01));
+        expect(second.top, greaterThanOrEqualTo(first.bottom));
         expect(
           find.text('Create and manage boards with columns.'),
           findsNothing,
@@ -413,11 +416,8 @@ void boardsDirectoryWidgetTests({
       final search = tester.getRect(find.byType(DInput));
       final status = tester.getRect(find.text('Active boards'));
       if (!nativeView) {
-        if (width == 520) {
-          expect(status.center.dy, closeTo(search.center.dy, 1));
-        } else {
-          expect(status.top, greaterThan(search.bottom));
-        }
+        expect(status.center.dy, closeTo(search.center.dy, 1));
+        expect(status.left, greaterThan(search.right));
         expect(search.width, lessThan(width - 32));
       }
       await captureNativeUi(tester, 'boards-directory-filters-$width');
@@ -437,7 +437,7 @@ void boardsDirectoryWidgetTests({
   }
 
   testWidgets(
-    'directory uses category cards and exposes board metadata without detail requests',
+    'directory shows active and hatched archived rows with their columns',
     (tester) async {
       resize(tester, const Size(1100, 800));
       final fixture = BoardsFixture();
@@ -467,36 +467,36 @@ void boardsDirectoryWidgetTests({
       await tester.pumpAndSettle();
       await tester.tap(find.text('All boards').last);
       await tester.pumpAndSettle();
-      expect(find.byType(DPlaceCard), findsNWidgets(4));
-      expect(find.text('Created by lee'), findsOneWidget);
-      expect(find.text('3 columns'), findsOneWidget);
-      expect(find.text('2 columns'), findsOneWidget);
-      expect(find.text('0 columns'), findsOneWidget);
-      expect(find.text('Simple'), findsOneWidget);
-      expect(find.text('Archived'), findsOneWidget);
+      final rows = find.byType(DItem);
+      expect(rows, findsNWidgets(4));
+      final archived = tester.widget<DItem>(rows.at(2));
+      expect(archived.closed, isTrue);
+      expect(archived.closedRuleAbove, isTrue);
+      expect(archived.closedRuleBelow, isTrue);
+      expect(tester.widget<DItem>(rows.at(1)).closed, isFalse);
       expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is DIcon && widget.semanticLabel == 'Private board',
+        find.descendant(
+          of: rows.at(2),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.semanticLabel == 'Archived',
+          ),
         ),
         findsOneWidget,
+      );
+      expect(find.text('UI Kit'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: rows.at(1),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is DIcon && widget.color == const Color(0xff12b5d8),
+          ),
+        ),
+        findsNWidgets(2),
       );
       expect(fixture.transport.reads.map((request) => request.path), [
         '/boards/api/boards.json',
       ]);
-      if (!nativeView) {
-        final cards = find.byType(DPlaceCard);
-        final first = tester.getRect(cards.at(0));
-        final second = tester.getRect(cards.at(1));
-        expect(first.top, second.top);
-        final fourth = tester.getRect(cards.at(3));
-        expect(fourth.top, first.top);
-        expect(fourth.right, greaterThan(1000));
-        await tester.tapAt(
-          Offset((first.right + second.left) / 2, first.center.dy),
-        );
-        expect(fixture.host.currentContent, isNull);
-      }
       await captureNativeUi(tester, 'boards-directory-wide');
       await onCapture?.call(tester, 'boards-directory-wide');
       await tester.tap(find.text('Design team board'));
@@ -527,7 +527,7 @@ void boardsDirectoryWidgetTests({
       await tester.pumpAndSettle();
       await tester.tap(find.text('All boards').last);
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(DInput), ' NATIVE team ');
+      await tester.enterText(find.byType(DInput), ' TEAM ');
       await tester.pumpAndSettle();
       expect(find.text('Team roadmap'), findsOneWidget);
       expect(find.text('Team archive'), findsOneWidget);
@@ -547,7 +547,7 @@ void boardsDirectoryWidgetTests({
   );
 
   testWidgets(
-    'directory search matches column and category names and active hides archives',
+    'directory search matches board names and active hides archives',
     (tester) async {
       resize(tester, const Size(900, 800));
       final fixture = BoardsFixture(
@@ -566,14 +566,16 @@ void boardsDirectoryWidgetTests({
       ]);
       await tester.pumpWidget(page(fixture));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(DInput), 'triage');
+      for (final query in ['triage', 'support']) {
+        await tester.enterText(find.byType(DInput), query);
+        await tester.pumpAndSettle();
+        expect(find.text('Roadmap'), findsNothing);
+        expect(find.text('Helpdesk'), findsNothing);
+      }
+      await tester.enterText(find.byType(DInput), 'road');
       await tester.pumpAndSettle();
       expect(find.text('Roadmap'), findsOneWidget);
       expect(find.text('Helpdesk'), findsNothing);
-      await tester.enterText(find.byType(DInput), 'support');
-      await tester.pumpAndSettle();
-      expect(find.text('Helpdesk'), findsOneWidget);
-      expect(find.text('Roadmap'), findsNothing);
       await tester.enterText(find.byType(DInput), '');
       await tester.pumpAndSettle();
       await tester.tap(find.text('Active boards'));
@@ -700,10 +702,10 @@ void boardsDirectoryWidgetTests({
       };
       await tester.pumpWidget(page(fixture));
       await tester.pump();
-      expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+      expect(find.byType(DSkeleton), findsWidgets);
       expect(find.byType(DSpinner), findsNothing);
       await pull(tester);
-      expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+      expect(find.byType(DSkeleton), findsWidgets);
       expect(find.byType(DSpinner), findsNothing);
       expect(fixture.transport.reads, hasLength(1));
       pending.completeError(
@@ -787,7 +789,7 @@ void boardsDirectoryWidgetTests({
 
   for (final width in [320.0, 390.0]) {
     testWidgets(
-      'narrow directory wraps long columns and creator at 2x text at width $width',
+      'narrow directory wraps long columns at 2x text at width $width',
       (tester) async {
         resize(tester, Size(width, 1100));
         final fixture = BoardsFixture();
@@ -815,8 +817,7 @@ void boardsDirectoryWidgetTests({
         await prepareNativeUiEvidence(tester);
         await tester.pumpWidget(page(fixture, dark: true, scale: 2));
         await tester.pumpAndSettle();
-        expect(find.byType(DPlaceCard), findsOneWidget);
-        expect(find.text('10 columns'), findsOneWidget);
+        expect(find.byType(DItem), findsOneWidget);
         expect(find.text('Case study opportunity'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await captureNativeUi(
