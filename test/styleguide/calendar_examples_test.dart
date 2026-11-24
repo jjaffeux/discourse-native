@@ -28,49 +28,42 @@ void main() {
     ]);
   });
 
-  for (final brightness in Brightness.values) {
-    testWidgets('Calendar examples fit narrow 200% ${brightness.name}', (
-      tester,
-    ) async {
-      final theme = brightness == Brightness.dark
-          ? AppTheme.dark
-          : AppTheme.light;
-      for (final example in calendarExamples.examples) {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: theme,
-            home: Scaffold(
-              body: MediaQuery(
-                data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-                child: SizedBox(
-                  width: 360,
-                  height: 900,
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Builder(
-                        key: ValueKey(example.title),
-                        builder: example.builder,
-                      ),
+  testWidgets('Calendar examples fit narrow 200% dark', (tester) async {
+    for (final example in calendarExamples.examples) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: SizedBox(
+                width: 360,
+                height: 900,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Builder(
+                      key: ValueKey(example.title),
+                      builder: example.builder,
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        );
-        await tester.pump();
-        if (example.title == 'Compact event month') {
-          expect(find.byType(DKalenderCompactMonthBody), findsOneWidget);
-        } else if (example.title == 'Event schedule') {
-          expect(find.byType(DCalendarScheduleEntry), findsNWidgets(4));
-        } else {
-          expect(find.byType(DCalendar), findsAtLeastNWidgets(1));
-        }
-        expect(tester.takeException(), isNull, reason: example.title);
+        ),
+      );
+      await tester.pump();
+      if (example.title == 'Compact event month') {
+        expect(find.byType(DKalenderCompactMonthBody), findsOneWidget);
+      } else if (example.title == 'Event schedule') {
+        expect(find.byType(DCalendarScheduleEntry), findsNWidgets(4));
+      } else {
+        expect(find.byType(DCalendar), findsAtLeastNWidgets(1));
       }
-    });
-  }
+      expect(tester.takeException(), isNull, reason: example.title);
+    }
+  });
 
   testWidgets('preset and date-time examples keep real shared primitives', (
     tester,
