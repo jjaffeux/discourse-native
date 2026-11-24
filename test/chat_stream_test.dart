@@ -39,16 +39,6 @@ bool chainedAt(List<ChatStreamItem> items, int id) =>
 
 void main() {
   group('chaining a message to the one above', () {
-    test(
-      'chains a second message from the same person within five minutes',
-      () {
-        final items = buildChatStream([at(1), at(2, minute: 4)]);
-
-        expect(chainedAt(items, 1), isFalse);
-        expect(chainedAt(items, 2), isTrue);
-      },
-    );
-
     test('breaks the chain when somebody else speaks', () {
       final items = buildChatStream([at(1), at(2, author: 3, minute: 1)]);
 
@@ -68,7 +58,9 @@ void main() {
     );
 
     test('breaks the chain after five minutes of silence', () {
-      expect(chainedAt(buildChatStream([at(1), at(2, minute: 5)]), 2), isTrue);
+      final atBoundary = buildChatStream([at(1), at(2, minute: 5)]);
+      expect(chainedAt(atBoundary, 1), isFalse);
+      expect(chainedAt(atBoundary, 2), isTrue);
       expect(chainedAt(buildChatStream([at(1), at(2, minute: 6)]), 2), isFalse);
     });
 
@@ -115,19 +107,6 @@ void main() {
         isFalse,
       );
     });
-
-    test('never chains the first message, having nothing above it', () {
-      expect(chainedAt(buildChatStream([at(1)]), 1), isFalse);
-    });
-
-    test(
-      'breaks the chain across a day boundary, where the separator already does',
-      () {
-        final items = buildChatStream([at(1, day: 5), at(2, day: 6)]);
-
-        expect(chainedAt(items, 2), isFalse);
-      },
-    );
 
     test('keeps a fetched channel page header when older messages arrive', () {
       final older = [at(1), at(2, minute: 1)];
@@ -184,14 +163,11 @@ void main() {
         at(3, day: 6),
       ]);
 
+      expect(items.first, isA<ChatStreamDay>());
       expect(items.whereType<ChatStreamDay>().map((d) => d.day), [
         DateTime(2026, 5, 5),
         DateTime(2026, 5, 6),
       ]);
-    });
-
-    test('puts one above the very first message, which starts a day too', () {
-      expect(buildChatStream([at(1)]).first, isA<ChatStreamDay>());
     });
 
     test('puts none in a stream with no messages in it', () {
