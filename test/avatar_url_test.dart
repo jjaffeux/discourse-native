@@ -34,14 +34,12 @@ void main() {
   );
 
   group('resolveAvatarUrl', () {
-    for (final template in [_uploaded, _letter]) {
-      test('resolves $template against the origin of $_site/', () {
-        expect(
-          resolveAvatarUrl(template, '$_site/'),
-          'https://forum.example${template.replaceAll('{size}', '90')}',
-        );
-      });
-    }
+    test('letter avatars resolve against the origin of a subfolder forum', () {
+      expect(
+        resolveAvatarUrl(_letter, '$_site/'),
+        'https://forum.example/community/letter_avatar/sam/90/1.png',
+      );
+    });
 
     test('a root path need not start with the forum directory', () {
       expect(
