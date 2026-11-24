@@ -41,16 +41,21 @@ class TopicCornerControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final mobile = ShellScope.read(context).mobileNavigationEnabled;
     final chrome = mobile ? DScrollChrome.maybeOf(context) : null;
+    final footerExtent = mobile ? DScrollChrome.bottomInsetOf(context) : 0.0;
     final lifted = DMobileDockPeek.liftedOf(context);
     return ListenableBuilder(
       listenable: Listenable.merge([chrome, lifted]),
       builder: (context, child) {
         final hiddenFraction = chrome?.value ?? 0;
         final geometry = DMobileDockGeometry.of(context);
-        final dock = mobile
+        final navigationDock = mobile
             ? geometry.footerExtent + ComposerParkedDraftScope.roomOf(context)
             : 0.0;
-        final folded = dock > 0 && hiddenFraction >= .5;
+        // A taller contextual footer takes the dock's place even while
+        // navigation itself would be folded.
+        final dock = math.max(navigationDock, footerExtent);
+        final folded =
+            dock > 0 && hiddenFraction >= .5 && dock == navigationDock;
         // While the bar is lifted, as far as it lifts, so it does not cover
         // what floats just over it.
         final lift = dock > 0 && lifted.value ? geometry.peek : 0.0;

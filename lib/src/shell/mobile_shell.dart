@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/frame_safe_notifier.dart';
 import '../foundation/icons/d_icons.dart';
 import '../foundation/icons/d_native_icons.dart';
 import '../models/content_route.dart';
@@ -30,6 +31,7 @@ import 'mobile_navigation.dart';
 import 'mobile_page_title.dart';
 import 'mobile_place_order.dart';
 import 'mobile_place_order_controller.dart';
+import 'mobile_post_selection.dart';
 import 'mobile_presentation.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
@@ -75,6 +77,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
 
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
+  final _postSelection = FrameSafeValueNotifier<MobilePostSelection?>(null);
 
   // The drawer's profile menu, also opened by the dock's profile tile.
   final _accountMenu = DPopoverController();
@@ -87,6 +90,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   void dispose() {
     _navigationFocus.dispose();
     _footerAction.dispose();
+    _postSelection.dispose();
     _accountMenu.dispose();
     _notificationsMenu.dispose();
     super.dispose();
@@ -110,9 +114,12 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   @override
   Widget build(BuildContext context) => MobileFooterActionScope(
     controller: _footerAction,
-    child: UserMenuButton.drawer(
-      builder: _buildWithProfileFooter,
-      profileController: _accountMenu,
+    child: MobilePostSelectionScope(
+      selection: _postSelection,
+      child: UserMenuButton.drawer(
+        builder: _buildWithProfileFooter,
+        profileController: _accountMenu,
+      ),
     ),
   );
 
@@ -633,9 +640,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           BuildContext context,
           Widget page,
         ) => ListenableBuilder(
-          listenable: _footerAction,
+          listenable: Listenable.merge([_footerAction, _postSelection]),
           child: page,
           builder: (context, content) {
+            final selection = _postSelection.value;
+            final textActions =
+                !sidebarOpen &&
+                    route?.isTopic == true &&
+                    selection?.visit == presentation.identity
+                ? selection?.actions
+                : null;
             // Retain both dock presentations while navigation moves them.
             // Progress changes the wrapper, not the controls inside it.
             final docks = <bool, Widget>{};
@@ -654,6 +668,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 );
               }
               final geometry = DMobileDockGeometry.of(context);
+              if (textActions != null) {
+                return Padding(
+                  padding: geometry.margin.add(EdgeInsets.only(top: parked)),
+                  child: MobilePostSelectionTray(
+                    key: const ValueKey('mobile-post-selection-tray'),
+                    geometry: geometry,
+                    actions: textActions,
+                  ),
+                );
+              }
               return ForumSidebarTheme(
                 child: Padding(
                   padding: geometry.margin.add(EdgeInsets.only(top: parked)),

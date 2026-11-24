@@ -63,6 +63,20 @@ final class PostQuoteSelectionResolver {
 
   String contentsFor(String plainText) => resolve(plainText).markdown;
 
+  String plainTextFor(String plainText) {
+    final selected = plainText.trim();
+    final source = _source;
+    if (selected.isEmpty || source == null) return plainText;
+    final match = source.matchSelection(selected);
+    // A rendered selection can omit separators between widgets. Restore them
+    // when the selected text identifies a single range in the displayed post.
+    if (match == null || !match.unique) return plainText;
+    final start = plainText.indexOf(selected);
+    return plainText.substring(0, start) +
+        source.exportRange(match.start, match.end) +
+        plainText.substring(start + selected.length);
+  }
+
   PostTextSelectionResolution resolve(
     String plainText, {
     bool isLocalized = false,
@@ -77,11 +91,9 @@ final class PostQuoteSelectionResolver {
       );
     }
 
-    var match = source.match(selected.isEmpty ? plainText : selected);
-    if (match == null) {
-      final compact = selected.replaceAll(_selectionLineBreaks, '');
-      match = source.match(compact);
-    }
+    final match = source.matchSelection(
+      selected.isEmpty ? plainText : selected,
+    );
     if (match == null) {
       return PostTextSelectionResolution(
         markdown: selected,
@@ -353,25 +365,34 @@ class _CookedSelectionSource {
       .map((offset) => characters[offset].value)
       .join();
 
-  String get exportText {
+  String get exportText =>
+      exportRange(0, characters.length, includeBoundarySeparators: true);
+
+  String exportRange(
+    int start,
+    int end, {
+    bool includeBoundarySeparators = false,
+  }) {
     final out = StringBuffer();
     var trailingNewlines = 0;
-    for (var offset = 0; offset <= characters.length; offset++) {
-      final structural = offset > 0 && offset < characters.length
-          ? breaks[offset] ?? 0
-          : 0;
-      final explicit = explicitBreaks[offset] ?? 0;
-      final missing = structural - trailingNewlines;
-      final inserted = explicit > missing ? explicit : missing;
-      for (var line = 0; line < inserted; line++) {
-        out.write('\n');
-        trailingNewlines++;
+    for (var offset = start; offset <= end; offset++) {
+      if (includeBoundarySeparators || (offset > start && offset < end)) {
+        final structural = offset > start && offset < end
+            ? breaks[offset] ?? 0
+            : 0;
+        final explicit = explicitBreaks[offset] ?? 0;
+        final missing = structural - trailingNewlines;
+        final inserted = explicit > missing ? explicit : missing;
+        for (var line = 0; line < inserted; line++) {
+          out.write('\n');
+          trailingNewlines++;
+        }
+        if (cellSeparators[offset] case final tabs?) {
+          out.write('\t' * tabs);
+          trailingNewlines = 0;
+        }
       }
-      if (cellSeparators[offset] case final tabs?) {
-        out.write('\t' * tabs);
-        trailingNewlines = 0;
-      }
-      if (offset == characters.length) break;
+      if (offset == end) break;
       final value = characters[offset].value;
       out.write(value);
       trailingNewlines = value == '\n' ? trailingNewlines + 1 : 0;
@@ -379,7 +400,10 @@ class _CookedSelectionSource {
     return out.toString();
   }
 
-  ({int start, int end, bool unique})? match(String selected) {
+  ({int start, int end, bool unique})? matchSelection(String selected) =>
+      _match(selected) ?? _match(selected.replaceAll(_selectionLineBreaks, ''));
+
+  ({int start, int end, bool unique})? _match(String selected) {
     if (selected.isEmpty) return null;
     final start = plainText.indexOf(selected);
     if (start < 0) {
