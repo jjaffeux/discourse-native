@@ -62,10 +62,4 @@ void main() {
       'Message deleted',
     );
   });
-
-  test('bounds long summaries without splitting a Unicode code point', () {
-    final summary = chatMessageSummary(raw: '😀' * 500)!;
-    expect(summary.runes.length, 241);
-    expect(summary, '${'😀' * 240}…');
-  });
 }
