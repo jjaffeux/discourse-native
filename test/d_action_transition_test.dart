@@ -53,13 +53,6 @@ FadeTransition _fade(WidgetTester tester, String name) =>
     );
 
 void main() {
-  testWidgets('initial action is visible without an entrance', (tester) async {
-    await _pump(tester, _action('Reply'));
-    expect(_fade(tester, 'Reply').opacity.value, 1);
-    expect(tester.getSize(find.byKey(const ValueKey('Reply'))).width, 80);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('add and remove animate while neighboring controls stay still', (
     tester,
   ) async {
@@ -156,6 +149,9 @@ void main() {
     var oldPresses = 0;
     var newPresses = 0;
     await _pump(tester, _action('Reply', onPressed: () => oldPresses++));
+    expect(_fade(tester, 'Reply').opacity.value, 1);
+    expect(tester.getSize(find.byKey(const ValueKey('Reply'))).width, 80);
+    expect(tester.takeException(), isNull);
     final element = tester.element(find.byKey(const ValueKey('Reply')));
     await _pump(tester, _action('Reply', onPressed: () => newPresses++));
     expect(tester.element(find.byKey(const ValueKey('Reply'))), same(element));
