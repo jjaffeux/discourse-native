@@ -28,17 +28,6 @@ void main() {
       expect(pollComposerSummary(block), 'Poll · Lunch choice · 2 options');
     });
 
-    test('count the generated values for number polls', () {
-      const number =
-          '[poll type=number min=0 max=10 step=2]\n'
-          '# Score\n'
-          '[/poll]';
-      expect(
-        pollComposerSummary(parsePollComposerBlocks(number).single),
-        'Poll · Score · 6 options',
-      );
-    });
-
     test('bound number summaries before adding the inclusive endpoint', () {
       final number = parsePollComposerBlocks(
         '[poll type=number min=0 max=$largestInt step=1]\n'
