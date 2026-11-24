@@ -338,38 +338,11 @@ class _BoardsPageState extends State<BoardsPage> {
     return page(
       board.name,
       columns: board.columns.length,
-      controls: categories.isEmpty && board.tagNames.isEmpty && !board.archived
+      controls: categories.isEmpty && !board.archived
           ? null
           : DControlWrap(
               children: [
                 ...categories,
-                for (final tag in board.tagNames)
-                  DButton(
-                    key: ValueKey(('board-header-tag', tag)),
-                    onPressed: () =>
-                        widget.navigation.openTag(widget.site, tag),
-                    variant: DButtonVariant.tool,
-                    size: DButtonSize.filter,
-                    isLink: true,
-                    semanticLabel: l10n.openTagTopicheadertags(tag),
-                    label: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '#',
-                            style: TextStyle(
-                              color: DTokens.of(context).mutedForeground,
-                            ),
-                          ),
-                          const WidgetSpan(
-                            child: SizedBox(width: DSpacing.controlGap),
-                          ),
-                          TextSpan(text: tag),
-                        ],
-                      ),
-                      maxLines: 1,
-                    ),
-                  ),
                 if (board.archived)
                   DBadge(
                     size: DBadgeSize.control,

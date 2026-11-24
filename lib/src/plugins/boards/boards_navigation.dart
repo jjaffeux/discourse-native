@@ -91,18 +91,6 @@ final class BoardsNavigation
     host.openTopicPost(siteUrl: site, topicId: card.topicId!, postNumber: 1);
   }
 
-  void openTag(String site, String tag) {
-    if (!controller.enabled(site) || host.currentSite?.url != site) return;
-    final path = Uri(pathSegments: ['', 'tag', '$tag.json']).toString();
-    topicLists.openTopicList(
-      ContentRoute(
-        destination: FeedDestination.fromPath(key: 'list-$path', path: path),
-        title: tag,
-        icon: DIcons.tag,
-      ),
-    );
-  }
-
   void openCategory(String site, int id, String name) {
     if (!controller.enabled(site) || host.currentSite?.url != site) return;
     final path = '/c/$id.json';

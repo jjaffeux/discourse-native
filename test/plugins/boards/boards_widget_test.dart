@@ -776,9 +776,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     'board heading keeps its controls below the title outside the sheet',
     (tester) async {
       final json = boardFixtureJson();
-      (json['board'] as Map)
-        ..['tag_names'] = ['roadmap']
-        ..['category_ids'] = [5];
+      (json['board'] as Map)['category_ids'] = [5];
       final fixture = BoardsFixture(
         json: json,
         categories: {
@@ -794,15 +792,10 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
         ),
       );
       await tester.pumpAndSettle();
-      final tag = find.byKey(const ValueKey(('board-header-tag', 'roadmap')));
       final category = find.byKey(const ValueKey(('board-header-category', 5)));
       final title = tester.getRect(find.byKey(const ValueKey('board-title')));
       expect(find.byKey(const ValueKey('board-back')), findsNothing);
-      for (final control in [find.text('Support'), tag]) {
-        expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
-      }
-      expect(tester.getRect(category).top, tester.getRect(tag).top);
-      expect(tester.getSize(category).height, tester.getSize(tag).height);
+      expect(tester.getRect(category).top, greaterThanOrEqualTo(title.bottom));
       expect(
         find.descendant(of: category, matching: find.byType(CategoryIcon)),
         findsOneWidget,
@@ -811,7 +804,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
         find.ancestor(of: find.text('Support'), matching: find.byType(DBadge)),
         findsNothing,
       );
-      await captureNativeUi(tester, 'board-header-tag-style');
+      await captureNativeUi(tester, 'board-header-category-style');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -860,15 +853,11 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
-  testWidgets('board categories and tags wrap together in a narrow header', (
-    tester,
-  ) async {
+  testWidgets('board categories wrap in a narrow header', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final json = boardFixtureJson();
-    (json['board'] as Map)
-      ..['category_ids'] = [5, 6]
-      ..['tag_names'] = ['roadmap', 'native', 'accessibility'];
+    (json['board'] as Map)['category_ids'] = [5, 6];
     final fixture = BoardsFixture(
       json: json,
       categories: {
@@ -877,7 +866,11 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
           name: 'Deals and proposals for international customer accounts',
           color: '12b5d8',
         ),
-        6: const TopicCategory(id: 6, name: 'Support', color: '12b5d8'),
+        6: const TopicCategory(
+          id: 6,
+          name: 'Support and customer success',
+          color: '12b5d8',
+        ),
       },
     );
     addTearDown(fixture.dispose);
@@ -890,14 +883,11 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     );
     await tester.pumpAndSettle();
     final category = find.byKey(const ValueKey(('board-header-category', 5)));
+    final otherCategory = find.byKey(
+      const ValueKey(('board-header-category', 6)),
+    );
     expect(tester.getSize(category).width, lessThanOrEqualTo(180));
-    expect(tester.getRect(category).right, lessThanOrEqualTo(320));
-    for (final control in [
-      category,
-      find.byKey(const ValueKey(('board-header-category', 6))),
-      for (final tag in ['roadmap', 'native', 'accessibility'])
-        find.byKey(ValueKey(('board-header-tag', tag))),
-    ]) {
+    for (final control in [category, otherCategory]) {
       expect(control, findsOneWidget);
       final bounds = tester.getRect(control);
       expect(bounds.left, greaterThanOrEqualTo(0));
@@ -905,22 +895,15 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       expect(control.hitTestable(), findsOneWidget);
     }
     expect(
-      tester
-          .getRect(
-            find.byKey(const ValueKey(('board-header-tag', 'accessibility'))),
-          )
-          .top,
+      tester.getRect(otherCategory).top,
       greaterThanOrEqualTo(tester.getRect(category).bottom),
     );
     expect(tester.takeException(), isNull);
-    await captureNativeUi(tester, 'board-header-categories-tags-narrow');
+    await captureNativeUi(tester, 'board-header-categories-narrow');
     await tester.pumpWidget(const SizedBox.shrink());
   });
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final (appScale, accessibility, height, textSize) in [
-      (1.0, 1.0, 36.0, 14.0),
-      (1.25, 2.0, 67.5, 35.0),
-    ]) {
+    for (final (appScale, accessibility) in [(1.0, 1.0), (1.25, 2.0)]) {
       testWidgets(
         'board header excludes reading uplift on $platform at $appScale/$accessibility',
         (tester) async {
@@ -930,9 +913,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
             addTearDown(tester.view.reset);
           }
           final json = boardFixtureJson(archived: true);
-          (json['board'] as Map)
-            ..['tag_names'] = ['roadmap']
-            ..['category_ids'] = [5];
+          (json['board'] as Map)['category_ids'] = [5];
           final fixture = BoardsFixture(
             json: json,
             categories: {
@@ -964,14 +945,6 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
             ),
           );
           await tester.pumpAndSettle();
-          final tag = find.byKey(
-            const ValueKey(('board-header-tag', 'roadmap')),
-          );
-          expect(tester.getSize(tag).height, height);
-          final tagText = find.descendant(of: tag, matching: find.byType(Text));
-          final tagContext = tester.element(tagText);
-          final fontSize = DefaultTextStyle.of(tagContext).style.fontSize!;
-          expect(MediaQuery.textScalerOf(tagContext).scale(fontSize), textSize);
           for (final label in ['Support', 'Archived']) {
             expect(
               MediaQuery.textScalerOf(
@@ -995,32 +968,19 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       );
     }
   }
-  testWidgets('board header tags open their associated topic lists', (
-    tester,
-  ) async {
+  testWidgets('board tags do not add a header controls row', (tester) async {
     final json = boardFixtureJson();
-    (json['board'] as Map)['tag_names'] = [
-      'cs-completed',
-      'cs-handover',
-      'équipe & suivi',
-    ];
+    (json['board'] as Map)['tag_names'] = ['cs-completed', 'équipe & suivi'];
     final fixture = BoardsFixture(json: json);
     addTearDown(fixture.dispose);
     await tester.pumpWidget(retainedPage(fixture));
     await tester.pumpAndSettle();
 
-    for (final (label, path) in [
-      ('cs-completed', '/tag/cs-completed.json'),
-      ('cs-handover', '/tag/cs-handover.json'),
-      ('équipe & suivi', '/tag/%C3%A9quipe%20&%20suivi.json'),
-    ]) {
-      await tester.tap(find.byKey(ValueKey(('board-header-tag', label))));
-      await tester.pumpAndSettle();
-      final route = fixture.host.currentContent;
-      expect(route?.destination, isA<FeedDestination>());
-      expect(route?.feedPath, path);
-      expect(route?.title, label);
+    expect(find.text('Product roadmap'), findsOneWidget);
+    for (final label in ['cs-completed', 'équipe & suivi']) {
+      expect(find.textContaining(label, findRichText: true), findsNothing);
     }
+    expect(find.byType(DControlWrap), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

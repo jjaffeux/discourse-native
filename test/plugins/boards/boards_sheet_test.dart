@@ -68,7 +68,7 @@ Future<void> _captureBoard(WidgetTester tester, String name) async {
 Future<ShellController> _openBoard(
   WidgetTester tester, {
   String name = 'Product roadmap',
-  List<String> tags = const ['roadmap'],
+  List<String> tags = const [],
   Size size = const Size(390, 844),
   int extraCards = 30,
   bool fromDirectory = true,
@@ -437,10 +437,6 @@ void main() {
       find.descendant(of: header, matching: find.text('Product roadmap')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))).hitTestable(),
-      findsOneWidget,
-    );
     expect(shell.currentContent?.id, 'boards/1');
     expect(tester.widget<DSheetContent>(_sheet).variant, DSheetVariant.page);
     expect(_title.hitTestable(), findsOneWidget);
@@ -685,93 +681,21 @@ void main() {
     variant: platforms,
   );
 
-  testWidgets('the board keeps tags in the sheet controls', (tester) async {
-    await _openBoard(tester, name: 'Board');
-    expect(find.byKey(const ValueKey('board-back')), findsNothing);
-    final title = tester.getRect(_title);
-    final tag = tester.getRect(
-      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
-    );
-    expect(tag.top, greaterThanOrEqualTo(title.bottom));
-    final handle = tester.getRect(
-      find.byKey(const ValueKey('sheet-drag-handle')),
-    );
-    expect(tag.top - handle.bottom, greaterThanOrEqualTo(0));
-    expect(tag.bottom, lessThanOrEqualTo(tester.getRect(_column(10)).top));
+  testWidgets('board tags are hidden in the page sheet', (tester) async {
+    const name = 'Quarterly product roadmap for the native apps';
+    const tags = ['cs-completed', 'cs-renewals-expansion'];
+    await _openBoard(tester, name: name, tags: tags);
     expect(
-      find.descendant(of: _sheet, matching: find.text('Board')),
-      findsNothing,
+      find.descendant(of: _title, matching: find.text(name)),
+      findsOneWidget,
     );
-    expect(tester.takeException(), isNull);
-  }, variant: platforms);
-
-  testWidgets('board tags wrap together and open the last tag', (tester) async {
-    const tags = [
-      'cs-completed',
-      'cs-handover',
-      'cs-icebox',
-      'cs-onboarding',
-      'cs-ops',
-      'cs-renewals-expansion',
-    ];
-    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
-    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
-    await prepareNativeUiEvidence(tester);
-    if (Platform.environment['NATIVE_UI_EVIDENCE_DIR'] != null) {
-      await tester.runAsync(() async {
-        for (final (family, asset) in [
-          ('Lato', 'Lato-Regular.ttf'),
-          ('Open Sans', 'OpenSans.ttf'),
-        ]) {
-          await (FontLoader(
-            family,
-          )..addFont(rootBundle.load('assets/fonts/$asset'))).load();
-        }
-      });
-    }
-    final shell = await _openBoard(tester, tags: tags);
-    Finder tag(String name) => find.byKey(ValueKey(('board-header-tag', name)));
-    final handle = tester.getRect(
-      find.byKey(const ValueKey('sheet-drag-handle')),
-    );
-    for (final name in tags) {
-      expect(tag(name), findsOneWidget);
-      expect(
-        tester.getRect(tag(name)).top - handle.bottom,
-        greaterThanOrEqualTo(0),
-      );
+    for (final tag in tags) {
+      expect(find.textContaining(tag, findRichText: true), findsNothing);
     }
     expect(
-      tester.getRect(tag(tags.last)).top,
-      greaterThan(tester.getRect(tag(tags.first)).top),
+      tester.getRect(_column(10)).top,
+      greaterThanOrEqualTo(tester.getRect(_title).bottom),
     );
-    final platform = Theme.of(tester.element(tag(tags.first))).platform.name;
-    await _captureBoard(tester, 'board-header-tags-$platform-wrapped');
-    expect(tester.takeException(), isNull);
-    await tester.tap(tag(tags.last));
-    await tester.pumpAndSettle();
-    expect(shell.currentContent?.feedPath, '/tag/cs-renewals-expansion.json');
-    expect(tester.takeException(), isNull);
-  }, variant: platforms);
-
-  testWidgets('a long board title leaves tags together in the controls', (
-    tester,
-  ) async {
-    await _openBoard(
-      tester,
-      name: 'Quarterly product roadmap for the native apps',
-      tags: ['roadmap', 'native'],
-    );
-    final title = tester.getRect(_title);
-    final roadmap = tester.getRect(
-      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
-    );
-    final native = tester.getRect(
-      find.byKey(const ValueKey(('board-header-tag', 'native'))),
-    );
-    expect(roadmap.top, greaterThanOrEqualTo(title.bottom));
-    expect(native.center.dy, roadmap.center.dy);
-    expect(roadmap.bottom, lessThanOrEqualTo(tester.getRect(_column(10)).top));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -1149,17 +1073,13 @@ void main() {
           tester,
           size: size,
           name: 'Quarterly product roadmap for the native apps',
-          tags: ['roadmap', 'native', 'ios', 'android'],
           extraCards: 3,
           fromDirectory: false,
         );
         expect(tester.takeException(), isNull);
         final sheet = tester.getRect(_sheet);
         await tester.dragFrom(
-          tester.getTopLeft(
-                find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
-              ) +
-              const Offset(20, 10),
+          Offset(sheet.left + 6, tester.getRect(_column(10)).top + 10),
           const Offset(0, -2000),
         );
         await tester.pumpAndSettle();
