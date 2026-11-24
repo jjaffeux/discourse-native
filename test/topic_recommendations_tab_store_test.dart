@@ -18,7 +18,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('core suggestions show until another source is saved', () async {
+  test('tab choices persist without changing another forum', () async {
     expect(
       await store.read(siteUrl: 'https://meta.discourse.org'),
       coreSuggestedTopicRecommendationSourceId,
@@ -33,21 +33,9 @@ void main() {
       await store.read(siteUrl: 'https://meta.discourse.org'),
       const TopicRecommendationSourceId('test/popular'),
     );
-  });
-
-  test('tab choices are independent by forum', () async {
-    await store.write(
-      siteUrl: 'https://meta.discourse.org',
-      sourceId: const TopicRecommendationSourceId('test/popular'),
-    );
-
     expect(
       await store.read(siteUrl: 'https://team.discourse.org'),
       coreSuggestedTopicRecommendationSourceId,
-    );
-    expect(
-      await store.read(siteUrl: 'https://meta.discourse.org'),
-      const TopicRecommendationSourceId('test/popular'),
     );
   });
 

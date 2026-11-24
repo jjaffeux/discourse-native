@@ -15,19 +15,13 @@ void main() {
     store = TopicSidebarStore();
   });
 
-  test('the sidebar is visible until a hidden choice is saved', () async {
+  test('sidebar choices persist without changing another forum', () async {
     expect(await store.read(siteUrl: 'https://meta.discourse.org'), isFalse);
 
     await store.write(siteUrl: 'https://meta.discourse.org', collapsed: true);
 
     expect(await store.read(siteUrl: 'https://meta.discourse.org'), isTrue);
-  });
-
-  test('visibility choices are independent by forum', () async {
-    await store.write(siteUrl: 'https://meta.discourse.org', collapsed: true);
-
     expect(await store.read(siteUrl: 'https://team.discourse.org'), isFalse);
-    expect(await store.read(siteUrl: 'https://meta.discourse.org'), isTrue);
   });
 
   test('a replacement store reads after an accepted write', () async {
