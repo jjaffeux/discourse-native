@@ -21,26 +21,6 @@ final Uint8List pngBytes = Uint8List.fromList([
 ]);
 
 void main() {
-  test('regression fifth: image media types are case insensitive', () {
-    final svg = bytes(
-      '<!--${'metadata ' * 300}--><svg xmlns="http://www.w3.org/2000/svg"/>',
-    );
-    expect(
-      CachedImageBytes.fromResponse(
-        http.Response.bytes(
-          svg,
-          200,
-          headers: {'content-type': 'IMAGE/SVG+XML; charset=UTF-8'},
-        ),
-      ).isSvg,
-      isTrue,
-    );
-    expect(
-      CachedImageBytes.looksLikeSvg(bytes('<svg/>'), contentType: 'IMAGE/PNG'),
-      isFalse,
-    );
-  });
-
   group('CachedImageBytes.looksLikeSvg', () {
     test('recognizes an SVG content type without sniffing', () {
       expect(
@@ -50,13 +30,16 @@ void main() {
     });
 
     test('trusts a declared raster type over SVG-like bytes', () {
-      expect(
-        CachedImageBytes.looksLikeSvg(
-          bytes('<svg xmlns="..."></svg>'),
-          contentType: 'image/png',
-        ),
-        isFalse,
-      );
+      for (final contentType in ['image/png', 'IMAGE/PNG']) {
+        expect(
+          CachedImageBytes.looksLikeSvg(
+            bytes('<svg xmlns="..."></svg>'),
+            contentType: contentType,
+          ),
+          isFalse,
+          reason: contentType,
+        );
+      }
     });
 
     test('sniffs bytes when the content type is absent or inconclusive', () {
@@ -136,19 +119,25 @@ void main() {
     });
 
     test('reports the format Discourse actually served', () async {
+      final svg = bytes(
+        '<!--${'metadata ' * 300}--><svg xmlns="http://www.w3.org/2000/svg"/>',
+      );
       final loader = AvatarLoader(
         client: MockClient(
           (_) async => http.Response.bytes(
-            bytes('<svg></svg>'),
+            svg,
             200,
-            headers: {'content-type': 'image/svg+xml'},
+            headers: {'content-type': 'IMAGE/SVG+XML; charset=UTF-8'},
           ),
         ),
       );
 
+      addTearDown(loader.close);
+
       final result = await loader.load('https://site/avatar/90/1.png');
       expect(result, isNotNull);
       expect(result!.isSvg, isTrue);
+      expect(result.bytes, orderedEquals(svg));
     });
 
     test(
