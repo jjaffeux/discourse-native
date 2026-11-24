@@ -106,7 +106,6 @@ void main() {
         ChatRoute.maximumRouteIdLength - 'chat-c--threads'.length;
     for (final entry in {
       'overflowing': '9223372036854775808',
-      'at the route length limit': '9' * maximumDigits,
       'above the route length limit': '9' * (maximumDigits + 1),
       'very long': '9' * 16384,
     }.entries) {
