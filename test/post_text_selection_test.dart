@@ -168,7 +168,7 @@ void main() {
     );
     await mouse.up();
     await tester.pump(const Duration(milliseconds: 151));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
     await tester.pumpAndSettle();
     expect(clipboard, contains(source));
@@ -179,7 +179,7 @@ void main() {
         .selectableRegion
         .selectAll(SelectionChangedCause.toolbar);
     await tester.pump(const Duration(milliseconds: 151));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
     await tester.pumpAndSettle();
     expect(clipboard, contains('Before code'));
@@ -232,7 +232,7 @@ void main() {
         .selectableRegion
         .selectAll(SelectionChangedCause.toolbar);
     await tester.pump(const Duration(milliseconds: 151));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
     await tester.pumpAndSettle();
     expect(clipboard, startsWith('[quote="sam, post:2, topic:7"]'));
@@ -860,6 +860,46 @@ void main() {
   });
 
   group('selection actions', () {
+    testWidgets('copy only the selected text with a mouse', (tester) async {
+      String? clipboard;
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard =
+              (call.arguments as Map<Object?, Object?>)['text'] as String;
+        }
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      final shell = await _pumpSelection(tester, withToaster: true);
+      addTearDown(shell.dispose);
+      shell.store.put(
+        _siteUrl,
+        TopicDetail(
+          id: 7,
+          title: 'A topic',
+          stream: [_post.id],
+          canCreatePost: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _selectWord(tester);
+
+      final copy = find.byKey(const ValueKey('copy-selection'));
+      expect(find.byKey(const ValueKey('quote-selection')), findsNothing);
+      expect(find.byKey(const ValueKey('edit-selection')), findsNothing);
+      await tester.tap(copy);
+      await tester.pumpAndSettle();
+
+      expect(clipboard, 'selected');
+      expect(find.text('Copied'), findsOneWidget);
+      expect(copy, findsNothing);
+      expect(shell.visibleComposer, isNull);
+    });
+
     testWidgets('quotes displayed formatting and edits the original template', (
       tester,
     ) async {
@@ -901,7 +941,7 @@ void main() {
             .selectableRegion
             .selectAll(SelectionChangedCause.toolbar);
         await tester.pump(const Duration(milliseconds: 151));
-        await tester.pump();
+        await tester.pumpAndSettle();
       }
 
       await select();
@@ -1043,7 +1083,7 @@ void main() {
           .selectableRegion
           .selectAll(SelectionChangedCause.toolbar);
       await tester.pump(const Duration(milliseconds: 151));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
       await tester.pumpAndSettle();
 
@@ -1053,23 +1093,49 @@ void main() {
         'First **bold** thought.\n\nSecond *formatted* ``a`b`` line.\n'
         '[/quote]\n\n',
       );
-    });
 
-    testWidgets('open the quote toolbar from a touch long press', (
-      tester,
-    ) async {
-      final shell = await _pumpSelection(tester);
-      addTearDown(shell.dispose);
-
-      await tester.longPress(find.text(_body));
+      tester
+          .state<SelectionAreaState>(find.byType(SelectionArea))
+          .selectableRegion
+          .selectAll(SelectionChangedCause.toolbar);
+      await tester.pump(const Duration(milliseconds: 151));
       await tester.pumpAndSettle();
-
-      expect(find.byKey(const ValueKey('quote-selection')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('copy-quote-selection')),
-        findsOneWidget,
-      );
+      await tester.tap(find.byKey(const ValueKey('copy-selection')));
+      await tester.pumpAndSettle();
+      expect(clipboard, 'First bold thought.\n\nSecond formatted a`b line.');
     });
+
+    testWidgets(
+      'keep all selection actions reachable on a narrow phone with large text',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(320, 568);
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final shell = await _pumpSelection(tester, post: _editablePost);
+        addTearDown(shell.dispose);
+
+        await tester.longPress(find.text(_body));
+        await tester.pumpAndSettle();
+
+        final viewport = Offset.zero & tester.view.physicalSize;
+        for (final key in [
+          'copy-selection',
+          'quote-selection',
+          'edit-selection',
+          'copy-quote-selection',
+        ]) {
+          final button = find.byKey(ValueKey(key));
+          expect(button.hitTestable(), findsOneWidget);
+          final bounds = tester.getRect(button);
+          expect(viewport.intersect(bounds), bounds);
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
 
     testWidgets('open a reply with the selected block', (tester) async {
       final shell = await _pumpSelection(tester);
@@ -1111,7 +1177,7 @@ void main() {
           .selectableRegion
           .selectAll(SelectionChangedCause.toolbar);
       await tester.pump(const Duration(milliseconds: 151));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('quote-selection')));
       await tester.pumpAndSettle();
       expect(
@@ -1148,7 +1214,7 @@ void main() {
           .selectableRegion
           .selectAll(SelectionChangedCause.toolbar);
       await tester.pump(const Duration(milliseconds: 151));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('edit-selection')));
       await tester.pumpAndSettle();
       final input = find.byKey(const ValueKey('fast-edit-input'));
@@ -1185,7 +1251,7 @@ void main() {
           .selectableRegion
           .selectAll(SelectionChangedCause.toolbar);
       await tester.pump(const Duration(milliseconds: 151));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('edit-selection')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('fast-edit-input')), findsNothing);
@@ -1711,7 +1777,7 @@ Future<void> _selectWord(WidgetTester tester) async {
   await gesture.moveTo(positionAt(13));
   await gesture.up();
   await tester.pump(const Duration(milliseconds: 151));
-  await tester.pump();
+  await tester.pumpAndSettle();
 }
 
 class _CountingAuthenticator extends FakeAuthenticator {

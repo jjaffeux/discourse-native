@@ -2,13 +2,15 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter/services.dart';
 
-import '../foundation/icons/d_icons.dart';
+import '../foundation/frame_safe_notifier.dart';
 import '../models/post.dart';
-import '../theme/app_theme.dart';
+import 'mobile_post_selection.dart';
+import 'mobile_presentation.dart';
 import 'post_fast_edit.dart';
 import 'post_quote.dart';
 import 'route_aware_selection_area.dart';
@@ -40,32 +42,59 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   String get _displayedCooked => widget.displayedCooked ?? widget.post.cooked;
   bool get _transformed => _displayedCooked != widget.post.cooked;
   static const Duration _toolbarDelay = Duration(milliseconds: 150);
+  static const _emptySelection = PostTextSelectionResolution(
+    markdown: '',
+    editText: '',
+    supportsFastEdit: false,
+  );
 
   final GlobalKey<SelectionAreaState> _selectionKey = GlobalKey();
   final OverlayPortalController _portal = OverlayPortalController();
 
   Timer? _showTimer;
   TextSelectionToolbarAnchors? _anchors;
-  PostTextSelectionResolution _selection = const PostTextSelectionResolution(
-    markdown: '',
-    editText: '',
-    supportsFastEdit: false,
-  );
+  FrameSafeValueNotifier<MobilePostSelection?>? _mobileSelection;
+  ({Object history, Object entry})? _mobileVisit;
+  ValueListenable<SelectableRegionSelectionStatus>? _selectionStatus;
+  bool _canQuote = false;
+  bool _canEdit = false;
+  String _plainText = '';
+  PostTextSelectionResolution _selection = _emptySelection;
   PostQuoteSelectionResolver? _quoteResolver;
   ScrollPosition? _scroll;
+
+  bool get _active =>
+      TickerMode.valuesOf(context).enabled &&
+      ModalRoute.isCurrentOf(context) != false;
+
+  bool get _ownsMobileSelection =>
+      identical(_mobileSelection?.value?.owner, this);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!TickerMode.valuesOf(context).enabled) {
+    final mobile = MobilePostSelectionScope.maybeOf(context);
+    final visit = mobile == null
+        ? null
+        : MobilePresentationScope.maybeOf(context)?.identity;
+    final leftVisit =
+        _mobileVisit != null &&
+        (_mobileVisit != visit || !identical(_mobileSelection, mobile));
+    if (leftVisit || !_active) {
+      _releaseMobileSelection();
       _showTimer?.cancel();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !TickerMode.valuesOf(context).enabled) {
+        if (mounted && (leftVisit || !_active)) {
           _dismiss(clearSelection: true);
         }
       });
     }
-    final position = Scrollable.maybeOf(context)?.position;
+    _mobileSelection = visit == null ? null : mobile;
+    _mobileVisit = visit;
+    if (visit == null) _observeSelectionStatus(null);
+    final position = visit == null
+        ? Scrollable.maybeOf(context)?.position
+        : null;
     if (identical(position, _scroll)) return;
     _scroll?.removeListener(_hideWhileScrolling);
     _scroll = position?..addListener(_hideWhileScrolling);
@@ -88,24 +117,52 @@ class _PostTextSelectionState extends State<PostTextSelection> {
 
   void _selectionChanged(SelectedContent? content) {
     _showTimer?.cancel();
-    if (!TickerMode.valuesOf(context).enabled) return;
-    _selection = (_quoteResolver ??= PostQuoteSelectionResolver(
-      _displayedCooked,
-    )).resolve(content?.plainText ?? '', isLocalized: widget.post.isLocalized);
-    if (_selection.markdown.isEmpty) {
-      _dismiss(clearSelection: false);
+    if (!_active) return;
+    _plainText = content?.plainText ?? '';
+    if (_plainText.isEmpty) {
+      _selection = _emptySelection;
+      // The handles can briefly coincide before a drag extends the range again.
+      // Flutter publishes the gesture status after it reports the new range.
+      if (content != null && _ownsMobileSelection) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _selectionStatusChanged(),
+        );
+      } else {
+        _dismiss(clearSelection: false);
+      }
       return;
     }
+    _selection = (_quoteResolver ??= PostQuoteSelectionResolver(
+      _displayedCooked,
+    )).resolve(_plainText, isLocalized: widget.post.isLocalized);
 
+    if (_mobileSelection != null) {
+      _publishMobileSelection();
+      return;
+    }
     // Selection changes for every pointer move. Waiting briefly keeps the
     // menu from chasing the cursor while still feeling immediate on release.
     _showTimer = Timer(_toolbarDelay, _showToolbar);
   }
 
+  void _observeSelectionStatus(
+    ValueListenable<SelectableRegionSelectionStatus>? status,
+  ) {
+    if (identical(_selectionStatus, status)) return;
+    _selectionStatus?.removeListener(_selectionStatusChanged);
+    _selectionStatus = status?..addListener(_selectionStatusChanged);
+  }
+
+  void _selectionStatusChanged() {
+    if (mounted &&
+        _plainText.isEmpty &&
+        _selectionStatus?.value != SelectableRegionSelectionStatus.changing) {
+      _releaseMobileSelection();
+    }
+  }
+
   void _showToolbar() {
-    if (!mounted ||
-        !TickerMode.valuesOf(context).enabled ||
-        _selection.markdown.isEmpty) {
+    if (!mounted || !_active || _plainText.isEmpty) {
       return;
     }
     final area = _selectionKey.currentState;
@@ -116,11 +173,26 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     if (!_portal.isShowing) _portal.show();
   }
 
+  void _publishMobileSelection() {
+    _mobileSelection?.value = (
+      owner: this,
+      visit: _mobileVisit!,
+      actions: _actions,
+    );
+  }
+
+  void _releaseMobileSelection() {
+    if (_ownsMobileSelection) _mobileSelection?.value = null;
+  }
+
   void _dismiss({required bool clearSelection}) {
     _showTimer?.cancel();
     _showTimer = null;
+    _releaseMobileSelection();
     if (_portal.isShowing) _portal.hide();
     if (clearSelection) {
+      _plainText = '';
+      _selection = _emptySelection;
       _selectionKey.currentState?.selectableRegion.clearSelection();
     }
   }
@@ -134,6 +206,28 @@ class _PostTextSelectionState extends State<PostTextSelection> {
 
   String get _selectedText => _selection.markdown;
 
+  PostTextSelectionActions get _actions {
+    final hasQuote = _selectedText.trim().isNotEmpty;
+    return (
+      copy: _copyText,
+      quote: hasQuote && _canQuote ? _insertQuote : null,
+      copyQuote: hasQuote ? _copyQuote : null,
+      edit: hasQuote && _canEdit ? _openEditSelection : null,
+    );
+  }
+
+  void _copyText() => unawaited(
+    _copy(
+      _quoteResolver?.plainTextFor(_plainText) ?? _plainText,
+      context.l10n.copied,
+    ),
+  );
+
+  void _copyQuote() =>
+      unawaited(_copy(_quote, context.l10n.quoteCopiedToClipboard));
+
+  void _openEditSelection() => unawaited(_editSelection());
+
   void _insertQuote() {
     final quote = _quote;
     if (quote.isEmpty) return;
@@ -142,17 +236,20 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     unawaited(tab.openQuote(widget.post, quote));
   }
 
-  Future<void> _copyQuote() async {
-    final quote = _quote;
-    if (quote.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: quote));
-    if (!mounted) return;
+  Future<void> _copy(String text, String confirmation) async {
+    if (text.isEmpty) return;
+    final restoringDock = _ownsMobileSelection;
     _dismiss(clearSelection: true);
-    DToast.show(
-      context,
-      appL10n.quoteCopiedToClipboard,
-      type: DToastType.success,
-    );
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      // The dock can show the confirmation once it has replaced the tray.
+      if (restoringDock) await WidgetsBinding.instance.endOfFrame;
+      if (mounted) DToast.show(context, confirmation, type: DToastType.success);
+    } on PlatformException {
+      if (mounted) {
+        DToast.show(context, appL10n.copyFailed, type: DToastType.error);
+      }
+    }
   }
 
   Future<void> _editSelection() async {
@@ -181,6 +278,8 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   @override
   void dispose() {
     _showTimer?.cancel();
+    _observeSelectionStatus(null);
+    _releaseMobileSelection();
     _scroll?.removeListener(_hideWhileScrolling);
     super.dispose();
   }
@@ -195,125 +294,104 @@ class _PostTextSelectionState extends State<PostTextSelection> {
           widget.post.canEdit &&
           controller.siteConfigFor(widget.siteUrl).fastEditEnabled,
     ),
-    builder: (context, actions, _) => OverlayPortal(
-      controller: _portal,
-      overlayChildBuilder: (context) => Builder(
-        builder: (context) {
+    builder: (context, permissions, _) {
+      _canQuote = permissions.canQuote;
+      _canEdit = permissions.canEdit;
+      if (_active && _plainText.isNotEmpty && _ownsMobileSelection) {
+        _publishMobileSelection();
+      }
+      return OverlayPortal(
+        controller: _portal,
+        overlayChildBuilder: (context) {
           final anchors = _anchors;
-          if (!TickerMode.valuesOf(context).enabled ||
-              anchors == null ||
-              _selection.markdown.isEmpty) {
+          if (!_active || anchors == null || _plainText.isEmpty) {
             return const SizedBox.shrink();
           }
           return _PostTextSelectionToolbar(
             anchors: anchors,
-            canQuote: actions.canQuote,
-            canEdit: actions.canEdit,
-            onQuote: _insertQuote,
-            onEdit: () => unawaited(_editSelection()),
-            onCopyQuote: _copyQuote,
+            onDismiss: () => _dismiss(clearSelection: false),
+            actions: _actions,
           );
         },
-      ),
-      child: CallbackShortcuts(
-        bindings: {
-          if (actions.canEdit)
-            const CharacterActivator('e'): () => unawaited(_editSelection()),
-        },
-        child: RouteAwareSelectionArea(
-          selectionAreaKey: _selectionKey,
-          // The app-owned overlay is also shown after a precise mouse drag. Keep
-          // Flutter's platform menu disabled so touch does not draw both.
-          contextMenuBuilder: (context, selectableRegionState) =>
-              const SizedBox.shrink(),
-          onSelectionChanged: _selectionChanged,
-          child: widget.child,
+        child: CallbackShortcuts(
+          bindings: {
+            if (permissions.canEdit)
+              const CharacterActivator('e'): _openEditSelection,
+          },
+          child: RouteAwareSelectionArea(
+            selectionAreaKey: _selectionKey,
+            // The app presents its own actions, while Flutter owns the handles.
+            contextMenuBuilder: (context, selectableRegionState) =>
+                const SizedBox.shrink(),
+            onSelectionChanged: _selectionChanged,
+            child: _mobileSelection == null
+                ? widget.child
+                : Builder(
+                    builder: (context) {
+                      _observeSelectionStatus(
+                        SelectableRegionSelectionStatusScope.maybeOf(context),
+                      );
+                      return widget.child;
+                    },
+                  ),
+          ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
 class _PostTextSelectionToolbar extends StatelessWidget {
   const _PostTextSelectionToolbar({
     required this.anchors,
-    required this.canQuote,
-    required this.canEdit,
-    required this.onQuote,
-    required this.onEdit,
-    required this.onCopyQuote,
+    required this.onDismiss,
+    required this.actions,
   });
 
   final TextSelectionToolbarAnchors anchors;
-  final bool canQuote;
-  final bool canEdit;
-  final VoidCallback onQuote;
-  final VoidCallback onEdit;
-  final VoidCallback onCopyQuote;
+  final VoidCallback onDismiss;
+  final PostTextSelectionActions actions;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final actions =
-        <({Key key, DIconData icon, String label, VoidCallback onPressed})>[
-          if (canQuote)
-            (
-              key: const ValueKey('quote-selection'),
-              icon: DIcons.quoteLeft,
-              label: context.l10n.quote,
-              onPressed: onQuote,
-            ),
-          if (canEdit)
-            (
-              key: const ValueKey('edit-selection'),
-              icon: DIcons.pencil,
-              label: context.l10n.edit,
-              onPressed: onEdit,
-            ),
-          (
-            key: const ValueKey('copy-quote-selection'),
-            icon: DIcons.copy,
-            label: context.l10n.copyQuote,
-            onPressed: onCopyQuote,
+    final anchor = Rect.fromPoints(
+      anchors.primaryAnchor,
+      anchors.secondaryAnchor ?? anchors.primaryAnchor,
+    ).inflate(.5);
+    return Positioned.fromRect(
+      rect: anchor,
+      child: IgnorePointer(
+        child: DDropdownMenu(
+          open: true,
+          restoreFocus: false,
+          onOpenChange: (open, _) {
+            if (!open) onDismiss();
+          },
+          content: DDropdownMenuContent(
+            side: DPopoverSide.top,
+            align: DPopoverAlign.center,
+            width: null,
+            autofocus: false,
+            scrollable: false,
+            children: [
+              Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final item in postTextSelectionItems(context, actions))
+                    DButton(
+                      key: ValueKey(item.id),
+                      label: Text(item.label),
+                      onPressed: item.onPressed,
+                      variant: DButtonVariant.ghost,
+                      size: DButtonSize.toolbar,
+                    ),
+                ],
+              ),
+            ],
           ),
-        ];
-
-    return TextSelectionToolbar(
-      anchorAbove: anchors.primaryAnchor,
-      anchorBelow: anchors.secondaryAnchor ?? anchors.primaryAnchor,
-      toolbarBuilder: (context, child) => Material(
-        color: theme.shell.floating,
-        elevation: 0,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-          side: BorderSide(color: theme.shell.divider),
+          child: const DPopoverAnchor(child: SizedBox.expand()),
         ),
-        child: child,
       ),
-      children: [
-        for (var index = 0; index < actions.length; index++)
-          TextSelectionToolbarTextButton(
-            key: actions[index].key,
-            padding: TextSelectionToolbarTextButton.getPadding(
-              index,
-              actions.length,
-            ),
-            onPressed: actions[index].onPressed,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DIcon(
-                  actions[index].icon,
-                  size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 7),
-                Text(actions[index].label),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }
