@@ -27,7 +27,7 @@ final class EventCalendar extends StatefulWidget {
     required this.mine,
     required this.onMineChanged,
     this.onViewSelected,
-    this.site,
+    this.creatorAvatar,
     this.loading = false,
     this.status,
     this.firstDay = 1,
@@ -43,7 +43,7 @@ final class EventCalendar extends StatefulWidget {
   final bool mine;
   final ValueChanged<bool>? onMineChanged;
   final VoidCallback? onViewSelected;
-  final String? site;
+  final Widget? Function(EventPerson)? creatorAvatar;
   final bool loading;
   final Widget? status;
   final int firstDay;
@@ -1142,7 +1142,7 @@ final class _EventCalendarState extends State<EventCalendar> {
             child: Builder(
               builder: (context) => EventDayAgenda(
                 day: day,
-                site: widget.site,
+                creatorAvatar: widget.creatorAvatar,
                 events: _eventsOn(day),
                 formatTime: _scheduleTime,
                 onOpen: (event) {

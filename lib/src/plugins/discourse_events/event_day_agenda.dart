@@ -1,9 +1,10 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'event_calendar_data.dart';
+import 'event_data.dart' show EventPerson;
 
 /// The agenda of one calendar day, formatted in the reader's timezone.
 final class EventDayAgenda extends StatelessWidget {
@@ -13,14 +14,14 @@ final class EventDayAgenda extends StatelessWidget {
     required this.events,
     required this.formatTime,
     required this.onOpen,
-    this.site,
+    this.creatorAvatar,
   });
 
   final DateTime day;
   final List<EventCalendarEntry> events;
   final String Function(EventCalendarEntry) formatTime;
   final ValueChanged<EventCalendarEntry> onOpen;
-  final String? site;
+  final Widget? Function(EventPerson)? creatorAvatar;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +66,7 @@ final class EventDayAgenda extends StatelessWidget {
         itemBuilder: (context, index) => _EventAgendaRow(
           event: events[index],
           day: day,
-          site: site,
+          creatorAvatar: creatorAvatar,
           time: formatTime(events[index]),
           gapAbove: gaps.contains(index),
           onOpen: () => onOpen(events[index]),
@@ -79,7 +80,7 @@ class _EventAgendaRow extends StatelessWidget {
   const _EventAgendaRow({
     required this.event,
     required this.day,
-    required this.site,
+    required this.creatorAvatar,
     required this.time,
     required this.gapAbove,
     required this.onOpen,
@@ -87,7 +88,7 @@ class _EventAgendaRow extends StatelessWidget {
 
   final EventCalendarEntry event;
   final DateTime day;
-  final String? site;
+  final Widget? Function(EventPerson)? creatorAvatar;
   final String time;
   final bool gapAbove;
   final VoidCallback onOpen;
@@ -97,7 +98,7 @@ class _EventAgendaRow extends StatelessWidget {
     final tokens = DTokens.of(context);
     final color = event.color ?? tokens.primary;
     final creator = event.event.creator;
-    final url = site == null ? null : creator?.avatarUrl(site!);
+    final avatar = creator == null ? null : creatorAvatar?.call(creator);
     final host = creator?.name ?? creator?.username;
     final metadata = event.scheduleMetadata(day);
     final hasDetails = event.categoryName != null || host != null;
@@ -210,15 +211,7 @@ class _EventAgendaRow extends StatelessWidget {
                                         host.characters.first.toUpperCase(),
                                       ),
                                     ),
-                                    child: url == null
-                                        ? null
-                                        : SiteImage(
-                                            siteUrl: site!,
-                                            url: url,
-                                            width: 16,
-                                            height: 16,
-                                            fit: BoxFit.cover,
-                                          ),
+                                    child: avatar,
                                   ),
                                   Flexible(child: Text(host)),
                                 ],
