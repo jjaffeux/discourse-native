@@ -1112,8 +1112,11 @@ class DButton extends StatelessWidget {
             : quiet
             ? EdgeInsets.symmetric(
                 horizontal:
-                    effectiveSize == DControlSize.filter &&
-                        DControlStyle.isTouch(context)
+                    effectiveSize == DControlSize.large &&
+                        DControlStyle.usesTouchGeometry(context)
+                    ? 16
+                    : effectiveSize == DControlSize.filter &&
+                          DControlStyle.isTouch(context)
                     ? DFitRow.closedUpOf(context)
                           ? 10
                           : 12

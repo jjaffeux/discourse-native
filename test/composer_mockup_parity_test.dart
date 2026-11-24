@@ -694,15 +694,49 @@ void main() {
             final undo = find.byKey(const ValueKey('composer-undo'));
             final redo = find.byKey(const ValueKey('composer-redo'));
             final submit = find.byKey(const ValueKey('composer-submit'));
-            final category = find.byKey(
-              const ValueKey('composer-category-action'),
-            );
-            final bold = find.byKey(const ValueKey('composer-format-bold'));
+            final category = find.byKey(const ValueKey('composer-category'));
+            final tags = find.byKey(const ValueKey('composer-tags'));
+            final tools = [
+              for (final name in ['bold', 'italic', 'inlineCode', 'link'])
+                find.byKey(ValueKey('composer-format-$name')),
+            ];
+            final tokens = DTokens.of(tester.element(submit));
+            final quietFill = tokens.foreground.withValues(alpha: .05);
+            final categoryBounds = tester.getRect(category);
+            expect(categoryBounds.left, tester.getRect(close).left);
             expect(
-              tester.getRect(bold).height,
-              tester.getRect(category).height,
+              tester.getRect(tags).left - categoryBounds.right,
+              closeTo(8, .01),
             );
-            expect(tester.getCenter(bold).dy, tester.getCenter(category).dy);
+            expect(
+              tester.getRect(tools.first).left - tester.getRect(tags).right,
+              closeTo(8, .01),
+            );
+            expect(buttonSurface(tester, of: category).color, quietFill);
+            expect(buttonSurface(tester, of: tags).color, quietFill);
+            for (final tool in tools) {
+              expect(tester.getRect(tool).height, categoryBounds.height);
+              expect(tester.getCenter(tool).dy, categoryBounds.center.dy);
+              final icon = find.descendant(
+                of: tool,
+                matching: find.byType(DIcon),
+              );
+              expect(
+                IconTheme.of(tester.element(icon)).color,
+                tokens.mutedControlForeground,
+              );
+              if (tester.widget(tool) is DToggle) {
+                final surface = tester.widget<AnimatedContainer>(
+                  find.descendant(
+                    of: tool,
+                    matching: find.byType(AnimatedContainer),
+                  ),
+                );
+                expect((surface.decoration as BoxDecoration).color, quietFill);
+              } else {
+                expect(buttonSurface(tester, of: tool).color, quietFill);
+              }
+            }
             final extent = tester.getSize(close).width;
             expect(extent, scale == 1 ? 50 : greaterThan(50));
             var previous = bar.left;
@@ -714,7 +748,6 @@ void main() {
               expect(bounds.overlaps(handle), isFalse);
               previous = bounds.right;
             }
-            final tokens = DTokens.of(tester.element(submit));
             expect(tester.widget<DButton>(undo).onPressed, isNull);
             expect(tester.widget<DButton>(redo).onPressed, isNull);
             expect(tester.widget<DButton>(submit).onPressed, isNull);

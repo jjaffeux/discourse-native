@@ -171,7 +171,7 @@ void main() {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
 
     expect(find.text('Category'), findsOneWidget);
-    expect(find.text('Tag'), findsOneWidget);
+    expect(find.text('Tags'), findsOneWidget);
     final title = find.byKey(const ValueKey('composer-topic-title'));
     final editor = find.byType(ComposerEditor);
     final category = tester.getRect(
@@ -649,6 +649,11 @@ void main() {
       shell.visibleComposer!.setCategory(child.id);
       await tester.pump();
       final control = find.byKey(const ValueKey('composer-category-action'));
+      final trigger = find.byKey(const ValueKey('composer-category'));
+      expect(
+        tester.widget<DButton>(trigger).variant,
+        DButtonVariant.quietSelected,
+      );
       expect(
         find.descendant(of: control, matching: find.text(child.name)),
         findsOneWidget,

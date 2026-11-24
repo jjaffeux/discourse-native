@@ -164,8 +164,12 @@ class DTokens extends ThemeExtension<DTokens> {
 
   Color get mutedForeground => colors.onSurfaceVariant;
 
-  /// The mockup's muted foreground mix for post actions, rounded up to a
-  /// tenth of a percentage point.
+  /// The mockup's `--text-muted` for toolbar glyphs.
+  Color get mutedControlForeground =>
+      mixInto(background, foreground, postActionForegroundShare);
+
+  /// The mockup's muted foreground mix, rounded up to a tenth of a
+  /// percentage point.
   double get postActionForegroundShare => _postActionForegroundShares[this] ??=
       (shareFor(
                 foreground,

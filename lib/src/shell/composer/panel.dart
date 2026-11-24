@@ -102,12 +102,6 @@ ComposerImagePicker _sitePhotoLibrary(
 DButtonVariant _composerToolbarVariant(BuildContext context) =>
     context.isTouch ? DButtonVariant.quiet : DButtonVariant.ghost;
 
-Color? _composerToolForeground(BuildContext context) {
-  if (context.isTouch) return null;
-  final tokens = DTokens.of(context);
-  return Color.lerp(tokens.background, tokens.foreground, .5)!;
-}
-
 DControlSize _composerToolbarSize(BuildContext context) =>
     context.isTouch ? DControlSize.large : DControlSize.toolbar;
 
@@ -1085,7 +1079,9 @@ class _TopicTaxonomy extends StatelessWidget {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Wrap(
-                spacing: DSpacing.controlGap,
+                spacing: context.isTouch && inline
+                    ? DSpacing.sm
+                    : DSpacing.controlGap,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -1189,6 +1185,7 @@ class _TopicTaxonomy extends StatelessWidget {
                             : DButtonSize.toolbar,
                         key: ValueKey((composer, categoryId)),
                         valueKey: const ValueKey('composer-tags'),
+                        placeholder: context.l10n.tags,
                         selectedTags: composer.tags,
                         capabilities: state.capabilities,
                         search: (term) =>
@@ -4191,7 +4188,7 @@ class _FormattingToolbar extends StatelessWidget {
                 tooltip: label,
                 shortcut: DShortcut(_formattingShortcut(key)),
                 variant: _composerToolbarVariant(context),
-                foregroundColor: _composerToolForeground(context),
+                foregroundColor: DTokens.of(context).mutedControlForeground,
                 size: _composerToolbarSize(context),
                 icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
@@ -4206,7 +4203,7 @@ class _FormattingToolbar extends StatelessWidget {
               tooltip: context.l10n.link,
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
               variant: _composerToolbarVariant(context),
-              foregroundColor: _composerToolForeground(context),
+              foregroundColor: DTokens.of(context).mutedControlForeground,
               size: _composerToolbarSize(context),
               icon: const DIcon(DIcons.link),
               onPressed: composer.isEditing && !composer.loadingBody
@@ -4250,6 +4247,7 @@ class _Toolbar extends StatelessWidget {
 
   Widget _buildToolbar(BuildContext context) {
     final composer = this.composer.activeEditor;
+    final foreground = DTokens.of(context).mutedControlForeground;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final actions = registry.composerToolbar(context, composer);
@@ -4269,7 +4267,7 @@ class _Toolbar extends StatelessWidget {
           key: const ValueKey('composer-mention'),
           tooltip: context.l10n.mentionUsersOrGroups,
           variant: _composerToolbarVariant(context),
-          foregroundColor: _composerToolForeground(context),
+          foregroundColor: foreground,
           size: _composerToolbarSize(context),
           onPressed: !composer.isEditing
               ? null
@@ -4291,7 +4289,7 @@ class _Toolbar extends StatelessWidget {
               key: const ValueKey('composer-code-block'),
               tooltip: context.l10n.codeBlock,
               variant: _composerToolbarVariant(context),
-              foregroundColor: _composerToolForeground(context),
+              foregroundColor: foreground,
               size: _composerToolbarSize(context),
               icon: const DIcon(DIcons.code),
               onPressed: composer.isEditing && !composer.loadingBody
@@ -4312,7 +4310,7 @@ class _Toolbar extends StatelessWidget {
                 key: const ValueKey('composer-emoji-picker'),
                 tooltip: context.l10n.addEmoji,
                 variant: _composerToolbarVariant(context),
-                foregroundColor: _composerToolForeground(context),
+                foregroundColor: foreground,
                 size: _composerToolbarSize(context),
                 onPressed: !composer.isEditing
                     ? null
@@ -4371,7 +4369,7 @@ class _Toolbar extends StatelessWidget {
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
                 variant: _composerToolbarVariant(context),
-                foregroundColor: _composerToolForeground(context),
+                foregroundColor: foreground,
                 size: _composerToolbarSize(context),
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.plus),
@@ -4396,7 +4394,7 @@ class _Toolbar extends StatelessWidget {
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
                 variant: _composerToolbarVariant(context),
-                foregroundColor: _composerToolForeground(context),
+                foregroundColor: foreground,
                 size: _composerToolbarSize(context),
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.ellipsis),
@@ -4518,7 +4516,9 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
                 variant: actionBar
                     ? DButtonVariant.secondary
                     : _composerToolbarVariant(context),
-                foregroundColor: _composerToolForeground(context),
+                foregroundColor: actionBar
+                    ? null
+                    : DTokens.of(context).mutedControlForeground,
                 size: _composerToolbarSize(context),
                 icon: DIcon(
                   redo ? DIcons.arrowRotateRight : DIcons.arrowRotateLeft,
@@ -4610,7 +4610,7 @@ class _ListIndentationControlsState extends State<_ListIndentationControls> {
               key: ValueKey(key),
               tooltip: label,
               variant: _composerToolbarVariant(context),
-              foregroundColor: _composerToolForeground(context),
+              foregroundColor: DTokens.of(context).mutedControlForeground,
               size: _composerToolbarSize(context),
               icon: DIcon(icon),
               onPressed: action,
@@ -4693,7 +4693,9 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
       controller: _controller,
       scrollDirection: Axis.horizontal,
       padding: phone
-          ? const EdgeInsets.symmetric(horizontal: DSpacing.sm)
+          ? const EdgeInsets.symmetric(
+              horizontal: 2 * DMobileDockGeometry.inset,
+            )
           : const EdgeInsets.all(8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -4804,7 +4806,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
         variant: _composerToolbarVariant(context),
-        foregroundColor: _composerToolForeground(context),
+        foregroundColor: DTokens.of(context).mutedControlForeground,
         size: _composerToolbarSize(context),
       ),
     );
@@ -4929,7 +4931,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         expanded: menu?.open ?? _choosingSource,
         icon: const DIcon(DIcons.paperclip),
         variant: _composerToolbarVariant(context),
-        foregroundColor: _composerToolForeground(context),
+        foregroundColor: DTokens.of(context).mutedControlForeground,
         size: _composerToolbarSize(context),
       );
 
@@ -5228,18 +5230,23 @@ class _Footer extends StatelessWidget {
             ? null
             : Border(top: BorderSide(color: tokens.footerBorder)),
       ),
-      padding: EdgeInsets.fromLTRB(
-        context.isTouch ? DSpacing.lg : 14,
-        context.isTouch ? 0 : 10,
-        context.isTouch ? DSpacing.lg : 14,
-        context.isTouch ? 0 : 10,
-      ),
+      padding: context.isTouch
+          ? null
+          : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (message != null) ...[
-            Align(alignment: AlignmentDirectional.centerStart, child: status),
+            Padding(
+              padding: context.isTouch
+                  ? const EdgeInsets.symmetric(horizontal: DSpacing.lg)
+                  : EdgeInsets.zero,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: status,
+              ),
+            ),
             const SizedBox(height: 4),
           ],
           ConstrainedBox(

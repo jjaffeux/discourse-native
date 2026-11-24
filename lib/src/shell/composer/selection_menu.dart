@@ -193,6 +193,9 @@ class _ComposerFormattingControlsState
       listenable: composer,
       builder: (context, _) {
         final pressed = composerSelectionFormats(composer.value);
+        final toolForeground = inline
+            ? DTokens.of(context).mutedControlForeground
+            : null;
         final bold = _toggle(
           context.l10n.bold,
           const DIcon(DIcons.bold),
@@ -219,6 +222,7 @@ class _ComposerFormattingControlsState
           tooltip: context.l10n.clearFormatting,
           icon: const DIcon(DNativeIcons.eraser),
           variant: inline ? DButtonVariant.quiet : DButtonVariant.ghost,
+          foregroundColor: toolForeground,
           size: _size,
           onPressed: _hasSelection
               ? () => _format(clearComposerInlineFormatting)
@@ -229,6 +233,7 @@ class _ComposerFormattingControlsState
           tooltip: context.l10n.link,
           icon: const DIcon(DIcons.link),
           variant: inline ? DButtonVariant.quiet : DButtonVariant.ghost,
+          foregroundColor: toolForeground,
           size: _size,
           onPressed: _enabled ? widget.onLink : null,
         );
@@ -284,6 +289,7 @@ class _ComposerFormattingControlsState
               tooltip: context.l10n.moreFormatting,
               icon: const DIcon(DIcons.ellipsis),
               variant: inline ? DButtonVariant.quiet : DButtonVariant.ghost,
+              foregroundColor: toolForeground,
               size: _size,
               focusNode: state.focusNode,
               expanded: state.open,
@@ -316,8 +322,8 @@ class _ComposerFormattingControlsState
                 bold,
                 italic,
                 strike,
-                code,
                 link,
+                code,
                 underline,
                 clear,
                 ?colors,

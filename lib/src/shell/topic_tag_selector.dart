@@ -231,6 +231,8 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         : selected.firstOrNull?.name ?? widget.placeholder;
     final prefix = widget.keyPrefix;
     final newTag = _newTag;
+    final toolbarChip =
+        widget.size == DButtonSize.toolbar || widget.size == DButtonSize.large;
     final pickerSheet = context.isTouch && !widget.includeAll;
     final visibleResults = _visibleResults
         .where((tag) => !pickerSheet || !_selected(tag))
@@ -267,9 +269,9 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         size: widget.size,
         quiet: widget.quiet,
         quietSelected: selected.isNotEmpty,
-        showChevron: true,
+        showChevron: !toolbarChip,
         label: label,
-        icon: selected.isEmpty ? const DIcon(DIcons.tag) : null,
+        icon: toolbarChip || selected.isEmpty ? const DIcon(DIcons.tag) : null,
         semanticLabel:
             widget.semanticLabel ??
             (selected.isEmpty

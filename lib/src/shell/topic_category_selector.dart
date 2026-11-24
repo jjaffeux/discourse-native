@@ -222,6 +222,8 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
   Widget build(BuildContext context) {
     final selected = widget.selected;
     final parent = widget.parent ?? _browsingParent;
+    final toolbarChip =
+        widget.browseSubcategories || widget.size == DButtonSize.toolbar;
     final noun = parent == null ? 'categories' : 'subcategories';
     final label = selected == null ? widget.placeholder : _label(selected);
     final matches = _matches;
@@ -357,14 +359,15 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             (context, trigger) => TopicTaxonomyButton(
               buttonKey: widget.valueKey,
               size: widget.size,
-              showChevron: !widget.browseSubcategories,
+              quietSelected: toolbarChip && selected != null,
+              showChevron: !toolbarChip,
               label: label,
               categoryColor: selected == null
                   ? null
                   : Color(selected.colorValue),
               icon: selected == null
                   ? (widget.size == DButtonSize.filter ||
-                            widget.browseSubcategories)
+                            toolbarChip && parent == null)
                         ? const CategorySquare(color: null, size: 10)
                         : null
                   : CategoryIcon(
