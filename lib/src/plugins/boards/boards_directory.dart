@@ -6,7 +6,10 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'boards_data.dart';
-import 'boards_navigation.dart' show boardsIcon;
+
+const _directoryGutter = EdgeInsets.symmetric(horizontal: 16);
+const _activeRowPadding = EdgeInsetsDirectional.fromSTEB(3, 12, 0, 12);
+const _rowTextSpacing = 3.0;
 
 class BoardsDirectory extends StatefulWidget {
   const BoardsDirectory({
@@ -136,34 +139,33 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
               SliverToBoxAdapter(child: header.spacer),
               SliverPadding(
                 padding: lane.padding.add(
-                  EdgeInsets.fromLTRB(
-                    16,
-                    0,
-                    16,
-                    16 + DScrollChrome.bottomInsetOf(context),
+                  EdgeInsets.only(
+                    bottom: 16 + DScrollChrome.bottomInsetOf(context),
                   ),
                 ),
                 sliver: SliverMainAxisGroup(
                   slivers: [
                     if (loading)
-                      SliverList.builder(
-                        itemCount: 6,
-                        itemBuilder: (context, index) => DSkeletonRegion(
-                          semanticsLabel: l10n.loading,
-                          liveRegion: index == 0,
-                          color: skeletonFill(context),
-                          child: const DItem(
-                            children: [
-                              DItemMedia(
-                                child: DSkeleton(width: 40, height: 40),
-                              ),
-                              DItemContent(
-                                children: [
-                                  DSkeleton(width: 136, height: 14),
-                                  DSkeleton(width: 190, height: 12),
-                                ],
-                              ),
-                            ],
+                      SliverPadding(
+                        padding: _directoryGutter,
+                        sliver: SliverList.builder(
+                          itemCount: 6,
+                          itemBuilder: (context, index) => DSkeletonRegion(
+                            semanticsLabel: l10n.loading,
+                            liveRegion: index == 0,
+                            color: skeletonFill(context),
+                            child: const DItem(
+                              padding: _activeRowPadding,
+                              children: [
+                                DItemContent(
+                                  spacing: _rowTextSpacing,
+                                  children: [
+                                    DSkeleton(width: 136, height: 14),
+                                    DSkeleton(width: 190, height: 12),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       )
@@ -171,14 +173,18 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
-                          child: DEmpty(
-                            children: [
-                              Text(error),
-                              DButton(
-                                label: Text(l10n.retry),
-                                onPressed: () => unawaited(widget.onRefresh()),
-                              ),
-                            ],
+                          child: Padding(
+                            padding: _directoryGutter,
+                            child: DEmpty(
+                              children: [
+                                Text(error),
+                                DButton(
+                                  label: Text(l10n.retry),
+                                  onPressed: () =>
+                                      unawaited(widget.onRefresh()),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       )
@@ -186,7 +192,7 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
                       if (widget.error case final error?)
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: _directoryGutter.copyWith(bottom: 12),
                             child: DAlert(
                               variant: DAlertVariant.destructive,
                               icon: const DIcon(DIcons.triangleExclamation),
@@ -208,14 +214,17 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
                         SliverFillRemaining(
                           hasScrollBody: false,
                           child: Center(
-                            child: DEmpty(
-                              children: [
-                                Text(
-                                  widget.boards.isEmpty
-                                      ? l10n.boardsNoBoards
-                                      : l10n.boardsNoMatches,
-                                ),
-                              ],
+                            child: Padding(
+                              padding: _directoryGutter,
+                              child: DEmpty(
+                                children: [
+                                  Text(
+                                    widget.boards.isEmpty
+                                        ? l10n.boardsNoBoards
+                                        : l10n.boardsNoMatches,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         )
@@ -259,66 +268,70 @@ class _BoardDirectoryRow extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      DItem(
-        shape: DItemShape.fullWidth,
-        closed: board.archived,
-        closedRuleAbove: board.archived && hasPrevious,
-        closedRuleBelow: board.archived && nextArchived == false,
-        onPressed: onPressed,
-        children: [
-          const DItemMedia(
-            child: DAvatar(
-              dimension: 40,
-              decorative: true,
-              border: false,
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-              fallback: DAvatarFallback(child: DIcon(boardsIcon, size: 16)),
-            ),
-          ),
-          DItemContent(
-            children: [
-              DItemTitle(
-                child: Row(
-                  spacing: 5,
-                  children: [
-                    if (board.archived)
-                      DIcon(
-                        DIcons.lock,
-                        size: 11,
-                        semanticLabel: context.l10n.boardsArchived,
-                      ),
-                    Flexible(child: Text(board.name)),
-                  ],
-                ),
-              ),
-              if (board.columns.isNotEmpty)
-                DItemDescription(
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 2,
+  Widget build(BuildContext context) => Padding(
+    padding: board.archived
+        ? const EdgeInsets.symmetric(horizontal: 4)
+        : _directoryGutter,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DItem(
+          shape: DItemShape.fullWidth,
+          padding: board.archived
+              ? const EdgeInsetsDirectional.fromSTEB(15, 12, 12, 12)
+              : _activeRowPadding,
+          closed: board.archived,
+          closedRuleAbove: board.archived && hasPrevious,
+          closedRuleBelow: board.archived && nextArchived == false,
+          onPressed: onPressed,
+          children: [
+            DItemContent(
+              spacing: _rowTextSpacing,
+              children: [
+                DItemTitle(
+                  child: Row(
+                    spacing: 5,
                     children: [
-                      for (final column in board.columns)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          spacing: 5,
-                          children: [
-                            if (boardColumnColor(column.color)
-                                case final color?)
-                              DIcon(DNativeIcons.square, size: 8, color: color),
-                            Flexible(child: Text(column.title)),
-                          ],
+                      if (board.archived)
+                        DIcon(
+                          DIcons.lock,
+                          size: 11,
+                          semanticLabel: context.l10n.boardsArchived,
                         ),
+                      Flexible(child: Text(board.name)),
                     ],
                   ),
                 ),
-            ],
-          ),
-        ],
-      ),
-      if (!board.archived && nextArchived == false) const DSeparator(),
-    ],
+                if (board.columns.isNotEmpty)
+                  DItemDescription(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 2,
+                      children: [
+                        for (final column in board.columns)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: 5,
+                            children: [
+                              if (boardColumnColor(column.color)
+                                  case final color?)
+                                DIcon(
+                                  DNativeIcons.square,
+                                  size: 8,
+                                  color: color,
+                                ),
+                              Flexible(child: Text(column.title)),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        if (!board.archived && nextArchived == false) const DSeparator(),
+      ],
+    ),
   );
 }
