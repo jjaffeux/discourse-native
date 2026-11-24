@@ -191,6 +191,7 @@ void main() {
 
       store.update<_Record>(_site, 1, (held) => _Record(held.id, 'updated'));
       expect(ref.value?.label, 'updated');
+      expect(notifications, 2);
 
       store.remove<_Record>(_site, 1);
       store.remove<_Record>(_site, 1);
@@ -244,6 +245,8 @@ void main() {
       expect(firstSite.value?.label, 'first site');
       expect(secondSite.value?.label, 'second site');
       expect(otherType.value?.id, 1);
+      expect(store.read<_Record>(_otherSite, 1)?.label, 'second site');
+      expect(store.read<_Record>(_site, 1)?.label, 'first site');
       expect(store.length, 3);
     });
 
@@ -686,6 +689,9 @@ void main() {
         1,
         (held) => _Record(held.id, 'unreachable'),
       );
+      expect(store.read<_Record>(_site, 1), isNull);
+      expect(store.length, 0);
+
       store.remove<_Record>(_site, 1);
 
       expect(store.length, 0);

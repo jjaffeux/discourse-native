@@ -63,11 +63,6 @@ const _topicFeatureKey = PluginDataKey<_TopicFeature>(
   name: 'topic-feature',
 );
 
-List<int> loaded(Store store, TopicDetail topic) => [
-  for (final id in topic.stream)
-    if (store.read<Post>(site, id) != null) id,
-];
-
 void main() {
   test('timeline dates parse and survive topic updates', () {
     final topic = TopicDetail.parse({
@@ -1103,55 +1098,6 @@ void main() {
         expect(store.read<Post>(site, 1)?.raw, isNull);
       },
     );
-
-    test('what the topic draws is the stream, minus what has not arrived', () {
-      final store = Store();
-      final topic = detail(stream: [1, 2, 3], postsCount: 3);
-      store.putAll(site, [post(1, 1), post(3, 3)]);
-
-      expect(loaded(store, topic), [1, 3]);
-    });
-
-    test('a removed post stops being drawn and tells its watchers', () {
-      final store = Store();
-      store.put(site, post(1, 1));
-      final ref = store.ref<Post>(site, 1);
-      var notifications = 0;
-      ref.addListener(() => notifications++);
-
-      store.remove<Post>(site, 1);
-
-      expect(notifications, 1);
-      expect(ref.value, isNull);
-    });
-
-    test('the same ID on two sites is two records', () {
-      final store = Store();
-      store.put(site, post(1, 1, raw: 'here'));
-      store.put('https://other.example', post(1, 1, raw: 'there'));
-
-      expect(store.read<Post>(site, 1)?.raw, 'here');
-      expect(store.read<Post>('https://other.example', 1)?.raw, 'there');
-    });
-
-    test('disconnecting a site empties what was watching it', () {
-      final store = Store();
-      store.put(site, post(1, 1));
-      final ref = store.ref<Post>(site, 1);
-
-      store.forget(site);
-
-      expect(ref.value, isNull);
-      expect(store.length, 0);
-    });
-
-    test('update leaves a record it does not hold alone', () {
-      final store = Store();
-
-      store.update<Post>(site, 99, (held) => held.withRaw('invented'));
-
-      expect(store.read<Post>(site, 99), isNull);
-    });
   });
 }
 
