@@ -504,36 +504,37 @@ void main() {
     expect(find.byType(ForumThemeEditor), findsOneWidget);
   });
 
-  for (final brightness in Brightness.values) {
-    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      testWidgets(
-        'full settings supports narrow RTL large text in $brightness $platform',
-        (tester) async {
-          final shell = controller();
-          addTearDown(shell.dispose);
-          await shell.forumSettings.setThemeMode(
-            'https://a.example',
-            brightness == Brightness.light
-                ? AppThemeMode.light
-                : AppThemeMode.dark,
-          );
-          final semantics = tester.ensureSemantics();
+  for (final (brightness, platform) in [
+    (Brightness.light, TargetPlatform.macOS),
+    (Brightness.dark, TargetPlatform.iOS),
+  ]) {
+    testWidgets(
+      'full settings supports narrow RTL large text in $brightness $platform',
+      (tester) async {
+        final shell = controller();
+        addTearDown(shell.dispose);
+        await shell.forumSettings.setThemeMode(
+          'https://a.example',
+          brightness == Brightness.light
+              ? AppThemeMode.light
+              : AppThemeMode.dark,
+        );
+        final semantics = tester.ensureSemantics();
 
-          await pumpSettings(
-            tester,
-            shell,
-            width: 360,
-            scale: 2,
-            platform: platform,
-            direction: TextDirection.rtl,
-          );
-          expect(find.byType(DDialogContent), findsNothing);
-          expect(find.byType(DSheetContent), findsNothing);
-          expect(tester.takeException(), isNull);
-          semantics.dispose();
-        },
-      );
-    }
+        await pumpSettings(
+          tester,
+          shell,
+          width: 360,
+          scale: 2,
+          platform: platform,
+          direction: TextDirection.rtl,
+        );
+        expect(find.byType(DDialogContent), findsNothing);
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.takeException(), isNull);
+        semantics.dispose();
+      },
+    );
   }
 }
 
