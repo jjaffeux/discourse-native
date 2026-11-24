@@ -278,10 +278,13 @@ void main() {
   });
 
   test('equal inputs make equal geometries', () {
-    expect(
-      const DMobileDockGeometry(foot: 34, growth: 2),
-      const DMobileDockGeometry(foot: 34, growth: 2),
+    const original = DMobileDockGeometry(foot: 34, growth: 2);
+    final equivalent = DMobileDockGeometry(
+      foot: original.foot,
+      growth: original.growth,
     );
+    expect(equivalent, isNot(same(original)));
+    expect(equivalent, original);
     expect(
       const DMobileDockGeometry(foot: 34),
       isNot(const DMobileDockGeometry(foot: 0)),

@@ -155,10 +155,13 @@ void main() {
       const AssignmentTarget.post(7, topicId: 7),
       isNot(const AssignmentTarget.topic(7)),
     );
-    expect(
-      const AssignmentTarget.post(7, topicId: 7),
-      const AssignmentTarget.post(7, topicId: 7),
+    const original = AssignmentTarget.post(7, topicId: 7);
+    final equivalent = AssignmentTarget.post(
+      original.id,
+      topicId: original.topicId,
     );
+    expect(equivalent, isNot(same(original)));
+    expect(equivalent, original);
   });
 
   test('notes preserve String source independently of normalized status', () {
