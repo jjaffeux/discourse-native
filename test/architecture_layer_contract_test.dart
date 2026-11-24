@@ -14,8 +14,6 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('foundation', 'shell'): {},
   ('foundation', 'styleguide'): {},
   ('foundation', 'plugins'): {},
-  ('models', 'ui'): {},
-  ('ui', 'models'): {},
   ('data', 'ui'): {},
 };
 

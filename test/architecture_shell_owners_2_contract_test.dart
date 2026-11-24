@@ -6,7 +6,6 @@ const _owners = [
   'lib/src/shell/topic_channel_router.dart',
   'lib/src/shell/account_destination_bookmarks.dart',
   'lib/src/shell/composer/composer_uploads.dart',
-  'lib/src/data/write_credential.dart',
 ];
 const _shellLibraries = {
   'lib/src/shell/shell_controller.dart',
