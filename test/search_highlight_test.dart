@@ -69,26 +69,16 @@ void main() {
     const html = "<P data-label='needle'>needle &amp; untouched</P>";
     for (final query in ['', ' \n\t ', 'category:support @sam "in:all"']) {
       expect(highlightSearchHtml(html, query), html);
-      expect(highlightSearchHtml(html, query), html);
-    }
-  });
-
-  test('repeated calls return the same highlighted markup', () {
-    const html = '<p>needle &amp; thread</p>';
-    const expected =
-        '<p><mark class="native-search-hit">needle</mark> &amp; thread</p>';
-    for (var repeat = 0; repeat < 3; repeat++) {
-      expect(highlightSearchHtml(html, 'needle'), expected);
     }
   });
 
   test('changed queries and HTML use their own results', () {
-    const html = '<p data-post="1">needle thread</p>';
+    const html = '<p data-post="1">needle &amp; thread</p>';
     const changedHtml = '<p data-post="2">needle changed</p>';
     const needleResult =
-        '<p data-post="1"><mark class="native-search-hit">needle</mark> thread</p>';
+        '<p data-post="1"><mark class="native-search-hit">needle</mark> &amp; thread</p>';
     const threadResult =
-        '<p data-post="1">needle <mark class="native-search-hit">thread</mark></p>';
+        '<p data-post="1">needle &amp; <mark class="native-search-hit">thread</mark></p>';
     const changedResult =
         '<p data-post="2"><mark class="native-search-hit">needle</mark> changed</p>';
 
