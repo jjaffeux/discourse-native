@@ -206,12 +206,15 @@ void main() {
         payload(
           reactions: [entry('clap', 1)],
           mine: {'id': 'clap', 'type': 'emoji'},
-          canAct: false,
-          canUndo: false,
+          canAct: true,
+          canUndo: true,
           acted: true,
         ),
       );
 
+      expect(expired.hasReactions, isTrue);
+      expect(expired.canToggleLike, isTrue);
+      expect(expired.reactions!.mine?.canUndo, isFalse);
       expect(expired.canReact, isFalse);
     });
 
