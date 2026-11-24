@@ -73,11 +73,13 @@ void main() {
       cooked: '<p>a</p>',
       likeCount: 2,
       canLike: true,
+      raw: 'a',
     );
 
     test('adds the like and the permission to undo it', () {
       final liked = post.withLike(true);
 
+      expect(liked.raw, 'a');
       expect(liked.likeCount, 3);
       expect(liked.liked, isTrue);
       expect(liked.canLike, isFalse);
@@ -105,19 +107,6 @@ void main() {
       );
 
       expect(stale.withLike(false).likeCount, 0);
-    });
-
-    test('keeps the markdown, which is not the site\'s to re-send', () {
-      const withRaw = Post(
-        id: 1,
-        postNumber: 1,
-        username: 'sam',
-        cooked: '<p>a</p>',
-        canLike: true,
-        raw: 'a',
-      );
-
-      expect(withRaw.withLike(true).raw, 'a');
     });
   });
 
