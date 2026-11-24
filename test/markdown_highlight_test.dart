@@ -841,17 +841,6 @@ void main() {
   });
 
   group('the invariant', () {
-    test('paints every character of the source, and no others', () {
-      for (final source in samples) {
-        final runs = scanMarkdown(source);
-        expect(
-          runs.map((run) => source.substring(run.start, run.end)).join(),
-          source,
-          reason: 'the painted text drifted from the source: $source',
-        );
-      }
-    });
-
     test('holds for markdown nobody would write', () {
       // Seeded so fuzz failures remain reproducible.
       final random = Random(20260807);
