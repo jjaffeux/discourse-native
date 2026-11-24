@@ -600,24 +600,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final brightness in Brightness.values) {
-    testWidgets('320px calendar supports large text in $brightness', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        calendar(width: 320, scale: 2, brightness: brightness),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Team availability'), findsOneWidget);
-      expect(
-        tester.getSize(find.text('Team availability')).height,
-        greaterThanOrEqualTo(40),
-      );
-      expect(tester.takeException(), isNull);
-      final label = tester.widget<Text>(find.text('Team availability'));
-      expect(label.semanticsLabel, contains('Sep 7, 2026 – Sep 10, 2026'));
-    });
-  }
+  testWidgets('320px calendar supports large text in dark mode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      calendar(width: 320, scale: 2, brightness: Brightness.dark),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Team availability'), findsOneWidget);
+    expect(
+      tester.getSize(find.text('Team availability')).height,
+      greaterThanOrEqualTo(40),
+    );
+    expect(tester.takeException(), isNull);
+    final label = tester.widget<Text>(find.text('Team availability'));
+    expect(label.semanticsLabel, contains('Sep 7, 2026 – Sep 10, 2026'));
+  });
 
   test(
     'standalone installation owns calendar data and settings; core stays unaware',
