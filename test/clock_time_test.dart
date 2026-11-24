@@ -34,18 +34,12 @@ void main() {
       );
     });
 
-    test('a locale without date symbols falls back rather than throwing', () {
-      expect(
-        clockTime(afternoon, use24HourClock: false, locale: 'xx_YY'),
-        '3:45 PM',
-      );
-    });
-
     test(
       'an unsupported locale falls back to the current locale each time',
       () {
         String label() =>
             clockTime(afternoon, use24HourClock: false, locale: 'xx_YY');
+        expect(label(), '3:45 PM');
         expect(Intl.withLocale('en_US', label), '3:45 PM');
         expect(Intl.withLocale('de', label), '15:45');
       },
