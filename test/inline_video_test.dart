@@ -446,7 +446,7 @@ void main() {
     );
     for (final action in [
       find.byTooltip('Download video'),
-      find.byTooltip('Open video'),
+      find.byTooltip('Enter full screen'),
     ]) {
       final bounds = tester.getRect(action);
       expect(preview.contains(bounds.center), isTrue);
@@ -904,7 +904,7 @@ void main() {
 
     expect(find.text("Couldn't play this video."), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
-    expect(find.text('Open video'), findsOneWidget);
+    expect(find.text('Open in browser'), findsOneWidget);
 
     await tester.tap(find.text('Try again'));
     await tester.pump();
@@ -941,7 +941,7 @@ void main() {
     await tester.pump();
 
     expect(find.text("Couldn't play this video."), findsOneWidget);
-    expect(find.text('Open video'), findsOneWidget);
+    expect(find.text('Open in browser'), findsOneWidget);
   });
 
   test('Linux document escapes attributes and locks down remote content', () {

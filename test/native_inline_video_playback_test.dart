@@ -60,6 +60,95 @@ void main() {
   }, variant: const TargetPlatformVariant({TargetPlatform.android}));
 
   testWidgets(
+    'a mobile post opens its video full screen before playback is ready',
+    (tester) async {
+      final gate = _completionGate();
+      platform.nextInitialization = gate;
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: CookedHtml(
+              siteUrl: 'https://forum.example',
+              html: '''
+                <video src="/uploads/demo.mp4" title="Demo"></video>
+              ''',
+            ),
+          ),
+        ),
+      );
+
+      final expand = find.byTooltip('Enter full screen');
+      expect(expand, findsOneWidget);
+      expect(platform.sources, isEmpty);
+      await tester.tap(expand);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+
+      final fullscreen = find.bySemanticsLabel(
+        'Full-screen video player: Demo',
+      );
+      expect(fullscreen, findsOneWidget);
+      expect(find.byType(VideoPlayer), findsNothing);
+      expect(find.byTooltip('Exit full screen'), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      final controller = _controller(tester);
+      expect(controller.value.isPlaying, isTrue);
+      expect(platform.sources, ['https://forum.example/uploads/demo.mp4']);
+      await controller.seekTo(const Duration(seconds: 12));
+
+      await tester.tap(find.byTooltip('Exit full screen'));
+      await tester.pumpAndSettle();
+
+      expect(fullscreen, findsNothing);
+      expect(_controller(tester), same(controller));
+      expect(controller.value.position, const Duration(seconds: 12));
+      expect(controller.value.isPlaying, isTrue);
+      expect(platform.sources, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await platform.disposed(0);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets('a failed fullscreen start can be closed and retried inline', (
+    tester,
+  ) async {
+    platform.failInitialization = true;
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: CookedHtml(
+            siteUrl: 'https://forum.example',
+            html: '<video src="/uploads/demo.mp4" title="Demo"></video>',
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Enter full screen'));
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't play this video."), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Exit full screen'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Exit full screen'), findsNothing);
+    expect(find.text('Open in browser'), findsOneWidget);
+
+    platform.failInitialization = false;
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+    expect(_controller(tester).value.isPlaying, isTrue);
+    expect(find.byTooltip('Exit full screen'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await platform.disposed(1);
+  });
+
+  testWidgets(
     'a local video gallery reuses playback controls and disables image zoom',
     (tester) async {
       final file = File('/tmp/composer-preview-test/video.mp4');
@@ -401,7 +490,7 @@ void main() {
         }
         await tester.pump();
         expect(find.text("Couldn't play this video."), findsOneWidget);
-        expect(find.text('Open video'), findsOneWidget);
+        expect(find.text('Open in browser'), findsOneWidget);
         expect(find.byType(VideoPlayer), findsNothing);
         await platform.disposed(0);
         expect(platform.disposals, [0]);

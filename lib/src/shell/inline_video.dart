@@ -4,6 +4,8 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
@@ -183,9 +185,16 @@ class InlineVideo extends StatefulWidget {
   State<InlineVideo> createState() => _InlineVideoState();
 }
 
+enum _VideoStart { inline, fullscreen }
+
 class _InlineVideoState extends State<InlineVideo> {
-  bool _loaded = false;
+  _VideoStart? _start;
   final _downloading = ValueNotifier(false);
+
+  bool get _hasMobileFullscreen =>
+      widget.playerBuilder == null &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<void> _download(BuildContext actionContext) async {
     if (_downloading.value) return;
@@ -232,6 +241,18 @@ class _InlineVideoState extends State<InlineVideo> {
     }
   }
 
+  Widget? _buildOpenAction(BuildContext context) {
+    if (!_hasMobileFullscreen) return _OpenVideoButton(data: widget.data);
+    if (_start != null) return null;
+    return DButton.iconOnly(
+      onPressed: () => _load(_VideoStart.fullscreen),
+      variant: DButtonVariant.secondary,
+      size: DButtonSize.post,
+      tooltip: context.l10n.enterFullScreen,
+      icon: const DIcon(DIcons.expand),
+    );
+  }
+
   Widget _buildActions(BuildContext context) => ValueListenableBuilder<bool>(
     valueListenable: _downloading,
     builder: (context, downloading, _) => Positioned.fill(
@@ -252,7 +273,10 @@ class _InlineVideoState extends State<InlineVideo> {
             loading: downloading,
             icon: const DIcon(DIcons.download),
           );
-          final open = _OpenVideoButton(data: widget.data);
+          final open = _buildOpenAction(context);
+          if (open == null) {
+            return Align(alignment: Alignment.topRight, child: download);
+          }
           if (constraints.maxWidth < 100) {
             return Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -283,13 +307,13 @@ class _InlineVideoState extends State<InlineVideo> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data.playbackIdentity != widget.data.playbackIdentity ||
         oldWidget.siteUrl != widget.siteUrl) {
-      _loaded = false;
+      _start = null;
     }
   }
 
-  void _load() {
-    if (_loaded) return;
-    setState(() => _loaded = true);
+  void _load([_VideoStart start = _VideoStart.inline]) {
+    if (_start != null) return;
+    setState(() => _start = start);
   }
 
   @override
@@ -317,7 +341,7 @@ class _InlineVideoState extends State<InlineVideo> {
                 child: DAspectRatio(
                   ratio: widget.data.aspectRatio,
                   child: LayoutBuilder(
-                    builder: (context, constraints) => _loaded
+                    builder: (context, constraints) => _start != null
                         ? _buildPlayer(context)
                         : _buildPoster(context, constraints.biggest),
                   ),
@@ -348,6 +372,7 @@ class _InlineVideoState extends State<InlineVideo> {
       lifecycle: shell?.lifecycle,
       sessionFactory: widget.sessionFactory ?? createInlineVideoPlaybackSession,
       actionsBuilder: _buildActions,
+      startFullscreen: _start == _VideoStart.fullscreen,
     );
   }
 
@@ -412,6 +437,7 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
     required this.sessionFactory,
     this.actionsBuilder,
     this.allowFullscreen = true,
+    this.startFullscreen = false,
   });
 
   final InlineVideoData data;
@@ -421,6 +447,7 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
   final InlineVideoPlaybackSessionFactory sessionFactory;
   final WidgetBuilder? actionsBuilder;
   final bool allowFullscreen;
+  final bool startFullscreen;
 
   @override
   State<InlineVideoPlaybackSurface> createState() =>
@@ -442,6 +469,16 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     widget.sessionFactory,
     mediaAccountFor(widget.siteUrl, lifecycle: widget.lifecycle)?.session,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startFullscreen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openFullscreen());
+      });
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -509,11 +546,11 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     if (!(mediaActivity.attachment?.mayPlay ?? false) ||
         _fullscreenOpen ||
         session == null ||
-        !session.state.supportsFullscreen ||
         !widget.allowFullscreen) {
       return;
     }
     final attachment = mediaActivity.attachment!;
+    final data = widget.data;
     mediaActivity.fullscreen(attachment, visible: true);
     setState(() => _fullscreenSession = session);
     try {
@@ -522,7 +559,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
           settings: const RouteSettings(name: 'inline-video-fullscreen'),
           fullscreenDialog: true,
           builder: (context) => _InlineVideoFullscreen(
-            data: widget.data,
+            data: data,
             session: session,
             onVisibilityChanged: (visible) {
               if (!mounted || !identical(_fullscreenSession, session)) return;
@@ -737,8 +774,6 @@ class _InlineVideoFullscreenState extends State<_InlineVideoFullscreen> {
             session: widget.session,
             select: _selectPresentation,
             builder: (context, presentation) {
-              final playerBuilder = presentation.playerBuilder;
-              if (playerBuilder == null) return const SizedBox.shrink();
               return Semantics(
                 label: context.l10n.fullScreenVideoPlayer(
                   (widget.data.title).toString(),
@@ -747,10 +782,23 @@ class _InlineVideoFullscreenState extends State<_InlineVideoFullscreen> {
                   fit: StackFit.expand,
                   children: [
                     Center(
-                      child: DAspectRatio(
-                        ratio: presentation.aspectRatio,
-                        child: playerBuilder(),
-                      ),
+                      child: switch (presentation.playerBuilder) {
+                        final playerBuilder? => DAspectRatio(
+                          ratio: presentation.aspectRatio,
+                          child: playerBuilder(),
+                        ),
+                        null
+                            when presentation.phase ==
+                                InlineVideoPlaybackPhase.failed =>
+                          Text(
+                            context.l10n.couldnTPlayThisVideo,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        null => const DSpinner(
+                          size: DSpacing.xl,
+                          color: Colors.white,
+                        ),
+                      },
                     ),
                     if (widget.actionsBuilder case final buildActions?)
                       buildActions(context),
@@ -800,7 +848,25 @@ class _PlaybackControls extends StatelessWidget {
       supportsFullscreen: state.supportsFullscreen,
     ),
     builder: (context, controls) {
-      if (!controls.showControls) return const SizedBox.shrink();
+      final exit = onExitFullscreen;
+      final closeButton = exit == null
+          ? null
+          : DButton.iconOnly(
+              key: const ValueKey('inline-video-fullscreen-close'),
+              onPressed: exit,
+              variant: DButtonVariant.secondary,
+              size: DButtonSize.post,
+              tooltip: context.l10n.exitFullScreen,
+              icon: const DIcon(DNativeIcons.compress),
+            );
+      if (!controls.showControls) {
+        return closeButton == null
+            ? const SizedBox.shrink()
+            : Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: closeButton,
+              );
+      }
       return DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -825,15 +891,8 @@ class _PlaybackControls extends StatelessWidget {
             Expanded(
               child: _PlaybackTimeline(session: session, onSeek: onSeek),
             ),
-            if (onExitFullscreen case final exit?)
-              DButton.iconOnly(
-                key: const ValueKey('inline-video-fullscreen-close'),
-                onPressed: exit,
-                variant: DButtonVariant.secondary,
-                size: DButtonSize.post,
-                tooltip: context.l10n.exitFullScreen,
-                icon: const DIcon(DNativeIcons.compress),
-              )
+            if (closeButton != null)
+              closeButton
             else if (onEnterFullscreen != null && controls.supportsFullscreen)
               DButton.iconOnly(
                 key: const ValueKey('inline-video-fullscreen'),
@@ -987,7 +1046,7 @@ class _VideoFailure extends StatelessWidget {
               ),
               DButton(
                 size: DButtonSize.post,
-                label: Text(context.l10n.openVideoInlinevideo),
+                label: Text(context.l10n.openInBrowser),
                 onPressed: () =>
                     unawaited(openExternalLink(data.source.toString())),
                 variant: DButtonVariant.link,
