@@ -10,13 +10,12 @@ void main() {
       ),
       'Name Value alpha beta',
     );
-    expect(jsonHtmlText('<b>hel</b><i>lo</i>'), 'hello');
   });
 
-  test('plain excerpts retain word boundaries at HTML line breaks', () {
+  test('plain excerpts decode inline markup and keep line boundaries', () {
     expect(
-      jsonHtmlText('<p>Hello<br>world</p><p>Again</p>'),
-      'Hello world Again',
+      jsonHtmlText('<p>Hello<br><b>world</b> &amp; you</p><p>Again</p>'),
+      'Hello world & you Again',
     );
     expect(jsonHtmlText('<b>hel</b><i>lo</i>'), 'hello');
   });
@@ -129,13 +128,6 @@ void main() {
     const heart =
         '<img src="/images/emoji/twitter/heart.png?v=12" title=":heart:" '
         'class="emoji" alt=":heart:" loading="lazy" width="20" height="20">';
-
-    test('reads the text of markup', () {
-      expect(
-        jsonHtmlText('<p>Hello <b>world</b> &amp; you</p>'),
-        'Hello world & you',
-      );
-    });
 
     test('writes a kept emoji image as its shortcode, as core excerpts do', () {
       expect(
