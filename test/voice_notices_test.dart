@@ -7,29 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('each notice is shown once as a toast', (tester) async {
-    final notices = StreamController<VoiceNotice>.broadcast();
-    addTearDown(notices.close);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DToaster(
-          child: Scaffold(body: VoiceNoticeHost(notices: notices.stream)),
-        ),
-      ),
-    );
-
-    notices.add(const VoiceNotice("You've been made a speaker."));
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(Dismissible), findsOneWidget);
-    expect(find.text("You've been made a speaker."), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox());
-    expect(notices.hasListener, isFalse);
-  });
-
-  testWidgets('a replaced stream is followed and the old one released', (
+  testWidgets('notices arrive once before and after replacing their stream', (
     tester,
   ) async {
     final first = StreamController<VoiceNotice>.broadcast();
@@ -43,6 +21,12 @@ void main() {
         ),
       ),
     );
+    first.add(const VoiceNotice("You've been made a speaker."));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(Dismissible), findsOneWidget);
+    expect(find.text("You've been made a speaker."), findsOneWidget);
+
     await tester.pumpWidget(
       MaterialApp(
         home: DToaster(
@@ -59,5 +43,7 @@ void main() {
 
     expect(find.text('The recording has stopped.'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
+    expect(first.hasListener, isFalse);
+    expect(second.hasListener, isFalse);
   });
 }
