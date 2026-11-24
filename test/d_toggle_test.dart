@@ -49,32 +49,6 @@ void main() {
     ),
   );
 
-  testWidgets('chat reaction density matches the mockup pill', (tester) async {
-    await mount(
-      tester,
-      const DToggle(
-        density: DToggleDensity.chatReaction,
-        variant: DToggleVariant.outline,
-        icon: Icon(Icons.favorite),
-        child: Text('2'),
-      ),
-    );
-    final artwork = find.descendant(
-      of: find.byType(DToggle),
-      matching: find.byType(AnimatedContainer),
-    );
-    expect(tester.getSize(artwork).height, 24);
-    final decoration =
-        tester.widget<AnimatedContainer>(artwork).decoration! as BoxDecoration;
-    expect(decoration.borderRadius, BorderRadius.circular(999));
-    expect(
-      tester.getRect(find.byIcon(Icons.favorite)).left -
-          tester.getRect(artwork).left,
-      10,
-    );
-    expect(tester.getSize(find.byIcon(Icons.favorite)).width, 12);
-  });
-
   for (final dark in [false, true]) {
     testWidgets(
       'disclosure stays compact and contrasts with thread rails ($dark)',
@@ -212,6 +186,13 @@ void main() {
       }
 
       checkFlat(false);
+      expect(decoration().borderRadius, BorderRadius.circular(999));
+      expect(
+        tester.getRect(find.byIcon(Icons.favorite)).left -
+            tester.getRect(artwork).left,
+        10,
+      );
+      expect(tester.getSize(find.byIcon(Icons.favorite)).width, 12);
       expect(tester.getSize(toggle).height, 24);
       expect(tester.getSize(toggle), tester.getSize(artwork));
       final paragraph = tester.renderObject<RenderParagraph>(
