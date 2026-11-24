@@ -37,6 +37,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.expandedSheetOnMobile = false,
     this.triggerBuilder,
     this.hasChildren,
+    this.browseSubcategories = false,
   });
 
   final String siteUrl;
@@ -60,6 +61,7 @@ class TopicCategorySelector extends StatefulWidget {
 
   /// Marks categories that offer another level in a category path.
   final bool Function(TopicCategory category)? hasChildren;
+  final bool browseSubcategories;
 
   @override
   State<TopicCategorySelector> createState() => _TopicCategorySelectorState();
@@ -85,22 +87,53 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
   bool _loading = false;
   String? _error;
   int? _highlighted;
+  TopicCategory? _browsingParent;
 
   String _label(TopicCategory category) =>
       widget.labelFor?.call(category) ?? category.name;
 
   bool get _canClear => widget.includeAll || widget.clearSelectionLabel != null;
 
+  bool _hasBrowseChildren(TopicCategory category) =>
+      widget.browseSubcategories &&
+      widget.categories.any((child) => child.parentCategoryId == category.id);
+
   List<TopicCategory> get _matches {
     final query = _query.trim().toLowerCase();
-    final byId = {
+    final matches = {
       for (final category in widget.categories)
         if (_label(category).toLowerCase().contains(query) ||
             category.slug.toLowerCase().contains(query))
           category.id: category,
       for (final category in _results) category.id: category,
     };
-    return byId.values.toList(growable: false);
+    if (!widget.browseSubcategories) {
+      return matches.values.toList(growable: false);
+    }
+    final parent = _browsingParent;
+    if (parent != null) {
+      return matches.values
+          .where((category) => category.parentCategoryId == parent.id)
+          .toList(growable: false);
+    }
+    if (query.isNotEmpty) return matches.values.toList(growable: false);
+    return matches.values
+        .where((category) => !matches.containsKey(category.parentCategoryId))
+        .toList(growable: false);
+  }
+
+  void _browse(TopicCategory? parent) {
+    _debounce?.cancel();
+    _lookup.invalidate();
+    _combobox.highlight(null);
+    setState(() {
+      _browsingParent = parent;
+      _query = '';
+      _results = const [];
+      _loading = false;
+      _error = null;
+    });
+    _highlight();
   }
 
   void _highlight() {
@@ -137,6 +170,14 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
     // leave the last results on screen. Opening starts from a clean search.
     if (!open) return;
     setState(() {
+      _browsingParent = widget.browseSubcategories
+          ? widget.categories
+                .where(
+                  (category) =>
+                      category.id == widget.selected?.parentCategoryId,
+                )
+                .firstOrNull
+          : null;
       _query = '';
       _highlighted = null;
       _results = const [];
@@ -180,7 +221,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
   @override
   Widget build(BuildContext context) {
     final selected = widget.selected;
-    final parent = widget.parent;
+    final parent = widget.parent ?? _browsingParent;
     final noun = parent == null ? 'categories' : 'subcategories';
     final label = selected == null ? widget.placeholder : _label(selected);
     final matches = _matches;
@@ -206,46 +247,66 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
           showTrigger: false,
         ),
       ),
-      DComboboxList<int>(
-        itemBuilder: (context, option) => Row(
-          children: [
-            if (option.value == 0)
-              DIcon(
-                widget.clearSelectionLabel == null
-                    ? DIcons.layerGroup
-                    : DIcons.xmark,
-                size: 16,
-              )
-            else
-              CategoryIcon(
-                key: ValueKey(('category-selector-icon', option.value)),
-                category: matches.firstWhere(
-                  (category) => category.id == option.value,
-                ),
-                siteUrl: widget.siteUrl,
-                size: 16,
-                squareSize: 10,
-              ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Row(
-                children: [
-                  Flexible(child: Text(option.label)),
-                  if (option.value != 0 &&
-                      widget.hasChildren?.call(
-                            matches.firstWhere(
-                              (category) => category.id == option.value,
-                            ),
-                          ) ==
-                          true) ...[
-                    const SizedBox(width: 6),
-                    const DBreadcrumbSeparator(),
-                  ],
-                ],
-              ),
-            ),
-          ],
+      if (_browsingParent != null)
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            key: ValueKey('$prefix-parent-back'),
+            variant: DButtonVariant.quiet,
+            icon: const DIcon(DIcons.chevronLeft),
+            label: Text(context.l10n.categories),
+            onPressed: () => _browse(null),
+          ),
         ),
+      DComboboxList<int>(
+        itemBuilder: (context, option) {
+          final category = matches
+              .where((record) => record.id == option.value)
+              .firstOrNull;
+          return Row(
+            children: [
+              if (option.value == 0)
+                DIcon(
+                  widget.clearSelectionLabel == null
+                      ? DIcons.layerGroup
+                      : DIcons.xmark,
+                  size: 16,
+                )
+              else
+                CategoryIcon(
+                  key: ValueKey(('category-selector-icon', option.value)),
+                  category: matches.firstWhere(
+                    (category) => category.id == option.value,
+                  ),
+                  siteUrl: widget.siteUrl,
+                  size: 16,
+                  squareSize: 10,
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(child: Text(option.label)),
+                    if (category != null &&
+                        widget.hasChildren?.call(category) == true) ...[
+                      const SizedBox(width: 6),
+                      const DBreadcrumbSeparator(),
+                    ],
+                  ],
+                ),
+              ),
+              if (category != null && _hasBrowseChildren(category))
+                DButton.iconOnly(
+                  key: ValueKey(('$prefix-browse', category.id)),
+                  variant: DButtonVariant.quiet,
+                  size: DButtonSize.filter,
+                  icon: const DIcon(DIcons.chevronRight),
+                  tooltip: context.l10n.subcategoriesOf(category.name),
+                  onPressed: () => _browse(category),
+                ),
+            ],
+          );
+        },
       ),
       if (_loading)
         const DComboboxStatus(child: SizedBox.shrink())
@@ -296,13 +357,14 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             (context, trigger) => TopicTaxonomyButton(
               buttonKey: widget.valueKey,
               size: widget.size,
-              showChevron: true,
+              showChevron: !widget.browseSubcategories,
               label: label,
               categoryColor: selected == null
                   ? null
                   : Color(selected.colorValue),
               icon: selected == null
-                  ? widget.size == DButtonSize.filter
+                  ? (widget.size == DButtonSize.filter ||
+                            widget.browseSubcategories)
                         ? const CategorySquare(color: null, size: 10)
                         : null
                   : CategoryIcon(

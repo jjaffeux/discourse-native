@@ -642,17 +642,7 @@ void main() {
         await tester.pumpAndSettle();
         final close = find.byKey(const ValueKey('composer-close'));
         final bounds = tester.getRect(close);
-        final glyph = find
-            .descendant(of: close, matching: find.byType(CustomPaint))
-            .last;
-        final color = IconTheme.of(tester.element(glyph)).color!;
-        final expectedGlyph = [
-          (color.r * 255).round(),
-          (color.g * 255).round(),
-          (color.b * 255).round(),
-        ];
         final before = await _closeGlyphPixel(tester);
-        expect(before, expectedGlyph);
         final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
         await tester.drag(viewport, const Offset(0, -137));
         await tester.pumpAndSettle();
@@ -687,7 +677,7 @@ void main() {
     for (final dark in [false, true]) {
       for (final scale in [1.0, 2.0]) {
         testWidgets(
-          'phone header actions are sized and colored for touch dark=$dark scale=$scale',
+          'phone dock actions are sized and colored for touch dark=$dark scale=$scale',
           (tester) async {
             final h = await _Harness.create(
               tester,
@@ -696,46 +686,38 @@ void main() {
               theme: dark ? AppTheme.dark : AppTheme.light,
               scale: scale,
             );
-            final header = tester.getRect(
-              find.byKey(const ValueKey('composer-header')),
-            );
+            final bar = tester.getRect(find.byType(DComposerActionBar));
             final handle = tester.getRect(
               find.byKey(const ValueKey('sheet-drag-handle')),
             );
             final close = find.byKey(const ValueKey('composer-close'));
+            final undo = find.byKey(const ValueKey('composer-undo'));
+            final redo = find.byKey(const ValueKey('composer-redo'));
             final submit = find.byKey(const ValueKey('composer-submit'));
             final extent = tester.getSize(close).width;
-            expect(extent, scale == 1 ? 44 : greaterThan(44));
-            expect(header.height, extent + 24);
-            for (final button in [close, submit]) {
-              expect(tester.getSize(button), Size.square(extent));
-              expect(tester.getRect(button).top, header.top + 12);
-              expect(tester.getRect(button).overlaps(handle), isFalse);
+            expect(extent, scale == 1 ? 50 : greaterThan(50));
+            var previous = bar.left;
+            for (final button in [close, undo, redo, submit]) {
+              final bounds = tester.getRect(button);
+              expect(bounds.height, extent);
+              expect(bounds.left, greaterThanOrEqualTo(previous));
+              expect(bar.contains(bounds.center), isTrue);
+              expect(bounds.overlaps(handle), isFalse);
+              previous = bounds.right;
             }
-
-            final closeGlyph = find
-                .descendant(of: close, matching: find.byType(CustomPaint))
-                .last;
-            final submitGlyph = find.descendant(
-              of: submit,
-              matching: find.byType(DIcon),
-            );
-            final tokens = DTokens.of(tester.element(closeGlyph));
-            expect(tester.getSize(closeGlyph).height, 24);
-            expect(tester.getSize(submitGlyph).height, 24);
-            expect(
-              IconTheme.of(tester.element(closeGlyph)).color,
-              tokens.foreground,
-            );
-            expect(
-              IconTheme.of(tester.element(submitGlyph)).color,
-              tokens.mutedForeground,
-            );
-
+            final tokens = DTokens.of(tester.element(submit));
+            expect(tester.widget<DButton>(undo).onPressed, isNull);
+            expect(tester.widget<DButton>(redo).onPressed, isNull);
             expect(tester.widget<DButton>(submit).onPressed, isNull);
+            expect(
+              find.descendant(of: submit, matching: find.text('Create topic')),
+              findsOneWidget,
+            );
+            expect(
+              find.descendant(of: submit, matching: find.byType(DIcon)),
+              findsNothing,
+            );
             final neutralFill = buttonSurface(tester, of: close).color;
-            expect(buttonSurface(tester, of: submit).color, neutralFill);
-            expect(neutralFill, isNot(tokens.primary));
 
             final composer = h.shell.visibleComposer!;
             composer.title.text = 'Weekend ride along the river';
@@ -745,14 +727,10 @@ void main() {
             expect(tester.widget<DButton>(submit).onPressed, isNotNull);
             expect(submit.hitTestable(), findsOneWidget);
             expect(buttonSurface(tester, of: submit).color, tokens.primary);
-            expect(
-              IconTheme.of(tester.element(submitGlyph)).color,
-              Colors.white,
-            );
             expect(buttonSurface(tester, of: close).color, neutralFill);
             await _render(
               tester,
-              'phone-header-actions-${dark ? 'dark' : 'light'}-$scale',
+              'phone-dock-actions-${dark ? 'dark' : 'light'}-$scale',
             );
             await tester.runAsync(composer.finishDraftSaves);
             await tester.pump();

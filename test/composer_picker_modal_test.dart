@@ -242,7 +242,7 @@ void main() {
     expect(categoryBounds.right, lessThanOrEqualTo(304));
     expect(tagsBounds.width, lessThanOrEqualTo(288));
     final controlHeight = DControlStyle.height(
-      DControlSize.filter,
+      DControlSize.large,
       context: tester.element(
         find.byKey(const ValueKey('composer-category-action')),
       ),
@@ -619,7 +619,7 @@ void main() {
   });
 
   testWidgets(
-    'subcategory controls scroll and stay reachable on a narrow composer',
+    'one category chip opens siblings and a separate subcategory action',
     (tester) async {
       tester.view.physicalSize = const Size(320, 800);
       tester.view.devicePixelRatio = 1;
@@ -648,23 +648,33 @@ void main() {
       );
       shell.visibleComposer!.setCategory(child.id);
       await tester.pump();
-      for (final name in ['category', 'subcategory']) {
-        final control = find.byKey(ValueKey('composer-$name-action'));
-        await Scrollable.ensureVisible(tester.element(control));
-        await tester.pumpAndSettle();
-        expect(control.hitTestable(), findsOneWidget);
-        expect(tester.getRect(control).right, lessThanOrEqualTo(320));
-      }
-      await open(tester, const ValueKey('composer-subcategory-action'));
+      final control = find.byKey(const ValueKey('composer-category-action'));
+      expect(
+        find.descendant(of: control, matching: find.text(child.name)),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('composer-subcategory-action')),
+        findsNothing,
+      );
+      await open(tester, const ValueKey('composer-category-action'));
       final popup = tester.getRect(find.byType(DComboboxContent));
       expect(popup.left, greaterThanOrEqualTo(0));
       expect(popup.right, lessThanOrEqualTo(320));
-      expect(
-        find
-            .byKey(const ValueKey(('composer-subcategory-option', 6)))
-            .hitTestable(),
-        findsOneWidget,
+      final row = find.byKey(const ValueKey(('category-selector-option', 6)));
+      expect(row.hitTestable(), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('category-selector-parent-back')),
       );
+      await tester.pumpAndSettle();
+      final browse = find.byKey(
+        const ValueKey(('category-selector-browse', 5)),
+      );
+      expect(browse.hitTestable(), findsOneWidget);
+      await tester.tap(browse);
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer!.categoryId, 6);
+      expect(row.hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 2));
     },

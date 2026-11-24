@@ -143,21 +143,18 @@ void main() {
           await tester.pumpAndSettle();
           await _toolbarPixels(tester, name: 'expanded-error-$scale');
 
-          final headerBounds = tester.getRect(
-            find.byKey(const ValueKey('composer-header')),
-          );
+          final actions = tester.getRect(find.byType(DComposerActionBar));
           final closeBounds = tester.getRect(
             find.byKey(const ValueKey('composer-close')),
           );
           final submitBounds = tester.getRect(
             find.byKey(const ValueKey('composer-submit')),
           );
-          expect(closeBounds.top - headerBounds.top, closeTo(12, .01));
-          expect(closeBounds.left - headerBounds.left, closeTo(12, .01));
-          expect(headerBounds.right - submitBounds.right, closeTo(12, .01));
-          expect(submitBounds.top, closeTo(closeBounds.top, .01));
-          expect(closeBounds.width, closeTo(closeBounds.height, .01));
-          expect(submitBounds.width, closeTo(closeBounds.width, .01));
+          expect(actions.contains(closeBounds.center), isTrue);
+          expect(actions.contains(submitBounds.center), isTrue);
+          expect(closeBounds.height, submitBounds.height);
+          expect(closeBounds.center.dy, submitBounds.center.dy);
+          expect(submitBounds.bottom, lessThan(470));
 
           expect(find.text("Couldn't complete this action"), findsOneWidget);
           expect(find.text(message), findsOneWidget);
@@ -399,7 +396,7 @@ void main() {
 
     for (final dark in [false, true]) {
       testWidgets(
-        'mobile toolbar changes only icon colors during hover and press (dark: $dark)',
+        'mobile toolbar chips keep their size through hover and press (dark: $dark)',
         (tester) async {
           final composer = ComposerController(
             _newTopicTarget,
@@ -431,6 +428,8 @@ void main() {
             'composer-insert',
           ]) {
             final button = find.byKey(ValueKey(key));
+            await tester.ensureVisible(button);
+            await tester.pumpAndSettle();
             final icon = find.descendant(
               of: button,
               matching: find.byType(DIcon),
@@ -440,21 +439,33 @@ void main() {
             final resting = foreground();
             final bounds = tester.getRect(button);
             expect(resting, isNot(tokens.foreground));
-            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+            expect(
+              buttonSurface(tester, of: button).color,
+              isNot(Colors.transparent),
+            );
             await mouse.moveTo(bounds.center);
             await tester.pumpAndSettle();
-            expect(foreground(), tokens.foreground);
-            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+            expect(foreground(), resting);
+            expect(
+              buttonSurface(tester, of: button).color,
+              isNot(Colors.transparent),
+            );
             await mouse.down(bounds.center);
             await tester.pumpAndSettle();
-            expect(foreground(), tokens.foreground);
-            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+            expect(foreground(), resting);
+            expect(
+              buttonSurface(tester, of: button).color,
+              isNot(Colors.transparent),
+            );
             expect(tester.getRect(button), bounds);
             await mouse.cancel();
             await mouse.moveTo(Offset.zero);
             await tester.pumpAndSettle();
             expect(foreground(), resting);
-            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+            expect(
+              buttonSurface(tester, of: button).color,
+              isNot(Colors.transparent),
+            );
           }
           expect(tester.takeException(), isNull);
         },
@@ -466,7 +477,7 @@ void main() {
     }
 
     testWidgets(
-      'mobile toolbar triggers stay transparent while their menus are open',
+      'mobile toolbar triggers stay pill shaped while their menus are open',
       (tester) async {
         final composer = ComposerController(
           _newTopicTarget,
@@ -489,11 +500,8 @@ void main() {
           ('composer-upload', 'Photo Library'),
         ]) {
           final button = find.byKey(ValueKey(key));
-          final icon = find.descendant(
-            of: button,
-            matching: find.byType(DIcon),
-          );
-          final tokens = DTokens.of(tester.element(button));
+          await tester.ensureVisible(button);
+          await tester.pumpAndSettle();
           await tester.tap(button);
           await tester.pumpAndSettle();
           expect(find.text(item), findsOneWidget);
@@ -509,13 +517,19 @@ void main() {
             );
           }
           expect(tester.widget<DButton>(button).expanded, isTrue);
-          expect(IconTheme.of(tester.element(icon)).color, tokens.foreground);
-          expect(buttonSurface(tester, of: button).color, Colors.transparent);
+          expect(tester.widget<DButton>(button).variant, DButtonVariant.quiet);
+          expect(
+            buttonSurface(tester, of: button).color,
+            isNot(Colors.transparent),
+          );
           await tester.tapAt(const Offset(12, 12));
           await tester.pumpAndSettle();
           expect(find.text(item), findsNothing);
           expect(tester.widget<DButton>(button).expanded, isFalse);
-          expect(buttonSurface(tester, of: button).color, Colors.transparent);
+          expect(
+            buttonSurface(tester, of: button).color,
+            isNot(Colors.transparent),
+          );
         }
         expect(tester.takeException(), isNull);
       },
@@ -572,6 +586,8 @@ void main() {
           height: 800,
         );
         final button = find.byKey(const ValueKey('composer-mention'));
+        await Scrollable.ensureVisible(tester.element(button), alignment: .5);
+        await tester.pumpAndSettle();
         expect(button.hitTestable(), findsOneWidget);
         await tester.tap(button);
         await tester.pumpAndSettle();
@@ -680,7 +696,10 @@ void main() {
           size: const Size(390, 800),
           height: 800,
         );
-        await tester.tap(find.byKey(const ValueKey('composer-mention')));
+        final mention = find.byKey(const ValueKey('composer-mention'));
+        await Scrollable.ensureVisible(tester.element(mention), alignment: .5);
+        await tester.pumpAndSettle();
+        await tester.tap(mention);
         await tester.pump();
         await tester.pump(ComposerAutocomplete.debounce);
         await tester.pump();
@@ -875,10 +894,10 @@ void main() {
         addTearDown(tester.view.resetViewInsets);
         await _pumpPanel(tester, shell, composer, size: const Size(340, 720));
 
-        void expectFormattingHidden() {
+        void expectFormattingAvailable() {
           expect(
             find.byKey(const ValueKey('composer-formatting')),
-            findsNothing,
+            findsOneWidget,
           );
           for (final label in [
             'Bold',
@@ -890,7 +909,7 @@ void main() {
             'Clear formatting',
             'More formatting',
           ]) {
-            expect(find.byTooltip(label), findsNothing);
+            expect(find.byTooltip(label), findsOneWidget);
           }
           expect(
             find.descendant(
@@ -906,7 +925,7 @@ void main() {
           expect(find.byKey(const ValueKey('composer-insert')), findsOneWidget);
         }
 
-        expectFormattingHidden();
+        expectFormattingAvailable();
         const original = TextEditingValue(
           text: 'format me',
           selection: TextSelection(baseOffset: 0, extentOffset: 6),
@@ -996,13 +1015,13 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
         await tester.pumpAndSettle();
         expect(composer.raw, '[format](https://example.org) me');
-        expectFormattingHidden();
+        expectFormattingAvailable();
         composer.text.value = const TextEditingValue(
           text: 'hello',
           selection: TextSelection.collapsed(offset: 5),
         );
         await tester.pumpAndSettle();
-        expectFormattingHidden();
+        expectFormattingAvailable();
 
         // A selection-only change must restore the controls immediately.
         composer.text.selection = const TextSelection(
@@ -1014,7 +1033,7 @@ void main() {
         expect(composer.raw, '**hello**');
         composer.text.selection = const TextSelection.collapsed(offset: -1);
         await tester.pumpAndSettle();
-        expectFormattingHidden();
+        expectFormattingAvailable();
         expect(
           find.byKey(const ValueKey('composer-selection-toolbar')),
           findsNothing,
@@ -1080,7 +1099,15 @@ void main() {
         );
         composer.text.selection = const TextSelection.collapsed(offset: 0);
         await tester.pumpAndSettle();
-        expect(color, findsNothing);
+        expect(color, findsOneWidget);
+        expect(
+          tester
+              .widget<DButton>(
+                find.ancestor(of: color, matching: find.byType(DButton)),
+              )
+              .onPressed,
+          isNull,
+        );
         expect(
           find.byKey(const ValueKey('composer-color-palette')),
           findsNothing,
@@ -1963,61 +1990,73 @@ void main() {
       });
     }
 
-    testWidgets('phone toolbar overflow blends into the capsule', (
-      tester,
-    ) async {
-      const size = Size(320, 800);
-      final composer = ComposerController(
-        _newTopicTarget,
-        imageUploader:
-            (file, {required onProgress, required abortTrigger}) async =>
-                throw StateError('The picker is not invoked by this test.'),
-      );
-      final shell = await _shell();
-      addTearDown(composer.dispose);
-      addTearDown(shell.dispose);
-      tester.view.viewInsets = FakeViewPadding(
-        bottom: 320 * tester.view.devicePixelRatio,
-      );
-      addTearDown(tester.view.resetViewInsets);
-      await _pumpPanel(
-        tester,
-        shell,
-        composer,
-        size: size,
-        height: size.height,
-        resizeToAvoidBottomInset: false,
-      );
-      composer.focus.requestFocus();
-      composer.insertEmoji('wave');
-      composer.insertEmoji('smile');
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('composer-undo')));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'phone tools scroll in one row and dock undo keeps the keyboard open',
+      (tester) async {
+        const size = Size(320, 800);
+        final composer = ComposerController(
+          _newTopicTarget,
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async =>
+                  throw StateError('The picker is not invoked by this test.'),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: 320 * tester.view.devicePixelRatio,
+        );
+        addTearDown(tester.view.resetViewInsets);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          size: size,
+          height: size.height,
+          resizeToAvoidBottomInset: false,
+        );
+        composer.focus.requestFocus();
+        composer.insertEmoji('wave');
+        composer.insertEmoji('smile');
+        await tester.pumpAndSettle();
+        final bar = find.byType(DComposerActionBar);
+        final undo = find.byKey(const ValueKey('composer-undo'));
+        final redo = find.byKey(const ValueKey('composer-redo'));
+        final viewport = find.byKey(const ValueKey('composer-toolbar-scroll'));
+        expect(find.descendant(of: bar, matching: undo), findsOneWidget);
+        expect(find.descendant(of: viewport, matching: undo), findsNothing);
+        final raw = composer.raw;
+        await tester.tap(undo);
+        await tester.pumpAndSettle();
+        expect(composer.raw, isNot(raw));
+        expect(composer.focus.hasFocus, isTrue);
+        await tester.tap(redo);
+        await tester.pumpAndSettle();
+        expect(composer.raw, raw);
+        expect(composer.focus.hasFocus, isTrue);
 
-      final forward = find.byKey(
-        const ValueKey('composer-toolbar-scroll-forward'),
-      );
-      expect(forward, findsOneWidget);
-      final viewport = tester.getRect(
-        find.byKey(const ValueKey('composer-toolbar-scroll')),
-      );
-      final pixels = await _toolbarPixels(tester, name: 'phone-overflow');
-      final rowStart = viewport.center.dy.floor() * size.width.toInt();
-      final edge = viewport.right.floor();
-      expect(
-        pixels.getUint32((rowStart + edge - 2) * 4),
-        pixels.getUint32((rowStart + edge + 2) * 4),
-      );
-
-      await tester.tap(forward);
-      await tester.pumpAndSettle();
-      expect(forward, findsNothing);
-      expect(
-        find.byKey(const ValueKey('composer-toolbar-scroll-backward')),
-        findsOneWidget,
-      );
-    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+        final position = tester
+            .widget<SingleChildScrollView>(viewport)
+            .controller!
+            .position;
+        expect(position.maxScrollExtent, greaterThan(0));
+        expect(
+          tester
+              .widget<DScrollFadeScope>(
+                find.byKey(const ValueKey('composer-toolbar-bar')),
+              )
+              .horizontalExtent,
+          28,
+        );
+        await _toolbarPixels(tester, name: 'phone-overflow');
+        await tester.drag(viewport, const Offset(-300, 0));
+        await tester.pumpAndSettle();
+        expect(position.pixels, greaterThan(0));
+        expect(composer.focus.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
 
     testWidgets('does not show toolbar chevrons when all tools fit', (
       tester,

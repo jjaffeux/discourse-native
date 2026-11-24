@@ -39,6 +39,7 @@ export 'src/ui/components/d_collapsible.dart';
 export 'src/ui/components/d_color_picker.dart';
 export 'src/ui/components/d_combobox.dart';
 export 'src/ui/components/d_command.dart';
+export 'src/ui/components/d_composer_action_bar.dart';
 export 'src/ui/components/d_composer_dock.dart';
 export 'src/ui/components/d_confetti.dart';
 export 'src/ui/components/d_context_menu.dart';

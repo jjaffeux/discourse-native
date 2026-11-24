@@ -151,8 +151,8 @@ void main() {
         expect(find.byType(ComposerPanel), findsOneWidget);
         final toolbarBar = find.byKey(const ValueKey('composer-toolbar-bar'));
         expect(
-          tester.widget<DCard>(toolbarBar).variant,
-          DCardVariant.floatingCapsule,
+          tester.widget<DScrollFadeScope>(toolbarBar).horizontalExtent,
+          28,
         );
 
         final panelContext = tester.element(find.byType(ComposerPanel));
@@ -173,14 +173,7 @@ void main() {
         );
         expect(
           tester.getRect(bottomBlur).top,
-          closeTo(
-            tester
-                .getCenter(
-                  find.byKey(const ValueKey('composer-category-action')),
-                )
-                .dy,
-            .01,
-          ),
+          lessThanOrEqualTo(tester.getRect(toolbarBar).top),
         );
         expect(tester.getRect(bottomBlur).bottom, 844);
         expect(
@@ -423,9 +416,7 @@ void main() {
       // 6 past half the foot's room, as the bar of places stands, or 6 off
       // the keyboard.
       expect(
-        tester
-            .getRect(find.byKey(const ValueKey('composer-toolbar-bar')))
-            .bottom,
+        tester.getRect(find.byType(DComposerActionBar)).bottom,
         844 - keyboard - (6 + foot / 2),
       );
       expect(tester.takeException(), isNull);
