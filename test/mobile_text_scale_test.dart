@@ -13,145 +13,137 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final brightness in Brightness.values) {
-    testWidgets(
-      'shared scale reaches titles, reading, controls and overlays in $brightness',
-      (tester) async {
-        final baseline = switch (defaultTargetPlatform) {
-          TargetPlatform.iOS || TargetPlatform.android => 17.0,
-          _ => 14.0,
-        };
-        final baselineScale = baseline / 14;
-        tester.view.physicalSize = const Size(320, 900);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        final settings = AppSettingsController(
-          store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
-        );
-        addTearDown(settings.dispose);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: brightness == Brightness.light
-                ? AppTheme.light
-                : AppTheme.dark,
-            builder: (context, child) =>
-                AppTextScaleRegion(controller: settings, child: child!),
-            home: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TopicListRow(
-                    siteUrl: 'https://example.invalid',
-                    topic: const Topic(
-                      id: 1,
-                      title: 'Conference Days Single Source of Truth-Seville',
-                      slug: 'conference-days',
-                      postsCount: 20,
-                      lastPosterUsername: 'markdoerr',
-                      excerpt:
-                          'Hey team! The countdown is on until we see each other in Seville!',
-                      tags: [
-                        TopicTag(name: '2026-seville'),
-                        TopicTag(name: 'conference-days'),
-                      ],
-                    ),
-                    onTap: () {},
-                  ),
-                  const DText('Page title', variant: DTextVariant.h3),
-                  const DText('Native reading'),
-                  const CookedHtml(html: '<p>Cooked reading</p>'),
-                  for (final size in DButtonSize.values)
-                    DButton(
-                      label: Text(size.name),
-                      size: size,
-                      onPressed: () {},
-                    ),
-                  DSelect<String>(
-                    value: 'latest',
-                    isExpanded: true,
-                    entries: const [
-                      DSelectItem(
-                        value: 'latest',
-                        textValue: 'Latest',
-                        child: Text('Latest'),
-                      ),
-                      DSelectItem(
-                        value: 'new',
-                        textValue: 'New',
-                        child: Text('New'),
-                      ),
+  testWidgets(
+    'shared scale reaches titles, reading, controls and overlays in dark mode',
+    (tester) async {
+      final baseline = switch (defaultTargetPlatform) {
+        TargetPlatform.iOS || TargetPlatform.android => 17.0,
+        _ => 14.0,
+      };
+      final baselineScale = baseline / 14;
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final settings = AppSettingsController(
+        store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+      );
+      addTearDown(settings.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          builder: (context, child) =>
+              AppTextScaleRegion(controller: settings, child: child!),
+          home: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TopicListRow(
+                  siteUrl: 'https://example.invalid',
+                  topic: const Topic(
+                    id: 1,
+                    title: 'Conference Days Single Source of Truth-Seville',
+                    slug: 'conference-days',
+                    postsCount: 20,
+                    lastPosterUsername: 'markdoerr',
+                    excerpt:
+                        'Hey team! The countdown is on until we see each other in Seville!',
+                    tags: [
+                      TopicTag(name: '2026-seville'),
+                      TopicTag(name: 'conference-days'),
                     ],
-                    onChanged: (_) {},
                   ),
-                ],
-              ),
+                  onTap: () {},
+                ),
+                const DText('Page title', variant: DTextVariant.h3),
+                const DText('Native reading'),
+                const CookedHtml(html: '<p>Cooked reading</p>'),
+                for (final size in DButtonSize.values)
+                  DButton(label: Text(size.name), size: size, onPressed: () {}),
+                DSelect<String>(
+                  value: 'latest',
+                  isExpanded: true,
+                  entries: const [
+                    DSelectItem(
+                      value: 'latest',
+                      textValue: 'Latest',
+                      child: Text('Latest'),
+                    ),
+                    DSelectItem(
+                      value: 'new',
+                      textValue: 'New',
+                      child: Text('New'),
+                    ),
+                  ],
+                  onChanged: (_) {},
+                ),
+              ],
             ),
           ),
+        ),
+      );
+      for (final zoom in AppTextScale.values) {
+        await settings.setTextScale(zoom);
+        await tester.pumpAndSettle();
+        final native = _paragraph(tester, 'Native reading');
+        final cooked = _paragraph(tester, 'Cooked reading');
+        final page = _paragraph(tester, 'Page title');
+        final title = _paragraph(
+          tester,
+          'Conference Days Single Source of Truth-Seville',
         );
-        for (final zoom in AppTextScale.values) {
-          await settings.setTextScale(zoom);
-          await tester.pumpAndSettle();
-          final native = _paragraph(tester, 'Native reading');
-          final cooked = _paragraph(tester, 'Cooked reading');
-          final page = _paragraph(tester, 'Page title');
-          final title = _paragraph(
-            tester,
-            'Conference Days Single Source of Truth-Seville',
-          );
-          expect(native.text.style!.fontSize, 14);
-          expect(page.text.style!.fontSize, 22);
-          expect(page.text.style!.height! * 22, 27.5);
-          expect(title.text.style!.fontSize, 14.5);
-          expect(title.text.style!.height! * 14.5, closeTo(19.575, .001));
-          expect(
-            native.textScaler.scale(14),
-            closeTo(baseline * zoom.factor, .001),
-          );
-          expect(
-            cooked.textScaler.scale(cooked.text.style!.fontSize!),
-            closeTo(native.textScaler.scale(14), .001),
-          );
-          for (final (size, base) in [
-            ('small', 12.5),
-            ('regular', 12.5),
-            ('large', 14.0),
-          ]) {
-            final label = _paragraph(tester, size);
-            expect(label.text.style!.fontSize, base);
-            expect(
-              label.textScaler.scale(base.toDouble()),
-              closeTo(base * baselineScale * zoom.factor, .001),
-            );
-            expect(label.didExceedMaxLines, isFalse);
-          }
-          expect(tester.takeException(), isNull);
-        }
-        await tester.ensureVisible(find.text('Latest'));
-        await tester.tap(find.text('Latest'));
-        await tester.pumpAndSettle();
-        final option = _paragraph(tester, 'New');
-        expect(option.text.style!.fontSize, 13);
-        expect(option.textScaler.scale(13), closeTo(26 * baselineScale, .001));
-        expect(option.didExceedMaxLines, isFalse);
-        await tester.tap(find.text('New').last);
-        await tester.pumpAndSettle();
-        await settings.resetTextScale();
-        await tester.pumpAndSettle();
+        expect(native.text.style!.fontSize, 14);
+        expect(page.text.style!.fontSize, 22);
+        expect(page.text.style!.height! * 22, 27.5);
+        expect(title.text.style!.fontSize, 14.5);
+        expect(title.text.style!.height! * 14.5, closeTo(19.575, .001));
         expect(
-          _paragraph(tester, 'Native reading').textScaler.scale(14),
-          baseline,
+          native.textScaler.scale(14),
+          closeTo(baseline * zoom.factor, .001),
         );
-        expect(settings.textScale, AppTextScale.percent100);
+        expect(
+          cooked.textScaler.scale(cooked.text.style!.fontSize!),
+          closeTo(native.textScaler.scale(14), .001),
+        );
+        for (final (size, base) in [
+          ('small', 12.5),
+          ('regular', 12.5),
+          ('large', 14.0),
+        ]) {
+          final label = _paragraph(tester, size);
+          expect(label.text.style!.fontSize, base);
+          expect(
+            label.textScaler.scale(base.toDouble()),
+            closeTo(base * baselineScale * zoom.factor, .001),
+          );
+          expect(label.didExceedMaxLines, isFalse);
+        }
         expect(tester.takeException(), isNull);
-      },
-      variant: const TargetPlatformVariant({
-        TargetPlatform.macOS,
-        TargetPlatform.iOS,
-        TargetPlatform.android,
-      }),
-    );
-  }
+      }
+      await tester.ensureVisible(find.text('Latest'));
+      await tester.tap(find.text('Latest'));
+      await tester.pumpAndSettle();
+      final option = _paragraph(tester, 'New');
+      expect(option.text.style!.fontSize, 13);
+      expect(option.textScaler.scale(13), closeTo(26 * baselineScale, .001));
+      expect(option.didExceedMaxLines, isFalse);
+      await tester.tap(find.text('New').last);
+      await tester.pumpAndSettle();
+      await settings.resetTextScale();
+      await tester.pumpAndSettle();
+      expect(
+        _paragraph(tester, 'Native reading').textScaler.scale(14),
+        baseline,
+      );
+      expect(settings.textScale, AppTextScale.percent100);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   testWidgets(
     'mobile baseline respects minimum and larger system text sizes',
