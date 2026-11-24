@@ -30,7 +30,8 @@ enum DToggleDensity {
   disclosure,
 
   /// Header-menu pills with accent selection and recessed rest.
-  /// Use [DControlSize.filter] for the 36px phone pill.
+  /// Use [DControlSize.filter] for the 36px phone pill or
+  /// [DControlSize.large] for a phone composer tool.
   menuFilter,
   chatReaction,
 
@@ -290,7 +291,8 @@ class _DToggleState extends State<DToggle> {
     final menuFilter = widget.density == DToggleDensity.menuFilter;
     final touchFilter =
         menuFilter &&
-        widget.size == DToggleSize.filter &&
+        (widget.size == DToggleSize.filter ||
+            widget.size == DToggleSize.large) &&
         DControlStyle.usesTouchGeometry(context);
     final chatReaction = widget.density == DToggleDensity.chatReaction;
     // ChatBubble derives these roles from the palette's raw secondary, not
