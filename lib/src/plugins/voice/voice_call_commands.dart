@@ -71,6 +71,8 @@ final class _VoiceCallCommands {
         apiKey: credentials.apiKey!,
         userId: userId,
         role: role,
+        sessionOnly:
+            call.room.type == VoiceRoomType.stage && role == VoiceRole.speaker,
         clientId: credentials.clientId,
       ),
       keyOnly: false,

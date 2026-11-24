@@ -8497,7 +8497,7 @@ void main() {
       },
     );
 
-    test('write a membership for the active room', () async {
+    test('write a membership for the active room on legacy Voice', () async {
       transport.responses['POST /voice/rooms/7/memberships.json'] = {};
       await controller.ensureLoaded(firstSite);
       await controller.join(
@@ -8521,6 +8521,43 @@ void main() {
         ),
         [
           {'user_id': 2, 'role': 'speaker'},
+          {'user_id': 2, 'role': 'participant'},
+        ],
+      );
+    });
+
+    test('promote a stage listener for the current Live session', () async {
+      final joinPayload = fixture('join_mesh');
+      (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
+      const membershipPath = '/live/rooms/7/memberships.json';
+      useTransport(
+        RecordingPluginTransport(
+          responses: {
+            'POST /live/rooms/7/join.json': joinPayload,
+            'POST /live/rooms/7/state.json': {},
+            'POST $membershipPath': {},
+          },
+        ),
+        namespaceFor: (_) => VoiceNamespace.live,
+      );
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: VoiceRoom.fromJson(fixture('room')),
+      );
+
+      await controller.setParticipantRole(2, VoiceRole.speaker);
+      await controller.setParticipantRole(2, VoiceRole.participant);
+
+      final writes = transport.writes.where(
+        (write) => write.path == membershipPath,
+      );
+      expect(
+        writes.map(
+          (write) => {...write.body}..removeWhere((_, value) => value == null),
+        ),
+        [
+          {'user_id': 2, 'role': 'speaker', 'session_only': true},
           {'user_id': 2, 'role': 'participant'},
         ],
       );

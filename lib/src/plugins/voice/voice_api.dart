@@ -353,11 +353,14 @@ final class VoiceApi {
     int? userId,
     String? username,
     required VoiceRole role,
+    bool sessionOnly = false,
     String? clientId,
   }) => _voidWrite(siteUrl, '/rooms/$roomId/memberships.json', 'POST', apiKey, {
     'user_id': userId,
     'username': username,
     'role': role.wireName,
+    if (sessionOnly && namespaceFor(siteUrl) == VoiceNamespace.live)
+      'session_only': true,
   }, clientId);
 
   Future<void> updateMembership({
