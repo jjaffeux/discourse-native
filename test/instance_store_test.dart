@@ -405,22 +405,28 @@ void main() {
       },
     );
 
-    test('keeps the rail in order, and keeps a signed-out site', () async {
-      const first = DiscourseInstance(
-        url: 'https://one.example.com',
-        title: 'One',
-      );
-      const second = DiscourseInstance(
-        url: 'https://two.example.com',
-        title: 'Two',
-      );
+    test(
+      'keeps rail order and signed-out sites until the saved rail is cleared',
+      () async {
+        const first = DiscourseInstance(
+          url: 'https://one.example.com',
+          title: 'One',
+        );
+        const second = DiscourseInstance(
+          url: 'https://two.example.com',
+          title: 'Two',
+        );
 
-      await store.save([first, second]);
-      final loaded = await store.load();
+        await store.save([first, second]);
+        final loaded = await store.load();
 
-      expect(loaded.map((i) => i.url), [first.url, second.url]);
-      expect(loaded.every((i) => !i.isConnected), isTrue);
-    });
+        expect(loaded.map((i) => i.url), [first.url, second.url]);
+        expect(loaded.every((i) => !i.isConnected), isTrue);
+
+        await store.save(const []);
+        expect(await store.load(), isEmpty);
+      },
+    );
 
     test('persists a resolved site appearance', () async {
       final appearance = siteAppearance(
@@ -437,15 +443,6 @@ void main() {
       final loaded = await store.load();
 
       expect(loaded.single.appearance, appearance);
-    });
-
-    test('saving an empty rail wipes the stored one', () async {
-      await store.save([
-        const DiscourseInstance(url: 'https://one.example.com', title: 'One'),
-      ]);
-      await store.save(const []);
-
-      expect(await store.load(), isEmpty);
     });
 
     test('overlapping saves persist the newest snapshot', () async {
