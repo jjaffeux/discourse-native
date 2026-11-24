@@ -36,6 +36,7 @@ import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/add_instance_sheet.dart';
+import 'shell/android_share_prompts.dart';
 import 'shell/app_motion.dart';
 import 'shell/app_text_scale.dart';
 import 'shell/component_styleguide_scope.dart';
@@ -432,7 +433,14 @@ class _DiscourseAppState extends State<DiscourseApp>
                 controller: _controller.appSettings,
                 child: _MouseNavigationRegion(
                   navigatorKey: _navigatorKey,
-                  child: child ?? const SizedBox.shrink(),
+                  child:
+                      !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+                      ? AndroidSharePrompts(
+                          shell: _controller,
+                          navigatorKey: _navigatorKey,
+                          child: child ?? const SizedBox.shrink(),
+                        )
+                      : child ?? const SizedBox.shrink(),
                 ),
               ),
             ),

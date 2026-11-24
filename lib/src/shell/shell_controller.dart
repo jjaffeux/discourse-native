@@ -72,6 +72,7 @@ import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
 import '../models/composer_draft.dart';
+import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
@@ -6044,11 +6045,36 @@ class ShellController extends FrameSafeNotifier
     sourceRoute: topicListContent,
   );
 
-  Future<void> _openNewTopic({
+  /// Seeds a fresh topic on the forum explicitly chosen for an Android share.
+  Future<ComposerController?> openSharedTopic({
+    required String siteUrl,
+    required String? text,
+    required List<ComposerUploadFile> files,
+  }) async {
+    final index = _instances.indexWhere(
+      (site) => site.url == siteUrl && site.user?.canCreateTopic == true,
+    );
+    if (isDisposed || index < 0) return null;
+    if (!forumActive || index != _instanceIndex) selectInstance(index);
+    return _openNewTopic(
+      permitted: canCreateTopicFromSidebar,
+      revealContent: true,
+      sourceRoute: topicListContent,
+      onOpened: (composer) {
+        if (text != null) composer.insertText(text);
+        if (files.isNotEmpty) {
+          composer.addFiles(files, composer.text.text.length);
+        }
+      },
+    );
+  }
+
+  Future<ComposerController?> _openNewTopic({
     required bool permitted,
     required bool revealContent,
     ContentRoute? sourceRoute,
     UserDraft? listedDraft,
+    void Function(ComposerController)? onOpened,
   }) async {
     final instance = currentInstance;
     final route = sourceRoute ?? currentContent;
@@ -6059,7 +6085,7 @@ class ShellController extends FrameSafeNotifier
         feedId == null ||
         tabId == null ||
         !permitted) {
-      return;
+      return null;
     }
     final origin = NewTopicOpeningOrigin(
       siteUrl: instance.url,
@@ -6081,7 +6107,7 @@ class ShellController extends FrameSafeNotifier
     if (plan == null ||
         !_composerOpening.isCurrent(plan) ||
         !_replaceComposer()) {
-      return;
+      return null;
     }
     final composer = _buildTextComposer(
       plan.target,
@@ -6091,8 +6117,14 @@ class ShellController extends FrameSafeNotifier
     _composerRegistry.add(composer);
     if (revealContent) _revealMobileDocument();
     final enrichment = _composerOpening.start(plan, composer);
+    onOpened?.call(composer);
     _notify();
-    await enrichment;
+    if (onOpened == null) {
+      await enrichment;
+    } else {
+      enrichment.ignore();
+    }
+    return composer;
   }
 
   /// Whether [topic] offers continuing in a new topic, or, from a message, in

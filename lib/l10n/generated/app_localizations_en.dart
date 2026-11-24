@@ -9382,6 +9382,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseForumForNewTopic => 'Choose forum for new topic';
 
   @override
+  String get androidShareNeedsForum =>
+      'Sign in to a forum where you can create topics, then share again.';
+
+  @override
+  String get androidShareCouldNotRead =>
+      'Some shared content couldn’t be read.';
+
+  @override
+  String get androidSharePreparingMedia => 'Preparing shared media…';
+
+  @override
+  String get androidShareCouldNotOpenTopic =>
+      'Couldn’t open a topic for this share. Try sharing again.';
+
+  @override
   String get previousTopic => 'Previous topic';
 
   @override

@@ -12232,7 +12232,23 @@
   },
   "chooseForumForNewTopic": "Choose forum for new topic",
   "@chooseForumForNewTopic": {
-    "description": "English UI message used by shell/topic_list_footer.dart. Keep placeholders intact."
+    "description": "Title of the forum picker for starting a new topic."
+  },
+  "androidShareNeedsForum": "Sign in to a forum where you can create topics, then share again.",
+  "@androidShareNeedsForum": {
+    "description": "Toast when an Android share has no eligible destination forum."
+  },
+  "androidShareCouldNotRead": "Some shared content couldn’t be read.",
+  "@androidShareCouldNotRead": {
+    "description": "Toast when all or part of an Android share could not be imported."
+  },
+  "androidSharePreparingMedia": "Preparing shared media…",
+  "@androidSharePreparingMedia": {
+    "description": "Progress toast while copying the selected Android share files into the app."
+  },
+  "androidShareCouldNotOpenTopic": "Couldn’t open a topic for this share. Try sharing again.",
+  "@androidShareCouldNotOpenTopic": {
+    "description": "Toast when the Android share’s topic composer could not be opened."
   },
   "previousTopic": "Previous topic",
   "@previousTopic": {

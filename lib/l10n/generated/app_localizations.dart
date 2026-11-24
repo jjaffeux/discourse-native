@@ -16092,11 +16092,35 @@ abstract class AppLocalizations {
   /// **'Your saved sites have not been changed. Try loading them again.'**
   String get yourSavedSitesHaveNotBeenChangedTryLoadingThemAgain;
 
-  /// English UI message used by shell/topic_list_footer.dart. Keep placeholders intact.
+  /// Title of the forum picker for starting a new topic.
   ///
   /// In en, this message translates to:
   /// **'Choose forum for new topic'**
   String get chooseForumForNewTopic;
+
+  /// Toast when an Android share has no eligible destination forum.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to a forum where you can create topics, then share again.'**
+  String get androidShareNeedsForum;
+
+  /// Toast when all or part of an Android share could not be imported.
+  ///
+  /// In en, this message translates to:
+  /// **'Some shared content couldn’t be read.'**
+  String get androidShareCouldNotRead;
+
+  /// Progress toast while copying the selected Android share files into the app.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing shared media…'**
+  String get androidSharePreparingMedia;
+
+  /// Toast when the Android share’s topic composer could not be opened.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t open a topic for this share. Try sharing again.'**
+  String get androidShareCouldNotOpenTopic;
 
   /// English UI message used by shell/topic_list_footer.dart. Keep placeholders intact.
   ///

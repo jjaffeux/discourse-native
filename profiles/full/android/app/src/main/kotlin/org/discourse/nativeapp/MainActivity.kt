@@ -8,15 +8,18 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val pushNotifications = AndroidPushNotifications(this)
     private val linkOpens = AndroidLinkOpens()
+    private val shares by lazy { AndroidShares(applicationContext) }
     private val keyboardTransitions = AndroidKeyboardTransitions()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         pushNotifications.attach(flutterEngine.dartExecutor.binaryMessenger)
         linkOpens.attach(flutterEngine.dartExecutor.binaryMessenger)
+        shares.attach(flutterEngine.dartExecutor.binaryMessenger)
         keyboardTransitions.attach(flutterEngine.dartExecutor.binaryMessenger, window.decorView)
         linkOpens.didOpen(intent)
         pushNotifications.didOpen(intent)
+        shares.didReceive(intent)
         val credentials = CredentialStorage(applicationContext)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -48,6 +51,7 @@ class MainActivity : FlutterActivity() {
         setIntent(intent)
         linkOpens.didOpen(intent)
         pushNotifications.didOpen(intent)
+        shares.didReceive(intent)
     }
 
     override fun onRequestPermissionsResult(
@@ -62,6 +66,7 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         keyboardTransitions.detach()
         linkOpens.detach()
+        shares.detach()
         pushNotifications.detach()
         super.cleanUpFlutterEngine(flutterEngine)
     }
