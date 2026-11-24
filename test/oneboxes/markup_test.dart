@@ -10,15 +10,12 @@ dom.Element element(String source) =>
 void main() {
   group('hexColorIn', () {
     test('reads the colour out of either form the templates write', () {
+      expect(hexColorIn('#000000'), const Color(0xFF000000));
       expect(hexColorIn('background-color: #0088CC'), const Color(0xFF0088CC));
       expect(
         hexColorIn('box-shadow: -5px 0px #ab9364'),
         const Color(0xFFAB9364),
       );
-    });
-
-    test('is opaque whatever the site wrote', () {
-      expect(hexColorIn('#000000')!.a, 1.0);
     });
 
     test('expands a category color stored as three hex digits', () {
