@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -93,7 +94,7 @@ void main() {
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'full mobile sheet extends behind the keyboard in $brightness',
+      'mobile draft clips above the fixed toolbar in $brightness',
       (tester) async {
         const user = DiscourseUser(
           id: 7,
@@ -138,7 +139,7 @@ void main() {
             child: MaterialApp(
               theme: AppTheme.forBrightness(
                 brightness,
-              ).copyWith(platform: TargetPlatform.iOS),
+              ).copyWith(platform: defaultTargetPlatform),
               home: const RepaintBoundary(
                 key: _captureKey,
                 child: AdaptiveShell(),
@@ -166,29 +167,6 @@ void main() {
           find.byKey(const ValueKey('composer-footer')),
         );
         expect((footer.decoration! as BoxDecoration).gradient, isNull);
-        final bottomBlur = find.byKey(const ValueKey('composer-footer-blur'));
-        expect(
-          tester.widget<DGradientBlur>(bottomBlur).edge,
-          DGradientBlurEdge.bottom,
-        );
-        expect(
-          tester.getRect(bottomBlur).top,
-          lessThanOrEqualTo(tester.getRect(toolbarBar).top),
-        );
-        expect(tester.getRect(bottomBlur).bottom, 844);
-        expect(
-          tester.widget<DGradientBlur>(bottomBlur).fullStrengthExtent,
-          336,
-        );
-        expect(
-          tester
-              .widget<CustomScrollView>(
-                find.byKey(const ValueKey('composer-mobile-scroll')),
-              )
-              .clipBehavior,
-          Clip.none,
-        );
-
         expect(tester.getRect(find.byType(ComposerPanel)).bottom, 844);
         final handle = tester.getRect(
           find.byKey(const ValueKey('sheet-drag-handle')),
@@ -231,12 +209,19 @@ void main() {
           selection: const TextSelection.collapsed(offset: 0),
         );
         await tester.pumpAndSettle();
-        final before = await _pixelsUnderKeyboard(tester);
         final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
         final scroll = tester.widget<CustomScrollView>(viewport).controller!;
         final footerBefore = tester.getRect(
           find.byKey(const ValueKey('composer-footer')),
         );
+        expect(tester.getRect(viewport).bottom, footerBefore.top);
+        final footerAndKeyboard = Rect.fromLTRB(
+          16,
+          footerBefore.top.ceilToDouble(),
+          374,
+          844,
+        );
+        final before = await _pixelsInRect(tester, footerAndKeyboard);
         await tester.drag(viewport, const Offset(0, -137));
         await tester.pumpAndSettle();
         expect(scroll.offset, greaterThan(50));
@@ -248,14 +233,13 @@ void main() {
               .edge,
           DGradientBlurEdge.top,
         );
-        final after = await _pixelsUnderKeyboard(tester);
+        final after = await _pixelsInRect(tester, footerAndKeyboard);
         expect(
-          [
-            for (var i = 0; i < before.length; i++)
-              if (before[i] != after[i]) i,
-          ].length,
-          greaterThan(100),
-          reason: 'Scrolling the sheet must repaint text behind the keyboard.',
+          listEquals(before, after),
+          isTrue,
+          reason:
+              'Scrolling the draft must leave the footer and keyboard '
+              'backdrop pixels unchanged.',
         );
         expect(
           tester.getRect(find.byKey(const ValueKey('composer-footer'))),
@@ -286,6 +270,10 @@ void main() {
         );
         expect(tester.takeException(), isNull);
       },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
     );
   }
 
@@ -429,27 +417,12 @@ Future<List<int>> _pixelColumn(
   required int x,
   required int from,
   required int to,
-}) async {
-  final boundary = tester.renderObject<RenderRepaintBoundary>(
-    find.byKey(_captureKey),
-  );
-  return (await tester.runAsync(() async {
-    final image = await boundary.toImage(pixelRatio: 1);
-    try {
-      final data = (await image.toByteData(
-        format: ui.ImageByteFormat.rawRgba,
-      ))!;
-      return [
-        for (var y = from; y < to; y++)
-          data.getUint32((y * image.width + x) * 4),
-      ];
-    } finally {
-      image.dispose();
-    }
-  }))!;
-}
+}) => _pixelsInRect(
+  tester,
+  Rect.fromLTWH(x.toDouble(), from.toDouble(), 1, (to - from).toDouble()),
+);
 
-Future<List<int>> _pixelsUnderKeyboard(WidgetTester tester) async {
+Future<List<int>> _pixelsInRect(WidgetTester tester, Rect rect) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(
     find.byKey(_captureKey),
   );
@@ -460,8 +433,8 @@ Future<List<int>> _pixelsUnderKeyboard(WidgetTester tester) async {
         format: ui.ImageByteFormat.rawRgba,
       ))!;
       return [
-        for (var y = 528; y < 588; y++)
-          for (var x = 16; x < 374; x++)
+        for (var y = rect.top.toInt(); y < rect.bottom; y++)
+          for (var x = rect.left.toInt(); x < rect.right; x++)
             data.getUint32((y * image.width + x) * 4),
       ];
     } finally {

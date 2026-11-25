@@ -165,12 +165,6 @@ void main() {
             lessThan(tester.getRect(toolbar).top),
           );
           expect(tester.getRect(toolbar).bottom, lessThanOrEqualTo(470));
-          expect(
-            tester
-                .getRect(find.byKey(const ValueKey('composer-footer-blur')))
-                .top,
-            greaterThan(tester.getRect(alert).bottom),
-          );
           expect(composer.focus.hasFocus, isTrue);
           expect(composer.raw, 'My reply with #chitchat');
           expect(tester.takeException(), isNull);
@@ -2405,9 +2399,9 @@ void main() {
           expect(toolbar.bottom, lessThanOrEqualTo(470));
           expect(
             tester
-                .getRect(find.byKey(const ValueKey('composer-footer-blur')))
-                .top,
-            closeTo(recipients.center.dy, .01),
+                .getRect(find.byKey(const ValueKey('composer-mobile-scroll')))
+                .bottom,
+            lessThanOrEqualTo(recipients.top),
           );
           expect(tester.takeException(), isNull);
         },
