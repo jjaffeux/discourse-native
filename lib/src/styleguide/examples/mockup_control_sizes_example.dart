@@ -91,7 +91,7 @@ class _MockupControlSizesExampleState extends State<MockupControlSizesExample> {
         title: const Text('Notify me about replies'),
         subtitle: const Text('38 × 22px artwork; an 18px thumb.'),
       ),
-      const Text('Toolbar · 34px / segments · 26px desktop, 32px touch'),
+      const Text('Toolbar · 34px / segments · 26px desktop, 44px touch'),
       Wrap(
         spacing: DSpacing.controlGap,
         runSpacing: DSpacing.sm,

@@ -1552,10 +1552,13 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     );
   }
 
-  /// A quiet pill's label inset: the reference chip's padding and its clear
-  /// one-pixel edge, wider under a fingertip as `DButton`'s quiet pill is.
+  /// Same quiet pill inset as a button in a page's filters.
   static double _quietInset(BuildContext context) =>
-      DControlStyle.usesTouchGeometry(context) ? 13 : 11;
+      DControlStyle.usesPageFilterGeometry(context)
+      ? DControlStyle.touchFilterInset
+      : DControlStyle.usesTouchGeometry(context)
+      ? 13
+      : 11;
 
   Widget _trigger(DPopoverTriggerState trigger, double popupWidth) {
     final tokens = DTokens.of(context);

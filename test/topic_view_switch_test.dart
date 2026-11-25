@@ -94,10 +94,10 @@ void main() {
           matching: find.text('New · Topics'),
         );
         final count = find.descendant(of: _more, matching: find.text('3'));
-        expect(tester.getRect(name).left - bounds.left, 12);
+        expect(tester.getRect(name).left - bounds.left, 16);
         final badge = find.ancestor(of: count, matching: find.byType(DBadge));
         expect(tester.getRect(badge).left - tester.getRect(name).right, 7);
-        expect(bounds.right - tester.getRect(badge).right, 12);
+        expect(bounds.right - tester.getRect(badge).right, 16);
         expect(_baseline(tester, count), _baseline(tester, name));
         expect(tester.takeException(), isNull);
       });

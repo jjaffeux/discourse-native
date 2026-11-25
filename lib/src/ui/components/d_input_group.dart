@@ -152,6 +152,10 @@ class _DInputGroupState extends State<DInputGroup> {
     final quiet = widget.variant == DInputGroupVariant.quiet;
     final search = widget.variant == DInputGroupVariant.search || quiet;
     final quietFontSize = DControlStyle.isTouch(context) ? 16.0 : 12.5;
+    final touchListField =
+        quiet &&
+        widget.size == DControlSize.filter &&
+        DControlStyle.usesTouchGeometry(context);
     final composer = widget.variant == DInputGroupVariant.composer;
     final compactComposerExtent = DComposerDock.foldedDockExtentOf(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -335,7 +339,11 @@ class _DInputGroupState extends State<DInputGroup> {
     if (search) {
       content = Padding(
         // The reference's 14px inset sits inside its 1px transparent border.
-        padding: quiet
+        padding: touchListField
+            ? const EdgeInsets.symmetric(
+                horizontal: DControlStyle.touchFilterInset,
+              )
+            : quiet
             ? EdgeInsetsDirectional.only(
                 start: 11,
                 end: inlineEnd.isEmpty ? 11 : 7,
@@ -401,7 +409,11 @@ class _DInputGroupState extends State<DInputGroup> {
                             ? (widget.compact ? compactComposerExtent : 0)
                             : quiet
                             ? math.max(
-                                    DControlStyle.isTouch(context) ? 36 : 30,
+                                    touchListField
+                                        ? DControlStyle.touchFilterHeight
+                                        : DControlStyle.isTouch(context)
+                                        ? 36
+                                        : 30,
                                     DControlStyle.height(
                                       widget.size,
                                       context: context,

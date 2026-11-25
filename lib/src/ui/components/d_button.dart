@@ -1116,8 +1116,10 @@ class DButton extends StatelessWidget {
                         DControlStyle.usesTouchGeometry(context)
                     ? 16
                     : effectiveSize == DControlSize.filter &&
-                          DControlStyle.isTouch(context)
-                    ? DFitRow.closedUpOf(context)
+                          DControlStyle.usesTouchGeometry(context)
+                    ? DControlStyle.usesPageFilterGeometry(context)
+                          ? DControlStyle.touchFilterInset
+                          : DFitRow.closedUpOf(context)
                           ? 10
                           : 12
                     : joined?.quiet == true
@@ -1127,7 +1129,10 @@ class DButton extends StatelessWidget {
               )
             : DControlStyle.isApplicationSize(effectiveSize)
             ? EdgeInsets.symmetric(
-                horizontal: DControlStyle.horizontalInset(effectiveSize),
+                horizontal: DControlStyle.horizontalInset(
+                  effectiveSize,
+                  context: context,
+                ),
                 vertical: 1,
               )
             : EdgeInsetsDirectional.only(

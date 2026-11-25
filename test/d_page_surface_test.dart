@@ -87,8 +87,8 @@ void main() {
     tester,
   ) async {
     for (final (platform, height, searchHeight, findHeight) in [
-      (TargetPlatform.iOS, kDTouchTargetExtent, kDTouchTargetExtent, 36.0),
-      (TargetPlatform.android, kDTouchTargetExtent, kDTouchTargetExtent, 36.0),
+      (TargetPlatform.iOS, kDTouchTargetExtent, kDTouchTargetExtent, 48.0),
+      (TargetPlatform.android, kDTouchTargetExtent, kDTouchTargetExtent, 48.0),
       (TargetPlatform.macOS, 35.5, 36.0, 30.0),
     ]) {
       await tester.pumpWidget(

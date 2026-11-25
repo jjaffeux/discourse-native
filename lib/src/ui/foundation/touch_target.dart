@@ -251,6 +251,11 @@ class DTouchFields extends InheritedWidget {
 
   final bool _grows;
 
+  /// Whether this control is in the page controls rather than in a picker.
+  static bool contains(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DTouchFields>()?._grows ??
+      false;
+
   /// The least height a field under [context] is drawn at.
   static double minHeightOf(BuildContext context) =>
       DControlStyle.isTouch(context) &&

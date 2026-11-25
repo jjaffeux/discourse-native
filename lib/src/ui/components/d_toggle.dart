@@ -202,12 +202,13 @@ class DToggle extends StatefulWidget {
 
   static EdgeInsetsGeometry _paddingFor(
     DToggleSize size, {
+    required BuildContext context,
     required bool hasIcon,
     required DToggleIconPosition iconPosition,
   }) {
     if (DControlStyle.isApplicationSize(size)) {
       return EdgeInsets.symmetric(
-        horizontal: DControlStyle.horizontalInset(size),
+        horizontal: DControlStyle.horizontalInset(size, context: context),
       );
     }
     if (!hasIcon) return const EdgeInsets.symmetric(horizontal: 10);
@@ -625,6 +626,7 @@ class _DToggleState extends State<DToggle> {
           ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
           : (DToggle._paddingFor(
               widget.size,
+              context: context,
               hasIcon: effectiveIcon != null,
               iconPosition: widget.iconPosition,
             ))),

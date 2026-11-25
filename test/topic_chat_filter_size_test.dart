@@ -14,7 +14,7 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      'topic and chat filters share the mockup\'s 36-point controls on $platform',
+      'topic and chat filters share the mockup\'s 48-point controls on $platform',
       (tester) async {
         await topics.fixture(tester, size: phone);
         for (final key in [
@@ -24,7 +24,7 @@ void main() {
         ]) {
           expect(
             tester.getSize(find.byKey(ValueKey(key))).height,
-            36,
+            48,
             reason: key,
           );
         }
@@ -38,8 +38,8 @@ void main() {
         final filters = ChatInboxFilters();
         addTearDown(filters.dispose);
         for (final (appScale, platformScale, height) in [
-          (1.0, 1.0, 36.0),
-          (1.25, 2.0, 67.5),
+          (1.0, 1.0, 48.0),
+          (1.25, 2.0, 79.5),
         ]) {
           await tester.pumpWidget(
             MaterialApp(

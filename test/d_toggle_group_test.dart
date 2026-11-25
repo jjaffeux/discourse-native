@@ -59,8 +59,8 @@ void main() {
             matching: find.byType(DToggle),
           );
           final touch = platform != TargetPlatform.macOS;
-          expect(tester.getSize(group).height, touch ? 36 : 30);
-          expect(tester.getSize(toggles.first).height, touch ? 32 : 26);
+          expect(tester.getSize(group).height, touch ? 48 : 30);
+          expect(tester.getSize(toggles.first).height, touch ? 44 : 26);
           expect(
             DefaultTextStyle.of(
               tester.element(find.text('Suggested')),
@@ -125,7 +125,9 @@ void main() {
         half('unread').width - half('recent').width,
         label('Unread conversations').width - label('Recent').width,
       );
-      const inset = 10 + DControlDecoration.borderWidth;
+      final inset =
+          (platform == TargetPlatform.macOS ? 10 : 16) +
+          DControlDecoration.borderWidth;
       for (final (value, text) in [
         ('recent', 'Recent'),
         ('unread', 'Unread conversations'),

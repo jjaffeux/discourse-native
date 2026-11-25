@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import 'menu_content_scale.dart';
+import 'touch_target.dart';
 
 /// General controls adapt to the platform. Application presets reproduce the
 /// mockup artwork on every platform, with matching hit areas; a phone adds
@@ -15,8 +16,8 @@ enum DControlSize {
   regular,
   large,
 
-  /// Page filters: 30px artwork and 12.5px text on desktop; 36px and
-  /// 14px text/icons on phones.
+  /// Filter pills: 30px and 12.5px text on desktop. Phone pills use 14px
+  /// text and are 48px in a page header or 36px elsewhere.
   filter,
 
   /// Floating reader tools: 40px surfaces, 14px text and 15px icons.
@@ -37,7 +38,7 @@ enum DControlSize {
   /// Composer and desktop navigation actions.
   toolbar,
 
-  /// View-switch segments: 26px on desktop, 32px on touch.
+  /// View-switch segments: 26px on desktop, 44px on touch.
   segment,
 
   /// Window navigation: 15px artwork with 5px vertical and 7px side insets.
@@ -64,6 +65,8 @@ abstract final class DControlStyle {
   static const smallHeight = 24.0;
   static const regularHeight = 30.0;
   static const largeHeight = 40.0;
+  static const touchFilterHeight = 48.0;
+  static const touchFilterInset = 16.0;
 
   static const duration = Duration(milliseconds: 150);
   static const iconSize = 16.0;
@@ -107,19 +110,28 @@ abstract final class DControlStyle {
   static bool usesTouchGeometry(BuildContext? context) =>
       isTouch(context) && !DMenuContentScale.isActiveOf(context!);
 
+  static bool usesPageFilterGeometry(BuildContext? context) =>
+      usesTouchGeometry(context) && DTouchFields.contains(context!);
+
   static double height(DControlSize size, {BuildContext? context}) =>
       switch (size) {
         DControlSize.small => usesTouchGeometry(context) ? 40 : smallHeight,
         DControlSize.regular => regularHeight,
         DControlSize.large => usesTouchGeometry(context) ? 48 : largeHeight,
-        DControlSize.filter => usesTouchGeometry(context) ? 36 : regularHeight,
+        DControlSize.filter =>
+          usesPageFilterGeometry(context)
+              ? touchFilterHeight
+              : usesTouchGeometry(context)
+              ? 36
+              : regularHeight,
         DControlSize.floating => 40,
         DControlSize.field => 35.5,
         DControlSize.command => 32,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
         DControlSize.toolbar => 34,
-        DControlSize.segment => usesTouchGeometry(context) ? 32 : 26,
+        DControlSize.segment =>
+          usesTouchGeometry(context) ? touchFilterHeight - 4 : 26,
         DControlSize.chrome => 25,
         DControlSize.action => usesTouchGeometry(context) ? 44 : 34,
         DControlSize.post => 30,
@@ -181,20 +193,25 @@ abstract final class DControlStyle {
       : 4;
 
   /// Insets include the CSS border, which Native paints inside the surface.
-  static double horizontalInset(DControlSize size) => switch (size) {
-    DControlSize.filter || DControlSize.regular || DControlSize.chip => 10,
-    DControlSize.floating => 12,
-    DControlSize.field => 11,
-    DControlSize.preference => 12,
-    DControlSize.chrome => 7,
-    DControlSize.action => 14,
-    DControlSize.post => 12,
-    // The document surface supplies its border/inset pixel. The trailing
-    // button inset is the mockup's 7px gap plus 2px close-action margin.
-    DControlSize.documentTab => 9,
-    DControlSize.tabAction || DControlSize.tabClose => 0,
-    _ => 10,
-  };
+  static double horizontalInset(DControlSize size, {BuildContext? context}) =>
+      switch (size) {
+        DControlSize.filter =>
+          usesPageFilterGeometry(context) ? touchFilterInset : 10,
+        DControlSize.segment =>
+          usesTouchGeometry(context) ? touchFilterInset : 10,
+        DControlSize.regular || DControlSize.chip => 10,
+        DControlSize.floating => 12,
+        DControlSize.field => 11,
+        DControlSize.preference => 12,
+        DControlSize.chrome => 7,
+        DControlSize.action => 14,
+        DControlSize.post => 12,
+        // The document surface supplies its border/inset pixel. The trailing
+        // button inset is the mockup's 7px gap plus 2px close-action margin.
+        DControlSize.documentTab => 9,
+        DControlSize.tabAction || DControlSize.tabClose => 0,
+        _ => 10,
+      };
 
   static double chevronDimension(DControlSize size) => switch (size) {
     DControlSize.filter || DControlSize.regular || DControlSize.chip => 10,

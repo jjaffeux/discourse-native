@@ -128,7 +128,11 @@ class TopicListNavigation extends StatelessWidget {
             keepTopicOpen: keepTopicOpen,
           );
           if (headingBuilder == null) {
-            return DPageSurface(framed: false, header: controls, child: child);
+            return DPageSurface(
+              framed: false,
+              header: DTouchFields(child: controls),
+              child: child,
+            );
           }
           final route = state.route;
           final siteUrl = state.siteUrl;
