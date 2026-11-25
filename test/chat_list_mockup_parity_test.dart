@@ -192,6 +192,18 @@ void main() {
       lessThan(tester.getTopLeft(_row(1)).dy),
     );
     expect(find.text('New replies in 1 thread'), findsOneWidget);
+    for (final (text, size) in [
+      ('general', 16.0),
+      ('The channel message', 14.0),
+      (label, 13.0),
+    ]) {
+      final match = _in(1, find.text(text));
+      final element = tester.element(match);
+      final font =
+          tester.widget<Text>(match).style?.fontSize ??
+          DefaultTextStyle.of(element).style.fontSize!;
+      expect(MediaQuery.textScalerOf(element).scale(font), size);
+    }
   });
 
   testWidgets('an unread row is boxed in the unread fill and a read one is '

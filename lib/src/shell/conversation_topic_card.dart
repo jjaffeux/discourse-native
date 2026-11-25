@@ -104,6 +104,13 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isTouch && row.match == null) {
+      return DReferenceTextScale(child: Builder(builder: _build));
+    }
+    return _build(context);
+  }
+
+  Widget _build(BuildContext context) {
     if (row.compact case final compact?) {
       return _buildCard(context, compact: compact);
     }
@@ -229,7 +236,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                       ),
                       _TopicCardStatus(
                         topic: topic,
-                        titleStyle: row.titleStyle,
+                        titleStyle: _topicListTitleStyle(context, row),
                       ),
                     ],
                   ),
@@ -255,7 +262,9 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                               : TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                fontSize: DiscourseTypography.preview,
+                                fontSize: context.isTouch && match == null
+                                    ? DiscourseTypography.mobileRowPreview
+                                    : DiscourseTypography.preview,
                                 fontFamily: Theme.of(
                                   context,
                                 ).textTheme.bodyLarge?.fontFamily,

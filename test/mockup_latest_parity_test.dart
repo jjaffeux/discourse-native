@@ -990,9 +990,29 @@ void main() {
       sidebarCategories: const [support],
       topics: [
         for (var id = 1; id <= 60; id++)
-          Topic(id: id, title: 'Discussion $id', slug: 'discussion-$id'),
+          Topic(
+            id: id,
+            title: 'Discussion $id',
+            slug: 'discussion-$id',
+            excerpt: id == 1 ? 'A short topic excerpt' : null,
+          ),
       ],
     );
+    final row = find.byKey(const ValueKey('topic-card-1'));
+    for (final (label, size) in [
+      ('Discussion 1', 16.0),
+      ('A short topic excerpt', 14.0),
+      ('—', 13.0),
+    ]) {
+      final match = find.descendant(
+        of: row,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is RichText && widget.text.toPlainText() == label,
+        ),
+      );
+      final text = tester.widget<RichText>(match);
+      expect(text.textScaler.scale(text.text.style!.fontSize!), size);
+    }
     final list = find.byType(TopicListView);
     ScrollPosition position() => tester
         .state<ScrollableState>(

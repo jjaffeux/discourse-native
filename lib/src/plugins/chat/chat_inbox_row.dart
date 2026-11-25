@@ -149,23 +149,39 @@ class ChatInboxRowWords extends StatelessWidget {
   /// one line.
   static const double tailWidth = 56;
 
-  static const nameStyle = TextStyle(fontSize: 14.5, height: 1.35);
+  static const nameStyle = TextStyle(
+    fontSize: DiscourseTypography.rowTitle,
+    height: DiscourseTypography.lineHeightRowTitle,
+  );
   static const lineStyle = TextStyle(
-    fontSize: 12.5,
-    height: 1.45,
+    fontSize: DiscourseTypography.preview,
+    height: DiscourseTypography.lineHeightPreview,
     fontWeight: FontWeight.w400,
   );
   static const tailStyle = TextStyle(
-    fontSize: 12,
+    fontSize: DiscourseTypography.xs,
     fontWeight: FontWeight.w400,
     fontFeatures: [FontFeature.tabularFigures()],
   );
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: _build);
+  Widget build(BuildContext context) =>
+      DReferenceTextScale(child: LayoutBuilder(builder: _build));
 
   Widget _build(BuildContext context, BoxConstraints constraints) {
     final muted = DTokens.of(context).mutedForeground;
+    final phone = DControlStyle.isTouch(context);
+    final name = phone
+        ? nameStyle.copyWith(fontSize: DiscourseTypography.mobileRowTitle)
+        : nameStyle;
+    final line = lineStyle.copyWith(
+      fontSize: phone ? DiscourseTypography.mobileRowPreview : null,
+      color: muted,
+    );
+    final tailText = tailStyle.copyWith(
+      fontSize: phone ? DiscourseTypography.mobileRowMetadata : null,
+      color: muted,
+    );
     // A long date in large text gives way before it takes the line from
     // what was said.
     final most = constraints.maxWidth * .45;
@@ -191,7 +207,7 @@ class ChatInboxRowWords extends StatelessWidget {
             children: [
               Expanded(
                 child: DefaultTextStyle.merge(
-                  style: tailStyle.copyWith(color: muted),
+                  style: tailText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   child: over,
@@ -207,7 +223,7 @@ class ChatInboxRowWords extends StatelessWidget {
           spacing: DSpacing.sm,
           children: [
             Expanded(
-              child: DefaultTextStyle.merge(style: nameStyle, child: name),
+              child: DefaultTextStyle.merge(style: name, child: this.name),
             ),
             if (over == null)
               ?switch (count) {
@@ -221,16 +237,16 @@ class ChatInboxRowWords extends StatelessWidget {
           children: [
             Expanded(
               child: DefaultTextStyle.merge(
-                style: lineStyle.copyWith(color: muted),
+                style: line,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                child: line,
+                child: this.line,
               ),
             ),
             ?switch (tail) {
               final tail? => ended(
                 DefaultTextStyle.merge(
-                  style: tailStyle.copyWith(color: muted),
+                  style: tailText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   child: tail,

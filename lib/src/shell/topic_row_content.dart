@@ -1,5 +1,17 @@
 part of 'topic_list_view.dart';
 
+TextStyle? _topicListTitleStyle(BuildContext context, _TopicRowBody row) {
+  final theme = Theme.of(context).textTheme;
+  return row.titleStyle ??
+      theme.titleSmall?.copyWith(
+        fontSize: context.isTouch && row.match == null
+            ? DiscourseTypography.mobileRowTitle
+            : null,
+        fontFamily: theme.bodyLarge?.fontFamily,
+        fontFamilyFallback: theme.bodyLarge?.fontFamilyFallback,
+      );
+}
+
 class _TopicListTitle extends StatelessWidget {
   const _TopicListTitle({required this.row});
   final _TopicRowBody row;
@@ -8,22 +20,15 @@ class _TopicListTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final topic = row.topic;
     final tokens = DTokens.of(context);
-    final textTheme = Theme.of(context).textTheme;
     final read = topic.visited && !topic.hasUnseenActivity;
-    final titleStyle =
-        (row.titleStyle ??
-                textTheme.titleSmall?.copyWith(
-                  fontFamily: textTheme.bodyLarge?.fontFamily,
-                  fontFamilyFallback: textTheme.bodyLarge?.fontFamilyFallback,
-                ))
-            ?.copyWith(
-              color: read
-                  ? tokens.titleRead
-                  : topic.muted
-                  ? tokens.mutedForeground
-                  : tokens.foreground,
-              fontWeight: read ? FontWeight.w400 : FontWeight.w700,
-            );
+    final titleStyle = _topicListTitleStyle(context, row)?.copyWith(
+      color: read
+          ? tokens.titleRead
+          : topic.muted
+          ? tokens.mutedForeground
+          : tokens.foreground,
+      fontWeight: read ? FontWeight.w400 : FontWeight.w700,
+    );
     final match = row.match;
     return DItemTitle(
       maxLines: null,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
+import '../foundation/control_style.dart';
 import '../foundation/menu_content_scale.dart';
 import 'd_badge.dart';
 import 'd_item.dart';
@@ -40,9 +41,22 @@ class DMenuFeedRow extends StatelessWidget {
     final sheetScale = DMenuContentScale.isActiveOf(context)
         ? DMenuContentScale.factor
         : 1.0;
-    final titleSize = DiscourseTypography.rowTitle / sheetScale;
-    final excerptSize = DiscourseTypography.preview / sheetScale;
-    final timeSize = DiscourseTypography.xs / sheetScale;
+    final phone = DControlStyle.isTouch(context);
+    final titleSize =
+        (phone
+            ? DiscourseTypography.mobileRowTitle
+            : DiscourseTypography.rowTitle) /
+        sheetScale;
+    final excerptSize =
+        (phone
+            ? DiscourseTypography.mobileRowPreview
+            : DiscourseTypography.preview) /
+        sheetScale;
+    final timeSize =
+        (phone
+            ? DiscourseTypography.mobileRowMetadata
+            : DiscourseTypography.xs) /
+        sheetScale;
     final largeText = scaler.scale(titleSize) / titleSize > 1.5;
     final showCount = unread && count > 0;
     const titleHeight = DiscourseTypography.lineHeightRowTitle;

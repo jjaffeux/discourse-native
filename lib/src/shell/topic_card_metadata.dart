@@ -15,7 +15,9 @@ TextStyle _topicMetadataStyle(BuildContext context, _TopicRowBody row) {
   return styles[theme] ??= () {
     final tokens = theme.extension<DTokens>() ?? DTokens.fromTheme(theme);
     return theme.textTheme.labelSmall!.copyWith(
-      fontSize: DiscourseTypography.xs,
+      fontSize: !search && context.isTouch
+          ? DiscourseTypography.mobileRowMetadata
+          : DiscourseTypography.xs,
       height: 1.5,
       fontWeight: FontWeight.w400,
       color: search

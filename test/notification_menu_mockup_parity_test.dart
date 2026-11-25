@@ -148,11 +148,11 @@ void main() {
               tester.getSize(subjectFinder).height;
           expect(
             subject.text.style!.fontSize! * effectiveScale,
-            closeTo(12.5, .05),
+            closeTo(platform == TargetPlatform.iOS ? 14 : 12.5, .05),
           );
           expect(
             headline.text.style!.fontSize! * effectiveScale,
-            closeTo(14.5, .05),
+            closeTo(platform == TargetPlatform.iOS ? 16 : 14.5, .05),
           );
           final readRow = find.byKey(const ValueKey('notification-row-4'));
           final readSubject = tester.renderObject<RenderParagraph>(
@@ -164,13 +164,14 @@ void main() {
           expect(readSubject.text.style!.color, tokens.mutedForeground);
           expect(
             tester
-                .renderObject<RenderParagraph>(
-                  find.descendant(of: row, matching: find.text('22m')),
-                )
-                .text
-                .style!
-                .color,
-            tokens.mutedForeground,
+                    .renderObject<RenderParagraph>(
+                      find.descendant(of: row, matching: find.text('22m')),
+                    )
+                    .text
+                    .style!
+                    .fontSize! *
+                effectiveScale,
+            closeTo(platform == TargetPlatform.iOS ? 13 : 12, .05),
           );
           final grouped = find.byKey(const ValueKey('notification-row-2'));
           expect(
