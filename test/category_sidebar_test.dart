@@ -122,6 +122,25 @@ void main() {
         );
 
     final listed = sources(const [product, design, support]);
+    const nested = TopicCategory(
+      id: 8,
+      name: 'Design projects',
+      color: '00AA88',
+      parentCategoryId: 2,
+    );
+    final expanded = buildCategorySidebarSection(
+      categories: const [product, design, support, nested],
+      connected: true,
+      preferredCategoryIds: const [2],
+      scopeCategoryId: 2,
+    );
+    final designRow = expanded.destinations.singleWhere(
+      (destination) => destination.id == 'category-2',
+    );
+    expect(designRow.icon, DIcons.folder);
+    expect(designRow.iconColor, const Color(0xFF123456));
+    expect(designRow.color, isNull);
+    expect(sources(const [product, design, support, nested]), isNot(listed));
     expect(
       sources(const [
         product,

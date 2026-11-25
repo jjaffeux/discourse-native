@@ -23,6 +23,9 @@ SidebarSection buildCategorySidebarSection({
       : categories
             .where((category) => !category.isUncategorized)
             .toList(growable: false);
+  final parentIds = {
+    for (final category in displayable) ?category.parentCategoryId,
+  };
   final selectedIds = connected ? preferredCategoryIds : defaultCategoryIds;
   final selected = selectedIds.where(byId.containsKey).toSet();
   final ordered = orderedSidebarCategories(
@@ -66,6 +69,7 @@ SidebarSection buildCategorySidebarSection({
         category,
         categoriesById: byId,
         indent: depth,
+        hasChildren: parentIds.contains(category.id),
         onSave: transient && onSaveCategory != null
             ? () => onSaveCategory(category.id)
             : null,
@@ -186,11 +190,13 @@ SidebarDestination buildCategoryDestination(
   TopicCategory category, {
   required Map<int, TopicCategory> categoriesById,
   int indent = 0,
+  bool hasChildren = false,
   VoidCallback? onSave,
 }) {
   final categoryColor = Color(category.colorValue);
   final parent = categoriesById[category.parentCategoryId];
   final styleType = category.styleType;
+  final folder = hasChildren && styleType == 'square';
   final icon = styleType == 'icon'
       ? DIcons.byName[category.icon] ?? DIcons.folder
       : DIcons.folder;
@@ -202,12 +208,12 @@ SidebarDestination buildCategoryDestination(
     onSecondaryTap: onSave,
     label: category.name,
     icon: icon,
-    color: styleType == 'square' ? categoryColor : null,
-    parentColor: styleType == 'square' && parent != null
+    color: styleType == 'square' && !folder ? categoryColor : null,
+    parentColor: styleType == 'square' && !folder && parent != null
         ? Color(parent.colorValue)
         : null,
     emoji: styleType == 'emoji' ? category.emoji : null,
-    iconColor: styleType == 'icon' ? categoryColor : null,
+    iconColor: styleType == 'icon' || folder ? categoryColor : null,
     routeColor: categoryColor,
     prefixBadgeIcon: category.readRestricted ? DIcons.lock : null,
     feedPath: _categoryFeedPath(category, categoriesById),
@@ -226,6 +232,7 @@ List<Object> categorySidebarSources(
   for (final destination in section.destinations)
     if (categoriesById[_categoryIdOf(destination)] case final category?) ...[
       destination.indent,
+      destination.color != null,
       destination.onSecondaryTap != null,
       ..._ancestry(category, categoriesById),
     ] else
