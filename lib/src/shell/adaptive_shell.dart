@@ -570,17 +570,27 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
               PluginScope.of(
                 context,
               ).registry.usesMobilePageSheet(context, route));
-      return _buildScaffold(context, pageSheet: pageSheet);
+      return _buildScaffold(
+        context,
+        pageSheet: pageSheet,
+        searchOwnsKeyboard: pageSheet && route.isGlobalSearch,
+      );
     },
   );
 
-  Widget _buildScaffold(BuildContext context, {required bool pageSheet}) {
+  Widget _buildScaffold(
+    BuildContext context, {
+    required bool pageSheet,
+    required bool searchOwnsKeyboard,
+  }) {
     final media = MediaQuery.of(context);
     if (widget.mobile) {
       final keyboard = media.viewInsets.bottom;
       final retracting = keyboard > 0 && keyboard <= (_sheetKeyboard ?? 0);
       _sheetKeyboard =
-          ComposerPresentationScope.hasMobileSheetOf(context) || retracting
+          searchOwnsKeyboard ||
+              ComposerPresentationScope.hasMobileSheetOf(context) ||
+              retracting
           ? keyboard
           : null;
     } else {

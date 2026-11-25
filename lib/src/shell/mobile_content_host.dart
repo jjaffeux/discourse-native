@@ -248,6 +248,13 @@ class _MobileContentHostState extends State<_MobileContentHost> {
       covering: searchBehindTopic ? _readerCovering : null,
     );
     final hidden = covered || searchOpen;
+    final sourceTop = searchOpen
+        ? DSheetDragScope.topBarExtentOf(context) + mobilePageTopGap
+        : !hidden && searchBehindTopic
+        ? mobileRaisedPageTop
+        : 0.0;
+    // Keep the source in place as Search opens. Moving its keyed subtree to a
+    // different parent reactivates the page and rebuilds its visible rows.
     final sourcePage = Offstage(
       offstage:
           covered ||
@@ -264,25 +271,13 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                   : searchOpen
                   ? searchSource
                   : null,
-              child: hidden
-                  ? DPageHeaderHost.exclude(
-                      child: searchOpen
-                          ? Padding(
-                              padding: EdgeInsets.only(
-                                top:
-                                    DSheetDragScope.topBarExtentOf(context) +
-                                    mobilePageTopGap,
-                              ),
-                              child: TickerMode(enabled: false, child: primary),
-                            )
-                          : primary,
-                    )
-                  : searchBehindTopic
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: mobileRaisedPageTop),
-                      child: primary,
-                    )
-                  : primary,
+              child: DPageHeaderHost.exclude(
+                excluding: hidden,
+                child: Padding(
+                  padding: EdgeInsets.only(top: sourceTop),
+                  child: TickerMode(enabled: !searchOpen, child: primary),
+                ),
+              ),
             ),
           ),
         ),

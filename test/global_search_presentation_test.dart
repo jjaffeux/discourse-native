@@ -549,6 +549,52 @@ void main({bool useDeviceMetrics = false}) {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     _testPresentation(
+      'mobile $platform search keeps keyboard insets out of the topic feed',
+      (tester) async {
+        if (_useDeviceMetrics) return;
+        debugDefaultTargetPlatformOverride = platform;
+        final shell = await _pumpSearch(tester, size: phone);
+        final feed = find.byType(TopicListView);
+        final originalFeed = tester.element(feed);
+        final search = find.byKey(ForumSearch.panelKey);
+
+        void expectRestingFeed() {
+          final currentFeed = tester.element(feed);
+          expect(currentFeed, same(originalFeed));
+          final media = currentFeed.getInheritedWidgetOfExactType<MediaQuery>();
+          expect(media!.data.viewInsets.bottom, 0);
+        }
+
+        Future<void> setKeyboardInset(double inset) async {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump();
+          expectRestingFeed();
+        }
+
+        await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+        await tester.pumpAndSettle();
+        expect(_editor(tester).focusNode.hasFocus, isTrue);
+        for (final inset in [100.0, 200.0, 300.0]) {
+          await setKeyboardInset(inset);
+        }
+        // A widget test has no native keyboard completion event.
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(search).bottom, closeTo(phone.height - 300, 1));
+
+        expect(shell.handleBack(), isTrue);
+        await tester.pumpAndSettle();
+        expect(search, findsNothing);
+        expectRestingFeed();
+        for (final inset in [200.0, 100.0, 0.0]) {
+          await setKeyboardInset(inset);
+        }
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    _testPresentation(
       'mobile $platform search surface covers the keyboard without rebuilding results',
       (tester) async {
         debugDefaultTargetPlatformOverride = platform;
