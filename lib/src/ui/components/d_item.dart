@@ -15,6 +15,7 @@ import '../foundation/control_style.dart';
 import '../foundation/highlight_mode_tracking.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/item_interaction.dart';
+import '../foundation/phone_sheet.dart';
 import '../foundation/press_scale.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/touch_target.dart';
@@ -505,7 +506,7 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
             DItemShape.calendarEvent => 3.0,
             DItemShape.pill => DRadius.pill,
             DItemShape.card => DRadius.panel,
-            DItemShape.menu => 8.0,
+            DItemShape.menu => DControlStyle.menuRowRadiusOf(context),
             DItemShape.standard => DRadius.popover,
           };
     final borderRadius = BorderRadius.circular(radius);
@@ -631,9 +632,8 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
         style: artwork
             ? DefaultTextStyle.of(context).style
             : Theme.of(context).textTheme.bodyMedium!.copyWith(
-                fontSize: DControlStyle.labelFontSize,
-                height:
-                    DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
+                fontSize: DControlStyle.menuFontSizeOf(context),
+                height: DiscourseTypography.lineHeightSmall,
                 fontWeight: FontWeight.w400,
                 letterSpacing: 0,
                 color: tokens.foreground,
@@ -1197,6 +1197,8 @@ class DItemTitle extends StatelessWidget {
         TextStyle(
           fontSize: _ItemScope.drawerOf(context)
               ? DiscourseTypography.sm
+              : DPhoneSheet.contains(context)
+              ? DiscourseTypography.mobileRowTitle
               : DiscourseTypography.rowTitle,
           height: _ItemScope.drawerOf(context)
               ? 1.25
@@ -1227,7 +1229,9 @@ class DItemDescription extends StatelessWidget {
     return DefaultTextStyle(
       style: DefaultTextStyle.of(context).style.merge(
         TextStyle(
-          fontSize: DiscourseTypography.preview,
+          fontSize: DPhoneSheet.contains(context)
+              ? DiscourseTypography.mobileRowPreview
+              : DiscourseTypography.preview,
           height: _ItemScope.drawerOf(context)
               ? 1.25
               : DiscourseTypography.lineHeightPreview,

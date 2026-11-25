@@ -1444,17 +1444,21 @@ class _OwnCardMenuEntry extends StatelessWidget {
       );
     }
 
+    final phoneSheet = DPhoneSheet.contains(context);
     final avatar = UserMenuAvatar(
       avatarUrl: user.avatarUrl,
       initial: user.username.characters.firstOrNull?.toUpperCase(),
       connecting: false,
+      dimension: phoneSheet ? 42 : null,
     );
     if (dropdown) {
       return DDropdownMenuItem(
         key: const ValueKey('user-menu-own-card'),
         leading: avatar,
-        leadingGap: 10,
-        padding: const EdgeInsets.all(8),
+        leadingGap: phoneSheet ? 13 : 10,
+        padding: phoneSheet
+            ? const EdgeInsets.all(10.5)
+            : const EdgeInsets.all(8),
         semanticLabel: '${user.displayName}, @${user.username}',
         onPressed: () => unawaited(open()),
         child: Column(
@@ -1463,7 +1467,7 @@ class _OwnCardMenuEntry extends StatelessWidget {
             Text(
               user.displayName,
               style: TextStyle(
-                fontSize: DiscourseTypography.compact,
+                fontSize: phoneSheet ? 17.5 : DiscourseTypography.compact,
                 fontWeight: FontWeight.w600,
                 color: DTokens.of(context).foreground,
               ),
@@ -1471,7 +1475,7 @@ class _OwnCardMenuEntry extends StatelessWidget {
             Text(
               '@${user.username}',
               style: TextStyle(
-                fontSize: DiscourseTypography.xs,
+                fontSize: DControlStyle.menuMetadataSizeOf(context),
                 color: DTokens.of(context).mutedForeground,
               ),
             ),

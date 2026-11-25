@@ -7,15 +7,15 @@ const _sample = ValueKey('menu-size-sample');
 const _field = ValueKey('menu-field');
 
 void main() {
-  for (final (platform, card, full, expectedScale) in [
-    (TargetPlatform.iOS, false, false, 17 / 13),
-    (TargetPlatform.android, false, false, 17 / 13),
-    (TargetPlatform.macOS, false, false, 1.0),
-    (TargetPlatform.iOS, true, false, 1.0),
-    (TargetPlatform.iOS, false, true, 1.0),
+  for (final (platform, card, full, fieldHeight) in [
+    (TargetPlatform.iOS, false, false, 46.0),
+    (TargetPlatform.android, false, false, 46.0),
+    (TargetPlatform.macOS, false, false, 35.5),
+    (TargetPlatform.iOS, true, false, 35.5),
+    (TargetPlatform.iOS, false, true, 35.5),
   ]) {
     testWidgets(
-      '$platform card=$card full=$full scales menu artwork and taps',
+      '$platform card=$card full=$full lays out phone fields and accepts taps',
       (tester) async {
         var pressed = false;
         await tester.pumpWidget(
@@ -48,14 +48,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(
-          tester.getRect(find.byKey(_sample)).height,
-          closeTo(20 * expectedScale, .01),
-        );
-        expect(
-          tester.getRect(find.byKey(_field)).height,
-          closeTo(35.5 * expectedScale, .01),
-        );
+        expect(tester.getRect(find.byKey(_sample)).height, 20);
+        expect(tester.getRect(find.byKey(_field)).height, fieldHeight);
         await tester.tap(find.text('Choose item'));
         expect(pressed, isTrue);
         expect(tester.takeException(), isNull);
@@ -64,7 +58,7 @@ void main() {
   }
 
   testWidgets(
-    'menu text applies app and accessibility scale without reading uplift twice',
+    'choice text uses 17 points with the app and accessibility text scales',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -83,7 +77,11 @@ void main() {
                 side: DSheetSide.bottom,
                 variant: DSheetVariant.menu,
                 showCloseButton: false,
-                children: [Text('Menu label', style: TextStyle(fontSize: 13))],
+                children: [
+                  DDropdownMenuContent(
+                    children: [DDropdownMenuItem(child: Text('Menu label'))],
+                  ),
+                ],
               ),
             ),
           ),
@@ -92,13 +90,10 @@ void main() {
       final text = find.text('Menu label');
       final paragraph = tester.renderObject<RenderParagraph>(text);
       expect(
-        MediaQuery.textScalerOf(tester.element(text)).scale(13),
-        closeTo(23.4, .001),
+        paragraph.textScaler.scale(paragraph.text.style!.fontSize!),
+        closeTo(30.6, .001),
       );
-      expect(
-        paragraph.getTransformTo(null).getMaxScaleOnAxis(),
-        closeTo(17 / 13, .001),
-      );
+      expect(paragraph.getTransformTo(null).getMaxScaleOnAxis(), 1);
       expect(tester.takeException(), isNull);
     },
   );

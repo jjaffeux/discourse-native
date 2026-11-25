@@ -1044,7 +1044,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       ?widget.phoneHeader,
-                      Flexible(child: DMenuContentScale(child: body)),
+                      Flexible(child: DPhoneSheet(child: body)),
                     ],
                   ),
                 ),
@@ -1085,7 +1085,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ),
               ),
               const DSeparator(),
-              Expanded(child: phone ? DMenuContentScale(child: body) : body),
+              Expanded(child: phone ? DPhoneSheet(child: body) : body),
             ],
           );
         },
@@ -1544,7 +1544,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 !next.result.closed;
             return KeyedSubtree(
               key: ValueKey('search-row:${child.result.id}'),
-              child: DMenuContentScale.unscaled(
+              child: DPhoneSheet.page(
                 // The row uses the mockup's reading size in Search. Keep the
                 // user's text scale while dropping the feed's baseline uplift.
                 child: DReferenceTextScale(

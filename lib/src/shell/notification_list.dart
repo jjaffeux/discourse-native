@@ -839,6 +839,8 @@ class NotificationRow extends StatelessWidget {
       final menuLabel = notification.isUnread
           ? context.l10n.unreadNotificationlist(menuLine)
           : menuLine;
+      final inPhoneSheet = DPhoneSheet.contains(context);
+      final markExtent = inPhoneSheet ? 39.0 : 30.0;
       final fallback = DAvatarFallback(
         backgroundColor: Color.lerp(
           tokens.colors.surface,
@@ -854,7 +856,7 @@ class NotificationRow extends StatelessWidget {
             ? Text(actor.characters.first.toUpperCase())
             : DIcon(
                 presentation.menuLead != null ? DIcons.reply : description.icon,
-                size: 12,
+                size: inPhoneSheet ? 15.5 : 12,
               ),
       );
       Widget menuRow(String? time) => DesktopHeaderMenuRow(
@@ -885,7 +887,7 @@ class NotificationRow extends StatelessWidget {
                 overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
               ),
         leading: DAvatar(
-          dimension: 30,
+          dimension: markExtent,
           border: false,
           decorative: true,
           fallback: fallback,
@@ -898,7 +900,7 @@ class NotificationRow extends StatelessWidget {
                         notification.actingUserAvatarTemplate,
                         siteUrl,
                       ),
-                  size: 30,
+                  size: markExtent,
                   fallback: fallback,
                 ),
         ),

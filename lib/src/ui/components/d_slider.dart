@@ -8,6 +8,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/tokens.dart';
+import '../foundation/phone_sheet.dart';
 import '../foundation/surface_depth.dart';
 
 /// Filled uses a capsule track and a bar thumb with the same interactions.
@@ -288,13 +289,17 @@ class _DMultiSliderState extends State<DMultiSlider> {
   double _fraction(double value) => widget.max == widget.min
       ? 0
       : (value - widget.min) / (widget.max - widget.min);
+  double get _timelineThumb => DPhoneSheet.contains(context) ? 26.0 : 20.0;
+
   double _position(double value, double extent) {
     final f = _fraction(value);
     if (widget.variant == DSliderVariant.ramp) {
       final inset = math.min(13.0, extent / 2);
       return ((_reverse ? 1 - f : f) * extent).clamp(inset, extent - inset);
     }
-    final diameter = widget.variant == DSliderVariant.timeline ? 20.0 : 12.0;
+    final diameter = widget.variant == DSliderVariant.timeline
+        ? _timelineThumb
+        : 12.0;
     return diameter / 2 +
         (_reverse ? 1 - f : f) * math.max(0, extent - diameter);
   }
@@ -307,7 +312,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
       );
       return widget.min + (_reverse ? 1 - f : f) * (widget.max - widget.min);
     }
-    final diameter = widget.variant == DSliderVariant.timeline ? 20.0 : 12.0;
+    final diameter = widget.variant == DSliderVariant.timeline
+        ? _timelineThumb
+        : 12.0;
     final f =
         (((_vertical ? point.dy : point.dx) - diameter / 2) /
                 math.max(1, extent - diameter))
@@ -524,7 +531,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
     final tokens = DTokens.of(context);
     final crossExtent = switch (widget.variant) {
       DSliderVariant.standard => 12.0,
-      DSliderVariant.timeline => 22.0,
+      DSliderVariant.timeline => DPhoneSheet.contains(context) ? 29.0 : 22.0,
 
       DSliderVariant.ramp => 26.0,
     };
@@ -604,7 +611,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       breadth:
                                           widget.variant ==
                                               DSliderVariant.timeline
-                                          ? 6
+                                          ? (DPhoneSheet.contains(context)
+                                                ? 8
+                                                : 6)
                                           : 4,
                                       vertical: _vertical,
 
@@ -708,6 +717,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       timeline:
                                           widget.variant ==
                                           DSliderVariant.timeline,
+                                      timelineExtent: _timelineThumb,
                                       ramp:
                                           widget.variant == DSliderVariant.ramp,
                                       offset:
@@ -751,6 +761,7 @@ class _SliderThumb extends StatefulWidget {
 
     required this.ramp,
     required this.timeline,
+    required this.timelineExtent,
   });
   final FocusNode node;
   final double crossExtent;
@@ -761,6 +772,7 @@ class _SliderThumb extends StatefulWidget {
 
   final bool ramp;
   final bool timeline;
+  final double timelineExtent;
   @override
   State<_SliderThumb> createState() => _SliderThumbState();
 }
@@ -786,7 +798,7 @@ class _SliderThumbState extends State<_SliderThumb> {
           final width = widget.ramp
               ? 18.0
               : widget.timeline
-              ? 20.0
+              ? widget.timelineExtent
               : 12.0;
           final height = width;
           final offset = widget.offset;

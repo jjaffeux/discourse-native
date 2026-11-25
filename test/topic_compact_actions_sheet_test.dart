@@ -332,8 +332,8 @@ void topicCompactActionsSheetTests({
             await tester.pumpAndSettle();
             expect(rows.at(index).hitTestable(), findsOneWidget);
             final row = tester.getRect(rows.at(index));
-            expect(row.left, closeTo(bounds.left + 8 * 17 / 13, .001));
-            expect(row.right, closeTo(bounds.right - 8 * 17 / 13, .001));
+            expect(row.left, closeTo(bounds.left + 8, .001));
+            expect(row.right, closeTo(bounds.right - 8, .001));
           }
           for (final label in [
             'Share topic',

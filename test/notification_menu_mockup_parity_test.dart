@@ -71,7 +71,10 @@ void main() {
           expect(find.text('Mark all read'), findsOneWidget);
           final filters = find.byKey(const ValueKey('user-menu-mobile-tabs'));
           final all = _filter('all');
-          expect(tester.getSize(all).height, 26);
+          expect(
+            tester.getSize(all).height,
+            platform == TargetPlatform.iOS ? 36 : 26,
+          );
           final inactive = _filter('replies');
           final tokens = DTokens.of(tester.element(inactive));
           if (platform == TargetPlatform.macOS) {}
@@ -103,7 +106,7 @@ void main() {
             tester.getSize(
               find.descendant(of: row, matching: find.byType(DAvatar)),
             ),
-            const Size(30, 30),
+            Size.square(platform == TargetPlatform.iOS ? 39 : 30),
           );
           final image = tester.widget<AvatarImage>(
             find.descendant(of: row, matching: find.byType(AvatarImage)),

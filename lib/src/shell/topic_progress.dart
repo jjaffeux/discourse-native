@@ -590,6 +590,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final phoneSheet = DPhoneSheet.contains(context);
     final heldTotal = _dragTotal ?? widget.total;
     final total = heldTotal < 1 ? 1 : heldTotal;
     final at = _preview.clamp(1, total);
@@ -601,7 +602,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
     final muted = Color.lerp(tokens.background, tokens.foreground, .50)!;
     final dayStyle = TextStyle(
       color: muted,
-      fontSize: DiscourseTypography.metadata,
+      fontSize: phoneSheet ? 15 : DiscourseTypography.metadata,
       height: 1.5,
     );
     String day(DateTime? value) => value == null
@@ -637,16 +638,17 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
           children: [
             if (post != null) ...[
               DAvatar(
+                dimension: phoneSheet ? 42 : null,
                 border: false,
                 decorative: true,
                 fallback: fallback,
                 child: AvatarImage(
                   url: post.avatarUrl,
-                  size: 32,
+                  size: phoneSheet ? 42 : 32,
                   fallback: fallback,
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: phoneSheet ? 13 : 10),
             ],
             Expanded(
               child: Column(
@@ -660,7 +662,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: tokens.foreground,
-                      fontSize: DiscourseTypography.compact,
+                      fontSize: phoneSheet ? 17.5 : DiscourseTypography.compact,
                       height: 1.5,
                       fontWeight: FontWeight.w600,
                     ),
@@ -680,7 +682,9 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
                           tokens.foreground,
                           .62,
                         ),
-                        fontSize: DiscourseTypography.preview,
+                        fontSize: phoneSheet
+                            ? 16.5
+                            : DiscourseTypography.preview,
                         height: 1.4,
                       ),
                     ),
@@ -693,7 +697,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: phoneSheet ? 13 : 10),
             Semantics(
               label: context.l10n.postOf(at.toString(), total.toString()),
               excludeSemantics: true,
@@ -706,7 +710,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: phoneSheet ? 15.5 : 12),
         TopicPositionSlider(
           position: at,
           total: total,
@@ -729,7 +733,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
             widget.onScrubCancel?.call();
           },
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: phoneSheet ? 5 : 4),
         Row(
           children: [
             Expanded(child: Text(day(widget.firstPostedAt), style: dayStyle)),
@@ -743,7 +747,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: phoneSheet ? 15.5 : 12),
         if (widget.error case final message?) ...[
           Semantics(
             liveRegion: true,
@@ -753,7 +757,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
               style: TextStyle(color: tokens.destructive),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: phoneSheet ? 15.5 : 12),
         ],
         LayoutBuilder(
           builder: (context, bounds) {

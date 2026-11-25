@@ -90,10 +90,10 @@ opens at its full height, since its heading and actions alone can fill
 the lower one. A form whose body and actions the sheet builds apart
 shares its state through `ShellSheetForm`, and closes with `DDialogClose`
 so the same form serves the desktop dialog. Desktop keeps every dialog.
-Both hold the title, what the sheet holds and its actions on one inset
-from the sides, as the mockup does: 15 inside a phone's 17/13 zoom,
-19.5pt on a 390pt phone, with the actions 14 above the foot, and 17 in a
-desktop dialog, 16 inside its rim, with the actions 16 under what it holds.
+The phone sheet follows `86c5ad5`. Choices and fields lay out at their
+painted dimensions. Choice labels use 17 points, and the footer has 21-point
+side and bottom insets and 15.5 points above its actions. The desktop dialog
+keeps its 17-point outer inset.
 
 Fixed actions use `DSheetFooter`. At a partial detent, Native reserves the
 bottom safe area below the actions, inside the sheet. With the keyboard

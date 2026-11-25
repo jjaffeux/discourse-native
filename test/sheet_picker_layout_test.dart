@@ -192,30 +192,19 @@ void main() {
       expect(row.bottom, lessThanOrEqualTo(544));
       expect(field.left, row.left);
       expect(field.right, row.right);
-      // The phone tag sheet is a scaled menu: its regular field and spacing
-      // grow by the menu factor, and its backdrop closes it.
-      final scale = tags ? DMenuContentScale.factor : 1.0;
-      expect(
-        field.height,
-        closeTo((tags ? DControlStyle.regularHeight : 36) * scale, .001),
-      );
+      expect(field.height, tags ? 40 : 36);
       expect(
         tester.widget<EditableText>(find.byType(EditableText)).style.fontSize,
-        tags ? DiscourseTypography.preview : 14,
+        tags ? 16.5 : 14,
       );
       final header = tester.getRect(find.byType(DSheetHeader));
-      expect(field.top - header.bottom, closeTo(6 * scale, .001));
+      expect(field.top - header.bottom, 6);
       if (tags) {
         expect(find.byTooltip('Close'), findsNothing);
         await tester.tapAt(const Offset(195, 20));
       } else {
-        final button = tester.widget<DButton>(
-          find.byWidgetPredicate(
-            (widget) => widget is DButton && widget.tooltip == 'Close',
-          ),
-        );
-        expect(button.variant, DButtonVariant.quiet);
-        await tester.tap(find.byTooltip('Close'));
+        final sheetBounds = tester.getRect(sheet);
+        await tester.tapAt(Offset(sheetBounds.center.dx, sheetBounds.top - 10));
       }
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);

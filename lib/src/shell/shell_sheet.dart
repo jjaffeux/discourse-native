@@ -170,14 +170,11 @@ Future<T?> showShellSheet<T>({
 /// the sheet holds starts right under it, with no rule between.
 typedef _SheetInsets = ({double heading, EdgeInsets body, EdgeInsets footer});
 
-/// A phone's, in the zoomed units its content is laid out in: one inset from
-/// the sides for all three, its actions 28 under what it holds, and either
-/// 14 above its foot.
+/// Insets for a phone's choice sheet and its pinned actions.
 const _SheetInsets _phoneInsets = (
-  // The header's own inset is not zoomed.
-  heading: 15 - DSpacing.md * 13 / 17,
-  body: EdgeInsets.fromLTRB(15, 0, 15, 14),
-  footer: EdgeInsets.fromLTRB(15, 14, 15, 14),
+  heading: 16 - DSpacing.md,
+  body: EdgeInsets.fromLTRB(21, 0, 21, 21),
+  footer: EdgeInsets.fromLTRB(21, 15.5, 21, 21),
 );
 
 /// A desktop dialog's: 16 inside its 1px rim, with its actions 16 under what
@@ -306,8 +303,8 @@ class ShellSheetActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Wrap(
     alignment: WrapAlignment.end,
-    spacing: DSpacing.sm,
-    runSpacing: DSpacing.sm,
+    spacing: DPhoneSheet.contains(context) ? 10.5 : DSpacing.sm,
+    runSpacing: DPhoneSheet.contains(context) ? 10.5 : DSpacing.sm,
     children: children,
   );
 }

@@ -69,6 +69,7 @@ Future<ChatChannelChoice?> showChatChannelPicker(
 
 /// What a row's highlight reaches past its words on each side.
 const double _rowInset = 9;
+const double _phoneRowInset = 12;
 
 Future<T?> _showPanel<T>(
   BuildContext context, {
@@ -92,7 +93,7 @@ Future<T?> _showPanel<T>(
     // The rows' words start on the sheet's own edge, their highlight reaching
     // past it, so the sheet stands in by that much less.
     padding: touch
-        ? const EdgeInsets.symmetric(horizontal: 15 - _rowInset)
+        ? const EdgeInsets.symmetric(horizontal: 8)
         : const EdgeInsets.fromLTRB(17 - _rowInset, 0, 17 - _rowInset, 8),
     builder: (context) => ChatChannelPanel(
       chat: chat,
@@ -192,8 +193,14 @@ class ChatChannelMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 14,
-    child: Center(child: DIcon(DIcons.hashtag, size: 13, color: color)),
+    width: DControlStyle.isTouch(context) ? 18.5 : 14,
+    child: Center(
+      child: DIcon(
+        DIcons.hashtag,
+        size: DControlStyle.isTouch(context) ? 17 : 13,
+        color: color,
+      ),
+    ),
   );
 }
 
@@ -266,12 +273,6 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
     }
   }
 
-  /// A size as a page's list has it. A phone's sheet draws all it holds
-  /// larger, so there the size is given smaller by as much.
-  double _size(double px) => DMenuContentScale.isActiveOf(context)
-      ? px / DMenuContentScale.factor
-      : px;
-
   @override
   Widget build(BuildContext context) {
     final mode = widget.mode;
@@ -289,7 +290,9 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: _rowInset),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.isTouch ? _phoneRowInset : _rowInset,
+          ),
           child: SheetSearch(
             inputKey: const ValueKey('chat-channel-panel-field'),
             focusNode: _field,
@@ -404,9 +407,15 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
           builder: (context, current, _) => _ChatChannelBrowseRow(
             channel: current ?? channel,
             busy: _writing.contains(channel.id),
-            nameSize: _size(DiscourseTypography.rowTitle),
-            countSize: _size(DiscourseTypography.xs),
-            aboutSize: _size(DiscourseTypography.preview),
+            nameSize: context.isTouch
+                ? DiscourseTypography.mobileRowTitle
+                : DiscourseTypography.rowTitle,
+            countSize: context.isTouch
+                ? DiscourseTypography.mobileRowMetadata
+                : DiscourseTypography.xs,
+            aboutSize: context.isTouch
+                ? DiscourseTypography.mobileRowPreview
+                : DiscourseTypography.preview,
             onOpen: () => unawaited(_open(current ?? channel)),
             onFollow: (following) =>
                 unawaited(_follow(current ?? channel, following)),
@@ -426,7 +435,9 @@ class _ChatChannelPanelState extends State<ChatChannelPanel> {
         if (query.isEmpty || channel.title.toLowerCase().contains(query))
           channel,
     ];
-    final nameSize = _size(DiscourseTypography.rowTitle);
+    final nameSize = context.isTouch
+        ? DiscourseTypography.mobileRowTitle
+        : DiscourseTypography.rowTitle;
     return _scroll([
       if (query.isEmpty)
         _ChatChannelPickRow(
@@ -524,6 +535,7 @@ class _ChatChannelBrowseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final phone = DControlStyle.isTouch(context);
     final l10n = context.l10n;
     final following = channel.membership.following;
     final canJoin = channel.canJoin && channel.status == ChatChannelStatus.open;
@@ -541,7 +553,10 @@ class _ChatChannelBrowseRow extends StatelessWidget {
     return DItem(
       key: ValueKey('chat-channel-panel-channel-${channel.id}'),
       shape: DItemShape.menu,
-      padding: const EdgeInsets.symmetric(horizontal: _rowInset, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: phone ? _phoneRowInset : _rowInset,
+        vertical: phone ? 10.5 : 8,
+      ),
       semanticLabel: [
         channel.title,
         count,
@@ -554,7 +569,7 @@ class _ChatChannelBrowseRow extends StatelessWidget {
           alignment: CrossAxisAlignment.stretch,
           children: [
             Row(
-              spacing: 10,
+              spacing: phone ? 13 : 10,
               children: [
                 ChatChannelMark(
                   color: channel.categoryColor ?? tokens.mutedForeground,
@@ -646,10 +661,14 @@ class _ChatChannelPickRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final phone = DControlStyle.isTouch(context);
     return DItem(
       shape: DItemShape.menu,
-      padding: const EdgeInsets.symmetric(horizontal: _rowInset, vertical: 6),
-      gap: 10,
+      padding: EdgeInsets.symmetric(
+        horizontal: phone ? _phoneRowInset : _rowInset,
+        vertical: phone ? 8 : 6,
+      ),
+      gap: phone ? 13 : 10,
       selected: picked,
       selectionStyle: DItemSelectionStyle.strongNeutral,
       showSelectionIndicator: false,
@@ -670,7 +689,11 @@ class _ChatChannelPickRow extends StatelessWidget {
         if (picked)
           DItemMedia(
             child: ExcludeSemantics(
-              child: DIcon(DIcons.check, size: 11, color: tokens.primary),
+              child: DIcon(
+                DIcons.check,
+                size: phone ? 14.5 : 11,
+                color: tokens.primary,
+              ),
             ),
           ),
       ],

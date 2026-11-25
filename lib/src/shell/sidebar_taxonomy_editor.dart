@@ -274,14 +274,16 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
             bottom: 7,
           ),
           child: Row(
-            spacing: 10,
+            spacing: DPhoneSheet.contains(context) ? 13 : 10,
             children: [
               mark,
               Expanded(
                 child: Text(
                   name,
-                  style: const TextStyle(
-                    fontSize: DiscourseTypography.compact,
+                  style: TextStyle(
+                    fontSize: DPhoneSheet.contains(context)
+                        ? 17.5
+                        : DiscourseTypography.compact,
                     height: 1.5,
                   ),
                 ),
@@ -351,14 +353,17 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
             ? DButtonVariant.quietSelected
             : DButtonVariant.quiet,
         size: DControlSize.filter,
+        density: DPhoneSheet.contains(context)
+            ? DButtonDensity.filterPill
+            : DButtonDensity.standard,
         label: Text(text),
         onPressed: () => setState(() => _selection = value),
       ),
     );
     final filters = <Widget>[
-      const SizedBox(height: 10),
+      SizedBox(height: DPhoneSheet.contains(context) ? 13 : 10),
       Wrap(
-        spacing: 6,
+        spacing: DPhoneSheet.contains(context) ? 8 : 6,
         runSpacing: 6,
         children: [
           chip(_Selection.all, context.l10n.all),

@@ -11,6 +11,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../foundation/frame_safe_notifier.dart';
+import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_style.dart';
@@ -1319,8 +1320,8 @@ class DPopoverContent extends StatelessWidget {
     final tokens = DTokens.of(context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
-      fontSize: DControlStyle.labelFontSize,
-      height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
+      fontSize: DControlStyle.menuFontSizeOf(context),
+      height: DiscourseTypography.lineHeightSmall,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       decoration: TextDecoration.none,

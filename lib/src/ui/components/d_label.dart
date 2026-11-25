@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
+import '../foundation/phone_sheet.dart';
 import 'd_typography.dart';
 
 /// Wrapping, non-selectable text for a native control's label slot.
@@ -57,7 +58,9 @@ class DLabel extends StatelessWidget {
     final base =
         scope?.style ??
         DText.styleOf(context, DTextVariant.small).copyWith(
-          fontSize: DiscourseTypography.sm,
+          fontSize: DPhoneSheet.contains(context)
+              ? 15.5
+              : DiscourseTypography.sm,
           fontWeight: FontWeight.w500,
           height: 1,
           letterSpacing: 0,

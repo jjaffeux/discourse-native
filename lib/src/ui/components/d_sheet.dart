@@ -15,7 +15,7 @@ import '../../theme/frost.dart';
 import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/d_overlay_route.dart';
-import '../foundation/menu_content_scale.dart';
+import '../foundation/phone_sheet.dart';
 import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/sheet_page_band.dart';
 import '../foundation/surface_depth.dart';
@@ -2605,7 +2605,7 @@ class DSheetContent extends StatelessWidget {
   ///
   /// Requires [scrollWholeSheet]. The sheet stays sized to its content. Pass an
   /// empty list until the content exists: the scroll view cannot change kind
-  /// without losing [children]'s state. Menu scaling does not apply here.
+  /// without losing [children]'s state. The lazy rows own their sizing.
   final List<Widget>? slivers;
 
   /// Optional cap used by long top and bottom compositions.
@@ -2653,7 +2653,7 @@ class DSheetContent extends StatelessWidget {
     final page = variant == DSheetVariant.page;
     final menu =
         variant == DSheetVariant.menu || variant == DSheetVariant.adaptiveMenu;
-    final scaleContents =
+    final phoneChoices =
         DControlStyle.isTouch(context) &&
         (menu || resolved == DSheetSide.bottom) &&
         !card &&
@@ -2713,15 +2713,15 @@ class DSheetContent extends StatelessWidget {
     }
     for (var index = 0; index < children.length; index++) {
       final original = children[index];
-      final child = !scaleContents || original is Spacer
+      final child = !phoneChoices || original is Spacer
           ? original
           : original is Flexible
           ? Flexible(
               flex: original.flex,
               fit: original.fit,
-              child: DMenuContentScale(child: original.child),
+              child: DPhoneSheet(child: original.child),
             )
-          : DMenuContentScale(child: original);
+          : DPhoneSheet(child: original);
       if (index > 0 && children[index - 1] is! DSheetHeader) {
         parts.add(const SizedBox(height: DSpacing.lg));
       }
@@ -2857,10 +2857,8 @@ class DSheetContent extends StatelessWidget {
                 : Clip.none,
             color: surfaceColor,
             textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontSize: scaleContents
-                  ? DControlStyle.labelFontSize
-                  : DiscourseTypography.sm,
-              height: scaleContents ? 1.5 : 20 / 14,
+              fontSize: DiscourseTypography.sm,
+              height: 20 / 14,
               fontWeight: FontWeight.w400,
               letterSpacing: 0,
               color: tokens.foreground,
@@ -3033,7 +3031,7 @@ class DSheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      DMenuContentScale.unscaled(child: Builder(builder: _build));
+      DPhoneSheet.page(child: Builder(builder: _build));
 
   Widget _build(BuildContext context) {
     final reserveClose =
@@ -3166,29 +3164,31 @@ class DSheetBody extends StatelessWidget {
 }
 
 class DSheetFooter extends StatelessWidget {
-  const DSheetFooter({
-    super.key,
-    required this.children,
-    this.padding = const EdgeInsets.all(DSpacing.lg),
-  });
+  const DSheetFooter({super.key, required this.children, this.padding});
 
   final List<Widget> children;
 
   /// Visual content insets inside the sheet's safe area.
-  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? padding;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: padding,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var index = 0; index < children.length; index++) ...[
-          if (index > 0) const SizedBox(height: DSpacing.sm),
-          children[index],
+  Widget build(BuildContext context) => DPhoneSheet.actions(
+    child: Padding(
+      padding:
+          padding ??
+          (DPhoneSheet.contains(context)
+              ? const EdgeInsets.fromLTRB(21, 15.5, 21, 21)
+              : const EdgeInsets.all(DSpacing.lg)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            if (index > 0) const SizedBox(height: DSpacing.sm),
+            children[index],
+          ],
         ],
-      ],
+      ),
     ),
   );
 }

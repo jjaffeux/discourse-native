@@ -70,28 +70,26 @@ class SheetSearch extends StatelessWidget {
     if (context.isTouch) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: DMenuContentScale.unscaled(
-          child: DReferenceTextScale(
-            child: DInputGroup(
-              size: DControlSize.floating,
-              variant: DInputGroupVariant.quiet,
-              enabled: enabled,
-              children: [
-                _input(),
-                DInputGroupAddon(
-                  child: DIcon(
-                    DIcons.magnifyingGlass,
-                    size: 16,
-                    color: tokens.mutedForeground,
-                  ),
+        child: DReferenceTextScale(
+          child: DInputGroup(
+            size: DControlSize.floating,
+            variant: DInputGroupVariant.quiet,
+            enabled: enabled,
+            children: [
+              _input(),
+              DInputGroupAddon(
+                child: DIcon(
+                  DIcons.magnifyingGlass,
+                  size: 16,
+                  color: tokens.mutedForeground,
                 ),
-                if (trailing case final trailing?)
-                  DInputGroupAddon(
-                    alignment: DInputGroupAddonAlignment.inlineEnd,
-                    child: trailing,
-                  ),
-              ],
-            ),
+              ),
+              if (trailing case final trailing?)
+                DInputGroupAddon(
+                  alignment: DInputGroupAddonAlignment.inlineEnd,
+                  child: trailing,
+                ),
+            ],
           ),
         ),
       );

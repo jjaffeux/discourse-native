@@ -525,10 +525,7 @@ void main() {
     await tester.tap(_edit(true));
     await tester.pumpAndSettle();
     expect(find.text('Edit your categories'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('Edit your categories')).dx,
-      closeTo(19.5, 1),
-    );
+    expect(tester.getTopLeft(find.text('Edit your categories')).dx, 16);
     expect(find.byType(DModalHeaderAction), findsNothing);
     expect(find.byTooltip('Back'), findsNothing);
 
@@ -540,8 +537,8 @@ void main() {
     // The mockup's phone SheetSearch: a 40 tall filled capsule on the sheet's
     // inset, led by a magnifier.
     expect(tester.getRect(capsule).height, closeTo(40, 0.5));
-    expect(tester.getRect(capsule).left, closeTo(19.6, 1));
-    expect(tester.getRect(capsule).width, closeTo(351, 1.5));
+    expect(tester.getRect(capsule).left, 21);
+    expect(tester.getRect(capsule).width, 348);
     final magnifier = find.descendant(
       of: capsule,
       matching: find.byWidgetPredicate(
@@ -561,12 +558,9 @@ void main() {
         find.widgetWithText(DButton, label),
     ];
     for (final chip in chips) {
-      expect(tester.getRect(chip).height, closeTo(39.2, 1));
+      expect(tester.getRect(chip).height, 36);
     }
-    expect(
-      tester.getRect(chips[1]).left - tester.getRect(chips[0]).right,
-      closeTo(7.8, 1),
-    );
+    expect(tester.getRect(chips[1]).left - tester.getRect(chips[0]).right, 8);
     expect(tester.getSemantics(filter('all')), isSemantics(isSelected: true));
     expect(
       tester.getSemantics(filter('selected')),
@@ -583,7 +577,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final row = tester.getRect(_choice(1));
-    expect(row.height, closeTo(44.8, 1));
+    expect(row.height, closeTo(41, 1));
     expect(tester.widget<DCheckbox>(_choice(1)).value, isTrue);
     await tester.tapAt(Offset(row.right - 20, row.center.dy));
     await tester.pumpAndSettle();
@@ -604,9 +598,9 @@ void main() {
           .map((button) => (button.label as Text).data),
       ['Reset to default', 'Save'],
     );
-    expect(save.right, closeTo(390 - 19.5, 0.5));
-    expect(save.height, closeTo(45.8, 1.5));
-    expect(reset.height, closeTo(45.8, 1.5));
+    expect(save.right, 369);
+    expect(save.height, 43.5);
+    expect(reset.height, 43.5);
     semantics.dispose();
   });
 

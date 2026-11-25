@@ -247,7 +247,7 @@ void main() {
       final results = platform == TargetPlatform.macOS
           ? panel
           : find
-                .descendant(of: panel, matching: find.byType(DMenuContentScale))
+                .descendant(of: panel, matching: find.byType(DPhoneSheet))
                 .first;
       expect(editor.height, closeTo(field, .01));
       expect(editor.top - head.top, closeTo(inset, .01));

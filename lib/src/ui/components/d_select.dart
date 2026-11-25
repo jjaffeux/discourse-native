@@ -1433,7 +1433,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final touch = _touch;
     final scaler = MediaQuery.textScalerOf(context);
     final scaledLineHeight =
-        scaler.scale(DControlStyle.labelFontSize) *
+        scaler.scale(DControlStyle.menuFontSizeOf(context)) *
         DiscourseTypography.lineHeightSmall;
     final described = _items.any((item) => item.description != null);
     final descriptionHeight = described
@@ -1443,7 +1443,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                   2
         : 0.0;
     final itemHeight = math.max(
-      DControlStyle.rowHeight,
+      DControlStyle.menuRowHeightOf(context),
       scaledLineHeight + DInsets.menuItem.vertical + descriptionHeight,
     );
     final labelHeight = math.max(
@@ -1812,11 +1812,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                 GestureDetector(
                   onTap: widget.enabled ? _focus.requestFocus : null,
                   child: DefaultTextStyle.merge(
-                    style: const TextStyle(
-                      fontSize: DControlStyle.labelFontSize,
-                      height:
-                          DControlStyle.labelLineHeight /
-                          DControlStyle.labelFontSize,
+                    style: TextStyle(
+                      fontSize: DControlStyle.menuFontSizeOf(context),
+                      height: DiscourseTypography.lineHeightSmall,
                       fontWeight: FontWeight.w500,
                     ),
                     child: widget.label!,
@@ -1829,10 +1827,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                 const SizedBox(height: 6),
                 DefaultTextStyle.merge(
                   style: TextStyle(
-                    fontSize: DControlStyle.labelFontSize,
-                    height:
-                        DControlStyle.labelLineHeight /
-                        DControlStyle.labelFontSize,
+                    fontSize: DControlStyle.menuFontSizeOf(context),
+                    height: DiscourseTypography.lineHeightSmall,
                     color: tokens.mutedForeground,
                   ),
                   child: widget.description!,
@@ -1845,10 +1841,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                   child: Text(
                     error,
                     style: TextStyle(
-                      fontSize: DControlStyle.labelFontSize,
-                      height:
-                          DControlStyle.labelLineHeight /
-                          DControlStyle.labelFontSize,
+                      fontSize: DControlStyle.menuFontSizeOf(context),
+                      height: DiscourseTypography.lineHeightSmall,
                       color: tokens.destructive,
                     ),
                   ),
@@ -1949,7 +1943,9 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>>
         color: highlighted
             ? DControlStyle.rowHover(tokens)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
+        borderRadius: BorderRadius.circular(
+          DControlStyle.menuRowRadiusOf(context),
+        ),
       ),
       child: Row(
         children: [
@@ -1959,9 +1955,8 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>>
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: foreground,
-                fontSize: DControlStyle.labelFontSize,
-                height:
-                    DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
+                fontSize: DControlStyle.menuFontSizeOf(context),
+                height: DiscourseTypography.lineHeightSmall,
                 fontWeight: FontWeight.w400,
               ),
               child: widget.item.description == null

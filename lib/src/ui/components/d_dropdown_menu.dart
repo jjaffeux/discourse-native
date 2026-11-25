@@ -908,8 +908,8 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     final tokens = theme.extension<DTokens>()!;
     final textStyle = theme.textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
-      fontSize: DControlStyle.labelFontSize,
-      height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
+      fontSize: DControlStyle.menuFontSizeOf(context),
+      height: DiscourseTypography.lineHeightSmall,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       decoration: TextDecoration.none,
@@ -1244,7 +1244,7 @@ class DDropdownMenuLabel extends StatelessWidget {
         child: DefaultTextStyle.merge(
           style: Theme.of(context).textTheme.labelSmall!.copyWith(
             color: tokens.mutedForeground,
-            fontSize: DiscourseTypography.xs,
+            fontSize: DControlStyle.menuMetadataSizeOf(context),
             height: DiscourseTypography.lineHeightCaption,
             fontWeight: FontWeight.w500,
             letterSpacing: 0,
@@ -1335,7 +1335,7 @@ class DDropdownMenuShortcut extends StatelessWidget {
                 color:
                     IconTheme.of(context).color ??
                     DTokens.of(context).mutedForeground,
-                fontSize: DiscourseTypography.xs,
+                fontSize: DControlStyle.menuMetadataSizeOf(context),
                 height: DiscourseTypography.lineHeightCaption,
                 fontWeight: FontWeight.w400,
                 letterSpacing: 1.2,
@@ -1818,24 +1818,28 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface>
               : DControlStyle.rowHover(tokens)
         : Colors.transparent;
     final foreground = destructive ? tokens.destructive : tokens.foreground;
-    final startPadding = widget.inset ? 28.0 : 8.0;
-    const endPadding = 8.0;
+    final inset = DControlStyle.menuHorizontalInsetOf(context);
+    final startPadding = widget.inset ? inset + 20 : inset;
     const trailingGap = 8.0;
     // Active-row changes are atomic. Animating the previous row out while the
     // next row animates in briefly presents two highlighted menu choices.
     final row = interactiveRowSurface(
-      constraints: const BoxConstraints(minHeight: DControlStyle.rowHeight),
+      constraints: BoxConstraints(
+        minHeight: DControlStyle.menuRowHeightOf(context),
+      ),
       padding:
           widget.padding ??
           EdgeInsetsDirectional.fromSTEB(
             startPadding,
             DControlStyle.menuVerticalInset(context),
-            endPadding,
+            inset,
             DControlStyle.menuVerticalInset(context),
           ),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
+        borderRadius: BorderRadius.circular(
+          DControlStyle.menuRowRadiusOf(context),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.max,

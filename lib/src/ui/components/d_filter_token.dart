@@ -53,7 +53,10 @@ class DFilterToken extends StatelessWidget {
     final accent = !sheetSize && Theme.of(context).brightness == Brightness.dark
         ? Color.lerp(tokens.primary, Colors.white, .28)!
         : tokens.primary;
-    final fontSize = sheetSize
+    final phoneChip = sheetSize && DControlStyle.isTouch(context);
+    final fontSize = phoneChip
+        ? 14.0
+        : sheetSize
         ? DControlStyle.fontSize(size, context: context)
         : DiscourseTypography.xs;
     final text = Theme.of(context).textTheme.bodySmall!.copyWith(
@@ -88,7 +91,14 @@ class DFilterToken extends StatelessWidget {
     ButtonStyle style(EdgeInsetsGeometry padding) => ButtonStyle(
       padding: WidgetStatePropertyAll(padding),
       minimumSize: WidgetStatePropertyAll(
-        Size(0, sheetSize ? DControlStyle.height(size, context: context) : 0),
+        Size(
+          0,
+          phoneChip
+              ? 36
+              : sheetSize
+              ? DControlStyle.height(size, context: context)
+              : 0,
+        ),
       ),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.standard,

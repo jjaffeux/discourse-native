@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
-import '../foundation/menu_content_scale.dart';
+import '../foundation/phone_sheet.dart';
 import 'd_button.dart';
 
 /// A circular corner action for modal headers.
@@ -62,7 +62,7 @@ class DModalHeaderAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      DMenuContentScale.unscaled(child: Builder(builder: _build));
+      DPhoneSheet.page(child: Builder(builder: _build));
 
   Widget _build(BuildContext context) {
     final touch = DControlStyle.isTouch(context);

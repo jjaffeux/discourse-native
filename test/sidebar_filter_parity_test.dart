@@ -823,12 +823,9 @@ void main() {
         final position = tester.state<ScrollableState>(results.first).position;
         expect(
           tester.getRect(results.first).bottom,
-          closeTo(
-            tester.getRect(sheet).bottom - _foot - DSpacing.xs * 17 / 13,
-            .1,
-          ),
+          closeTo(tester.getRect(sheet).bottom - _foot - DSpacing.xs, .1),
           reason:
-              'The result viewport clears the safe area and its scaled content padding',
+              'The result viewport clears the safe area and its content padding',
         );
         await tester.tap(field);
         await tester.pump();

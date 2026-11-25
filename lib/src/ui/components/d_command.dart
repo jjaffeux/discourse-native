@@ -660,7 +660,7 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
             size: widget.size,
             style: menu
                 ? Theme.of(context).textTheme.bodyMedium!.copyWith(
-                    fontSize: DiscourseTypography.control,
+                    fontSize: DControlStyle.menuFontSizeOf(context),
                     height: 1.5,
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0,
@@ -1509,16 +1509,23 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
         final selected = _selected.value;
         final interactive = item.enabled && selected;
         final radius = widget.showGuide
-            ? const BorderRadiusDirectional.only(
-                topEnd: Radius.circular(DControlStyle.rowRadius),
-                bottomEnd: Radius.circular(DControlStyle.rowRadius),
+            ? BorderRadiusDirectional.only(
+                topEnd: Radius.circular(DControlStyle.menuRowRadiusOf(context)),
+                bottomEnd: Radius.circular(
+                  DControlStyle.menuRowRadiusOf(context),
+                ),
               ).resolve(Directionality.of(context))
-            : BorderRadius.circular(DControlStyle.rowRadius);
+            : BorderRadius.circular(DControlStyle.menuRowRadiusOf(context));
         Widget row = interactiveRowSurface(
           constraints: BoxConstraints(
-            minHeight: DControlStyle.height(DControlSize.command),
+            minHeight: DControlStyle.height(
+              DControlSize.command,
+              context: context,
+            ),
           ),
-          padding: const EdgeInsetsDirectional.symmetric(horizontal: 8),
+          padding: EdgeInsetsDirectional.symmetric(
+            horizontal: DControlStyle.menuHorizontalInsetOf(context),
+          ),
           decoration: BoxDecoration(
             color: interactive
                 ? DControlStyle.rowHover(tokens)
@@ -1536,9 +1543,8 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             ),
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                fontSize: DControlStyle.labelFontSize,
-                height:
-                    DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
+                fontSize: DControlStyle.menuFontSizeOf(context),
+                height: DiscourseTypography.lineHeightSmall,
                 color: tokens.foreground,
               ),
               child: Row(

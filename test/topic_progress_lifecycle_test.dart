@@ -179,7 +179,7 @@ void main() {
             expect(find.text('14 October 2026'), findsOneWidget);
             expect(
               tester.getSize(find.byType(DAvatar)),
-              Size(32 * scale, 32 * scale),
+              Size.square(platform == TargetPlatform.macOS ? 32 * scale : 42),
             );
             final panel = tester.getRect(_panelFinder(platform));
             for (final label in ['First post', 'Latest post']) {
@@ -190,8 +190,9 @@ void main() {
               expect(
                 rect.height,
                 closeTo(
-                  (34 + 12.5 * (scale - 1) * 1.5) *
-                      (platform == TargetPlatform.macOS ? 1 : 17 / 13),
+                  platform == TargetPlatform.macOS
+                      ? 34 + 12.5 * (scale - 1) * 1.5
+                      : 44.5 + 16.5 * (scale - 1) * 1.5,
                   .01,
                 ),
               );

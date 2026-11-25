@@ -1820,18 +1820,20 @@ class DComboboxItem<T> extends StatelessWidget {
                 : null,
             // Switch backgrounds immediately so two rows never cross-fade.
             child: interactiveRowSurface(
-              constraints: const BoxConstraints(
-                minHeight: DControlStyle.rowHeight,
+              constraints: BoxConstraints(
+                minHeight: DControlStyle.menuRowHeightOf(context),
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: 8,
+                horizontal: DControlStyle.menuHorizontalInsetOf(context),
                 vertical: DControlStyle.menuVerticalInset(context),
               ),
               decoration: BoxDecoration(
                 color: highlighted
                     ? DControlStyle.rowHover(tokens)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
+                borderRadius: BorderRadius.circular(
+                  DControlStyle.menuRowRadiusOf(context),
+                ),
               ),
               foregroundDecoration: itemEnabled
                   ? null
@@ -1900,7 +1902,7 @@ class DComboboxLabel extends StatelessWidget {
     child: Text(
       label,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: DiscourseTypography.xs,
+        fontSize: DControlStyle.menuMetadataSizeOf(context),
         height: 16 / DiscourseTypography.xs,
         color: DTokens.of(context).mutedForeground,
       ),
@@ -2152,8 +2154,8 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
                 children: [
                   Flexible(
                     child: DefaultTextStyle.merge(
-                      style: const TextStyle(
-                        fontSize: DiscourseTypography.xs,
+                      style: TextStyle(
+                        fontSize: DControlStyle.menuMetadataSizeOf(context),
                         height: 16 / DiscourseTypography.xs,
                         fontWeight: FontWeight.w500,
                         overflow: TextOverflow.ellipsis,
@@ -2203,8 +2205,8 @@ class DComboboxChipsInput<T> extends StatelessWidget {
     final root = _DComboboxScope.of<T>(context);
     final tokens = DTokens.of(context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: DControlStyle.labelFontSize,
-      height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
+      fontSize: DControlStyle.menuFontSizeOf(context),
+      height: DiscourseTypography.lineHeightSmall,
       color: tokens.foreground,
     );
     return SizedBox(

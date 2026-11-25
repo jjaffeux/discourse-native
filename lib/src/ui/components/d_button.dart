@@ -18,6 +18,7 @@ import '../foundation/focus_highlight.dart';
 import '../foundation/implicit_transition.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/phone_sheet.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/press_scale.dart';
 import '../foundation/touch_target.dart';
@@ -551,6 +552,14 @@ class DButton extends StatelessWidget {
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
     final filterPill = density == DButtonDensity.filterPill;
+    final sheet = DPhoneSheet.contains(context);
+    final sheetFooterAction =
+        density == DButtonDensity.standard &&
+        !_iconOnly &&
+        (size == DButtonSize.regular ||
+            size == DButtonSize.field ||
+            size == DButtonSize.action) &&
+        DPhoneSheet.actionsOf(context);
     final postAction = density == DButtonDensity.postAction;
 
     final floatingCall = density == DButtonDensity.floatingCall;
@@ -572,6 +581,7 @@ class DButton extends StatelessWidget {
         !DControlStyle.isTouch(context) &&
         MediaQuery.sizeOf(context).width >= 713;
     final menuAction = density == DButtonDensity.menuAction;
+    final sheetMenuAction = menuAction && DPhoneSheet.contains(context);
     final variantStyle = _referenceStyle(tokens, dark);
     final quiet =
         variant == DButtonVariant.secondary ||
@@ -619,9 +629,15 @@ class DButton extends StatelessWidget {
         : dockRound
         ? 15.0
         : timelineEnd
-        ? 12.5
+        ? (sheet ? 16.5 : 12.5)
         : postReaction
         ? DPostReactionStyle.fontSize
+        : sheetFooterAction
+        ? 17.0
+        : filterPill && sheet
+        ? 14.0
+        : sheetMenuAction
+        ? 16.5
         : header || menuAction
         ? 12.5
         : chrome && !_iconOnly
@@ -637,7 +653,7 @@ class DButton extends StatelessWidget {
         : postReaction
         ? DPostReactionStyle.iconSize
         : timelineEnd
-        ? 11.0
+        ? (sheet ? 14.5 : 11.0)
         : header || rail
         ? 16.0
         : overMedia
@@ -652,7 +668,7 @@ class DButton extends StatelessWidget {
               ? 16.0
               : (DControlStyle.iconDimension(effectiveSize, context: context)));
     final gap = timelineEnd
-        ? 6.0
+        ? (sheet ? 8.0 : 6.0)
         : postReaction
         ? DPostReactionStyle.gap
         : header
@@ -687,7 +703,11 @@ class DButton extends StatelessWidget {
                   : 50.0) +
               math.max(0, MediaQuery.textScalerOf(context).scale(11) - 11)
         : timeline
-        ? (floatingCall ? 26 : 34) +
+        ? (floatingCall
+                  ? 26
+                  : sheet
+                  ? 44.5
+                  : 34) +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
         : postReaction
@@ -699,7 +719,8 @@ class DButton extends StatelessWidget {
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
         : menuAction
-        ? MediaQuery.textScalerOf(context).scale(fontSize) * 1.5 + 8
+        ? MediaQuery.textScalerOf(context).scale(fontSize) * 1.5 +
+              (sheetMenuAction ? 10 : 8)
         : resume
         ? resumeHeight(context)
         : chrome
@@ -737,6 +758,12 @@ class DButton extends StatelessWidget {
         ? 26 +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
+        : sheetFooterAction
+        ? 43.5 +
+              math.max(0, MediaQuery.textScalerOf(context).scale(17) - 17) * 1.5
+        : filterPill && sheet
+        ? 36.0 +
+              math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14) * 1.5
         : standardDimension;
     final enabled = onPressed != null && !loading;
     // The mockup's `:active` scales: `.glass` for what has a fill of its own,
@@ -1078,6 +1105,19 @@ class DButton extends StatelessWidget {
             ? (_iconOnly
                   ? EdgeInsets.zero
                   : EdgeInsets.symmetric(horizontal: floatingCall ? 11 : 7))
+            : sheetFooterAction
+            ? EdgeInsets.symmetric(
+                horizontal: variant == DButtonVariant.primary ? 21 : 18.5,
+                vertical: math.max(
+                  0,
+                  (visualDimension -
+                          (MediaQuery.textScalerOf(context).scale(17) * 1.5)
+                              .ceilToDouble()) /
+                      2,
+                ),
+              )
+            : sheetMenuAction
+            ? const EdgeInsets.symmetric(horizontal: 10.5, vertical: 5)
             : menuAction
             ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
             : header
@@ -1155,6 +1195,7 @@ class DButton extends StatelessWidget {
           fontSize: mobileDock ? 11 : fontSize,
           height:
               filterPill ||
+                  sheetFooterAction ||
                   timeline ||
                   postReaction ||
                   header ||

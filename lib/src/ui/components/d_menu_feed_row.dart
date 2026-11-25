@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
-import '../foundation/menu_content_scale.dart';
+import '../foundation/phone_sheet.dart';
 import 'd_badge.dart';
 import 'd_item.dart';
 
@@ -38,25 +38,17 @@ class DMenuFeedRow extends StatelessWidget {
     final muted = tokens.mutedForeground;
     final scaler = MediaQuery.textScalerOf(context);
     final reading = Theme.of(context).textTheme.bodyLarge;
-    final sheetScale = DMenuContentScale.isActiveOf(context)
-        ? DMenuContentScale.factor
-        : 1.0;
     final phone = DControlStyle.isTouch(context);
-    final titleSize =
-        (phone
-            ? DiscourseTypography.mobileRowTitle
-            : DiscourseTypography.rowTitle) /
-        sheetScale;
-    final excerptSize =
-        (phone
-            ? DiscourseTypography.mobileRowPreview
-            : DiscourseTypography.preview) /
-        sheetScale;
-    final timeSize =
-        (phone
-            ? DiscourseTypography.mobileRowMetadata
-            : DiscourseTypography.xs) /
-        sheetScale;
+    final sheet = DPhoneSheet.contains(context);
+    final titleSize = phone
+        ? DiscourseTypography.mobileRowTitle
+        : DiscourseTypography.rowTitle;
+    final excerptSize = phone
+        ? DiscourseTypography.mobileRowPreview
+        : DiscourseTypography.preview;
+    final timeSize = phone
+        ? DiscourseTypography.mobileRowMetadata
+        : DiscourseTypography.xs;
     final largeText = scaler.scale(titleSize) / titleSize > 1.5;
     final showCount = unread && count > 0;
     const titleHeight = DiscourseTypography.lineHeightRowTitle;
@@ -79,7 +71,9 @@ class DMenuFeedRow extends StatelessWidget {
       size: DItemSize.xs,
       shape: DItemShape.menu,
       variant: unread ? DItemVariant.unread : DItemVariant.standard,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      padding: sheet
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 10.5)
+          : const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       semanticLabel: semanticLabel,
       onPressed: onPressed,
       children: [
@@ -90,7 +84,7 @@ class DMenuFeedRow extends StatelessWidget {
               child: IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 10,
+                  spacing: sheet ? 13 : 10,
                   children: [
                     if (leading != null) Center(child: leading!),
                     Expanded(

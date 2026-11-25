@@ -109,16 +109,16 @@ void main() {
           expect(mark, phone ? findsNothing : findsOneWidget);
           if (phone) {
             final line = _key('global-search-line-${scope.keyName}');
-            expect(tester.getRect(result(scope, 0)).height, closeTo(39.2, .1));
+            expect(tester.getRect(result(scope, 0)).height, 36);
             expect(
               tester.getTopLeft(result(scope, 0)).dx -
                   tester.getTopLeft(find.byType(GlobalSearchPanel)).dx,
-              closeTo(55 * DMenuContentScale.factor, .01),
+              55,
             );
             expect(
               tester.getTopLeft(result(scope, 1)).dx -
                   tester.getTopRight(result(scope, 0)).dx,
-              closeTo(8 * DMenuContentScale.factor, .01),
+              8,
             );
             final firstX = tester.getTopLeft(result(scope, 0)).dx;
             await tester.tap(result(scope, 0));
@@ -133,7 +133,7 @@ void main() {
         expect(
           tester.getRect(header(GlobalSearchScope.users)).top -
               forumLast.bottom,
-          closeTo(phone ? 16 * DMenuContentScale.factor : 8, .01),
+          phone ? 16 : 8,
         );
         final title = tester.widget<Text>(
           find.descendant(
@@ -170,10 +170,7 @@ void main() {
             Focus.of(tester.element(label)).requestFocus();
             await tester.pumpAndSettle();
           }
-          expect(
-            tester.getTopLeft(result(GlobalSearchScope.users, 1)).dx,
-            closeTo(55 * DMenuContentScale.factor, .01),
-          );
+          expect(tester.getTopLeft(result(GlobalSearchScope.users, 1)).dx, 55);
         }
         await tester.tap(header(GlobalSearchScope.users));
         await tester.pumpAndSettle();
@@ -602,7 +599,7 @@ void main() {
           if (textScale == 1) {
             expect(
               tester.getRect(_scopeToggle(GlobalSearchScope.all)).height,
-              32,
+              44,
             );
           }
           for (final scope in [

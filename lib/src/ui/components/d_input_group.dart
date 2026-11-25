@@ -10,6 +10,7 @@ import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/phone_sheet.dart';
 import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_composer_dock.dart';
@@ -151,7 +152,9 @@ class _DInputGroupState extends State<DInputGroup> {
     final tokens = DTokens.of(context);
     final quiet = widget.variant == DInputGroupVariant.quiet;
     final search = widget.variant == DInputGroupVariant.search || quiet;
-    final quietFontSize = DControlStyle.isTouch(context) ? 16.0 : 12.5;
+    final quietFontSize = DControlStyle.isTouch(context)
+        ? (DPhoneSheet.contains(context) ? 17.0 : 16.0)
+        : 12.5;
     final touchListField =
         quiet &&
         widget.size == DControlSize.filter &&

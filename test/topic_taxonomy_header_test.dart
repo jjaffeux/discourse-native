@@ -72,9 +72,6 @@ void main({
         final mobile =
             platform == TargetPlatform.iOS ||
             platform == TargetPlatform.android;
-        // The mockup enlarges the whole phone menu, including its spacing.
-        final menuScale = mobile ? 17 / 13 : 1.0;
-
         final nativeSize = tester.view.physicalSize;
         final nativePixelRatio = tester.view.devicePixelRatio;
         final data = await fixture.fixture(
@@ -111,7 +108,7 @@ void main({
             of: primaryMainContent,
             matching: find.byKey(
               ValueKey(
-                scale == 1
+                scale == 1 && !mobile
                     ? 'topic-list-subcategory-filter-1'
                     : 'topic-list-category-filter',
               ),
@@ -129,20 +126,20 @@ void main({
         expect(remove.right, pill.right);
         expect(remove.top, pill.top);
         expect(remove.bottom, pill.bottom);
-        expect(pill.height, closeTo((18 * scale + 6) * menuScale, .01));
+        expect(pill.height, closeTo(18 * scale + 6, .01));
         final input = find.descendant(
           of: fixture.field,
           matching: find.byType(DInput),
         );
         final query = tester.getRect(input);
         expect(tester.widget<DInput>(input).hintText, 'Search category…');
-        expect(tester.widget<DInput>(input).style!.fontSize, 13);
+        expect(tester.widget<DInput>(input).style!.fontSize, mobile ? 17 : 13);
         if (query.top < pill.bottom) {
           expect(query.center.dy, closeTo(pill.center.dy, .01));
-          expect(query.left, closeTo(pill.right + 9 * menuScale, .01));
+          expect(query.left, closeTo(pill.right + 9, .01));
         } else {
-          expect(query.left, closeTo(pill.left + 4 * menuScale, .01));
-          expect(query.top, closeTo(pill.bottom + 8 * menuScale, .01));
+          expect(query.left, closeTo(pill.left + 4, .01));
+          expect(query.top, closeTo(pill.bottom + 8, .01));
         }
         await fixture.capture(
           tester,

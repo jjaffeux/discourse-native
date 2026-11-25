@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
-import 'menu_content_scale.dart';
+import 'phone_sheet.dart';
 import 'touch_target.dart';
 
 /// General controls adapt to the platform. Application presets reproduce the
@@ -83,13 +83,29 @@ abstract final class DControlStyle {
   static const caretOpacityAnimates = false;
   static const caretBlinkHalfPeriod = Duration(milliseconds: 500);
 
+  static double menuFontSizeOf(BuildContext context) =>
+      DPhoneSheet.contains(context) ? 17 : labelFontSize;
+
+  static double menuMetadataSizeOf(BuildContext context) =>
+      DPhoneSheet.contains(context) ? 15.5 : DiscourseTypography.xs;
+
+  static double menuRowHeightOf(BuildContext context) =>
+      DPhoneSheet.contains(context) ? 41.5 : rowHeight;
+
+  static double menuRowRadiusOf(BuildContext context) =>
+      DPhoneSheet.contains(context) ? 10.5 : rowRadius;
+
+  static double menuHorizontalInsetOf(BuildContext context) =>
+      DPhoneSheet.contains(context) ? 12 : 8;
+
   /// Flutter rounds a paragraph's layout height up to whole logical pixels.
   /// Balance that extra leading across the insets to retain the CSS row size.
   static double menuVerticalInset(BuildContext context) {
     final line =
-        MediaQuery.textScalerOf(context).scale(labelFontSize) *
+        MediaQuery.textScalerOf(context).scale(menuFontSizeOf(context)) *
         DiscourseTypography.lineHeightSmall;
-    return 7 - (line.ceilToDouble() - line) / 2;
+    final inset = DPhoneSheet.contains(context) ? 8 : 7;
+    return inset - (line.ceilToDouble() - line) / 2;
   }
 
   static bool isTouch(BuildContext? context) =>
@@ -108,84 +124,120 @@ abstract final class DControlStyle {
 
   /// Scaled phone menus supply their own proportional enlargement.
   static bool usesTouchGeometry(BuildContext? context) =>
-      isTouch(context) && !DMenuContentScale.isActiveOf(context!);
+      isTouch(context) && !DPhoneSheet.contains(context!);
 
   static bool usesPageFilterGeometry(BuildContext? context) =>
       usesTouchGeometry(context) && DTouchFields.contains(context!);
 
   static double height(DControlSize size, {BuildContext? context}) =>
-      switch (size) {
-        DControlSize.small => usesTouchGeometry(context) ? 40 : smallHeight,
-        DControlSize.regular => regularHeight,
-        DControlSize.large => usesTouchGeometry(context) ? 48 : largeHeight,
-        DControlSize.filter =>
-          usesPageFilterGeometry(context)
-              ? touchFilterHeight
-              : usesTouchGeometry(context)
-              ? 36
-              : regularHeight,
-        DControlSize.floating => 40,
-        DControlSize.field => 35.5,
-        DControlSize.command => 32,
-        DControlSize.preference => 40.25,
-        DControlSize.chip => 24,
-        DControlSize.toolbar => 34,
-        DControlSize.segment =>
-          usesTouchGeometry(context) ? touchFilterHeight - 4 : 26,
-        DControlSize.chrome => 25,
-        DControlSize.action => usesTouchGeometry(context) ? 44 : 34,
-        DControlSize.post => 30,
-        DControlSize.documentTab => 35,
-        DControlSize.tabAction => 30,
-        DControlSize.tabClose => 18,
-      };
+      DPhoneSheet.contains(context)
+      ? switch (size) {
+          DControlSize.small || DControlSize.chip => 32,
+          DControlSize.regular ||
+          DControlSize.filter ||
+          DControlSize.floating => 40,
+          DControlSize.large => 52,
+          DControlSize.field => 46,
+          DControlSize.command => 42,
+          DControlSize.preference => 52.5,
+          DControlSize.toolbar || DControlSize.action => 44,
+          DControlSize.segment => 34,
+          DControlSize.chrome => 33,
+          DControlSize.post => 39,
+          DControlSize.documentTab => 46,
+          DControlSize.tabAction => 40,
+          DControlSize.tabClose => 24,
+        }
+      : switch (size) {
+          DControlSize.small => usesTouchGeometry(context) ? 40 : smallHeight,
+          DControlSize.regular => regularHeight,
+          DControlSize.large => usesTouchGeometry(context) ? 48 : largeHeight,
+          DControlSize.filter =>
+            usesPageFilterGeometry(context)
+                ? touchFilterHeight
+                : usesTouchGeometry(context)
+                ? 36
+                : regularHeight,
+          DControlSize.floating => 40,
+          DControlSize.field => 35.5,
+          DControlSize.command => 32,
+          DControlSize.preference => 40.25,
+          DControlSize.chip => 24,
+          DControlSize.toolbar => 34,
+          DControlSize.segment =>
+            usesTouchGeometry(context) ? touchFilterHeight - 4 : 26,
+          DControlSize.chrome => 25,
+          DControlSize.action => usesTouchGeometry(context) ? 44 : 34,
+          DControlSize.post => 30,
+          DControlSize.documentTab => 35,
+          DControlSize.tabAction => 30,
+          DControlSize.tabClose => 18,
+        };
   static double fontSize(DControlSize size, {BuildContext? context}) =>
-      switch (size) {
-        DControlSize.filter =>
-          usesTouchGeometry(context) ? 14 : DiscourseTypography.preview,
-        DControlSize.floating => 14,
-        DControlSize.small ||
-        DControlSize.regular ||
-        DControlSize.chip => DiscourseTypography.preview,
-        DControlSize.field ||
-        DControlSize.command ||
-        DControlSize.toolbar ||
-        DControlSize.chrome ||
-        DControlSize.action => labelFontSize,
-        DControlSize.segment => usesTouchGeometry(context) ? 14 : 12.5,
-        DControlSize.post => labelFontSize,
-        DControlSize.documentTab ||
-        DControlSize.tabAction ||
-        DControlSize.tabClose => labelFontSize,
-        DControlSize.large => DiscourseTypography.sm,
-        DControlSize.preference => DiscourseTypography.compact,
-      };
+      DPhoneSheet.contains(context)
+      ? switch (size) {
+          DControlSize.preference => 17.5,
+          DControlSize.small ||
+          DControlSize.regular ||
+          DControlSize.filter ||
+          DControlSize.chip ||
+          DControlSize.segment => 16.5,
+          _ => 17,
+        }
+      : switch (size) {
+          DControlSize.filter =>
+            usesTouchGeometry(context) ? 14 : DiscourseTypography.preview,
+          DControlSize.floating => 14,
+          DControlSize.small ||
+          DControlSize.regular ||
+          DControlSize.chip => DiscourseTypography.preview,
+          DControlSize.field ||
+          DControlSize.command ||
+          DControlSize.toolbar ||
+          DControlSize.chrome ||
+          DControlSize.action => labelFontSize,
+          DControlSize.segment => usesTouchGeometry(context) ? 14 : 12.5,
+          DControlSize.post => labelFontSize,
+          DControlSize.documentTab ||
+          DControlSize.tabAction ||
+          DControlSize.tabClose => labelFontSize,
+          DControlSize.large => DiscourseTypography.sm,
+          DControlSize.preference => DiscourseTypography.compact,
+        };
   static double lineHeight(DControlSize size, {BuildContext? context}) =>
       fontSize(size, context: context) * DiscourseTypography.lineHeightSmall;
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
-      switch (size) {
-        DControlSize.filter =>
-          context == null
-              ? 12
-              : MediaQuery.textScalerOf(
-                  context,
-                ).scale(usesTouchGeometry(context) ? 14 : 12),
-        DControlSize.floating => 15,
-        DControlSize.small ||
-        DControlSize.regular ||
-        DControlSize.chip ||
-        DControlSize.action => 12,
-        DControlSize.field || DControlSize.toolbar => 14,
-        DControlSize.large || DControlSize.command => iconSize,
-        DControlSize.preference || DControlSize.segment => 13,
-        DControlSize.chrome => 15,
-        DControlSize.post => 13,
-        DControlSize.documentTab => 12,
-        DControlSize.tabAction => 12,
-        // The mockup's 11px Font Awesome 7 cross is 8px of ink; the bundled
-        // Font Awesome 6 cross fills less of its box and needs 14 for that.
-        DControlSize.tabClose => 14,
-      };
+      DPhoneSheet.contains(context)
+      ? switch (size) {
+          DControlSize.large || DControlSize.command => 21,
+          DControlSize.field ||
+          DControlSize.toolbar ||
+          DControlSize.floating => 18.5,
+          _ => 15.5,
+        }
+      : switch (size) {
+          DControlSize.filter =>
+            context == null
+                ? 12
+                : MediaQuery.textScalerOf(
+                    context,
+                  ).scale(usesTouchGeometry(context) ? 14 : 12),
+          DControlSize.floating => 15,
+          DControlSize.small ||
+          DControlSize.regular ||
+          DControlSize.chip ||
+          DControlSize.action => 12,
+          DControlSize.field || DControlSize.toolbar => 14,
+          DControlSize.large || DControlSize.command => iconSize,
+          DControlSize.preference || DControlSize.segment => 13,
+          DControlSize.chrome => 15,
+          DControlSize.post => 13,
+          DControlSize.documentTab => 12,
+          DControlSize.tabAction => 12,
+          // The mockup's 11px Font Awesome 7 cross is 8px of ink; the bundled
+          // Font Awesome 6 cross fills less of its box and needs 14 for that.
+          DControlSize.tabClose => 14,
+        };
   static double contentGap(DControlSize size) => size == DControlSize.preference
       ? 8
       : size == DControlSize.large || isApplicationSize(size)
@@ -194,24 +246,33 @@ abstract final class DControlStyle {
 
   /// Insets include the CSS border, which Native paints inside the surface.
   static double horizontalInset(DControlSize size, {BuildContext? context}) =>
-      switch (size) {
-        DControlSize.filter =>
-          usesPageFilterGeometry(context) ? touchFilterInset : 10,
-        DControlSize.segment =>
-          usesTouchGeometry(context) ? touchFilterInset : 10,
-        DControlSize.regular || DControlSize.chip => 10,
-        DControlSize.floating => 12,
-        DControlSize.field => 11,
-        DControlSize.preference => 12,
-        DControlSize.chrome => 7,
-        DControlSize.action => 14,
-        DControlSize.post => 12,
-        // The document surface supplies its border/inset pixel. The trailing
-        // button inset is the mockup's 7px gap plus 2px close-action margin.
-        DControlSize.documentTab => 9,
-        DControlSize.tabAction || DControlSize.tabClose => 0,
-        _ => 10,
-      };
+      DPhoneSheet.contains(context)
+      ? switch (size) {
+          DControlSize.field ||
+          DControlSize.floating ||
+          DControlSize.preference => 15.5,
+          DControlSize.action => 18.5,
+          DControlSize.tabAction || DControlSize.tabClose => 0,
+          _ => 13,
+        }
+      : switch (size) {
+          DControlSize.filter =>
+            usesPageFilterGeometry(context) ? touchFilterInset : 10,
+          DControlSize.segment =>
+            usesTouchGeometry(context) ? touchFilterInset : 10,
+          DControlSize.regular || DControlSize.chip => 10,
+          DControlSize.floating => 12,
+          DControlSize.field => 11,
+          DControlSize.preference => 12,
+          DControlSize.chrome => 7,
+          DControlSize.action => 14,
+          DControlSize.post => 12,
+          // The document surface supplies its border/inset pixel. The trailing
+          // button inset is the mockup's 7px gap plus 2px close-action margin.
+          DControlSize.documentTab => 9,
+          DControlSize.tabAction || DControlSize.tabClose => 0,
+          _ => 10,
+        };
 
   static double chevronDimension(DControlSize size) => switch (size) {
     DControlSize.filter || DControlSize.regular || DControlSize.chip => 10,

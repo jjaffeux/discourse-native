@@ -9,6 +9,7 @@ import '../../theme/tokens.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
+import '../foundation/phone_sheet.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/press_scale.dart';
 import '../foundation/touch_target.dart';
@@ -290,6 +291,7 @@ class _DToggleState extends State<DToggle> {
     final disclosure = widget.density == DToggleDensity.disclosure;
     final postReaction = widget.density == DToggleDensity.postReaction;
     final menuFilter = widget.density == DToggleDensity.menuFilter;
+    final sheetMenuFilter = menuFilter && DPhoneSheet.contains(context);
     final touchFilter =
         menuFilter &&
         (widget.size == DToggleSize.filter ||
@@ -348,6 +350,8 @@ class _DToggleState extends State<DToggle> {
         ? 14.0 + math.max(0, scaler.scale(10) - 10)
         : postReaction
         ? DPostReactionStyle.height(scaler)
+        : sheetMenuFilter
+        ? 36.0 + math.max(0, scaler.scale(13) - 13) * 1.5
         : menuFilter && !touchFilter
         ? 26.0 + math.max(0, scaler.scale(12.5) - 12.5) * 1.5
         : splitView
@@ -375,6 +379,8 @@ class _DToggleState extends State<DToggle> {
         : DControlStyle.iconDimension(widget.size, context: context);
     final fontSize = postReaction
         ? DPostReactionStyle.fontSize
+        : sheetMenuFilter
+        ? 13.0
         : menuFilter && !touchFilter
         ? 12.5
         : tile
@@ -384,6 +390,8 @@ class _DToggleState extends State<DToggle> {
         : (DControlStyle.fontSize(widget.size, context: context));
     final lineHeight = postReaction
         ? DPostReactionStyle.fontSize * 1.5
+        : sheetMenuFilter
+        ? 13.0
         : menuFilter && !touchFilter
         ? 12.5 * 1.5
         : tile
@@ -621,7 +629,13 @@ class _DToggleState extends State<DToggle> {
           : postReaction
           ? const EdgeInsets.symmetric(horizontal: 10)
           : menuFilter
-          ? EdgeInsets.symmetric(horizontal: touchFilter ? 10 : 11)
+          ? EdgeInsets.symmetric(
+              horizontal: sheetMenuFilter
+                  ? 12
+                  : touchFilter
+                  ? 10
+                  : 11,
+            )
           : chatReaction
           ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
           : (DToggle._paddingFor(

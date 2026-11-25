@@ -210,7 +210,12 @@ void main() {
         'status:open category:1 tag:Alpha',
       );
       await tester.pumpAndSettle();
-      await _open(tester, 'topic-list-subcategory-filter-1');
+      await _open(
+        tester,
+        platform == TargetPlatform.macOS
+            ? 'topic-list-subcategory-filter-1'
+            : 'topic-list-category-filter',
+      );
       expect(_query(tester), isEmpty);
       expect(
         fixture.textField(tester).focusNode!.hasFocus,
@@ -230,8 +235,9 @@ void main() {
       expect(_list, findsNothing);
 
       await _open(tester, 'topic-list-category-filter');
-      expect(_choice('Support'), findsOneWidget);
-      expect(_choice('Design'), findsNothing);
+      final pointer = platform == TargetPlatform.macOS;
+      expect(_choice('Support'), pointer ? findsOneWidget : findsNothing);
+      expect(_choice('Design'), pointer ? findsNothing : findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       if (platform == TargetPlatform.iOS) {
         await tester.tapAt(const Offset(8, 20));

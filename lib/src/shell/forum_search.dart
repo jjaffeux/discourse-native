@@ -234,7 +234,7 @@ class _ForumSearchState extends State<ForumSearch> {
       categories,
     );
     return DReferenceTextScale(
-      child: DMenuContentScale(
+      child: DPhoneSheet(
         child: TopicFilterInput(
           siteUrl: visit.site,
           initialQuery: visit.filters,
@@ -1920,7 +1920,7 @@ class _ForumSearchState extends State<ForumSearch> {
               const DSheetHeader(children: []),
               Flexible(
                 fit: picking || !phone ? FlexFit.tight : FlexFit.loose,
-                child: DMenuContentScale.unscaled(child: content!),
+                child: DPhoneSheet.page(child: content!),
               ),
             ],
           ),

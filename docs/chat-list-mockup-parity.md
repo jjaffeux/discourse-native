@@ -118,14 +118,9 @@ refresher, a menu on each card, and the unread count of a joined channel.
 The mockup's panel has none of them. The panel asks again each time it
 opens, each time its words change and each time a status chip is pressed.
 
-Two differences in how the panel renders:
-
-- Sizes. `IN_SHEET` (56086) gives a page's sizes in a phone's sheet, which
-  draws what it holds 17/13 larger. Taken literally it also shrinks the
-  desktop dialog's names to 11. The comment says the size is "as a page's
-  list has it", so the desktop draws 14.5, 12 and 12.5.
-- A channel's emoji is not drawn in the panel. The mockup's mark is the `#`
-  alone.
+Channel titles, descriptions and member counts use the phone list sizes
+from `86c5ad5`: 16, 14 and 13 points. Desktop keeps 14.5, 12.5 and 12
+points. The panel marks a channel with its colored `#`.
 
 ### The side
 

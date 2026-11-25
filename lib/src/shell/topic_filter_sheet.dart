@@ -254,45 +254,44 @@ extension _TopicFilterSheet on _TopicFilterInputState {
     if (match != null) await _acceptSuggestion(match);
   }
 
-  Widget _phoneTagSearchField(BuildContext context) =>
-      DMenuContentScale.unscaled(
-        child: DReferenceTextScale(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11),
-            child: DInputGroup(
-              size: DControlSize.floating,
-              variant: DInputGroupVariant.quiet,
-              children: [
-                DInput(
-                  key: widget.inputKey,
-                  controller: _tagSearchText,
-                  focusNode: _focus,
-                  hintText: widget.hintText,
-                  semanticLabel: context.l10n.topicFilterQuery,
-                  autofocus: widget.focusOnOpen,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  textInputAction: TextInputAction.done,
-                  onEmptyBackspace: _stepBackScope,
-                  onChanged: (text) {
-                    _setTokenDraft('tag:$text');
-                    filter.inputChanged(filter.text.text);
-                  },
-                  onEditingComplete: _focus.requestFocus,
-                  onSubmitted: (_) => unawaited(_submitPhoneTagSearch()),
-                ),
-                DInputGroupAddon(
-                  child: DIcon(
-                    DIcons.magnifyingGlass,
-                    size: 16,
-                    color: DTokens.of(context).mutedForeground,
-                  ),
-                ),
-              ],
+  Widget _phoneTagSearchField(BuildContext context) => DPhoneSheet.page(
+    child: DReferenceTextScale(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 11),
+        child: DInputGroup(
+          size: DControlSize.floating,
+          variant: DInputGroupVariant.quiet,
+          children: [
+            DInput(
+              key: widget.inputKey,
+              controller: _tagSearchText,
+              focusNode: _focus,
+              hintText: widget.hintText,
+              semanticLabel: context.l10n.topicFilterQuery,
+              autofocus: widget.focusOnOpen,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              onEmptyBackspace: _stepBackScope,
+              onChanged: (text) {
+                _setTokenDraft('tag:$text');
+                filter.inputChanged(filter.text.text);
+              },
+              onEditingComplete: _focus.requestFocus,
+              onSubmitted: (_) => unawaited(_submitPhoneTagSearch()),
             ),
-          ),
+            DInputGroupAddon(
+              child: DIcon(
+                DIcons.magnifyingGlass,
+                size: 16,
+                color: DTokens.of(context).mutedForeground,
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _buildSheet(BuildContext context) {
     final taxonomyScope = const {'tag', 'category'}.contains(widget.onlyKey);
@@ -546,7 +545,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                               ? (_) => widget.onDismiss?.call()
                               : null,
                         )
-                      : DMenuContentScale.unscaled(
+                      : DPhoneSheet.page(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: DInputGroup(

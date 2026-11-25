@@ -60,6 +60,7 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      final phoneSheet = DPhoneSheet.contains(context);
       final fillSheet =
           notificationStyle &&
           constraints.hasBoundedHeight &&
@@ -92,7 +93,9 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: notificationStyle
+              padding: notificationStyle && phoneSheet
+                  ? const EdgeInsetsDirectional.fromSTEB(16, 10, 8, 0)
+                  : notificationStyle
                   ? const EdgeInsetsDirectional.fromSTEB(15, 10, 10, 0)
                   : const EdgeInsets.fromLTRB(11, 6, 6, 0),
               child: Row(
@@ -102,6 +105,7 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
                       title,
                       style: notificationStyle
                           ? Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontSize: phoneSheet ? 17 : null,
                               fontWeight: FontWeight.w600,
                             )
                           : Theme.of(context).textTheme.titleSmall,
@@ -172,7 +176,9 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
                                 filter.unread > 99 ? '99+' : '${filter.unread}',
                                 style: notificationStyle
                                     ? TextStyle(
-                                        fontSize: DiscourseTypography.micro,
+                                        fontSize: phoneSheet
+                                            ? DiscourseTypography.xs
+                                            : DiscourseTypography.micro,
                                         fontWeight: FontWeight.w700,
                                         fontFeatures: const [
                                           FontFeature.tabularFigures(),

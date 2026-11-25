@@ -27,7 +27,7 @@ void main() {
     testWidgets(
       'edit footer stays at the visible foot through partial detents and keyboard on $platform',
       (tester) async {
-        const footerPadding = 14 * 17 / 13;
+        const footerPadding = 21;
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
@@ -240,7 +240,7 @@ void main() {
 
   // The mockup's sheet is as tall as what it holds, a tall one resting at
   // 55% of the screen with its actions held where they are seen; they sit
-  // 28 of its zoom under what it holds, and 14 above its foot.
+  // Its footer sits 21 points above the visible foot.
   Future<({Rect surface, Rect content, Rect action})> openPhoneEditor(
     WidgetTester tester, {
     required double contentHeight,
@@ -277,24 +277,19 @@ void main() {
   ) async {
     final rest = await openPhoneEditor(tester, contentHeight: 120);
     expect(rest.surface.bottom, 844);
+    expect(rest.action.height, 43.5);
     expect(rest.surface.height, lessThan(844 * .55));
-    expect(rest.action.top - rest.content.bottom, closeTo(28 * 17 / 13, 0.2));
-    expect(
-      rest.surface.bottom - rest.action.bottom,
-      closeTo(14 * 17 / 13, 0.2),
-    );
+    expect(rest.action.top - rest.content.bottom, closeTo(36.5, 0.2));
+    expect(rest.surface.bottom - rest.action.bottom, closeTo(21, 0.2));
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets(
     'a tall phone sheet with actions rests with them in view and rises only '
     'as tall as what it holds',
     (tester) async {
-      final rest = await openPhoneEditor(tester, contentHeight: 330);
+      final rest = await openPhoneEditor(tester, contentHeight: 390);
       expect(rest.surface.height, closeTo(844 * .55, 0.5));
-      expect(
-        rest.surface.bottom - rest.action.bottom,
-        closeTo(14 * 17 / 13, 0.2),
-      );
+      expect(rest.surface.bottom - rest.action.bottom, closeTo(21, 0.2));
       await tester.drag(
         find.byKey(const ValueKey('sheet-drag-handle')),
         const Offset(0, -500),
@@ -302,10 +297,7 @@ void main() {
       await tester.pumpAndSettle();
       final risen = _phoneEditorRects(tester);
       expect(risen.surface.height, greaterThan(rest.surface.height));
-      expect(
-        risen.action.top - risen.content.bottom,
-        closeTo(28 * 17 / 13, 0.2),
-      );
+      expect(risen.action.top - risen.content.bottom, closeTo(36.5, 0.2));
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
@@ -444,7 +436,7 @@ void main() {
   // gap to the actions is read at the end of what scrolls, where they are
   // held.
   for (final (presentation, platform, dialog, side, gap, foot) in [
-    ('phone sheet', TargetPlatform.iOS, true, 19.46, 36.62, 18.46),
+    ('phone sheet', TargetPlatform.iOS, true, 21.0, 36.5, 21.0),
     ('desktop dialog', TargetPlatform.macOS, true, 17.0, 16.0, 17.0),
     ('desktop sheet', TargetPlatform.macOS, false, 17.0, 16.0, 17.0),
   ]) {
@@ -507,7 +499,10 @@ void main() {
         final title = tester.getRect(find.text(_title));
         final content = tester.getRect(find.byKey(const ValueKey('content')));
         final action = tester.getRect(find.byKey(const ValueKey('action')));
-        expect(title.left - surface.left, closeTo(side, 0.2));
+        expect(
+          title.left - surface.left,
+          closeTo(platform == TargetPlatform.iOS ? 16 : side, 0.2),
+        );
         expect(content.left - surface.left, closeTo(side, 0.2));
         expect(surface.right - content.right, closeTo(side, 0.2));
         expect(surface.right - action.right, closeTo(side, 0.2));

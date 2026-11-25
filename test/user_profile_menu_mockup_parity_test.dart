@@ -96,7 +96,6 @@ void main() {
                 final bounds = tester.getRect(menu);
                 final screen = tester.view.physicalSize;
                 final mobile = platform != TargetPlatform.macOS;
-                final menuScale = mobile ? 17 / 13 : 1.0;
                 final sheet = find.ancestor(
                   of: menu,
                   matching: find.byType(DSheetContent),
@@ -196,16 +195,14 @@ void main() {
                   of: ownCard,
                   matching: find.byType(DAvatar),
                 );
-                expect(tester.getSize(accountAvatar), Size.square(32 * scale));
-                expect(
-                  tester.getRect(accountAvatar).width,
-                  closeTo(32 * scale * menuScale, .01),
-                );
+                final avatarSize = Size.square(mobile ? 42 : 32 * scale);
+                expect(tester.getSize(accountAvatar), avatarSize);
+                expect(tester.getRect(accountAvatar).size, avatarSize);
                 final name = tester.widget<Text>(find.text('Ty'));
                 final handle = tester.widget<Text>(find.text('@tynaut'));
-                expect(name.style!.fontSize, 13.5);
+                expect(name.style!.fontSize, mobile ? 17.5 : 13.5);
                 expect(name.style!.fontWeight, FontWeight.w600);
-                expect(handle.style!.fontSize, 12);
+                expect(handle.style!.fontSize, mobile ? 15.5 : 12);
                 final separators = find.descendant(
                   of: menu,
                   matching: find.byType(DDropdownMenuSeparator),
@@ -217,15 +214,9 @@ void main() {
                     matching: find.byType(ColoredBox),
                   );
                   final lineRect = tester.getRect(line);
-                  expect(
-                    lineRect.left - bounds.left,
-                    closeTo(15 * menuScale, .01),
-                  );
-                  expect(
-                    bounds.right - lineRect.right,
-                    closeTo(15 * menuScale, .01),
-                  );
-                  expect(lineRect.height, closeTo(menuScale, .01));
+                  expect(lineRect.left - bounds.left, 15);
+                  expect(bounds.right - lineRect.right, 15);
+                  expect(lineRect.height, 1);
                 }
                 if (scale == 1) {
                   final positions = [
@@ -282,7 +273,7 @@ void main() {
                   if (scale == 1) {
                     expect(
                       tester.getRect(row).height,
-                      closeTo(33.5 * menuScale, .01),
+                      closeTo(mobile ? 41.5 : 33.5, .01),
                     );
                   }
                   if (label == 'Drafts') {
