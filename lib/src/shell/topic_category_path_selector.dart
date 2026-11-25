@@ -27,6 +27,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
     this.segmentBuilder,
     this.exact = false,
     this.iconOnly = false,
+    this.single = false,
   }) : assert(maxCategoryNesting > 0);
 
   final String siteUrl;
@@ -35,6 +36,9 @@ class TopicCategoryPathSelector extends StatelessWidget {
   final ValueChanged<TopicCategory?>? onSelected;
   final String keyPrefix;
   final bool exact;
+
+  /// The single visible category opens its children or, for a leaf, its siblings.
+  final bool single;
 
   /// Shows every level as its mark alone, named in its tooltip and aloud.
   final bool iconOnly;
@@ -51,12 +55,14 @@ class TopicCategoryPathSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolved = _resolvePath();
     final deeper = resolved.children[resolved.selectedId] ?? const [];
-    final levels =
-        resolved.path.length +
-        (resolved.path.isEmpty ||
-                resolved.path.length < maxCategoryNesting && deeper.isNotEmpty
-            ? 1
-            : 0);
+    final levels = single
+        ? 1
+        : resolved.path.length +
+              (resolved.path.isEmpty ||
+                      resolved.path.length < maxCategoryNesting &&
+                          deeper.isNotEmpty
+                  ? 1
+                  : 0);
     return DLayoutSelector<_PathFit>(
       select: (context, constraints) {
         final labelledRoom = levels * _maxSegmentWidth;
@@ -128,8 +134,16 @@ class TopicCategoryPathSelector extends StatelessWidget {
     final maximumWidth = _maximumWidth(context);
 
     Widget segment(int level) {
-      final category = level < path.length ? path[level] : null;
-      final parent = level == 0 ? null : path[level - 1];
+      final category = single ? path.lastOrNull : path.elementAtOrNull(level);
+      final menuLevel = !single || category == null
+          ? level
+          : path.length -
+                1 +
+                (path.length < maxCategoryNesting &&
+                        (children[category.id]?.isNotEmpty ?? false)
+                    ? 1
+                    : 0);
+      final parent = menuLevel == 0 ? null : path[menuLevel - 1];
       final prefix = switch (level) {
         0 => '$keyPrefix-category',
         1 => '$keyPrefix-subcategory',
@@ -144,10 +158,12 @@ class TopicCategoryPathSelector extends StatelessWidget {
               : context.l10n.subcategoryTopiccategoryselector);
       final iconOnly =
           this.iconOnly ||
-          DFitRow.compactOf(context) ||
-          short &&
-              (path.isEmpty && DControlStyle.isTouch(context) ||
-                  path.isNotEmpty && level != path.length - 1);
+          (single
+              ? category == null && (DFitRow.compactOf(context) || short)
+              : DFitRow.compactOf(context) ||
+                    short &&
+                        (path.isEmpty && DControlStyle.isTouch(context) ||
+                            path.isNotEmpty && level != path.length - 1));
       final icon = category != null
           ? CategoryIcon(
               key: ValueKey(('$prefix-selected-icon', category.id)),
@@ -164,7 +180,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
       if (segmentBuilder case final builder?) {
         return ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _maxSegmentWidth),
-          child: builder(context, level, category, label, iconOnly),
+          child: builder(context, menuLevel, category, label, iconOnly),
         );
       }
       final semanticLabel = category != null
@@ -183,14 +199,14 @@ class TopicCategoryPathSelector extends StatelessWidget {
           keyPrefix: prefix,
           siteUrl: siteUrl,
           categories: children[parent?.id] ?? const [],
-          selected: category,
+          selected: path.elementAtOrNull(menuLevel),
           parent: parent,
-          includeAll: level == 0,
+          includeAll: menuLevel == 0,
           clearSelectionLabel: parent != null && category != null
               ? context.l10n.allOfCategory(parent.name)
               : null,
           hasChildren: (item) =>
-              level + 1 < maxCategoryNesting &&
+              menuLevel + 1 < maxCategoryNesting &&
               (children[item.id]?.isNotEmpty ?? false),
           onSelected: onSelected == null
               ? null

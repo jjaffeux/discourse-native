@@ -105,6 +105,7 @@ void main() {
         name: 'Fresh',
         color: '00AA88',
         slug: 'fresh',
+        parentCategoryId: 1,
         position: 3,
       );
       final tight = <bool>[];
@@ -142,13 +143,10 @@ void main() {
 
       await pump(const [parent, child, other]);
       await tester.pumpAndSettle();
-      expect(tight.last, isTrue);
-
-      // Built at the step the row settled on alone, rather than at full
-      // length and back within the frame, moving every menu twice.
+      final settledStep = tight.last;
       tight.clear();
       await pump(const [parent, child, other, fresh]);
-      expect(tight, [true]);
+      expect(tight, [settledStep]);
       await tester.pumpAndSettle();
 
       await tester.tap(
@@ -339,7 +337,7 @@ void main() {
       final selected = <TopicCategory?>[];
       await pumpBar(
         tester,
-        selectedCategoryId: parent.id,
+        selectedCategoryId: other.id,
         onCategorySelected: selected.add,
       );
       final anchor = find.byKey(const ValueKey('topic-list-category-filter'));
@@ -367,7 +365,13 @@ void main() {
             .text,
         isEmpty,
       );
-      expect(find.text('Support'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DComboboxContent),
+          matching: find.text('Support'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -388,7 +392,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(selections.single, ['Native']);
-      await tester.tap(find.byTooltip('Close').last);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(DComboboxContent), findsNothing);
 
@@ -412,7 +416,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(selections.last, ['User experience']);
-      await tester.tap(find.byTooltip('Close').last);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       await tester.tap(anchor);
       await tester.pumpAndSettle();
@@ -471,7 +475,7 @@ void main() {
         direction: direction,
         wrap: true,
       );
-      for (final kind in ['category', 'subcategory', 'tag']) {
+      for (final kind in ['category', 'tag']) {
         await tester.tap(find.byKey(ValueKey('topic-list-$kind-filter')));
         await tester.pumpAndSettle();
         final popup = tester.getRect(find.byType(DComboboxContent));
@@ -593,17 +597,13 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('topic-list-subcategory-filter')),
-      findsOneWidget,
+      findsNothing,
     );
 
-    final subcategoryFilter = find.byKey(
-      const ValueKey('topic-list-subcategory-filter'),
-    );
-    await tester.ensureVisible(subcategoryFilter);
-    await tester.tap(subcategoryFilter);
+    await tester.tap(find.byKey(const ValueKey('topic-list-category-filter')));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.byKey(const ValueKey(('topic-list-subcategory-option', 2))),
+      find.byKey(const ValueKey(('topic-list-category-option', 2))),
     );
     await tester.pumpAndSettle();
 
@@ -959,7 +959,7 @@ void main() {
       size: const Size(320, 700),
     );
 
-    expect(find.text('Discourse Native App'), findsOneWidget);
+    expect(find.text('Discourse Native App'), findsNothing);
     expect(find.text('Design'), findsOneWidget);
     expect(find.text('User experience'), findsOneWidget);
     final categoryHeight = tester

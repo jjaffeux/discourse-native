@@ -110,17 +110,21 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
     if (!widget.browseSubcategories) {
       return matches.values.toList(growable: false);
     }
+    if (query.isNotEmpty) return matches.values.toList(growable: false);
     final parent = _browsingParent;
     if (parent != null) {
       return matches.values
           .where((category) => category.parentCategoryId == parent.id)
           .toList(growable: false);
     }
-    if (query.isNotEmpty) return matches.values.toList(growable: false);
     return matches.values
         .where((category) => !matches.containsKey(category.parentCategoryId))
         .toList(growable: false);
   }
+
+  TopicCategory? _parentOf(TopicCategory category) => widget.categories
+      .where((item) => item.id == category.parentCategoryId)
+      .firstOrNull;
 
   void _browse(TopicCategory? parent) {
     _debounce?.cancel();
@@ -170,13 +174,13 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
     // leave the last results on screen. Opening starts from a clean search.
     if (!open) return;
     setState(() {
-      _browsingParent = widget.browseSubcategories
-          ? widget.categories
-                .where(
-                  (category) =>
-                      category.id == widget.selected?.parentCategoryId,
-                )
-                .firstOrNull
+      final selected = widget.selected;
+      _browsingParent = selected == null
+          ? null
+          : _hasBrowseChildren(selected)
+          ? selected
+          : widget.browseSubcategories
+          ? _parentOf(selected)
           : null;
       _query = '';
       _highlighted = null;
@@ -249,7 +253,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
           showTrigger: false,
         ),
       ),
-      if (_browsingParent != null)
+      if (_browsingParent case final current?)
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: DButton(
@@ -257,7 +261,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             variant: DButtonVariant.quiet,
             icon: const DIcon(DIcons.chevronLeft),
             label: Text(context.l10n.categories),
-            onPressed: () => _browse(null),
+            onPressed: () => _browse(_parentOf(current)),
           ),
         ),
       DComboboxList<int>(

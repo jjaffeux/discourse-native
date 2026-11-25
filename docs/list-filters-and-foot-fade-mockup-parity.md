@@ -7,11 +7,12 @@ The topic-list header reference is `discourse-native-mockups` branch
 `.view-pick`, `.pill-count`, and `.picker-path__sep`). Its phone view pill,
 glyph-only Categories, and closer retracted row come from `cd5cd18`, which
 supersedes `79214cb`'s phone switch; the fresh fitting comes from `9b59748`.
+The phone filter dimensions and single category pill follow `6c4d465`.
 The foot fade below retains its earlier reference.
 
 ## Header composition
 
-The view control, category path, Tags, and Filters form one adaptive row.
+The view control, category, Tags, and Filters form one adaptive row.
 On a desktop the view control is a switch; on a phone it is one quiet pill.
 The notification action stands outside that row, aligned with its first line,
 including with enlarged text. Its trigger retains its chevron on phones.
@@ -20,32 +21,25 @@ the reference also draws an inert bell on unscoped lists.
 
 All controls use the Native kit. The page has no extra toolbar fill or divider.
 Quiet controls have the palette's faint foreground fill. Selected taxonomy
-and filter controls use the raised surface. Category segments share one pill.
+and filter controls use the raised surface. Desktop category segments share one pill.
 
 | Measurement | Desktop | Phone | Retracted phone header |
 | --- | --- | --- | --- |
-| Filter height | 30 | 36 | 36 |
+| Filter height | 30 | 48 | 48 |
 | Filter text | 12.5 | 14 | 14 |
-| Ordinary filter side inset | 10 plus transparent border | 12 | 10 with a path, else 12 |
-| View pill side inset / name-to-count gap | None | 12 / 7 | 12 / 7 |
+| Ordinary filter side inset | 10 plus transparent border | 16 | 16 |
+| View pill side inset / name-to-count gap | None | 16 / 7 | 16 / 7 |
 | Switch segment height | 26 | None | None |
 | Switch track inset / segment gap | 2 / 2 | None | None |
 | Switch segment side inset | 10 | None | None |
-| Row gap | 8 | 8 | 6 with a path, else 8 |
+| Row gap | 8 | 8 | 8 |
 | Gap between wrapped lines | 8 | 8 | 8 |
-| Breadcrumb separator side inset | 5 | 5 | 2 |
-
-A phone filter is drawn at the reference's 36 and pressed across the kit's
-44-point touch target, which reaches past the drawn pill without moving it.
+| Breadcrumb separator side inset | 5 | None | None |
 
 Width pressure and phone header retraction are independent states.
 `DFitRow.tightOf` asks eligible labels to shorten; `DFitRow.compactOf` reports
-phone header retraction, which turns labels into marks. The row stands closer
-only while it also holds a category path with separators: the filter bar sets
-`DFitRow.closeUp` then, and `DFitRow.closedUpOf` gives the 6-point row gap and
-the 10-point quiet pill insets. A row with nothing to shorten does not shift as
-the header retracts. The view pill, the row's leading item, keeps its insets
-either way, so its size does not change with the header.
+phone header retraction, which turns eligible labels into marks. The selected
+category and the view keep their labels while the header retracts.
 
 ## The five fit stages
 
@@ -114,13 +108,13 @@ pixels across browser and Flutter theme resolution.
 
 On a phone the unchosen Categories pill is its mark alone, named in its
 tooltip and aloud, so the row keeps to one line. A desktop keeps the word.
-Every selected category level keeps its own mark and menu. A trailing deeper
-level exists only when children are available within the site's nesting limit.
-It says Subcategory, or No subcategories for an exact category clause.
-Shortened paths keep the selected leaf's name and reduce their ancestors and
-the deeper level to marks. Retracted phone headers reduce every level to a mark.
-Each segment is at most 180 points wide. Separators are rounded 1.5 by 14
-point Native lines rotated 18 degrees, with noninteractive space beside them.
+The phone shows the selected category alone. Its menu opens inside that
+category when it has children within the site's nesting limit. A leaf opens
+among its siblings. The desktop path keeps a mark and menu for each level,
+with a trailing Subcategory segment when children are available. An exact
+category clause labels that segment No subcategories. Each segment is at most
+180 points wide. Desktop separators are rounded 1.5 by 14 point Native lines
+rotated 18 degrees.
 
 Unselected Tags becomes a glyph under width pressure. Selected tag text stays
 until phone retraction. Tag text is limited to 88 points. Filters keeps only
@@ -153,8 +147,8 @@ its size throughout.
 `test/topic_list_responsive_filters_test.dart` renders the production filter
 components with real fonts and checks expanded/scrolled phones, narrow deep
 paths, filter counts, retained editors, and accessible text scaling. It also
-checks that the retracted row stands closer only with a path while the view
-pill keeps its name and insets, and that Categories is its mark until chosen.
+checks that the view pill keeps its name and insets during retraction, and
+that choosing a category reveals its name and opens the menu at its own level.
 `test/topic_view_switch_test.dart` checks the pill's insets, shared baseline,
 count rules, accessible names, and the sheet of every view.
 Set `RESPONSIVE_FILTER_REVIEW_DIR` to export its PNG captures.

@@ -233,7 +233,7 @@ void main() {
       );
       final viewSize = tester.getSize(view);
       final initialTop = tester.getTopLeft(filters).dy;
-      expect(tester.getSize(filters).height, 36);
+      expect(tester.getSize(filters).height, 48);
       await tester.drag(
         find.byKey(const ValueKey('responsive-filter-topics')),
         const Offset(0, -500),
@@ -252,8 +252,8 @@ void main() {
       );
       final category = find.byKey(const ValueKey('topic-list-category-filter'));
       final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
-      expect(tester.getSize(category), const Size.square(36));
-      expect(tester.getSize(tag), const Size.square(36));
+      expect(tester.getSize(category), const Size.square(48));
+      expect(tester.getSize(tag), const Size.square(48));
       await _capture(tester, 'phone-scrolled');
       await tester.tap(filters);
       await tester.pumpAndSettle();
@@ -271,7 +271,7 @@ void main() {
     final label = find.descendant(of: bar, matching: find.text('Categories'));
     expect(label, findsNothing);
     await _capture(tester, 'category-tight');
-    tester.view.physicalSize = const Size(430, 844);
+    tester.view.physicalSize = const Size(480, 844);
     await tester.pumpAndSettle();
     expect(label, findsOneWidget);
     await _capture(tester, 'category-room');
@@ -309,10 +309,7 @@ void main() {
         matching: find.byType(DButtonGroupText),
       ),
     );
-    expect(separators, isNotEmpty);
-    for (final separator in separators) {
-      expect(separator.padding, const EdgeInsets.symmetric(horizontal: 5));
-    }
+    expect(separators, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
@@ -331,7 +328,7 @@ void main() {
       final name = find.descendant(of: view, matching: find.text('Latest'));
       final glyph = find.descendant(of: filters, matching: find.byType(DIcon));
       expect(gap(), 8);
-      expect(inset(view, name), 12);
+      expect(inset(view, name), 16);
       final viewSize = tester.getSize(view);
       final tagSize = tester.getSize(tag);
       final filtersSize = tester.getSize(filters);
@@ -358,10 +355,10 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(inset(filters, glyph), 12);
+      expect(inset(filters, glyph), 16);
       // The view keeps its name and its insets either way.
       expect(name, findsOneWidget);
-      expect(inset(view, name), 12);
+      expect(inset(view, name), 16);
       expect(tester.getSize(view), viewSize);
       expect(tester.takeException(), isNull);
     });
@@ -458,7 +455,7 @@ void main() {
         final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
         expect(
           tester.getSize(bar).height,
-          lessThanOrEqualTo(scale == 1 ? 80 : 105),
+          lessThanOrEqualTo(scale == 1 ? 104 : 125),
         );
         expect(
           find.descendant(of: bar, matching: find.text('Product')),
@@ -472,23 +469,22 @@ void main() {
           find.descendant(of: bar, matching: find.text('Mobile')),
           findsOneWidget,
         );
-        for (var level = 0; level < 4; level++) {
-          final key = level == 0
-              ? 'topic-list-category-filter'
-              : 'topic-list-subcategory-filter-$level';
-          final segment = find.byKey(ValueKey(key));
-          await tester.ensureVisible(segment);
-          final rect = tester.getRect(segment);
-          expect(rect.center.dx, inInclusiveRange(0, 320));
-          expect(rect.height, greaterThan(0));
-        }
+        final trigger = find.byKey(
+          const ValueKey('topic-list-category-filter'),
+        );
+        expect(tester.getRect(trigger).center.dx, inInclusiveRange(0, 320));
+        expect(trigger.hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('topic-list-subcategory-filter-3')),
+          findsNothing,
+        );
         expect(tester.takeException(), isNull);
       },
     );
   }
 
   testWidgets(
-    'a tight list path keeps its editor while ancestors are removed',
+    'the selected category opens its children and keeps the editor while going up',
     (tester) async {
       final shell = await _pump(
         tester,
@@ -506,9 +502,10 @@ void main() {
       );
       await _capture(tester, 'phone-tight-deep');
       await tester.tap(
-        find.byKey(const ValueKey('topic-list-subcategory-filter-3')),
+        find.byKey(const ValueKey('topic-list-category-filter')),
       );
       await tester.pumpAndSettle();
+      expect(find.text('iOS').hitTestable(), findsOneWidget);
       final editor = find.byKey(const ValueKey('topic-filter-input'));
       final state = tester.element(editor);
       await _capture(tester, 'phone-category-menu');

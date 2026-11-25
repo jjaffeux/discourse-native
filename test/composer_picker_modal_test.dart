@@ -619,7 +619,7 @@ void main() {
   });
 
   testWidgets(
-    'one category chip opens siblings and a separate subcategory action',
+    'one category chip opens children for a parent and siblings for a leaf',
     (tester) async {
       tester.view.physicalSize = const Size(320, 800);
       tester.view.devicePixelRatio = 1;
@@ -646,7 +646,7 @@ void main() {
           '': [parent, child],
         },
       );
-      shell.visibleComposer!.setCategory(child.id);
+      shell.visibleComposer!.setCategory(parent.id);
       await tester.pump();
       final control = find.byKey(const ValueKey('composer-category-action'));
       final trigger = find.byKey(const ValueKey('composer-category'));
@@ -655,7 +655,7 @@ void main() {
         DButtonVariant.quietSelected,
       );
       expect(
-        find.descendant(of: control, matching: find.text(child.name)),
+        find.descendant(of: control, matching: find.text(parent.name)),
         findsOneWidget,
       );
       expect(
@@ -667,6 +667,15 @@ void main() {
       expect(popup.left, greaterThanOrEqualTo(0));
       expect(popup.right, lessThanOrEqualTo(320));
       final row = find.byKey(const ValueKey(('category-selector-option', 6)));
+      expect(row.hitTestable(), findsOneWidget);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer!.categoryId, child.id);
+      expect(
+        find.descendant(of: control, matching: find.text(child.name)),
+        findsOneWidget,
+      );
+      await open(tester, const ValueKey('composer-category-action'));
       expect(row.hitTestable(), findsOneWidget);
       await tester.tap(
         find.byKey(const ValueKey('category-selector-parent-back')),

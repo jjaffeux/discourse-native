@@ -103,6 +103,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
         : hasDeeper && path.length < widget.maxCategoryNesting
         ? path.length
         : path.length - 1;
+    final single = DControlStyle.isTouch(context);
     final activeLevel = _openCategoryLevel?.clamp(0, lastLevel);
     final exact = splitTopicFilterQuery(
       widget.filterQuery ?? '',
@@ -115,13 +116,18 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           siteUrl: widget.siteUrl,
           categories: widget.categories,
           selectedCategoryId: displayedCategoryId,
+          single: single,
           exact: exact,
           onSelected: widget.onCategorySelected,
           maxCategoryNesting: widget.maxCategoryNesting,
           segmentBuilder: (context, level, category, label, iconOnly) =>
               TopicListFilterMenu(
                 key: _categoryMenuKeys.putIfAbsent(
-                  level == activeLevel ? _openCategoryLevel! : level,
+                  single
+                      ? 0
+                      : level == activeLevel
+                      ? _openCategoryLevel!
+                      : level,
                   GlobalKey.new,
                 ),
                 onOpenChanged: (open) {
@@ -134,7 +140,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
                 filterKey: 'category',
                 categoryParentId: level == 0 ? null : path[level - 1].id,
                 triggerKey: ValueKey(
-                  level == 0
+                  level == 0 || single
                       ? 'topic-list-category-filter'
                       : 'topic-list-subcategory-filter-$level',
                 ),
@@ -179,6 +185,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           siteUrl: widget.siteUrl,
           categories: widget.categories,
           selectedCategoryId: widget.selectedCategoryId,
+          single: single,
           onSelected: widget.onCategorySelected,
           maxCategoryNesting: widget.maxCategoryNesting,
         ),
