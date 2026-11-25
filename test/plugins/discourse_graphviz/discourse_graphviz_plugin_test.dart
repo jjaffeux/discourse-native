@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/application_cooking.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/discourse_graphviz/discourse_graphviz_plugin.dart';
@@ -66,6 +67,61 @@ void main() {
     },
   );
 
+  test(
+    'post cooking recognizes Graphviz BBCode when the site enables it',
+    () async {
+      final installed = PluginInstaller.install(bundledPluginManifest);
+      addTearDown(installed.close);
+      final cooking = ApplicationCooking(plugins: installed.cookingPlugins);
+      addTearDown(cooking.dispose);
+      const site = 'https://graphviz.example';
+      Future<CookingResult> cook(String opening, {required bool enabled}) {
+        final config = SiteConfig.fromSettings(
+          {'discourse_graphviz_enabled': enabled},
+          extensions: installed.registry,
+          siteUrl: site,
+        );
+        final cached = SiteConfig.fromJson(
+          config.toJson(extensions: installed.registry),
+          extensions: installed.registry,
+        );
+        return cooking.cook(
+          cooking.request(
+            siteUrl: site,
+            accountId: 'test',
+            raw: '$opening\n$_source\n[/graphviz]',
+            config: cached,
+          ),
+        );
+      }
+
+      for (final (opening, engine) in const [
+        ('[graphviz]', 'dot'),
+        ('[graphviz engine=neato]', 'neato'),
+      ]) {
+        final enabled = await cook(opening, enabled: true);
+        expect(enabled.failure, isNull);
+        final block = html
+            .parseFragment(enabled.html)
+            .querySelector('div.graphviz');
+        expect(block, isNotNull, reason: enabled.html);
+        final diagram =
+            const DiscourseGraphvizPlugin().cookedElement(site, block!)
+                as GraphvizDiagram;
+        expect(diagram.source.trim(), _source);
+        expect(diagram.engine, engine);
+      }
+
+      final disabled = await cook('[graphviz]', enabled: false);
+      expect(disabled.failure, isNull);
+      expect(
+        html.parseFragment(disabled.html).querySelector('div.graphviz'),
+        isNull,
+      );
+      expect(disabled.html, contains('[graphviz]'));
+    },
+  );
+
   for (final profile in CookingProfile.values) {
     test('${profile.name} cooking emits a Graphviz theme block', () async {
       final installed = PluginInstaller.install(bundledPluginManifest);
@@ -107,20 +163,43 @@ void main() {
     addTearDown(() => WebViewPlatform.instance = previous);
   });
 
-  Widget host(PluginRegistry registry, {String markup = _pluginHtml}) =>
-      DefaultAssetBundle(
-        bundle: _Assets(),
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(
-            body: CookedHtml(
-              html: markup,
-              registry: registry,
-              buildAsync: false,
-            ),
+  Widget host(
+    PluginRegistry registry, {
+    String markup = _pluginHtml,
+    String query = '',
+  }) => DefaultAssetBundle(
+    bundle: _Assets(),
+    child: MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: SearchWords(
+          query: query,
+          child: CookedHtml(
+            html: markup,
+            registry: registry,
+            buildAsync: false,
           ),
         ),
-      );
+      ),
+    ),
+  );
+
+  testWidgets('a search match in DOT keeps the cooked diagram visible', (
+    tester,
+  ) async {
+    final installed = PluginInstaller.install(bundledPluginManifest);
+    addTearDown(installed.close);
+
+    await tester.pumpWidget(host(installed.registry, query: 'Research'));
+    await tester.pump();
+
+    expect(find.byType(GraphvizDiagram), findsOneWidget);
+    final diagram = tester.widget<GraphvizDiagram>(
+      find.byType(GraphvizDiagram),
+    );
+    expect(diagram.source.trim(), _source);
+    expect(diagram.engine, 'neato');
+  });
 
   testWidgets('bundled cooked Graphviz can be opened as an image and source', (
     tester,

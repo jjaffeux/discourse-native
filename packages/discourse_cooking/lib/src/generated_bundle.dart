@@ -34277,8 +34277,8 @@ const String cookingBundle = r'''// Discourse f18a1985b22e5d4c0a0fffd6f918121054
     feature("bbcode-block", bbcode_block_exports),
     feature("anchor", anchor_exports)
   ];
-  function feature(id, { setup: setup44, priority: priority3 = 0 }) {
-    return { id, setup: setup44, priority: priority3 };
+  function feature(id, { setup: setup46, priority: priority3 = 0 }) {
+    return { id, setup: setup46, priority: priority3 };
   }
 
   // vendor/frontend/discourse-markdown-it/src/options.js
@@ -34460,19 +34460,19 @@ const String cookingBundle = r'''// Discourse f18a1985b22e5d4c0a0fffd6f918121054
       if (options.setup) {
         return;
       }
-      const setup44 = new _Setup(options);
+      const setup46 = new _Setup(options);
       features.sort((a, b) => a.priority - b.priority);
       for (const feature2 of features) {
-        setup44.#setupFeature(feature2.id, feature2.setup);
+        setup46.#setupFeature(feature2.id, feature2.setup);
       }
       for (const entry of Object.entries(state.allowListed ?? {})) {
-        setup44.allowList(entry);
+        setup46.allowList(entry);
       }
-      setup44.#runOptionsCallbacks(siteSettings, state);
-      setup44.#enableMarkdownFeatures();
-      setup44.#finalizeGetOptions(siteSettings);
-      setup44.#makeEngine();
-      setup44.#buildCookFunctions();
+      setup46.#runOptionsCallbacks(siteSettings, state);
+      setup46.#enableMarkdownFeatures();
+      setup46.#finalizeGetOptions(siteSettings);
+      setup46.#makeEngine();
+      setup46.#buildCookFunctions();
     }
     #context;
     #options;
@@ -34628,17 +34628,17 @@ const String cookingBundle = r'''// Discourse f18a1985b22e5d4c0a0fffd6f918121054
     #context;
     #setup;
     #deprecate;
-    constructor(featureName, context, setup44) {
+    constructor(featureName, context, setup46) {
       this.#name = featureName;
       this.#context = context;
-      this.#setup = setup44;
+      this.#setup = setup46;
       this.#deprecate = (methodName, ...args) => {
         if (window.console && window.console.log) {
           window.console.log(
             featureName + ": " + methodName + " is deprecated, please use the new markdown it APIs"
           );
         }
-        return setup44(methodName, ...args);
+        return setup46(methodName, ...args);
       };
     }
     get markdownIt() {
@@ -35227,7 +35227,7 @@ const String cookingBundle = r'''// Discourse f18a1985b22e5d4c0a0fffd6f918121054
         return true;
       }
     };
-    function setup44(helper) {
+    function setup46(helper) {
       helper.allowList([
         "svg[class=fa d-icon d-icon-discourse-threads svg-icon svg-node]",
         "use[href=#discourse-threads]",
@@ -35282,12 +35282,12 @@ const String cookingBundle = r'''// Discourse f18a1985b22e5d4c0a0fffd6f918121054
         );
       });
     }
-    return setup44;
+    return setup46;
   }
 
   // src/modules/chat-transcript.js
   function setup26(helper, context, api) {
-    const setup44 = createSetup((key, values) => i18n(key, values, api.context.locale));
+    const setup46 = createSetup((key, values) => i18n(key, values, api.context.locale));
     helper.allowList([
       "div[data-chained]",
       "div[data-reactions]",
@@ -35309,7 +35309,7 @@ const String cookingBundle = r'''// Discourse f18a1985b22e5d4c0a0fffd6f918121054
         hashtag_configurations: { "chat-composer": api.hashtagPriorities.chat || ["channel", "category", "tag"] }
       } };
     });
-    setup44({
+    setup46({
       allowList: (values) => helper.allowList(values),
       registerOptions: (callback) => helper.registerOptions((options) => callback(options, { chat_enabled: true })),
       registerPlugin: (callback) => helper.registerPlugin((md) => {
@@ -45727,6 +45727,65 @@ ${escaped}
     });
   }
 
+  // ../../../lib/src/plugins/discourse_graphviz/tool/cooking/graphviz.js
+  init_environment();
+
+  // ../../../lib/src/plugins/discourse_graphviz/tool/cooking/upstream-graphviz.js
+  init_environment();
+  var ENGINES = ["dot", "neato", "circo", "fdp", "osage", "twopi"];
+  function setup44(helper) {
+    if (!helper.markdownIt) {
+      return;
+    }
+    helper.allowList([
+      "div.graphviz",
+      "div[class=graphviz is-loading]",
+      "div[data-engine]"
+    ]);
+    helper.registerOptions((opts, siteSettings) => {
+      opts.features.graphviz = siteSettings.discourse_graphviz_enabled;
+    });
+    helper.registerPlugin((md) => {
+      if (!md.options.discourse.features.graphviz) {
+        return;
+      }
+      md.block.bbcode.ruler.push("graphviz", {
+        tag: "graphviz",
+        replace(state, tagInfo, content) {
+          const token = state.push("graphviz", "div", 0);
+          token.block = true;
+          token.content = content;
+          token.attrs = [
+            [
+              "data-engine",
+              ENGINES.includes(tagInfo.attrs.engine) ? tagInfo.attrs.engine : "dot"
+            ]
+          ];
+          return true;
+        }
+      });
+      md.renderer.rules.graphviz = (tokens, idx) => {
+        const token = tokens[idx];
+        const source = md.utils.escapeHtml(token.content);
+        const engine = token.attrGet("data-engine");
+        return `<div class="graphviz is-loading" data-engine="${engine}">
+${source}
+</div>
+`;
+      };
+    });
+  }
+
+  // ../../../lib/src/plugins/discourse_graphviz/tool/cooking/graphviz.js
+  function setup45(helper, context) {
+    setup44({
+      markdownIt: true,
+      allowList: (values) => helper.allowList(values),
+      registerOptions: (callback) => helper.registerOptions((options) => callback(options, context.settings || {})),
+      registerPlugin: (callback) => helper.registerPlugin(callback)
+    });
+  }
+
   // catalog:catalog
   if (typeof setup22 !== "function") throw Error("Invalid module implementation: spoiler-alert");
   if (typeof setup23 !== "function") throw Error("Invalid module implementation: offline-missing-uploads");
@@ -45752,7 +45811,8 @@ ${escaped}
   if (typeof setup39 !== "function") throw Error("Invalid module implementation: checklist");
   if (typeof setup41 !== "function") throw Error("Invalid module implementation: discourse-math");
   if (typeof setup43 !== "function") throw Error("Invalid module implementation: discourse-policy");
-  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height", "data-code-engine"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } }, "checklist": { ...{ "id": "checklist", "owner": "cooking", "version": "1", "source": "checklist.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup39 } }, "discourse-math": { ...{ "id": "discourse-math", "owner": "discourse-math", "version": "1", "source": "discourse-math.js", "stage": "syntax", "policy": { "span": ["class"], "div": ["class"] } }, implementation: { setup: setup41 } }, "discourse-policy": { ...{ "id": "discourse-policy", "owner": "discourse-policy", "version": "1", "source": "policy.js", "stage": "syntax", "policy": { "div": ["class", "data-group", "data-groups", "data-version", "data-renew", "data-renew-start", "data-reminder", "data-accept", "data-revoke", "data-add-users-to-group", "data-private"] }, "inputs": { "policy.js": "9e1b416ceb18b7407d9f7bedff703a5fb2de6be535747586d326965c487b5712", "upstream-policy.js": "70c64078143ca9ee4e6898bdf31c7b58d695c44b41f2a6eeb1a282dc794493e8" }, "provenance": { "repository": "https://github.com/discourse/discourse", "revision": "96ce8d44401a8a568ecc71561c26dca8ec6bfeb8", "path": "plugins/discourse-policy/assets/javascripts/lib/discourse-markdown/policy.js", "license": "GPL-2.0-only" }, "importPath": "../../../../lib/src/plugins/policy/tool/cooking/policy.js", "sourceManifest": "lib/src/plugins/policy/tool/cooking/module.json", "sourceManifestSha256": "c6c6dc90e1d955b96a9b853e8160fd49149e7f1f760e2538cb2c63f321ec58b4" }, implementation: { setup: setup43 } } };
+  if (typeof setup45 !== "function") throw Error("Invalid module implementation: discourse-graphviz");
+  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height", "data-code-engine"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } }, "checklist": { ...{ "id": "checklist", "owner": "cooking", "version": "1", "source": "checklist.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup39 } }, "discourse-math": { ...{ "id": "discourse-math", "owner": "discourse-math", "version": "1", "source": "discourse-math.js", "stage": "syntax", "policy": { "span": ["class"], "div": ["class"] } }, implementation: { setup: setup41 } }, "discourse-policy": { ...{ "id": "discourse-policy", "owner": "discourse-policy", "version": "1", "source": "policy.js", "stage": "syntax", "policy": { "div": ["class", "data-group", "data-groups", "data-version", "data-renew", "data-renew-start", "data-reminder", "data-accept", "data-revoke", "data-add-users-to-group", "data-private"] }, "inputs": { "policy.js": "9e1b416ceb18b7407d9f7bedff703a5fb2de6be535747586d326965c487b5712", "upstream-policy.js": "70c64078143ca9ee4e6898bdf31c7b58d695c44b41f2a6eeb1a282dc794493e8" }, "provenance": { "repository": "https://github.com/discourse/discourse", "revision": "96ce8d44401a8a568ecc71561c26dca8ec6bfeb8", "path": "plugins/discourse-policy/assets/javascripts/lib/discourse-markdown/policy.js", "license": "GPL-2.0-only" }, "importPath": "../../../../lib/src/plugins/policy/tool/cooking/policy.js", "sourceManifest": "lib/src/plugins/policy/tool/cooking/module.json", "sourceManifestSha256": "c6c6dc90e1d955b96a9b853e8160fd49149e7f1f760e2538cb2c63f321ec58b4" }, implementation: { setup: setup43 } }, "discourse-graphviz": { ...{ "id": "discourse-graphviz", "owner": "discourse-graphviz", "version": "1", "source": "graphviz.js", "stage": "syntax", "policy": { "div": ["data-engine"] }, "inputs": { "graphviz.js": "ccfbcef35ce5c3831ee80d2b0840d08668f2f5783fae7460aa17df9589b3fc87", "upstream-graphviz.js": "1ba72df6dc63925a8fcb118b49b2e75e472d8c25301ed50354195ec80f53ed70" }, "provenance": { "repository": "https://github.com/discourse/discourse", "revision": "f18a1985b22e5d4c0a0fffd6f91812105467afdb", "path": "plugins/discourse-graphviz/assets/javascripts/discourse-markdown/discourse-graphviz.js", "license": "GPL-2.0-only" }, "importPath": "../../../../lib/src/plugins/discourse_graphviz/tool/cooking/graphviz.js", "sourceManifest": "lib/src/plugins/discourse_graphviz/tool/cooking/module.json", "sourceManifestSha256": "1ae7b782d177043c90a7f4009c2ab54fa91795c9167da529e4529bc95e53f1e2" }, implementation: { setup: setup45 } } };
 
   // src/final-sanitize.js
   init_environment();

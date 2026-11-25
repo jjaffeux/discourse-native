@@ -5,6 +5,9 @@ import 'package:html/dom.dart' as dom;
 import 'graphviz_diagram.dart';
 
 const _pluginEngines = {'dot', 'neato', 'circo', 'fdp', 'osage', 'twopi'};
+const _id = 'discourse-graphviz';
+const _enabledSetting = 'discourse_graphviz_enabled';
+const _enabledKey = PluginDataKey<bool>(owner: _id, name: 'enabled');
 const _themeEngines = {
   ..._pluginEngines,
   'nop',
@@ -14,11 +17,46 @@ const _themeEngines = {
   'sfdp',
 };
 
-final class DiscourseGraphvizPlugin implements SitePlugin, CookedElementPlugin {
+final class DiscourseGraphvizPlugin
+    implements
+        SitePlugin,
+        CookedElementPlugin,
+        SiteSettingsPlugin<bool>,
+        CookingPlugin {
   const DiscourseGraphvizPlugin();
 
   @override
-  String get name => 'discourse-graphviz';
+  String get name => _id;
+
+  @override
+  PluginDataPersistenceCodec<bool> get siteSettingsCodec =>
+      const _EnabledCodec();
+
+  @override
+  bool? readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      switch (json[_enabledSetting]) {
+        final bool enabled => enabled,
+        _ => null,
+      };
+
+  @override
+  List<CookingProfile> get cookingProfiles => const [];
+
+  @override
+  List<CookingModule> get cookingModules => [
+    CookingModule(
+      id: _id,
+      owner: _id,
+      version: '1',
+      profiles: const ['post'],
+      enabledSetting: _enabledSetting,
+    ),
+  ];
+
+  @override
+  Map<String, Object?> projectCookingContext(CookingPluginData data) => {
+    'settings': {_enabledSetting: data.read(_enabledKey) ?? false},
+  };
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) {
@@ -37,11 +75,16 @@ final class DiscourseGraphvizPlugin implements SitePlugin, CookedElementPlugin {
             : null,
       );
     }
-    // Older posts may already contain an image rendered by Discourse; leave
-    // image and SVG children in the normal cooked pipeline.
+    // Search highlighting can wrap parts of the DOT source in marks. Keep
+    // previously rendered images and SVG in the standard cooked pipeline.
     if (element.localName != 'div' ||
         !element.classes.contains('graphviz') ||
-        element.children.isNotEmpty ||
+        element.children.any(
+          (child) =>
+              child.localName != 'mark' ||
+              !child.classes.contains('native-search-hit') ||
+              child.children.isNotEmpty,
+        ) ||
         element.text.trim().isEmpty) {
       return null;
     }
@@ -51,4 +94,17 @@ final class DiscourseGraphvizPlugin implements SitePlugin, CookedElementPlugin {
       engine: _pluginEngines.contains(engine) ? engine! : 'dot',
     );
   }
+}
+
+final class _EnabledCodec extends PluginDataPersistenceCodec<bool> {
+  const _EnabledCodec();
+
+  @override
+  PluginDataKey<bool> get key => _enabledKey;
+
+  @override
+  bool? decode(Object? value) => value is bool ? value : null;
+
+  @override
+  Object encode(bool value) => value;
 }

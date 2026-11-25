@@ -3,8 +3,10 @@
 The bundled reader plugin recognizes the official plugin's cooked
 `div.graphviz[data-engine]` markup and the official theme component's
 `pre[data-code-wrap="graphviz"] > code` markup. It renders locally in posts
-and cooked chat messages, including locally cooked Graphviz fences. Existing
-server-rendered images still use the standard image renderer.
+and cooked chat messages, including locally cooked Graphviz fences. Local
+post cooking also accepts `[graphviz]` blocks when the forum enables
+`discourse_graphviz_enabled`. Existing server-rendered images still use the
+standard image renderer.
 
 The app runs Viz.js 3.31.0 in a local WebView worker with a 15-second layout
 deadline. The worker emits SVG, and the document rasterizes it before passing

@@ -1,0 +1,20 @@
+{
+  "id": "discourse-graphviz",
+  "owner": "discourse-graphviz",
+  "version": "1",
+  "source": "graphviz.js",
+  "stage": "syntax",
+  "policy": {
+    "div": ["data-engine"]
+  },
+  "inputs": {
+    "graphviz.js": "ccfbcef35ce5c3831ee80d2b0840d08668f2f5783fae7460aa17df9589b3fc87",
+    "upstream-graphviz.js": "1ba72df6dc63925a8fcb118b49b2e75e472d8c25301ed50354195ec80f53ed70"
+  },
+  "provenance": {
+    "repository": "https://github.com/discourse/discourse",
+    "revision": "f18a1985b22e5d4c0a0fffd6f91812105467afdb",
+    "path": "plugins/discourse-graphviz/assets/javascripts/discourse-markdown/discourse-graphviz.js",
+    "license": "GPL-2.0-only"
+  }
+}

@@ -11,6 +11,11 @@ Local adapters and final output policy are in src/. They replace Ruby/browser lo
 Complete source: lib/src/plugins/policy/tool/cooking/module.json
 
 
+=== discourse-graphviz ===
+{"repository":"https://github.com/discourse/discourse","revision":"f18a1985b22e5d4c0a0fffd6f91812105467afdb","path":"plugins/discourse-graphviz/assets/javascripts/discourse-markdown/discourse-graphviz.js","license":"GPL-2.0-only"}
+Complete source: lib/src/plugins/discourse_graphviz/tool/cooking/module.json
+
+
 --- cssfilter 0.0.10 (MIT) ---
 
 The MIT License (MIT)
