@@ -1567,10 +1567,13 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final quiet = controlSize == DControlSize.filter;
     final fontSize = DControlStyle.fontSize(controlSize, context: context);
     final lineHeight = DControlStyle.lineHeight(controlSize, context: context);
-    final visualHeight = DControlStyle.scaledHeight(
-      controlSize,
-      MediaQuery.textScalerOf(context),
-      context: context,
+    final visualHeight = math.max(
+      DControlStyle.scaledHeight(
+        controlSize,
+        MediaQuery.textScalerOf(context),
+        context: context,
+      ),
+      DTouchFields.minHeightOf(context),
     );
     final baseRadius = quiet ? DRadius.pill : tokens.buttonTheme.radius;
     final joined = DJoinedControlScope.maybeOf(context);

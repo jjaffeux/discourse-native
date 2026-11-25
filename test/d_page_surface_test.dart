@@ -83,12 +83,12 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
-  testWidgets('a phone draws the fields under a page title 44 tall', (
+  testWidgets('a phone draws the fields under a page title 48 tall', (
     tester,
   ) async {
     for (final (platform, height, searchHeight, findHeight) in [
-      (TargetPlatform.iOS, kDTouchTargetExtent, kDTouchTargetExtent, 48.0),
-      (TargetPlatform.android, kDTouchTargetExtent, kDTouchTargetExtent, 48.0),
+      (TargetPlatform.iOS, 48.0, 48.0, 48.0),
+      (TargetPlatform.android, 48.0, 48.0, 48.0),
       (TargetPlatform.macOS, 35.5, 36.0, 30.0),
     ]) {
       await tester.pumpWidget(
@@ -130,6 +130,18 @@ void main() {
                           variant: DInputGroupVariant.quiet,
                           children: [DInputGroupInput(hintText: 'Find')],
                         ),
+                        DSelect<String>(
+                          key: const ValueKey('page-select'),
+                          entries: const [
+                            DSelectOption(
+                              value: 'all',
+                              label: 'All',
+                              child: Text('All'),
+                            ),
+                          ],
+                          value: 'all',
+                          onChanged: (_) {},
+                        ),
                       ],
                     ),
                     child: const SizedBox.expand(),
@@ -157,6 +169,10 @@ void main() {
         tester.getSize(find.byKey(const ValueKey('page-find'))).height,
         findHeight,
         reason: 'a field that narrows a list keeps its pill on $platform',
+      );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('page-select'))).height,
+        platform == TargetPlatform.macOS ? 30 : 48,
       );
       expect(
         tester.getSize(find.byKey(const ValueKey('elsewhere'))).height,

@@ -1,7 +1,8 @@
 # Touch target parity
 
 Reference: `discourse-native-mockups` at `847614e` (branch `test-mobile-layout`),
-look A. The rules came in with `83cee2f`. Both live in `app.css` under
+look A. The 44-point target rule came in with `83cee2f` and the page field
+height changed in `6c4d465`. Both live in `app.css` under
 `[data-touch]`, which `App.tsx` sets on the frame of a narrow window. The app's
 split is the platform, as everywhere else: iOS and Android are the phone
 (`DControlStyle.isTouch`), and desktop keeps its sizes.
@@ -12,9 +13,9 @@ split is the platform, as everywhere else: iOS and Android are the phone
 | --- | --- | --- |
 | Invisible area | `[data-touch] :is(button, a[href], summary, [role=button], [role=tab], [role=switch], [role=checkbox], [role=radio], [role=menuitem], [role=option], [role=link])::after` | An absolutely placed layer, `min(0px, (100% - 44px) / 2)` from each edge. A control drawn under 44 keeps its look and is pressed across at least 44 by 44, centred on it. A control already 44 in an axis gains nothing in that axis. |
 | Exceptions | `:not(.row-press__link, .glass-swatch):not(:has(button, a[href], [role=button], input, select, textarea))` | A control that holds another control gets no layer, because the layer would take its inner control's presses. Neither does a whole-row link, which already covers its row. |
-| Fields drawn 44 | `[data-touch] .page-controls :is(input, select) { min-height: 44px }` | A page's own fields under its title are drawn 44 tall. A field cannot have an `::after`, so its drawn box is its whole target. |
+| Fields drawn 48 | `[data-touch] .page-controls :is(input, select):not(.find-field__input) { min-height: var(--page-pill-h) }` | A page's fields are as tall as its 48-point pills. A field cannot have an `::after`, so its drawn box is its whole target. |
 
-Measured in the running mockup at 390 by 844 with `data-touch` set:
+Measured at `847614e` in the running mockup at 390 by 844 with `data-touch` set:
 
 | Control | Drawn | Pressed across |
 | --- | --- | --- |
@@ -32,7 +33,7 @@ Measured in the running mockup at 390 by 844 with `data-touch` set:
 | `::after` on every control | `DTouchTarget` round the press root of each kit control: `DButton` (and with it every kit part built on it, such as pagination, alert dialog and dropdown triggers), `DSwitch`, `DCheckbox`, `DRadioGroupItem`, `DToggle` (and `DToggleGroup`), `DTabTrigger`, `DBreadcrumbLink`, `DBadge.action`, `DItem`, `DCollapsibleTrigger` (and `DAccordion`), `DCommandItem`, `DNavigationMenu` links, `DMenubar` triggers, `DDropdownMenuItem`, `DSelect` trigger, options and scroll arrows, `DCombobox` options, and the sidebar menu buttons. |
 | The layer's place in paint order | `DTouchTargets`, installed in `MaterialApp.builder` above the navigator, routes and toasts. A press that lands on no control is given to the control whose area holds it. The decision follows the mockup. The area lies at the control's place in paint order, so what paints over the control also covers its area (a sheet, a route, a later sibling). The area paints over what is under the control. An ancestor's clip hides it. A control that nothing can press, because it is ignored, offstage or under a barrier, has no area. |
 | No layer on a holder | A `DTouchTarget` with another inside it has no area. |
-| `.page-controls` fields at 44 | `DPageSurface.headed` wraps its controls in `DTouchFields`, and `DInput` and `DInputGroup` are drawn at least 44 tall under it on a phone. A quiet `DInputGroup` is the mockup's `.find-field`, which the rule excludes, and uses the 48-point phone list pill from `6c4d465` when sized as a filter. The phone's search screen wraps its field in `DTouchFields` too, matching `.phone-search`'s 44. Desktop keeps the 35.5 search field. |
+| `.page-controls` fields at 48 | `DPageSurface.headed` wraps its controls in `DTouchFields`. Phone `DInput`, `DInputGroup`, and `DSelect` are at least 48 points tall there. Quiet list fields use the same height through their filter preset. |
 
 Nothing about layout or painting changes. `DTouchTarget` is a pass-through
 render box that registers with the scope, and the scope does work only on a
@@ -47,16 +48,6 @@ coordinates, as the CSS layer is, so a scaled control's area scales with it.
   of each row press the next row. The app gives an area only the presses that
   would otherwise land on no control. Where two areas overlap and no control is
   drawn, the later painted one takes the press, as in the mockup.
-- **The Channels field is 44, not 58.** The mockup's selector reaches the bare
-  `<input>` inside the padded `<label>` that draws the Channels search, so the
-  label grows to 44 + 7 + 7 = 58. That contradicts the rule's own comment ("as
-  tall as a fingertip"). The app draws both page fields at 44.
-- **Only text fields take the 44.** The mockup's page controls hold no
-  `<select>`: its pickers there are `FilterPill` buttons, 30 tall with the
-  invisible area. The app's `DSelect` pickers in the same place keep their 30.
-  A `DCombobox` is a picker drawn as a field, so it wraps its field in
-  `DTouchFields.picker` and keeps the height of the pickers beside it, as
-  Users' group filter does.
 - **Links inside text** (cooked posts, sentences) keep the bounds of their
   words. In Flutter they are text spans, not boxes, and the mockup's own audit
   exempts them too.
@@ -72,7 +63,7 @@ coordinates, as the CSS layer is, so a scaled control's area scales with it.
   nothing can press, a holder, a pressable row and a scroll drag. It also has
   one case for each small kit control.
 - `test/d_button_test.dart`: a 30-point icon button on iOS and macOS.
-- `test/d_page_surface_test.dart`: page fields are 44 on iOS and Android,
+- `test/d_page_surface_test.dart`: page fields are 48 on iOS and Android,
   35.5 on macOS, and 35.5 outside a page's controls.
 - `test/app_touch_targets_test.dart`: the app installs the scope above its
   routes, toasts and shell.
