@@ -838,11 +838,6 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                 child: CustomScrollView(
                   key: const ValueKey('composer-mobile-scroll'),
                   controller: _scroll,
-                  // Paint beneath the floating footer while keeping the viewport's
-                  // reveal bounds above it, so the caret stays clear of the tools.
-                  // The full sheet clips at the screen edge, allowing content
-                  // to continue beneath a translucent system keyboard.
-                  clipBehavior: Clip.none,
                   slivers: [
                     PinnedHeaderSliver(
                       child: DSheetDragRegion(
@@ -955,17 +950,7 @@ class _ComposerBottom extends StatelessWidget {
     );
     if (!mobile) return content;
 
-    final blurInset = showRecipients
-        ? DSpacing.md +
-              DControlStyle.scaledHeight(
-                    DControlSize.toolbar,
-                    MediaQuery.textScalerOf(context),
-                    context: context,
-                  ) /
-                  2
-        : 0.0;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final foot = MediaQuery.paddingOf(context).bottom;
     final restingGeometry = DMobileDockGeometry.restingOf(context);
     final restingClearance = defaultTargetPlatform == TargetPlatform.android
         ? restingGeometry.foot + DMobileDockGeometry.inset
@@ -974,21 +959,9 @@ class _ComposerBottom extends StatelessWidget {
       restingClearance,
       keyboard + DMobileDockGeometry.inset,
     );
-    return Stack(
-      children: [
-        Positioned.fill(
-          top: blurInset,
-          child: DGradientBlur(
-            key: const ValueKey('composer-footer-blur'),
-            edge: DGradientBlurEdge.bottom,
-            fullStrengthExtent: math.max(keyboard, foot),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.only(bottom: bottomClearance),
-          child: content,
-        ),
-      ],
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomClearance),
+      child: content,
     );
   }
 }

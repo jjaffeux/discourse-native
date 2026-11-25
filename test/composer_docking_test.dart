@@ -1895,7 +1895,9 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       expect(
-        tester.getRect(find.byKey(const ValueKey('composer-footer-blur'))).top,
+        tester
+            .getRect(find.byKey(const ValueKey('composer-mobile-scroll')))
+            .bottom,
         lessThanOrEqualTo(
           tester
               .getRect(find.byKey(const ValueKey('composer-toolbar-scroll')))

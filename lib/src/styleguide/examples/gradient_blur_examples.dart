@@ -38,7 +38,7 @@ final gradientBlurExamples = ComponentExamples(
       title: 'Continued blur',
       description:
           'The bottom blur fades in behind the action, then stays at full '
-          'strength below it. A composer uses the keyboard inset for this region.',
+          'strength below it.',
       code: '''Positioned(
   bottom: 0, left: 0, right: 0, height: 72 + keyboardInset,
   child: DGradientBlur(
