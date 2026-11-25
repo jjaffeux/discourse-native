@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -121,6 +123,83 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('a nested submenu paints every ancestor guide in $direction', (
+      tester,
+    ) async {
+      const capture = ValueKey('ancestor-guide-capture');
+      Widget row(int depth) => DSidebarMenuButton(
+        key: ValueKey(('row', depth)),
+        icon: SizedBox(key: ValueKey(('mark', depth)), width: 18, height: 18),
+        iconSize: 18,
+        onPressed: () {},
+        child: Text('Category $depth'),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Directionality(
+              textDirection: direction,
+              child: RepaintBoundary(
+                key: capture,
+                child: DSidebarContent.slivers(
+                  slivers: [
+                    DSidebarMenu.sliverBuilder(
+                      itemCount: 1,
+                      itemExtent: 30,
+                      itemBuilder: (_, _) => row(0),
+                    ),
+                    for (var depth = 1; depth <= 2; depth++)
+                      DSidebarMenuSub.sliverBuilder(
+                        depth: depth,
+                        itemCount: 1,
+                        itemExtent: 30,
+                        itemBuilder: (_, _) => row(depth),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final marks = [
+        for (var depth = 0; depth <= 2; depth++)
+          tester.getCenter(find.byKey(ValueKey(('mark', depth)))),
+      ];
+      final sign = direction == TextDirection.ltr ? 1 : -1;
+      expect(marks[1].dx - marks[0].dx, 18 * sign);
+      expect(marks[2].dx - marks[1].dx, 18 * sign);
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(capture),
+      );
+      final origin = tester.getTopLeft(find.byKey(capture));
+      final rowY = (marks[2].dy - origin.dy).floor();
+      final guideX = [
+        for (final mark in marks.take(2))
+          (mark.dx - origin.dx).floor() -
+              (direction == TextDirection.rtl ? 1 : 0),
+      ];
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final pixels = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          int pixel(int x) => pixels.getUint32(4 * (rowY * image.width + x));
+          for (final x in guideX) {
+            expect(pixel(x), isNot(pixel(x - 2 * sign)));
+          }
+          expect(pixel(guideX.first), pixel(guideX.last));
+        } finally {
+          image.dispose();
+        }
+      });
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final submenu in [false, true]) {
     testWidgets('lazy row focus follows its stable key (submenu=$submenu)', (

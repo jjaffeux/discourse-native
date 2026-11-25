@@ -1720,7 +1720,8 @@ class _SectionState extends State<_Section> {
     final scalable = MediaQuery.textScalerOf(context).scale(14) > 14;
     final menus = <Widget>[];
     for (final run in runs) {
-      final submenu = run.first.indent > 0;
+      final depth = run.first.indent;
+      final submenu = depth > 0;
       final indexes = {for (final (index, row) in run.indexed) row.id: index};
       final reorderable =
           !submenu &&
@@ -1788,6 +1789,7 @@ class _SectionState extends State<_Section> {
       );
       final menu = submenu
           ? DSidebarMenuSub.sliverBuilder(
+              depth: depth,
               itemCount: run.length,
               itemBuilder: rowBuilder,
               itemExtent: extent,
@@ -1813,16 +1815,7 @@ class _SectionState extends State<_Section> {
                   : extent + DSidebarMenuButton.rowGapOf(context),
               findChildIndexCallback: findIndex,
             );
-      menus.add(
-        submenu && run.first.indent > 1
-            ? SliverPadding(
-                padding: EdgeInsetsDirectional.only(
-                  start: (run.first.indent - 1) * 24,
-                ),
-                sliver: menu,
-              )
-            : menu,
-      );
+      menus.add(menu);
     }
     return SliverMainAxisGroup(slivers: menus);
   }

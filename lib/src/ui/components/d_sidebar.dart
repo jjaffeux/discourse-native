@@ -76,6 +76,11 @@ Color _sidebarGuideColor(BuildContext context) {
   return tokens.foreground;
 }
 
+const _sidebarCategoryIndent = 18.0;
+
+double _sidebarIconInset(double rowHeight, double iconSize, double minimum) =>
+    math.min(8, math.max(minimum, (rowHeight - iconSize) / 2));
+
 enum DSidebarSide { left, right }
 
 enum DSidebarCollapsible { offcanvas, icon, none }
@@ -1639,12 +1644,10 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                       start: collapsedLarge
                           ? 0
                           : !iconOnly && widget.icon != null
-                          ? math.min(
-                              8,
-                              math.max(
-                                verticalPadding,
-                                (minHeight - widget.iconSize) / 2,
-                              ),
+                          ? _sidebarIconInset(
+                              minHeight,
+                              widget.iconSize,
+                              verticalPadding,
                             )
                           : 8,
                       end: collapsedLarge ? 0 : 8,
@@ -1933,20 +1936,56 @@ class _SidebarSubmenuDelegate extends SliverChildBuilderDelegate {
   ) => _extent;
 }
 
+/// Paints the guides behind a lazy run of descendants. Each ancestor's guide
+/// stays aligned across consecutive runs at different depths.
+class _SidebarAncestorGuides extends Decoration {
+  const _SidebarAncestorGuides(this.depth, this.start, this.color);
+
+  final int depth;
+  final double start;
+  final Color color;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _SidebarAncestorGuidePainter(this);
+}
+
+class _SidebarAncestorGuidePainter extends BoxPainter {
+  _SidebarAncestorGuidePainter(this.guides);
+
+  final _SidebarAncestorGuides guides;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final size = configuration.size!;
+    final rtl = configuration.textDirection == TextDirection.rtl;
+    final paint = Paint()..color = guides.color;
+    for (var level = 0; level < guides.depth; level++) {
+      final start = guides.start + level * _sidebarCategoryIndent;
+      if (start >= size.width) break;
+      final x = rtl ? size.width - start - 1 : start;
+      canvas.drawRect((offset + Offset(x, 0)) & Size(1, size.height), paint);
+    }
+  }
+}
+
 class DSidebarMenuSub extends StatelessWidget {
   const DSidebarMenuSub({super.key, required this.children})
     : _delegate = null,
-      itemExtent = null;
+      itemExtent = null,
+      depth = 1;
 
-  /// A lazy submenu, including the same directional guide and row spacing as
-  /// the eager composition. [itemExtent] excludes the 4px inter-row gap.
+  /// A lazy run of descendants at [depth]. Each ancestor contributes one
+  /// guide. [itemExtent] excludes the 4px inter-row gap.
   DSidebarMenuSub.sliverBuilder({
     super.key,
     required int itemCount,
     required IndexedWidgetBuilder itemBuilder,
     ChildIndexGetter? findChildIndexCallback,
     this.itemExtent,
+    this.depth = 1,
   }) : assert(itemCount >= 0),
+       assert(depth > 0),
        assert(itemExtent == null || itemExtent > 0),
        children = const [],
        _delegate = _SidebarSubmenuDelegate(
@@ -1968,34 +2007,34 @@ class DSidebarMenuSub extends StatelessWidget {
   final List<Widget> children;
   final SliverChildDelegate? _delegate;
   final double? itemExtent;
+  final int depth;
+
   @override
   Widget build(BuildContext context) {
     if (_delegate case final delegate?) {
       if (_PanelScope.iconOf(context)) return const SliverToBoxAdapter();
+      final iconSize = DControlStyle.isTouch(context) ? 22.0 : 18.0;
+      final rowHeight = DSidebarMenuButton.rowHeightOf(context);
+      final iconCenter =
+          _sidebarIconInset(rowHeight, iconSize, 1) + iconSize / 2;
       return FocusTraversalGroup(
-        child: SliverPadding(
-          padding: const EdgeInsetsDirectional.only(start: 14, end: 14),
-          sliver: DecoratedSliver(
-            decoration: BoxDecoration(
-              border: BorderDirectional(
-                start: BorderSide(color: _sidebarGuideColor(context)),
-              ),
+        child: DecoratedSliver(
+          decoration: _SidebarAncestorGuides(
+            depth,
+            iconCenter,
+            _sidebarGuideColor(context),
+          ),
+          sliver: SliverPadding(
+            padding: EdgeInsetsDirectional.only(
+              start: depth * _sidebarCategoryIndent,
             ),
-            sliver: SliverPadding(
-              padding: const EdgeInsetsDirectional.only(
-                start: 10,
-                end: 10,
-                top: 2,
-                bottom: 2,
-              ),
-              sliver: itemExtent == null
-                  ? SliverList(delegate: delegate)
-                  : SliverVariedExtentList(
-                      itemExtentBuilder: (index, _) =>
-                          index.isOdd ? 4 : itemExtent,
-                      delegate: delegate,
-                    ),
-            ),
+            sliver: itemExtent == null
+                ? SliverList(delegate: delegate)
+                : SliverVariedExtentList(
+                    itemExtentBuilder: (index, _) =>
+                        index.isOdd ? 4 : itemExtent,
+                    delegate: delegate,
+                  ),
           ),
         ),
       );
