@@ -907,7 +907,6 @@ void main() {
             'Underline',
             'Strikethrough',
             'Clear formatting',
-            'More formatting',
           ]) {
             expect(find.byTooltip(label), findsOneWidget);
           }
@@ -926,6 +925,7 @@ void main() {
         }
 
         expectFormattingAvailable();
+        expect(find.byTooltip('More formatting'), findsNothing);
         const original = TextEditingValue(
           text: 'format me',
           selection: TextSelection(baseOffset: 0, extentOffset: 6),
@@ -1022,6 +1022,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expectFormattingAvailable();
+        expect(find.byTooltip('More formatting'), findsNothing);
 
         // A selection-only change must restore the controls immediately.
         composer.text.selection = const TextSelection(

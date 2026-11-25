@@ -327,7 +327,7 @@ class _ComposerFormattingControlsState
                 underline,
                 clear,
                 ?colors,
-                more,
+                if (_hasSelection) more,
               ],
             ),
           );
